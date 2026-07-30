@@ -32,3 +32,5 @@ next-env.d.ts
 # OS metadata
 .DS_Store
 Thumbs.db
+
+MASTER_PROMPT.md
