@@ -323,6 +323,199 @@ test('Sorts quotes, contracts and milestones chronologically descending', () => 
 });
 
 // ----------------------------------------------------
+// 7. Quote SAT Tax & Line-Item Aggregator Tests (Sprint 3)
+// ----------------------------------------------------
+console.log('\n[Suite 7: Quote Line-Item & SAT Tax Calculator]');
+
+let calculateQuoteTotals;
+try {
+  calculateQuoteTotals = require('../lib/quoteCalculator.js').calculateQuoteTotals;
+} catch (e) {
+  calculateQuoteTotals = null;
+}
+
+test('Quote Calculator Module Exists & Exports calculateQuoteTotals', () => {
+  assert.strictEqual(typeof calculateQuoteTotals, 'function', 'calculateQuoteTotals function must be exported from lib/quoteCalculator');
+});
+
+test('Calculates multi-line item subtotal and 16% IVA correctly', () => {
+  if (typeof calculateQuoteTotals === 'function') {
+    const items = [
+      { description: 'Desarrollo Web', quantity: 1, unit_price: 10000 },
+      { description: 'Hosting Anual', quantity: 2, unit_price: 1500 }
+    ];
+    const result = calculateQuoteTotals(items, { applyIva: true, applyRetencionIsr: false, applyRetencionIva: false });
+    assert.strictEqual(result.subtotal, 13000);
+    assert.strictEqual(result.ivaAmount, 2080);
+    assert.strictEqual(result.retencionIsrAmount, 0);
+    assert.strictEqual(result.totalAmount, 15080);
+  } else {
+    throw new Error('calculateQuoteTotals module not implemented yet');
+  }
+});
+
+test('Calculates RESICO withholdings (10% ISR & 10.6667% IVA) on quote line items', () => {
+  if (typeof calculateQuoteTotals === 'function') {
+    const items = [
+      { description: 'Servicios Profesionales', quantity: 1, unit_price: 20000 }
+    ];
+    const result = calculateQuoteTotals(items, { applyIva: true, applyRetencionIsr: true, applyRetencionIva: true });
+    assert.strictEqual(result.subtotal, 20000);
+    assert.strictEqual(result.ivaAmount, 3200);
+    assert.strictEqual(result.retencionIsrAmount, 2000);
+    assert.strictEqual(result.retencionIvaAmount, 2133.34);
+    assert.strictEqual(result.totalAmount, 19066.66);
+  } else {
+    throw new Error('calculateQuoteTotals module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 8. Public Quote Cryptographic Token Generator Tests (Sprint 3)
+// ----------------------------------------------------
+console.log('\n[Suite 8: Public Quote Cryptographic Token Generator]');
+
+let generatePublicToken;
+try {
+  generatePublicToken = require('../lib/quoteToken.js').generatePublicToken;
+} catch (e) {
+  generatePublicToken = null;
+}
+
+test('Quote Token Module Exists & Exports generatePublicToken', () => {
+  assert.strictEqual(typeof generatePublicToken, 'function', 'generatePublicToken function must be exported from lib/quoteToken');
+});
+
+test('Generates 32-character hexadecimal token', () => {
+  if (typeof generatePublicToken === 'function') {
+    const token1 = generatePublicToken();
+    const token2 = generatePublicToken();
+    assert.strictEqual(typeof token1, 'string');
+    assert.strictEqual(token1.length, 32, 'Token should be 32 hex characters long');
+    assert.notStrictEqual(token1, token2, 'Generated tokens must be unique');
+    assert.strictEqual(/^[a-f0-9]{32}$/.test(token1), true, 'Token must contain only hex characters');
+  } else {
+    throw new Error('generatePublicToken module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 9. Quote-to-Contract Conversion Transformer Tests (Sprint 3)
+// ----------------------------------------------------
+console.log('\n[Suite 9: Quote-to-Contract Conversion Transformer]');
+
+let convertQuoteToContract;
+try {
+  convertQuoteToContract = require('../lib/quoteToContract.js').convertQuoteToContract;
+} catch (e) {
+  convertQuoteToContract = null;
+}
+
+test('Quote-to-Contract Module Exists & Exports convertQuoteToContract', () => {
+  assert.strictEqual(typeof convertQuoteToContract, 'function', 'convertQuoteToContract function must be exported from lib/quoteToContract');
+});
+
+test('Transforms accepted quote into contract with 2 milestone receivables (50% / 50%)', () => {
+  if (typeof convertQuoteToContract === 'function') {
+    const mockQuote = {
+      id: 'q_123',
+      organization_id: 'org_456',
+      client_id: 'client_789',
+      title: 'Cotización Sitio Web',
+      total_amount: 20000,
+      currency: 'MXN',
+      status: 'accepted',
+      line_items: [{ description: 'Desarrollo Web', quantity: 1, unit_price: 20000 }]
+    };
+    const conversion = convertQuoteToContract(mockQuote);
+    assert.strictEqual(conversion.contract.quote_id, 'q_123');
+    assert.strictEqual(conversion.contract.organization_id, 'org_456');
+    assert.strictEqual(conversion.contract.client_id, 'client_789');
+    assert.strictEqual(conversion.contract.total_amount, 20000);
+    assert.strictEqual(conversion.contract.status, 'client_signed');
+
+    assert.strictEqual(conversion.milestones.length, 2, 'Should create 2 default milestones');
+    assert.strictEqual(conversion.milestones[0].label, 'Anticipo (50%)');
+    assert.strictEqual(conversion.milestones[0].amount, 10000);
+    assert.strictEqual(conversion.milestones[1].label, 'Entrega Final (50%)');
+    assert.strictEqual(conversion.milestones[1].amount, 10000);
+  } else {
+    throw new Error('convertQuoteToContract module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 10. OTP Digital Signature & Cryptoseal Engine Tests (Sprint 3)
+// ----------------------------------------------------
+console.log('\n[Suite 10: OTP Digital Signature & Cryptoseal Engine]');
+
+let otpSeal;
+try {
+  otpSeal = require('../lib/otpSeal.js');
+} catch (e) {
+  otpSeal = null;
+}
+
+test('OTP Seal Module Exists & Exports Helper Functions', () => {
+  assert.strictEqual(typeof otpSeal?.generateOTP, 'function', 'generateOTP must be exported');
+  assert.strictEqual(typeof otpSeal?.verifyOTP, 'function', 'verifyOTP must be exported');
+  assert.strictEqual(typeof otpSeal?.generateDigitalSeal, 'function', 'generateDigitalSeal must be exported');
+});
+
+test('Generates 6-digit numeric OTP code', () => {
+  if (otpSeal?.generateOTP) {
+    const otp = otpSeal.generateOTP();
+    assert.strictEqual(typeof otp, 'string');
+    assert.strictEqual(otp.length, 6, 'OTP must be 6 digits');
+    assert.strictEqual(/^\d{6}$/.test(otp), true, 'OTP must contain digits only');
+  } else {
+    throw new Error('generateOTP module not implemented yet');
+  }
+});
+
+test('Verifies correct OTP code and blocks after 3 failed attempts', () => {
+  if (otpSeal?.verifyOTP) {
+    const correctCode = '123456';
+    
+    // Valid attempt
+    const v1 = otpSeal.verifyOTP('123456', correctCode, 0);
+    assert.strictEqual(v1.success, true);
+    assert.strictEqual(v1.attempts, 1);
+
+    // Invalid attempt
+    const v2 = otpSeal.verifyOTP('999999', correctCode, 0);
+    assert.strictEqual(v2.success, false);
+    assert.strictEqual(v2.attempts, 1);
+
+    // Blocked attempt (3 attempts already reached)
+    const v3 = otpSeal.verifyOTP('123456', correctCode, 3);
+    assert.strictEqual(v3.success, false);
+    assert.strictEqual(v3.error, 'Número máximo de intentos excedido (máximo 3)');
+  } else {
+    throw new Error('verifyOTP module not implemented yet');
+  }
+});
+
+test('Generates deterministic SHA-256 digital cryptoseal hash', () => {
+  if (otpSeal?.generateDigitalSeal) {
+    const payload = {
+      contractId: 'c_123',
+      clientName: 'Juan Pérez',
+      totalAmount: 15000,
+      timestamp: '2026-08-01T12:00:00Z',
+      otpCode: '123456'
+    };
+    const hash1 = otpSeal.generateDigitalSeal(payload);
+    const hash2 = otpSeal.generateDigitalSeal(payload);
+    assert.strictEqual(typeof hash1, 'string');
+    assert.strictEqual(hash1.length, 64, 'SHA-256 hash must be 64 hex characters');
+    assert.strictEqual(hash1, hash2, 'Hash must be deterministic for identical input');
+  } else {
+    throw new Error('generateDigitalSeal module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
@@ -334,4 +527,5 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
