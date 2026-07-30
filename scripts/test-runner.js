@@ -202,6 +202,127 @@ if (fs.existsSync(migrationPath)) {
 }
 
 // ----------------------------------------------------
+// 4. WhatsApp Click-to-Chat Link Generator Tests (Sprint 2)
+// ----------------------------------------------------
+console.log('\n[Suite 4: WhatsApp 1-Tap Link Generator]');
+
+let generateWhatsAppLink;
+try {
+  generateWhatsAppLink = require('../lib/whatsappLink.js').generateWhatsAppLink;
+} catch (e) {
+  generateWhatsAppLink = null;
+}
+
+test('WhatsApp Link Generator Module Exists & Exports Function', () => {
+  assert.strictEqual(typeof generateWhatsAppLink, 'function', 'generateWhatsAppLink function must be exported from lib/whatsappLink');
+});
+
+test('Sanitizes 10-digit Mexican phone number (8115551234)', () => {
+  if (typeof generateWhatsAppLink === 'function') {
+    const link = generateWhatsAppLink('8115551234', 'Hola Don Roberto');
+    assert.strictEqual(link.includes('wa.me/528115551234'), true, 'Should include wa.me/528115551234');
+    assert.strictEqual(link.includes('text=Hola%20Don%20Roberto'), true, 'Should URL-encode text parameter');
+  } else {
+    throw new Error('generateWhatsAppLink module not implemented yet');
+  }
+});
+
+test('Sanitizes phone number with spaces, hyphens and +52 (+52 81-1555-1234)', () => {
+  if (typeof generateWhatsAppLink === 'function') {
+    const link = generateWhatsAppLink('+52 81-1555-1234');
+    assert.strictEqual(link, 'https://wa.me/528115551234', 'Should clean formatting characters and add 52 prefix');
+  } else {
+    throw new Error('generateWhatsAppLink module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 5. Client Health Score Calculator Tests (Sprint 2)
+// ----------------------------------------------------
+console.log('\n[Suite 5: Client Health Score Calculator (0-100 Score)]');
+
+let calculateClientHealthScore;
+try {
+  calculateClientHealthScore = require('../lib/clientHealthScore.js').calculateClientHealthScore;
+} catch (e) {
+  calculateClientHealthScore = null;
+}
+
+test('Client Health Score Module Exists & Exports Function', () => {
+  assert.strictEqual(typeof calculateClientHealthScore, 'function', 'calculateClientHealthScore function must be exported from lib/clientHealthScore');
+});
+
+test('New client with no payment history has 100 default health score', () => {
+  if (typeof calculateClientHealthScore === 'function') {
+    const score = calculateClientHealthScore([]);
+    assert.strictEqual(score.score, 100);
+    assert.strictEqual(score.rating, 'Excelente');
+  } else {
+    throw new Error('calculateClientHealthScore module not implemented yet');
+  }
+});
+
+test('Client with all on-time confirmed payments keeps 100 health score', () => {
+  if (typeof calculateClientHealthScore === 'function') {
+    const mockMilestones = [
+      { status: 'confirmed', due_date: '2026-08-01', confirmed_at: '2026-07-31T12:00:00Z', amount: 5000 },
+      { status: 'confirmed', due_date: '2026-08-10', confirmed_at: '2026-08-10T09:00:00Z', amount: 5000 },
+    ];
+    const score = calculateClientHealthScore(mockMilestones);
+    assert.strictEqual(score.score, 100);
+    assert.strictEqual(score.rating, 'Excelente');
+  } else {
+    throw new Error('calculateClientHealthScore module not implemented yet');
+  }
+});
+
+test('Client with overdue pending payments drops score below 75', () => {
+  if (typeof calculateClientHealthScore === 'function') {
+    const mockMilestones = [
+      { status: 'pending', due_date: '2026-06-01', amount: 10000 }, // Overdue by 60 days
+      { status: 'confirmed', due_date: '2026-07-01', confirmed_at: '2026-07-01T12:00:00Z', amount: 2000 },
+    ];
+    const score = calculateClientHealthScore(mockMilestones);
+    assert.strictEqual(score.score < 75, true, 'Score should drop for severe overdue payment');
+    assert.strictEqual(score.score >= 0, true, 'Score must be >= 0');
+  } else {
+    throw new Error('calculateClientHealthScore module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 6. Client Activity Timeline Feed Transformer Tests (Sprint 2)
+// ----------------------------------------------------
+console.log('\n[Suite 6: Client Activity Feed Transformer]');
+
+let formatClientActivity;
+try {
+  formatClientActivity = require('../lib/clientActivity.js').formatClientActivity;
+} catch (e) {
+  formatClientActivity = null;
+}
+
+test('Client Activity Transformer Module Exists & Exports Function', () => {
+  assert.strictEqual(typeof formatClientActivity, 'function', 'formatClientActivity function must be exported from lib/clientActivity');
+});
+
+test('Sorts quotes, contracts and milestones chronologically descending', () => {
+  if (typeof formatClientActivity === 'function') {
+    const quotes = [{ id: 'q1', title: 'Cotización Materiales', status: 'accepted', total_amount: 15000, created_at: '2026-08-01T10:00:00Z' }];
+    const contracts = [{ id: 'c1', title: 'Contrato Suministro', status: 'accepted', created_at: '2026-08-02T12:00:00Z' }];
+    const milestones = [{ id: 'm1', label: 'Anticipo 50%', status: 'confirmed', amount: 7500, confirmed_at: '2026-08-03T15:00:00Z', created_at: '2026-08-02T12:00:00Z' }];
+
+    const activity = formatClientActivity(quotes, contracts, milestones);
+    assert.strictEqual(activity.length, 3, 'Should combine 3 items into activity feed');
+    assert.strictEqual(activity[0].type, 'payment', 'Most recent item should be payment');
+    assert.strictEqual(activity[1].type, 'contract', 'Second item should be contract');
+    assert.strictEqual(activity[2].type, 'quote', 'Third item should be quote');
+  } else {
+    throw new Error('formatClientActivity module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
@@ -213,3 +334,4 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+

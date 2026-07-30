@@ -1,75 +1,104 @@
-# Feature Implementation Spec: Sprint 1 — Architecture & Repo Setup
+# Feature Implementation Spec: Sprint 2 — Client CRM, Onboarding & RFC Validation
 
 > **Single-Session AI & Engineering Implementation Spec**
 >
-> A focused specification for executing Sprint 1 of **Business Helper** following the **Everything Claude Code (ECC) 4-Phase Execution Playbook**.
+> A focused specification for executing Sprint 2 of **Business Helper** following the **Everything Claude Code (ECC) 4-Phase Execution Playbook**.
 
 ---
 
 ## 01 Feature Summary
 
-* **Feature Name**: Sprint 1 — Architecture, Multi-Tenant Database Schema & Repo Setup
-* **Target Module**: Infrastructure, Supabase Migrations, Data Layer (`/supabase`, `/lib`, `/types`, `/scripts`)
-* **Primary User**: System / Developer / All Roles (Foundation for SMB Owners and Clients)
-* **Goal**: Establish the Next.js 16 + React 19 + TypeScript codebase structure, complete 100% of the PostgreSQL relational database schema with Supabase migrations, implement multi-tenant Row-Level Security (RLS) policies scoped by `organization_id`, and establish test runner & quality gates (`npm run typecheck`, `npm run lint`, `npm run test`).
+* **Feature Name**: Sprint 2 — Client Directory, CRM-Lite, Onboarding Setup Wizard & RFC Validation
+* **Target Module**: CRM-Lite (`/app/(dashboard)/clients`, `/app/onboarding`, `/lib/hooks`, `/lib/whatsappLink.ts`, `/lib/clientHealthScore.ts`, `/app/api/clients`)
+* **Primary User**: Don Roberto ("El Dueño Tradicional") & Lic. Mariana ("La Administradora Eficiente")
+* **Goal**: Deliver a 10-minute onboarding setup wizard (`/onboarding`), Client Directory view (`/dashboard/clients`), Client Detail view (`/dashboard/clients/[id]`), live RFC Modulo-11 validation, computed 0–100 Client Health Score, 1-tap WhatsApp Click-to-Chat links, and chronological activity feed.
 
 ### Scope Boundaries
 * **In Scope**:
-  * Project configuration (`package.json`, `tsconfig.json`, Next.js 16 config, Tailwind CSS v4, ESLint).
-  * Supabase Client & Server helper module setup (`lib/supabase/client.ts`, `lib/supabase/server.ts`, `lib/supabase/middleware.ts`).
-  * TypeScript type definitions (`types/database.ts`, `types/index.ts`) for all 8 core entities (`organizations`, `organization_members`, `clients`, `products`, `quotes`, `contracts`, `milestones`, `csd_credentials`, `audit_logs`).
-  * Supabase SQL Schema Migrations (`supabase/migrations/20260803000000_initial_schema.sql`):
-    * `organizations`, `organization_members`, `clients`, `products`, `quotes`, `contracts`, `milestones`, `csd_credentials`, `audit_logs`.
-    * PostgreSQL Functions: `auth.user_organization_ids()`, `update_updated_at_column()`.
-    * Constraints: Check constraints (`chk_milestone_amount_positive`, `chk_client_health_score_range`, `chk_otp_attempts_limit`, `chk_quote_currency`, `chk_contract_currency`, `chk_subscription_tier`).
-    * Indexes: `idx_org_members_lookup`, `idx_milestones_due_status`, `idx_clients_org_rfc`, `idx_quotes_org_status_date`, `idx_contracts_hash`, `idx_clients_name_trgm`.
-    * RLS Policies: Multi-tenant `organization_id` isolation for authenticated users + public token read policy for quotes (`quotes_public_token_key`).
-  * TDD Unit Test Suite in `scripts/test-runner.js` testing schema validity, RLS helpers, tax calculation helpers (IVA 16%, ISR withholding, IVA withholding), and RFC check-digit logic.
-  * Quality gate integration (`npm run typecheck`, `npm run lint`, `npm run test`).
+  * **Onboarding Setup Wizard (`app/onboarding/page.tsx`)**: Step-by-step business setup capturing business name, RFC, SAT tax regime, postal code, and industry.
+  * **Client Directory View (`app/(dashboard)/clients/page.tsx`)**: Responsive mobile-first list with search bar, health score indicators, 1-tap WhatsApp buttons, and "Nuevo Cliente" action.
+  * **Client Detail & Activity View (`app/(dashboard)/clients/[id]/page.tsx`)**: Comprehensive profile showing tax data, health score meter, WhatsApp direct contact button, and chronological activity timeline (quotes, contracts, payments).
+  * **Client Creation / Edit Modal (`components/clients/ClientFormModal.tsx`)**: Form with live RFC Modulo-11 validation, phone number formatting for WhatsApp (`+52`), and SAT CFDI options.
+  * **App Shell Layout (`app/(dashboard)/layout.tsx`)**: Sidebar (desktop) and Bottom Navigation Bar (mobile) with >=48px touch targets for navigation.
+  * **Core Logic Helpers (`lib/clientHealthScore.ts`, `lib/whatsappLink.ts`, `lib/clientActivity.ts`)**:
+    * `calculateClientHealthScore`: Computes 0–100 payment reliability score.
+    * `generateWhatsAppLink`: Sanitizes 10-digit Mexican phone numbers into valid `wa.me/52...` URLs with pre-filled message copy.
+    * `formatClientActivity`: Transforms raw quotes, contracts, and payments into a chronological activity feed.
+  * **Custom React Hook (`lib/hooks/useClients.ts`)**: State management and API dispatcher with dual storage strategy (Demo Mode LocalStorage + Supabase `clients` API).
+  * **API Route Handlers (`app/api/clients/route.ts`, `app/api/clients/[id]/route.ts`, `app/api/organization/route.ts`)**: Server routes scoped to `organization_id` multi-tenancy.
+  * **TDD Test Suite in `scripts/test-runner.js`**: Unit tests for health score calculations, WhatsApp URL generation, client activity formatting, and API data serialization.
 * **Out of Scope**:
-  * Client UI pages (Sprint 2+).
-  * Third-party live external API keys for Stripe/Facturapi (configured via env variables, mockable in unit tests).
+  * 3-step Quote Wizard & public quote approval portal (Sprint 3).
+  * Accounts Receivable SPEI payment confirmation portal (Sprint 4).
+  * Facturapi live CFDI stamping (Sprint 7).
 
 ---
 
 ## 02 Acceptance Criteria (P0 / P1 / P2)
 
 ### Must-Have (P0)
-- [ ] **AC 1.1**: Repository contains complete Next.js 16 + TypeScript project scaffold with `package.json`, `tsconfig.json`, and dependency definitions.
-- [ ] **AC 1.2**: Supabase SQL migration script `20260803000000_initial_schema.sql` creates all 8 core tables with exact column types, primary keys, foreign key cascading rules, check constraints, and performance indexes.
-- [ ] **AC 1.3**: PostgreSQL RLS is enabled on all 8 tables with multi-tenant isolation via `organization_id IN (SELECT auth.user_organization_ids())` and public token access policy for quotes.
-- [ ] **AC 1.4**: TypeScript type definitions accurately mirror the database schema with zero `any` types.
-- [ ] **AC 1.5**: TDD unit test runner (`scripts/test-runner.js`) includes automated tests for tax calculations, Modulo 11 check digits, and multi-tenant RLS logic.
-- [ ] **AC 1.6**: Quality gates `npm run typecheck`, `npm run lint`, and `npm run test` pass with 0 errors and 0 warnings.
+- [x] **AC 2.1**: Onboarding Setup Wizard (`/onboarding`) allows user to configure Organization name, RFC, SAT tax regime, postal code, and industry in < 3 minutes on mobile viewport.
+- [x] **AC 2.2**: Client Directory (`/dashboard/clients`) displays all organization clients with search filtering by name/RFC, 0-100 Health Score badges, and 1-tap WhatsApp Click-to-Chat buttons (>= 48px tap targets).
+- [x] **AC 2.3**: Client Detail View (`/dashboard/clients/[id]`) presents client profile info, SAT tax data (RFC, Regimen, CP, CFDI Use), computed health score meter, and a chronological activity history feed (quotes sent, contracts signed, payments confirmed).
+- [x] **AC 2.4**: Client Form Modal/Page enables creating & editing clients with live RFC Modulo-11 check-digit validation and WhatsApp phone number formatting.
+- [x] **AC 2.5**: Core utilities `clientHealthScore.ts` (0-100 logic), `whatsappLink.ts` (1-tap `wa.me` links), and `clientActivity.ts` (chronological feed transformer) are fully unit-tested with 100% test passing in `scripts/test-runner.js`.
+- [x] **AC 2.6**: Client CRUD API routes (`/api/clients`, `/api/clients/[id]`, `/api/organization`) and client hooks (`useClients.ts`) enforce `organization_id` multi-tenant security and support dual-mode (Demo Mode + Supabase).
+- [x] **AC 2.7**: All quality gates (`npm run typecheck`, `npm test`) pass with 0 errors and 0 warnings.
 
 ### Should-Have (P1)
-- [ ] **AC 2.1**: Seed script `supabase/seed.sql` provided for local development testing.
+- [x] **AC 2.8**: Empty state illustrations and quick-add actions when no clients exist yet.
+- [x] **AC 2.9**: Mobile-responsive layout tested on 375px viewport with bottom navigation bar.
 
 ---
 
-## 03 Technical Implementation & Files
+## 03 Mobile UX Rules (Don Roberto Persona Constraints)
 
-### Files to Create / Modify
-* `package.json` — Workspace manifest, script commands, dependencies
-* `tsconfig.json` — Strict TypeScript configuration
-* `next.config.ts` — Next.js 16 configuration
-* `lib/supabase/client.ts` — Supabase browser client wrapper
-* `lib/supabase/server.ts` — Supabase server client wrapper for RSC & API routes
-* `lib/supabase/middleware.ts` — Auth session refresh middleware
-* `types/database.ts` — Complete Supabase Database TypeScript definitions
-* `types/index.ts` — Domain model interfaces (`Organization`, `Client`, `Quote`, `Contract`, `Milestone`, etc.)
-* `lib/taxCalculator.ts` — Mexican tax calculation helpers (IVA 16%, ISR withholding 10%, IVA withholding 10.6667%)
-* `lib/rfcValidator.ts` — live validation of Mexican RFC syntax & check-digit verification
-* `supabase/migrations/20260803000000_initial_schema.sql` — Complete SQL DDL with tables, indexes, constraints, RLS policies, and triggers
-* `supabase/seed.sql` — Development seed data
-* `scripts/test-runner.js` — Comprehensive test suite for tax calculator, RFC validator, schema mapping, and RLS policies
-* `docs/03-product-specs/product-roadmap.md` — Sync Sprint 1 completion status
+1. **Touch Target Size**: All interactive elements (buttons, inputs, cards, WhatsApp links, icon triggers) MUST have a minimum height/width of **48px** (`min-h-[48px]`, `p-3`).
+2. **1-Tap WhatsApp Links**: Click-to-chat links must open `https://wa.me/521XXXXXXXXXX?text=...` directly without secondary prompt screens.
+3. **High-Contrast Metrics**: Monetary figures and Health Scores displayed in large bold font (`text-2xl font-bold`).
+4. **Zero-Cognitive Burden Form Inputs**: Select dropdowns pre-populated with standard Mexican SAT tax regimes (601, 603, 605, 606, 612, 626 - RESICO) and CFDI uses (G01, G03, P01, CP01, S01).
 
 ---
 
-## 04 4-Phase Execution Checklist
+## 04 Technical Implementation & Files
 
-- [x] **Phase 1: Planning & Architecture**: Decomposed Sprint 1, read schema & architecture TDD specs, created `feature_implementation_spec.md`.
-- [ ] **Phase 2: TDD (Test-Driven Development)**: Create `scripts/test-runner.js` with failing unit tests for tax calculation, RFC verification, and multi-tenant scoping.
-- [ ] **Phase 3: Implementation & Review**: Write database migrations, TypeScript types, Supabase client abstractions, tax calculation helpers, and security RLS definitions.
-- [ ] **Phase 4: Verification & Quality Gates**: Run `npm run typecheck`, `npm run lint`, and `npm run test`. Update `product-roadmap.md` Sprint 1 status.
+### Exact Files to Create / Modify
+
+#### Core Logic & Utilities
+* `lib/whatsappLink.ts` — 1-tap WhatsApp Click-to-Chat URL generator with Mexican phone sanitization (+52 / 10-digit).
+* `lib/clientHealthScore.ts` — Client Health Score (0–100) calculator based on historical payment timeliness.
+* `lib/clientActivity.ts` — Data transformer for client chronological activity feeds.
+* `lib/hooks/useClients.ts` — React hook for client state management, client CRUD, and activity feed fetching.
+
+#### UI Components & Layout
+* `components/layout/AppShell.tsx` — Desktop sidebar + Mobile bottom navigation wrapper.
+* `components/layout/Header.tsx` — Top application header with org indicator & user menu.
+* `components/clients/ClientCard.tsx` — Client Directory list item card with health score & WhatsApp 1-tap trigger.
+* `components/clients/ClientFormModal.tsx` — Add/Edit Client modal form with live RFC Modulo-11 validation.
+* `components/clients/HealthScoreMeter.tsx` — Visual 0–100 health score badge & meter component.
+* `components/clients/ActivityTimeline.tsx` — Chronological feed timeline for quotes, contracts, and payments.
+
+#### Pages & Views
+* `app/onboarding/page.tsx` — 10-minute setup wizard for business details & RFC.
+* `app/(dashboard)/layout.tsx` — Authenticated app shell layout wrapper.
+* `app/(dashboard)/dashboard/page.tsx` — Owner dashboard placeholder / shell.
+* `app/(dashboard)/clients/page.tsx` — Client Directory page view.
+* `app/(dashboard)/clients/[id]/page.tsx` — Client detail profile & activity history view.
+
+#### Server API Handlers
+* `app/api/organization/route.ts` — GET / POST route handler for organization setup.
+* `app/api/clients/route.ts` — GET / POST route handler for client directory.
+* `app/api/clients/[id]/route.ts` — GET / PUT / DELETE route handler for single client.
+
+#### Tests & Roadmap Sync
+* `scripts/test-runner.js` — Expanded unit test suite for health score, WhatsApp links, client activity, and API payload schemas.
+* `docs/03-product-specs/product-roadmap.md` — Sprint 2 completed checkmark update.
+
+---
+
+## 05 4-Phase Execution Checklist
+
+- [x] **Phase 1: Planning & Architecture**: Inspected database schema, app architecture, user personas; created `feature_implementation_spec.md` and `implementation_plan.md`.
+- [x] **Phase 2: TDD (Test-Driven Development)**: Add failing unit tests to `scripts/test-runner.js` for `calculateClientHealthScore`, `generateWhatsAppLink`, and `formatClientActivity`. Verify Red phase.
+- [x] **Phase 3: Implementation & Security Review**: Implement logic utilities, hooks, API routes with `organization_id` multi-tenancy, App Shell, Onboarding wizard, and Client Directory views.
+- [x] **Phase 4: Verification & Quality Gates**: Execute `npm run typecheck` and `npm test` (0 errors/warnings). Mark Sprint 2 complete in `product-roadmap.md` and commit code.

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint": "next lint",
     "test": "node scripts/test-runner.js"
   },
   "dependencies": {
