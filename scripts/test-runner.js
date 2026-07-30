@@ -516,6 +516,147 @@ test('Generates deterministic SHA-256 digital cryptoseal hash', () => {
 });
 
 // ----------------------------------------------------
+// 11. Receivables Aging & Summary Calculator Tests (Sprint 4)
+// ----------------------------------------------------
+console.log('\n[Suite 11: Receivables Aging & Summary Calculator]');
+
+let calculateReceivablesSummary;
+try {
+  calculateReceivablesSummary = require('../lib/receivablesCalculator.js').calculateReceivablesSummary;
+} catch (e) {
+  calculateReceivablesSummary = null;
+}
+
+test('Receivables Calculator Module Exists & Exports calculateReceivablesSummary', () => {
+  assert.strictEqual(typeof calculateReceivablesSummary, 'function', 'calculateReceivablesSummary function must be exported from lib/receivablesCalculator');
+});
+
+test('Aggregates overdue, due today, upcoming, and confirmed amounts correctly', () => {
+  if (typeof calculateReceivablesSummary === 'function') {
+    const todayStr = '2026-08-30';
+    const mockMilestones = [
+      { id: 'm1', label: 'Anticipo 50%', amount: 5000, due_date: '2026-08-15', status: 'pending' }, // Overdue
+      { id: 'm2', label: 'Entrega 1', amount: 3000, due_date: '2026-08-30', status: 'requested' }, // Due Today
+      { id: 'm3', label: 'Finiquito', amount: 7000, due_date: '2026-09-15', status: 'pending' }, // Upcoming
+      { id: 'm4', label: 'Fase Inicial', amount: 4000, due_date: '2026-08-01', status: 'confirmed' }, // Confirmed
+    ];
+
+    const summary = calculateReceivablesSummary(mockMilestones, todayStr);
+    assert.strictEqual(summary.totalOverdue, 5000, 'Overdue total should be 5000');
+    assert.strictEqual(summary.totalDueToday, 3000, 'Due Today total should be 3000');
+    assert.strictEqual(summary.totalUpcoming, 7000, 'Upcoming total should be 7000');
+    assert.strictEqual(summary.totalConfirmed, 4000, 'Confirmed total should be 4000');
+    assert.strictEqual(summary.totalPending, 15000, 'Total pending should be 15000');
+  } else {
+    throw new Error('calculateReceivablesSummary module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 12. WhatsApp Payment Reminder Link Generator Tests (Sprint 4)
+// ----------------------------------------------------
+console.log('\n[Suite 12: WhatsApp Payment Reminder Link Generator]');
+
+let generatePaymentReminderLink;
+try {
+  generatePaymentReminderLink = require('../lib/whatsappReminder.js').generatePaymentReminderLink;
+} catch (e) {
+  generatePaymentReminderLink = null;
+}
+
+test('WhatsApp Reminder Module Exists & Exports generatePaymentReminderLink', () => {
+  assert.strictEqual(typeof generatePaymentReminderLink, 'function', 'generatePaymentReminderLink function must be exported from lib/whatsappReminder');
+});
+
+test('Generates status-aware WhatsApp reminder link for overdue payment', () => {
+  if (typeof generatePaymentReminderLink === 'function') {
+    const params = {
+      phone: '8115551234',
+      clientName: 'Don Roberto',
+      milestoneLabel: 'Anticipo 50%',
+      amount: 5000,
+      dueDate: '2026-08-15',
+      status: 'overdue',
+      payToken: 'token_abc123'
+    };
+    const link = generatePaymentReminderLink(params);
+    assert.strictEqual(link.includes('wa.me/528115551234'), true, 'Should sanitize phone and add 52 country code');
+    assert.strictEqual(link.includes('Don%20Roberto'), true, 'Should include client name');
+    assert.strictEqual(link.includes('token_abc123'), true, 'Should include public pay portal token link');
+    assert.strictEqual(link.includes('atrasado') || link.includes('vencido') || link.includes('pendiente'), true, 'Should include payment reminder copy');
+  } else {
+    throw new Error('generatePaymentReminderLink module not implemented yet');
+  }
+});
+
+test('Generates upcoming_3d reminder link with friendly tone', () => {
+  if (typeof generatePaymentReminderLink === 'function') {
+    const params = {
+      phone: '8115551234',
+      clientName: 'Mariana',
+      milestoneLabel: 'Finiquito',
+      amount: 10000,
+      dueDate: '2026-09-02',
+      status: 'upcoming_3d',
+      payToken: 'token_xyz789'
+    };
+    const link = generatePaymentReminderLink(params);
+    assert.strictEqual(link.includes('wa.me/528115551234'), true);
+    assert.strictEqual(link.includes('Mariana'), true);
+    assert.strictEqual(link.includes('token_xyz789'), true);
+  } else {
+    throw new Error('generatePaymentReminderLink module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 13. SPEI Proof & Banxico Clave de Rastreo Validator Tests (Sprint 4)
+// ----------------------------------------------------
+console.log('\n[Suite 13: SPEI Proof & Clave de Rastreo Validator]');
+
+let speiValidator;
+try {
+  speiValidator = require('../lib/speiValidator.js');
+} catch (e) {
+  speiValidator = null;
+}
+
+test('SPEI Validator Module Exists & Exports Validation Helpers', () => {
+  assert.strictEqual(typeof speiValidator?.validateTrackingReference, 'function', 'validateTrackingReference must be exported');
+  assert.strictEqual(typeof speiValidator?.validateReceiptFile, 'function', 'validateReceiptFile must be exported');
+});
+
+test('Validates Banxico Clave de Rastreo (min 8 chars, alphanumeric)', () => {
+  if (speiValidator?.validateTrackingReference) {
+    const v1 = speiValidator.validateTrackingReference('202608301234567890');
+    assert.strictEqual(v1.isValid, true, 'Valid Clave de Rastreo should pass');
+
+    const v2 = speiValidator.validateTrackingReference('123'); // Too short
+    assert.strictEqual(v2.isValid, false, 'Short Clave de Rastreo should fail');
+  } else {
+    throw new Error('validateTrackingReference module not implemented yet');
+  }
+});
+
+test('Validates SPEI receipt file size (<5MB) and mime type (PNG/JPG/PDF)', () => {
+  if (speiValidator?.validateReceiptFile) {
+    const validFile = { name: 'comprobante.pdf', size: 2 * 1024 * 1024, type: 'application/pdf' };
+    const check1 = speiValidator.validateReceiptFile(validFile);
+    assert.strictEqual(check1.isValid, true, '2MB PDF file should be valid');
+
+    const oversizedFile = { name: 'big_image.png', size: 6 * 1024 * 1024, type: 'image/png' };
+    const check2 = speiValidator.validateReceiptFile(oversizedFile);
+    assert.strictEqual(check2.isValid, false, '6MB file should be rejected for exceeding 5MB limit');
+
+    const invalidTypeFile = { name: 'script.exe', size: 1000, type: 'application/x-msdownload' };
+    const check3 = speiValidator.validateReceiptFile(invalidTypeFile);
+    assert.strictEqual(check3.isValid, false, 'EXE file should be rejected');
+  } else {
+    throw new Error('validateReceiptFile module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
