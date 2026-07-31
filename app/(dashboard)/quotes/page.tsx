@@ -165,6 +165,7 @@ export default function QuotesPage() {
         clients={clients}
         onSubmit={async (data) => {
           await createQuote(data);
+          setIsWizardOpen(false);
         }}
       />
     </div>

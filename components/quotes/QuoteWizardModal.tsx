@@ -45,6 +45,12 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
 
   const [submitting, setSubmitting] = useState<boolean>(false);
 
+  React.useEffect(() => {
+    if (isOpen && clients && clients.length > 0 && (!clientId || !clients.some(c => c.id === clientId))) {
+      setClientId(clients[0].id);
+    }
+  }, [isOpen, clients, clientId]);
+
   if (!isOpen) return null;
 
   const totals = calculateQuoteTotals(lineItems, {
@@ -76,32 +82,36 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
     );
   };
 
+  const effectiveClientId = clientId || (clients && clients.length > 0 ? clients[0].id : '');
+
   const handleNext = () => {
-    if (step === 1 && (!clientId || !title.trim())) return;
+    if (step === 1 && (!effectiveClientId || !title.trim())) return;
     if (step === 2 && lineItems.some((item) => !item.description.trim() || item.unit_price <= 0)) return;
-    setStep((prev) => Math.min(prev + 1, 3));
+    setStep((prev) => Math.min(3, prev + 1));
   };
 
   const handlePrev = () => {
-    setStep((prev) => Math.max(prev - 1, 1));
+    setStep((prev) => Math.max(1, prev - 1));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting || !effectiveClientId || !title.trim()) return;
+
     setSubmitting(true);
     try {
       await onSubmit({
-        client_id: clientId,
-        title,
-        line_items: lineItems,
+        title: title.trim(),
+        client_id: effectiveClientId,
         currency,
         valid_until: validUntil,
-        notes,
+        line_items: lineItems,
+        notes: notes.trim(),
         taxOptions: { applyIva, applyRetencionIsr, applyRetencionIva },
       });
       onClose();
     } catch (err) {
-      console.error('Failed to create quote', err);
+      console.error('Failed to create quote:', err);
     } finally {
       setSubmitting(false);
     }
