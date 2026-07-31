@@ -117,6 +117,14 @@ export default function LoginPage() {
                 </>
               )}
             </button>
+
+            <Link
+              href="/dashboard?demo=true"
+              className="w-full flex justify-center items-center gap-2 min-h-[48px] py-3 px-4 border border-slate-800 rounded-xl text-sm font-bold text-slate-300 bg-slate-950 hover:bg-slate-900 hover:text-white transition-all"
+            >
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              Ver Panel de Demostración
+            </Link>
           </form>
 
           <div className="mt-6 border-t border-slate-800 pt-6 text-center">

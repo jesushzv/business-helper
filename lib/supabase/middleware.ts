@@ -6,8 +6,11 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-url.supabase.co';
+  const isPlaceholderUrl = !process.env.NEXT_PUBLIC_SUPABASE_URL || supabaseUrl.includes('placeholder');
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-url.supabase.co',
+    supabaseUrl,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key',
     {
       cookies: {
@@ -30,7 +33,11 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  if (!user && (pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding'))) {
+  const isDemoQuery = request.nextUrl.searchParams.get('demo') === 'true';
+  const isDemoCookie = request.cookies.get('demo_mode')?.value === 'true';
+  const isDemoMode = isPlaceholderUrl || isDemoQuery || isDemoCookie;
+
+  if (!user && !isDemoMode && (pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding'))) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

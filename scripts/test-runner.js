@@ -1225,6 +1225,23 @@ test('Session Extraction & Route Protection Logic Validates Unauthenticated Acce
   assert.strictEqual(isProtectedPath('/q/token123'), false, '/q/token123 public quote view must be accessible without login');
 });
 
+test('Demo Mode Resolution Logic Allows Unauthenticated Access when Demo Flag or Placeholder URL active', () => {
+  const evaluateDemoAccess = (user, searchParamsDemo, cookieDemo, supabaseUrl) => {
+    const isPlaceholder = !supabaseUrl || supabaseUrl.includes('placeholder');
+    const isDemoMode = isPlaceholder || searchParamsDemo === 'true' || cookieDemo === 'true';
+    if (!user && !isDemoMode) {
+      return 'redirect_to_login';
+    }
+    return 'allow_access';
+  };
+
+  assert.strictEqual(evaluateDemoAccess(null, 'true', 'false', 'https://live.supabase.co'), 'allow_access', 'Demo query param must grant demo access');
+  assert.strictEqual(evaluateDemoAccess(null, 'false', 'true', 'https://live.supabase.co'), 'allow_access', 'Demo cookie must grant demo access');
+  assert.strictEqual(evaluateDemoAccess(null, 'false', 'false', 'https://placeholder-url.supabase.co'), 'allow_access', 'Placeholder Supabase URL must grant demo access');
+  assert.strictEqual(evaluateDemoAccess(null, 'false', 'false', 'https://live.supabase.co'), 'redirect_to_login', 'Live Supabase without demo flag must redirect to login');
+  assert.strictEqual(evaluateDemoAccess({ id: 'u1' }, 'false', 'false', 'https://live.supabase.co'), 'allow_access', 'Authenticated user must always be allowed');
+});
+
 // ----------------------------------------------------
 // 27. Facturapi Live SAT CFDI 4.0 PAC HTTP Client Suite
 // ----------------------------------------------------

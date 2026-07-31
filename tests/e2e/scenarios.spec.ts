@@ -19,9 +19,9 @@ test.describe('Business Helper E2E User Scenarios', () => {
     // Check launch announcement banner
     await expect(page.locator('body')).toContainText('Lanzamiento Oficial Beta en México');
 
-    // Navigate to Dashboard
-    await page.click('text=Iniciar Sesión');
-    await expect(page).toHaveURL('/dashboard');
+    // Navigate to Demo Dashboard
+    await page.click('text=Ver Panel de Demostración');
+    await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.locator('h2')).toContainText('¡Hola, Don Roberto!');
   });
 

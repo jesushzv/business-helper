@@ -47,7 +47,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4">
             <Link
-              href="/dashboard"
+              href="/login"
               className="text-xs sm:text-sm font-semibold text-slate-300 hover:text-white transition-colors px-3 py-2 rounded-xl hover:bg-slate-900"
             >
               Iniciar Sesión
@@ -96,7 +96,7 @@ export default function LandingPage() {
                   <ArrowRight className="w-5 h-5" />
                 </Link>
                 <Link
-                  href="/dashboard"
+                  href="/dashboard?demo=true"
                   className="w-full sm:w-auto min-h-[52px] px-6 py-3.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 text-sm"
                 >
                   <span>Ver Panel de Demostración</span>
