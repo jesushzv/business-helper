@@ -1,58 +1,54 @@
-# Feature Implementation Spec: Pre-Launch Engineering Sprint — Auth, Live APIs & Production Wiring
+# Feature Implementation Spec: Phase 4 Post-Launch Expansion — Outbound WhatsApp API, Multi-Currency (USD/MXN) & White-Labeling
 
 > **Single-Session AI & Engineering Implementation Spec**
 >
-> A focused specification for executing the **Pre-Launch Engineering Sprint** of **Business Helper** following the **Everything Claude Code (ECC) 4-Phase Execution Playbook**.
+> A focused specification for executing **Phase 4 Post-Launch Expansion** of **Business Helper** following the **Everything Claude Code (ECC) 4-Phase Execution Playbook**.
 
 ---
 
 ## 01 Feature Summary
 
-* **Feature Name**: Pre-Launch Engineering Sprint — Production Authentication UI & Root Middleware Guard, Live Facturapi PAC HTTP Stamping, Live Stripe Subscription Checkout & Webhooks, Live Gemini AI Operations Assistant, and Supabase Storage Bucket setup.
-* **Target Module**: Authentication (`/login`, `/register`, `middleware.ts`), Facturapi (`/lib/facturapi.ts`, `/api/invoices/issue`), Stripe (`/lib/stripe.ts`, `/api/stripe/checkout`, `/api/stripe/webhook`), AI Assistant (`/lib/whatsappAI.ts`, `/api/assistant`), and Storage (`/api/receivables/[id]/upload`).
-* **Primary User**: Business Owners ("Don Roberto"), Operations Managers ("Lic. Mariana"), & External Accountants.
-* **Goal**: Replace all sandbox mock fallbacks and static demo strings with production-ready live service connectors, complete authentication flows, route protection, and verified test suites.
+* **Feature Name**: Phase 4 Post-Launch Expansion — Outbound Automated WhatsApp API Engine (Twilio / Meta), Multi-Currency Engine (MXN / USD), and White-Labeling & Organization Branding Engine.
+* **Target Module**: Messaging (`/lib/whatsappOutbound.ts`, `/api/whatsapp/broadcast`), Financial Engine (`/lib/currency.ts`, `/lib/quotes.ts`, `/lib/receivables.ts`), Branding (`/lib/branding.ts`, `/app/q/[token]/page.tsx`, `/app/pay/[token]/page.tsx`), and Settings (`/app/dashboard/settings/page.tsx`).
+* **Primary User**: Business Owners ("Don Roberto"), Operations Managers ("Lic. Mariana"), & External Clients.
+* **Goal**: Expand Business Helper's competitive advantages with direct outbound automated WhatsApp payment reminders, multi-currency invoicing (USD/MXN) for international B2B clients, and custom logo/color white-labeling on public quote and payment portals.
 
 ### Scope Boundaries
 * **In Scope**:
-  1. **Authentication & Route Guarding (P0)**:
-     - Build `/login` (`app/(auth)/login/page.tsx`) and `/register` (`app/(auth)/register/page.tsx`).
-     - Build root `middleware.ts` to inspect Supabase session cookies, protect `/dashboard/*` & `/onboarding`, and redirect unauthenticated traffic to `/login`.
-     - Update backend API routes to enforce active user sessions (`supabase.auth.getUser()`) and remove `'org-demo-1'` fallbacks.
-  2. **Live SAT CFDI 4.0 Facturapi PAC Stamping (P0)**:
-     - Replace `simulateInvoiceStamping()` in `lib/facturapi.ts` with real HTTP POST client targeting `https://www.facturapi.io/v1/invoices` using `FACTURAPI_SECRET_KEY`.
-     - Update `app/api/invoices/issue/route.ts` to persist XML and PDF download links.
-  3. **Live Stripe Subscription Billing & Webhook Listener (P0)**:
-     - Update `app/api/stripe/checkout/route.ts` using `stripe` SDK to create live Checkout sessions for Emprendedor ($299), Negocio ($599), and Empresa ($999).
-     - Build `app/api/stripe/webhook/route.ts` handling `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`.
-  4. **Live Gemini AI Operations Assistant (P1)**:
-     - Update `lib/whatsappAI.ts` and `app/api/assistant/route.ts` to support `@google/genai` (Gemini API) with dynamic database receivables context.
-  5. **Supabase Storage Bucket for SPEI Receipts (P0)**:
-     - Update `app/api/receivables/[id]/upload/route.ts` to upload SPEI vouchers to Supabase Storage bucket (`spei-vouchers`).
-  6. **Unit & Integration Test Suites in `scripts/test-runner.js`**:
-     - Add Suite 26 (Auth & Root Middleware Route Guard), Suite 27 (Facturapi Live PAC HTTP Client), Suite 28 (Stripe Live Checkout & Webhook Listener), Suite 29 (Gemini AI Operations Assistant API).
+  1. **Outbound Automated WhatsApp API Engine (P0)**:
+     - Build `/lib/whatsappOutbound.ts` to construct Twilio / Meta WhatsApp API message dispatch payloads with dynamic template variables and automatic fallback to `wa.me/` Click-to-Chat deep links.
+     - Build `/app/api/whatsapp/broadcast/route.ts` to handle manual and scheduled automated payment reminder dispatches scoped to `organization_id`.
+  2. **Multi-Currency Engine (USD / MXN) (P0)**:
+     - Build `/lib/currency.ts` to manage currency formatting (`$1,500.00 MXN`, `$100.00 USD`), dynamic exchange rate conversion, and currency symbol resolution.
+     - Update `/lib/quotes.ts` and `/lib/receivables.ts` to handle multi-currency quotes and receivables summaries with exchange rate conversions.
+  3. **White-Labeling & Organization Branding Engine (P1)**:
+     - Build `/lib/branding.ts` to generate dynamic CSS custom properties (`--primary-color`), logo fallback assets, and custom header/footer metadata.
+     - Update `/app/q/[token]/page.tsx` (Public Quote Portal) and `/app/pay/[token]/page.tsx` (Public SPEI Portal) to apply dynamic company logo, custom color theme, and tagline.
+     - Update `/app/dashboard/settings/page.tsx` to include Branding Customizer (logo URL, primary color picker) and Currency preferences.
+  4. **Unit & Integration Test Suites in `scripts/test-runner.js`**:
+     - Add Suite 31 (Outbound WhatsApp API Engine), Suite 32 (Multi-Currency Engine), and Suite 33 (White-Labeling & Branding Engine).
 
 ---
 
 ## 02 Acceptance Criteria (P0 / P1)
 
 ### Must-Have (P0 / P1)
-- [ ] **AC 1.1**: `/login` and `/register` pages render mobile-first, responsive forms with Supabase Auth error feedback and >= 48px touch targets.
-- [ ] **AC 1.2**: Root `middleware.ts` intercepts unauthenticated attempts to access `/dashboard/*` or `/onboarding` and redirects to `/login`.
-- [ ] **AC 1.3**: Facturapi integration module (`lib/facturapi.ts`) constructs valid SAT CFDI 4.0 JSON payloads and posts to `https://www.facturapi.io/v1/invoices`.
-- [ ] **AC 1.4**: Stripe checkout API (`app/api/stripe/checkout/route.ts`) initializes real Stripe Checkout sessions and returns active URLs.
-- [ ] **AC 1.5**: Stripe webhook listener (`app/api/stripe/webhook/route.ts`) validates webhook signatures and updates organization subscription status.
-- [ ] **AC 1.6**: WhatsApp AI Assistant API (`app/api/assistant/route.ts`) parses user queries using live database context and returns structured JSON responses.
-- [ ] **AC 1.7**: All test suites (1 to 29) in `scripts/test-runner.js` pass with 100% success rate.
+- [ ] **AC 1.1**: Outbound WhatsApp engine (`lib/whatsappOutbound.ts`) formats API broadcast payloads for overdue reminders and falls back gracefully to `wa.me/` links when API keys are absent.
+- [ ] **AC 1.2**: `/api/whatsapp/broadcast` validates user authentication, verifies tenant `organization_id`, and dispatches message notifications.
+- [ ] **AC 1.3**: Currency helper (`lib/currency.ts`) formats MXN and USD amounts correctly and applies conversion rates (`1 USD = 18.50 MXN` default).
+- [ ] **AC 1.4**: Receivables calculator (`lib/receivables.ts`) aggregates multi-currency milestone totals into unified base-currency reports.
+- [ ] **AC 1.5**: Branding engine (`lib/branding.ts`) generates custom CSS variables and fallback logo tokens for tenant branding.
+- [ ] **AC 1.6**: Public Quote (`/q/[token]`) and Payment (`/pay/[token]`) portals render custom organization logos and theme colors when configured.
+- [ ] **AC 1.7**: All test suites (1 to 33) in `scripts/test-runner.js` pass with 100% success rate.
 - [ ] **AC 1.8**: `npm run typecheck` and `npm test` complete with 0 errors and 0 warnings.
 
 ---
 
 ## 03 Mobile UX Rules (Don Roberto Persona Constraints)
 
-1. **Touch Target Size**: Touch targets on Login, Register, Checkout, and Invoice Stamping buttons MUST be >= **48px** (`min-h-[48px]`, `py-3`).
-2. **Clear Error Feedback**: Display friendly Spanish error messages (*"Correo o contraseña incorrectos"*, *"Clave de rastreo SPEI no válida"*) instead of raw technical tracebacks.
-3. **Seamless Redirects**: After successful login or registration, seamlessly redirect users to `/dashboard` or `/onboarding`.
+1. **Touch Target Size**: Touch targets on settings controls, broadcast dispatch buttons, and currency selectors MUST be >= **48px** (`min-h-[48px]`, `py-3`).
+2. **Clear Visual Differentiation**: Display clear currency tags (`MXN` vs `USD`) with flag indicators or badge labels so Don Roberto never confuses pesos with dollars.
+3. **Seamless Branding Preview**: Live color swatch picker and logo preview in `/dashboard/settings` so owners immediately see how their public quotes will look to clients.
 
 ---
 
@@ -60,30 +56,23 @@
 
 ### Exact Files to Create / Modify
 
-#### Authentication & Route Protection
-* `app/(auth)/login/page.tsx` — Responsive login page.
-* `app/(auth)/register/page.tsx` — Business registration page.
-* `middleware.ts` — Root Next.js middleware session inspector & route guard.
-* `lib/supabase/middleware.ts` — Supabase session updater helper.
+#### Outbound Messaging Engine
+* `lib/whatsappOutbound.ts` — Outbound message dispatcher, template formatter & fallback handler.
+* `app/api/whatsapp/broadcast/route.ts` — Outbound reminder broadcast API endpoint.
 
-#### Facturapi & Invoicing
-* `lib/facturapi.ts` — Updated PAC client with live HTTP posting & fallback mode.
-* `app/api/invoices/issue/route.ts` — Issue invoice server endpoint.
+#### Multi-Currency Engine
+* `lib/currency.ts` — Multi-currency formatter, ISO code helpers & exchange rate converter.
+* `lib/quotes.ts` — Updated quote totals calculator with multi-currency & exchange rate support.
+* `lib/receivables.ts` — Updated receivables summary calculator with multi-currency aggregation.
 
-#### Stripe Billing & Webhooks
-* `lib/stripe.ts` — Stripe SDK helper and payload builder.
-* `app/api/stripe/checkout/route.ts` — Stripe checkout session route handler.
-* `app/api/stripe/webhook/route.ts` — Stripe event webhook handler.
-
-#### AI Operations Assistant
-* `lib/whatsappAI.ts` — Updated AI Operations Assistant with Gemini LLM provider support.
-* `app/api/assistant/route.ts` — AI assistant POST route handler.
-
-#### Storage & Uploads
-* `app/api/receivables/[id]/upload/route.ts` — SPEI receipt voucher upload route with Supabase Storage support.
+#### White-Labeling & Branding Engine
+* `lib/branding.ts` — Organization theme customizer, logo manager & CSS token generator.
+* `app/q/[token]/page.tsx` — Public Quote Portal with dynamic white-label theme rendering.
+* `app/pay/[token]/page.tsx` — Public SPEI Portal with dynamic white-label theme rendering.
+* `app/dashboard/settings/page.tsx` — Dashboard settings with Branding & Currency customizer.
 
 #### Test Suite
-* `scripts/test-runner.js` — Add Suites 26, 27, 28, 29 for Auth, Facturapi, Stripe, and Gemini AI.
+* `scripts/test-runner.js` — Add Suite 31 (Outbound WhatsApp API), Suite 32 (Multi-Currency Engine), and Suite 33 (White-Labeling & Branding).
 
 ---
 
@@ -92,38 +81,30 @@
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Don Roberto (Mobile App)
-    participant MW as Root Middleware (middleware.ts)
-    participant Auth as Supabase Auth
+    actor Owner as Don Roberto (Dashboard Settings / Quotes)
     participant API as Next.js API Routes (app/api/*)
-    participant DB as Postgres DB (Supabase RLS)
-    participant Ext as External PAC / Stripe Services
+    participant DB as Supabase DB (RLS Scoped)
+    participant Engine as Phase 4 Modules (WhatsApp / Currency / Branding)
+    actor Client as External B2B Client (Public Portal)
 
-    User->>MW: Request /dashboard or Protected API
-    MW->>Auth: Validate Session Cookie (getUser)
-    alt Unauthenticated
-        MW-->>User: 307 Redirect to /login
-    else Authenticated
-        MW-->>API: Forward Request with User Context
-        API->>DB: Query with organization_id filter
-        DB-->>API: Return Isolated Tenant Data
-        API->>Ext: Dispatch API Request (Facturapi / Stripe / Gemini)
-        Ext-->>API: Service Response Payload
-        API-->>User: JSON Response / Rendered RSC View
-    end
+    Owner->>API: Configure Branding & Broadcast Reminders
+    API->>DB: Fetch/Save Org Settings (logo_url, primary_color, default_currency)
+    DB-->>API: Return Scoped Org Record
+    API->>Engine: Dispatch WhatsApp API / Convert USD->MXN / Build Theme Token
+    Engine-->>Client: Outbound SMS/WhatsApp & Branded Public View (/q/[token])
 ```
 
 ### Multi-Tenancy Rules
 1. Every server API route (`app/api/*`) MUST obtain user context via `supabase.auth.getUser()`.
-2. Every database query MUST scope results to the active `organization_id` associated with `user.id` in `organization_members`.
-3. Storage bucket uploads (`spei-vouchers`) MUST be path-prefixed by `organization_id` to prevent cross-tenant object access.
+2. Every branding config, currency preference, and WhatsApp broadcast MUST be isolated to `organization_id`.
+3. Public quote/payment views (`/q/[token]`, `/pay/[token]`) MUST read organization branding associated with the quote/contract owner.
 
 ---
 
 ## 06 4-Phase Execution Checklist
 
 - [ ] **Phase 1: Planning & Architecture**: Updated `feature_implementation_spec.md` and `implementation_plan.md`.
-- [ ] **Phase 2: TDD (Test-Driven Development)**: Add failing unit tests to `scripts/test-runner.js` for Auth Middleware, Facturapi PAC Client, Stripe Checkout/Webhook, and Gemini AI. Verify Red phase.
-- [ ] **Phase 3: Implementation & Security Review**: Implement auth views, root middleware, live service helpers, API routes, and webhook handlers.
-- [ ] **Phase 4: Verification & Quality Gates**: Run `npm run typecheck` and `npm test` ensuring 0 errors/warnings. Update launch checklist and commit code.
+- [ ] **Phase 2: TDD (Test-Driven Development)**: Add failing unit tests to `scripts/test-runner.js` for Outbound WhatsApp, Multi-Currency, and White-Labeling. Verify Red phase.
+- [ ] **Phase 3: Implementation & Security Review**: Implement outbound messaging, currency converter, branding engine, public view white-labeling, and settings UI.
+- [ ] **Phase 4: Verification & Quality Gates**: Run `npm run typecheck` and `npm test` ensuring 0 errors/warnings. Commit code.
 

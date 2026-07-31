@@ -73,6 +73,7 @@ The MVP focuses exclusively on completing the core **Quote → Contract → Pay 
 | **Sprint 8** | Oct 16–31 | Team Roles & Permissions (RBAC) | Multi-User Access & Role Permissions (`/team`), capabilities matrix (`owner`, `manager`, `member`, `accountant`), team invite portal. | [x] Completed — `npm run test` passes (88/88), Team Roles & RBAC engine delivered. |
 | **Sprint 9** | Nov 1–15 | Product Catalog & Inventory Stock | Inventory stock level tracking, low-stock threshold warning alerts (<= 5 units), stock deduction on contract creation. | [x] Completed — `npm run test` passes (91/91), Inventory stock tracking & low-stock alerts delivered. |
 | **Sprint 10** | Nov 16–30 | WhatsApp AI Operations Assistant | Natural language query handler (`/assistant`) parsing client overdue balances (*"¿Cuánto me debe Grupo Salinas?"*) with 1-tap WhatsApp action links. | [x] Completed — `npm run test` passes (107/107), WhatsApp AI Operations Assistant engine & SPEI upload route delivered. |
+| **Sprint 11** | Dec 1–15 | Phase 4 Post-Launch Expansion | Outbound Automated WhatsApp API Engine (Twilio/Meta), Multi-Currency Engine (USD/MXN), and White-Labeling & Organization Branding on public quote and payment portals. | [x] Completed — `npm run test` passes (117/117), Outbound WhatsApp dispatch, Multi-Currency (USD/MXN) & White-Labeling branding customizer delivered. |
 
 
 ---

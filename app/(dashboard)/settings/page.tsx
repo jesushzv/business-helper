@@ -5,6 +5,7 @@ import { Header } from '@/components/layout/Header';
 import { useOrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 import { OrgProfileCard } from '@/components/settings/OrgProfileCard';
 import { SubscriptionBillingCard } from '@/components/settings/SubscriptionBillingCard';
+import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard';
 
 export default function SettingsPage() {
   const { settings, subscriptionStatusInfo, updateSettings, loading, saving } = useOrganizationSettings();
@@ -45,6 +46,9 @@ export default function SettingsPage() {
           <>
             {/* Organization Profile Settings */}
             <OrgProfileCard settings={settings} onSave={updateSettings} saving={saving} />
+
+            {/* White-Labeling & Branding Settings */}
+            <BrandingSettingsCard settings={settings} onSave={updateSettings} saving={saving} />
 
             {/* Stripe Subscription Billing */}
             <SubscriptionBillingCard

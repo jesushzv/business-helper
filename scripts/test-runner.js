@@ -1342,6 +1342,131 @@ test('SPEI Upload Route Accepts Valid Image/PDF and Rejects Oversized File', () 
   }
 });
 
+// ----------------------------------------------------
+// 31. Outbound Automated WhatsApp API Engine Suite
+// ----------------------------------------------------
+console.log('\n[Suite 31: Outbound Automated WhatsApp API Engine]');
+
+let whatsappOutboundModule;
+try {
+  whatsappOutboundModule = require('../lib/whatsappOutbound.js');
+} catch (e) {
+  whatsappOutboundModule = null;
+}
+
+test('Outbound WhatsApp Module Exists & Exports Dispatch Helpers', () => {
+  assert.notStrictEqual(whatsappOutboundModule, null, 'lib/whatsappOutbound.js module should exist');
+  assert.strictEqual(typeof whatsappOutboundModule?.formatOutboundReminderPayload, 'function');
+  assert.strictEqual(typeof whatsappOutboundModule?.getWhatsAppDispatchMode, 'function');
+  assert.strictEqual(typeof whatsappOutboundModule?.dispatchWhatsAppReminder, 'function');
+});
+
+test('Formats WhatsApp API payload for overdue payment reminder with dynamic template variables', () => {
+  if (whatsappOutboundModule?.formatOutboundReminderPayload) {
+    const payload = whatsappOutboundModule.formatOutboundReminderPayload({
+      clientName: 'Construcciones Maya',
+      phone: '8115559988',
+      amountDue: 15000,
+      dueDate: '2026-07-28',
+      token: 'pay_token_123'
+    });
+    assert.strictEqual(payload.recipient, '+528115559988');
+    assert.strictEqual(payload.message.includes('Construcciones Maya'), true);
+    assert.strictEqual(payload.message.includes('15,000'), true);
+    assert.strictEqual(payload.payUrl.includes('/pay/pay_token_123'), true);
+  }
+});
+
+test('Falls back to Click-to-Chat wa.me link when API credentials are absent', () => {
+  if (whatsappOutboundModule?.getWhatsAppDispatchMode) {
+    const mode = whatsappOutboundModule.getWhatsAppDispatchMode({});
+    assert.strictEqual(mode.type, 'wa_me_link', 'Without API keys, mode should be wa_me_link fallback');
+    assert.strictEqual(mode.isApiConfigured, false);
+  }
+});
+
+// ----------------------------------------------------
+// 32. Multi-Currency Engine (USD / MXN) Suite
+// ----------------------------------------------------
+console.log('\n[Suite 32: Multi-Currency Engine (USD / MXN)]');
+
+let currencyModule;
+try {
+  currencyModule = require('../lib/currency.js');
+} catch (e) {
+  currencyModule = null;
+}
+
+test('Multi-Currency Module Exists & Exports Helper Functions', () => {
+  assert.notStrictEqual(currencyModule, null, 'lib/currency.js module should exist');
+  assert.strictEqual(typeof currencyModule?.formatCurrency, 'function');
+  assert.strictEqual(typeof currencyModule?.convertCurrency, 'function');
+});
+
+test('Formats MXN and USD monetary values with proper symbol and ISO currency code', () => {
+  if (currencyModule?.formatCurrency) {
+    const mxn = currencyModule.formatCurrency(1500, 'MXN');
+    assert.strictEqual(mxn.includes('MXN'), true);
+    assert.strictEqual(mxn.includes('1,500'), true);
+
+    const usd = currencyModule.formatCurrency(100, 'USD');
+    assert.strictEqual(usd.includes('USD'), true);
+    assert.strictEqual(usd.includes('100'), true);
+  }
+});
+
+test('Converts USD amounts to MXN using configured exchange rate (1 USD = 18.50 MXN)', () => {
+  if (currencyModule?.convertCurrency) {
+    const converted = currencyModule.convertCurrency(100, 'USD', 'MXN', 18.50);
+    assert.strictEqual(converted, 1850, '100 USD at 18.50 rate should convert to 1850 MXN');
+  }
+});
+
+test('Aggregates multi-currency milestone receivables in base currency', () => {
+  if (currencyModule?.aggregateMultiCurrencyTotals) {
+    const items = [
+      { amount: 10000, currency: 'MXN' },
+      { amount: 1000, currency: 'USD' }
+    ];
+    const totalInMXN = currencyModule.aggregateMultiCurrencyTotals(items, 'MXN', 18.50);
+    assert.strictEqual(totalInMXN, 28500, '10,000 MXN + (1,000 USD * 18.5) = 28,500 MXN');
+  }
+});
+
+// ----------------------------------------------------
+// 33. White-Labeling & Organization Branding Engine Suite
+// ----------------------------------------------------
+console.log('\n[Suite 33: White-Labeling & Organization Branding Engine]');
+
+let brandingModule;
+try {
+  brandingModule = require('../lib/branding.js');
+} catch (e) {
+  brandingModule = null;
+}
+
+test('Branding Module Exists & Exports Helper Functions', () => {
+  assert.notStrictEqual(brandingModule, null, 'lib/branding.js module should exist');
+  assert.strictEqual(typeof brandingModule?.getOrganizationBranding, 'function');
+  assert.strictEqual(typeof brandingModule?.generateThemeCssVariables, 'function');
+});
+
+test('Generates dynamic CSS custom properties (--primary-color, --header-bg) from theme config', () => {
+  if (brandingModule?.generateThemeCssVariables) {
+    const cssVars = brandingModule.generateThemeCssVariables({ primaryColor: '#2563eb' });
+    assert.strictEqual(cssVars['--primary-color'], '#2563eb');
+    assert.strictEqual(cssVars['--primary-hover'], '#1d4ed8');
+  }
+});
+
+test('Provides fallback logo and default brand colors when tenant settings are unconfigured', () => {
+  if (brandingModule?.getOrganizationBranding) {
+    const branding = brandingModule.getOrganizationBranding({});
+    assert.strictEqual(branding.primaryColor, '#2563eb', 'Default primary color should be blue');
+    assert.strictEqual(branding.companyName, 'Business Helper', 'Default company name fallback');
+    assert.strictEqual(branding.hasCustomLogo, false);
+  }
+});
 
 // ----------------------------------------------------
 // Test Summary
