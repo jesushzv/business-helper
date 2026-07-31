@@ -120,7 +120,13 @@ export function useReceivables() {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
-        setReceivables(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setReceivables(parsed);
+        } else {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_RECEIVABLES));
+          setReceivables(INITIAL_DEMO_RECEIVABLES);
+        }
       } else {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_RECEIVABLES));
         setReceivables(INITIAL_DEMO_RECEIVABLES);
@@ -255,6 +261,11 @@ export function useReceivables() {
     });
   }, [receivables, statusFilter, searchQuery, todayStr]);
 
+  const resetDemoReceivables = useCallback(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_RECEIVABLES));
+    setReceivables(INITIAL_DEMO_RECEIVABLES);
+  }, []);
+
   return {
     receivables,
     filteredReceivables,
@@ -268,5 +279,6 @@ export function useReceivables() {
     fetchReceivables,
     confirmPayment,
     uploadSpeiProof,
+    resetDemoReceivables,
   };
 }

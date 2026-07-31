@@ -54,7 +54,13 @@ export function useProducts() {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (stored) {
-        setProducts(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProducts(parsed);
+        } else {
+          setProducts(INITIAL_DEMO_PRODUCTS);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_PRODUCTS));
+        }
       } else {
         setProducts(INITIAL_DEMO_PRODUCTS);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_PRODUCTS));

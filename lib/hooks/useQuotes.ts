@@ -87,7 +87,12 @@ export function useQuotes() {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        setQuotes(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setQuotes(parsed);
+        } else {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_QUOTES));
+          setQuotes(INITIAL_DEMO_QUOTES);
+        }
       } else {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_QUOTES));
         setQuotes(INITIAL_DEMO_QUOTES);
@@ -242,6 +247,11 @@ export function useQuotes() {
     });
   }, [quotes, statusFilter, searchQuery]);
 
+  const resetDemoQuotes = useCallback(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_QUOTES));
+    setQuotes(INITIAL_DEMO_QUOTES);
+  }, []);
+
   return {
     quotes,
     filteredQuotes,
@@ -255,5 +265,6 @@ export function useQuotes() {
     createQuote,
     updateQuoteStatus,
     convertToContract,
+    resetDemoQuotes,
   };
 }

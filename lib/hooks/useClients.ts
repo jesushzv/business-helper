@@ -86,7 +86,12 @@ export function useClients() {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        setClients(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setClients(parsed);
+        } else {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_CLIENTS));
+          setClients(INITIAL_DEMO_CLIENTS);
+        }
       } else {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_CLIENTS));
         setClients(INITIAL_DEMO_CLIENTS);
