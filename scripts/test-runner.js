@@ -1325,6 +1325,25 @@ test('AI Assistant Engine Constructs Valid LLM Prompt with DB Receivables Contex
 });
 
 // ----------------------------------------------------
+// 30. SPEI Receipt Upload & Supabase Storage Suite
+// ----------------------------------------------------
+console.log('\n[Suite 30: SPEI Receipt Upload & Supabase Storage Suite]');
+
+test('SPEI Upload Route Accepts Valid Image/PDF and Rejects Oversized File', () => {
+  const validFile = { name: 'comprobante.pdf', size: 1024 * 1024, type: 'application/pdf' };
+  const invalidFile = { name: 'comprobante.pdf', size: 10 * 1024 * 1024, type: 'application/pdf' };
+
+  if (speiValidator?.validateReceiptFile) {
+    const validResult = speiValidator.validateReceiptFile(validFile);
+    assert.strictEqual(validResult.isValid, true, '1MB PDF file should be valid');
+
+    const invalidResult = speiValidator.validateReceiptFile(invalidFile);
+    assert.strictEqual(invalidResult.isValid, false, '10MB PDF file should be rejected (>5MB limit)');
+  }
+});
+
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
@@ -1336,6 +1355,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 

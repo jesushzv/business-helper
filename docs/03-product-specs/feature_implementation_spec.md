@@ -87,9 +87,43 @@
 
 ---
 
-## 05 4-Phase Execution Checklist
+## 05 Data Flow Patterns & Multi-Tenancy Scoping
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Don Roberto (Mobile App)
+    participant MW as Root Middleware (middleware.ts)
+    participant Auth as Supabase Auth
+    participant API as Next.js API Routes (app/api/*)
+    participant DB as Postgres DB (Supabase RLS)
+    participant Ext as External PAC / Stripe Services
+
+    User->>MW: Request /dashboard or Protected API
+    MW->>Auth: Validate Session Cookie (getUser)
+    alt Unauthenticated
+        MW-->>User: 307 Redirect to /login
+    else Authenticated
+        MW-->>API: Forward Request with User Context
+        API->>DB: Query with organization_id filter
+        DB-->>API: Return Isolated Tenant Data
+        API->>Ext: Dispatch API Request (Facturapi / Stripe / Gemini)
+        Ext-->>API: Service Response Payload
+        API-->>User: JSON Response / Rendered RSC View
+    end
+```
+
+### Multi-Tenancy Rules
+1. Every server API route (`app/api/*`) MUST obtain user context via `supabase.auth.getUser()`.
+2. Every database query MUST scope results to the active `organization_id` associated with `user.id` in `organization_members`.
+3. Storage bucket uploads (`spei-vouchers`) MUST be path-prefixed by `organization_id` to prevent cross-tenant object access.
+
+---
+
+## 06 4-Phase Execution Checklist
 
 - [ ] **Phase 1: Planning & Architecture**: Updated `feature_implementation_spec.md` and `implementation_plan.md`.
 - [ ] **Phase 2: TDD (Test-Driven Development)**: Add failing unit tests to `scripts/test-runner.js` for Auth Middleware, Facturapi PAC Client, Stripe Checkout/Webhook, and Gemini AI. Verify Red phase.
 - [ ] **Phase 3: Implementation & Security Review**: Implement auth views, root middleware, live service helpers, API routes, and webhook handlers.
-- [ ] **Phase 4: Verification & Quality Gates**: Run `npm run typecheck` and `npm test` ensuring 0 errors/warnings. Update launch checklist and walkthrough in `product-roadmap.md` and commit code.
+- [ ] **Phase 4: Verification & Quality Gates**: Run `npm run typecheck` and `npm test` ensuring 0 errors/warnings. Update launch checklist and commit code.
+

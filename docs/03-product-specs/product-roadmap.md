@@ -72,7 +72,8 @@ The MVP focuses exclusively on completing the core **Quote → Contract → Pay 
 | **Sprint 7** | Oct 1–15 | SAT CFDI 4.0 Invoicing & Product Catalog | Deliver Facturapi PAC 1-click CFDI 4.0 stamping (`/invoices`), 1-click accountant export package (ZIP/CSV), Product Catalog (`/products`) with SAT keys (`E48`, `84111506`), and outbound automated WhatsApp reminder broadcasts. | [x] Completed — `npm run test` passes (86/86), Facturapi SAT CFDI 4.0 engine, 1-click accountant ZIP export, Product Catalog & WhatsApp broadcasts delivered. |
 | **Sprint 8** | Oct 16–31 | Team Roles & Permissions (RBAC) | Multi-User Access & Role Permissions (`/team`), capabilities matrix (`owner`, `manager`, `member`, `accountant`), team invite portal. | [x] Completed — `npm run test` passes (88/88), Team Roles & RBAC engine delivered. |
 | **Sprint 9** | Nov 1–15 | Product Catalog & Inventory Stock | Inventory stock level tracking, low-stock threshold warning alerts (<= 5 units), stock deduction on contract creation. | [x] Completed — `npm run test` passes (91/91), Inventory stock tracking & low-stock alerts delivered. |
-| **Sprint 10** | Nov 16–30 | WhatsApp AI Operations Assistant | Natural language query handler (`/assistant`) parsing client overdue balances (*"¿Cuánto me debe Grupo Salinas?"*) with 1-tap WhatsApp action links. | [x] Completed — `npm run test` passes (93/93), WhatsApp AI Operations Assistant engine delivered. |
+| **Sprint 10** | Nov 16–30 | WhatsApp AI Operations Assistant | Natural language query handler (`/assistant`) parsing client overdue balances (*"¿Cuánto me debe Grupo Salinas?"*) with 1-tap WhatsApp action links. | [x] Completed — `npm run test` passes (107/107), WhatsApp AI Operations Assistant engine & SPEI upload route delivered. |
+
 
 ---
 
