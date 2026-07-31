@@ -1,12 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Palette, Globe, Check, Image as ImageIcon } from 'lucide-react';
+import { Palette, Check, Image as ImageIcon } from 'lucide-react';
 import { getOrganizationBranding, generateThemeCssVariables } from '@/lib/branding';
 
+interface BrandingSettings {
+  primary_color?: string;
+  logo_url?: string | null;
+  tagline?: string | null;
+  name?: string;
+  default_currency?: 'MXN' | 'USD' | string;
+}
+
 interface BrandingSettingsCardProps {
-  settings: any;
-  onSave: (updated: any) => Promise<boolean>;
+  settings: BrandingSettings;
+  onSave: (updated: Record<string, unknown>) => Promise<boolean>;
   saving?: boolean;
 }
 
@@ -29,7 +37,7 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
   const [primaryColor, setPrimaryColor] = useState<string>(branding.primaryColor);
   const [logoUrl, setLogoUrl] = useState<string>(settings?.logo_url || '');
   const [tagline, setTagline] = useState<string>(settings?.tagline || '');
-  const [defaultCurrency, setDefaultCurrency] = useState<'MXN' | 'USD'>(settings?.default_currency || 'MXN');
+  const [defaultCurrency, setDefaultCurrency] = useState<'MXN' | 'USD'>(settings?.default_currency === 'USD' ? 'USD' : 'MXN');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSaveBranding = async (e: React.FormEvent) => {
@@ -49,7 +57,7 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
   const cssVars = generateThemeCssVariables({ primaryColor });
 
   return (
-    <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
+    <div style={cssVars as React.CSSProperties} className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
       <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
@@ -150,7 +158,12 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
               className="w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold text-sm shadow-sm"
               style={{ backgroundColor: primaryColor }}
             >
-              {logoUrl ? <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain rounded-lg" /> : 'BH'}
+              {logoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain rounded-lg" />
+              ) : (
+                'BH'
+              )}
             </div>
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase">Vista Previa de Portal Público</p>

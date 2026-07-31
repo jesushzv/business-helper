@@ -33,7 +33,8 @@ export async function POST(req: NextRequest) {
       message: result.mode === 'wa_me_link' ? 'Enlace WhatsApp generado exitosamente' : 'Recordatorio WhatsApp enviado vía API',
       ...result,
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Error interno del servidor' }, { status: 500 });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

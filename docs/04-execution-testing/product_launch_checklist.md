@@ -50,10 +50,9 @@
 
 ## 03 Pre-Launch (T-1 Week: Sep 12 – Sep 18, 2026)
 
-### Technical Verification
+- [x] **Production Deployment Guide & Secrets Template**: Prepared `docs/deployment.md` and `.env.example` mapping all production keys (`NEXT_PUBLIC_SUPABASE_URL`, `FACTURAPI_SECRET_KEY`, `STRIPE_SECRET_KEY`, `TWILIO_AUTH_TOKEN`, `GEMINI_API_KEY`).
 - [ ] **Production DB Migrations**: Run `npx supabase db push` to production project.
 - [ ] **Domain & SSL Setup**: Custom domain `businesshelper.mx` configured on Vercel with SSL certificate.
-- [ ] **Production Secrets Loaded**: Vercel environment variables verified (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `FACTURAPI_SECRET_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `GEMINI_API_KEY`).
 - [ ] **Sentry Monitoring Live**: Sentry error alerts configured to send instant alerts to founder's phone.
 
 ### Support & Operational Readiness
