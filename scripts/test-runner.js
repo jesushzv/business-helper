@@ -1048,6 +1048,113 @@ test('Generates status-aware payment reminder broadcast payloads with deep-links
 });
 
 // ----------------------------------------------------
+// 22. Multi-User Team Roles & RBAC Engine Tests (Sprint 8)
+// ----------------------------------------------------
+console.log('\n[Suite 22: Multi-User Team Roles & RBAC Engine]');
+
+let rbacModule;
+try {
+  rbacModule = require('../lib/teamRBAC.js');
+} catch (e) {
+  rbacModule = null;
+}
+
+test('Team RBAC Module Exists & Exports Capability Evaluator & Invite Helpers', () => {
+  assert.strictEqual(typeof rbacModule?.hasCapability, 'function', 'hasCapability must be exported');
+  assert.strictEqual(typeof rbacModule?.validateInviteInput, 'function', 'validateInviteInput must be exported');
+});
+
+test('Enforces Team Role capabilities matrix (owner, manager, member, accountant)', () => {
+  if (rbacModule?.hasCapability) {
+    assert.strictEqual(rbacModule.hasCapability('owner', 'billing_management'), true, 'Owner can manage billing');
+    assert.strictEqual(rbacModule.hasCapability('manager', 'invite_members'), true, 'Manager can invite members');
+    assert.strictEqual(rbacModule.hasCapability('member', 'billing_management'), false, 'Member cannot manage billing');
+    assert.strictEqual(rbacModule.hasCapability('accountant', 'confirm_payment'), true, 'Accountant can confirm payment');
+    assert.strictEqual(rbacModule.hasCapability('accountant', 'create_quote'), false, 'Accountant cannot create quote');
+  } else {
+    throw new Error('teamRBAC module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 23. Inventory Stock Tracking & Low-Stock Alerts Tests (Sprint 9)
+// ----------------------------------------------------
+console.log('\n[Suite 23: Inventory Stock Tracking & Low-Stock Alerts]');
+
+let inventoryModule;
+try {
+  inventoryModule = require('../lib/inventory.js');
+} catch (e) {
+  inventoryModule = null;
+}
+
+test('Inventory Module Exists & Exports Stock Evaluator & Deduction Helpers', () => {
+  assert.strictEqual(typeof inventoryModule?.evaluateStockStatus, 'function', 'evaluateStockStatus must be exported');
+  assert.strictEqual(typeof inventoryModule?.deductStock, 'function', 'deductStock must be exported');
+});
+
+test('Evaluates low-stock alert status correctly (threshold <= 5 units)', () => {
+  if (inventoryModule?.evaluateStockStatus) {
+    const normal = inventoryModule.evaluateStockStatus(25);
+    assert.strictEqual(normal.isLowStock, false, 'Stock 25 should be normal');
+
+    const low = inventoryModule.evaluateStockStatus(3);
+    assert.strictEqual(low.isLowStock, true, 'Stock 3 should trigger low stock alert');
+    assert.strictEqual(low.alertBadge.includes('Aviso Stock Bajo'), true, 'Should include alert badge text');
+
+    const zero = inventoryModule.evaluateStockStatus(0);
+    assert.strictEqual(zero.isLowStock, true, 'Stock 0 should trigger low stock alert');
+  } else {
+    throw new Error('inventory module not implemented yet');
+  }
+});
+
+test('Deducts stock safely on contract creation', () => {
+  if (inventoryModule?.deductStock) {
+    const newStock = inventoryModule.deductStock(10, 3);
+    assert.strictEqual(newStock, 7, '10 - 3 should leave 7');
+
+    const clampedStock = inventoryModule.deductStock(2, 5);
+    assert.strictEqual(clampedStock, 0, 'Deducting more than available stock should clamp to 0');
+  } else {
+    throw new Error('inventory module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 24. WhatsApp AI Operations Assistant Engine Tests (Sprint 10)
+// ----------------------------------------------------
+console.log('\n[Suite 24: WhatsApp AI Operations Assistant Engine]');
+
+let aiModule;
+try {
+  aiModule = require('../lib/whatsappAI.js');
+} catch (e) {
+  aiModule = null;
+}
+
+test('WhatsApp AI Assistant Module Exists & Exports NL Query Parser', () => {
+  assert.strictEqual(typeof aiModule?.parseNaturalLanguageQuery, 'function', 'parseNaturalLanguageQuery must be exported');
+});
+
+test('Parses natural language client overdue balance queries and generates response', () => {
+  if (aiModule?.parseNaturalLanguageQuery) {
+    const orgData = {
+      clients: [{ id: 'c1', name: 'Grupo Salinas', phone: '8112223344' }],
+      receivables: [{ clientId: 'c1', amount: 45000, status: 'overdue', label: 'Hito 1' }]
+    };
+
+    const res = aiModule.parseNaturalLanguageQuery('¿Cuánto me debe Grupo Salinas?', orgData);
+    assert.strictEqual(res.matchedClient, 'Grupo Salinas');
+    assert.strictEqual(res.totalOverdue, 45000);
+    assert.strictEqual(res.answerText.includes('45,000'), true, 'Answer text must mention amount');
+    assert.strictEqual(typeof res.whatsappUrl, 'string', 'Should return action WhatsApp URL');
+  } else {
+    throw new Error('whatsappAI module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

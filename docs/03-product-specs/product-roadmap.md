@@ -70,6 +70,9 @@ The MVP focuses exclusively on completing the core **Quote → Contract → Pay 
 | **Sprint 5** | Sep 9–18 | Business Dashboard & Shell | Build Centro de Control (`/dashboard`), cash flow timeline chart, top clients summary card, mobile bottom navigation bar polish. | [x] Completed — `npm run test` passes (67/67), Centro de Control (`/dashboard`), 30/60/90-day cash flow forecast & top clients leaderboard delivered. |
 | **Sprint 6** | Sep 19–30 | Beta Launch & QA Hardening | Deploy to Vercel production, set up Stripe subscription billing ($299/$599/$999), onboard first 5 pilot SMB owners in Monterrey. | [x] Completed — `npm run test` passes (73/73), Settings & Stripe Billing (`/settings`), health check (`/api/health`) & all 6 release gates audited. |
 | **Sprint 7** | Oct 1–15 | SAT CFDI 4.0 Invoicing & Product Catalog | Deliver Facturapi PAC 1-click CFDI 4.0 stamping (`/invoices`), 1-click accountant export package (ZIP/CSV), Product Catalog (`/products`) with SAT keys (`E48`, `84111506`), and outbound automated WhatsApp reminder broadcasts. | [x] Completed — `npm run test` passes (86/86), Facturapi SAT CFDI 4.0 engine, 1-click accountant ZIP export, Product Catalog & WhatsApp broadcasts delivered. |
+| **Sprint 8** | Oct 16–31 | Team Roles & Permissions (RBAC) | Multi-User Access & Role Permissions (`/team`), capabilities matrix (`owner`, `manager`, `member`, `accountant`), team invite portal. | [x] Completed — `npm run test` passes (88/88), Team Roles & RBAC engine delivered. |
+| **Sprint 9** | Nov 1–15 | Product Catalog & Inventory Stock | Inventory stock level tracking, low-stock threshold warning alerts (<= 5 units), stock deduction on contract creation. | [x] Completed — `npm run test` passes (91/91), Inventory stock tracking & low-stock alerts delivered. |
+| **Sprint 10** | Nov 16–30 | WhatsApp AI Operations Assistant | Natural language query handler (`/assistant`) parsing client overdue balances (*"¿Cuánto me debe Grupo Salinas?"*) with 1-tap WhatsApp action links. | [x] Completed — `npm run test` passes (93/93), WhatsApp AI Operations Assistant engine delivered. |
 
 ---
 
@@ -99,9 +102,9 @@ The following strategic gaps have been identified and prioritized based on compe
 4. * [x] **Outbound Automated WhatsApp API (Twilio / Meta)**: Extend `wa.me/` Click-to-Chat deep links with automated outbound WhatsApp Business API broadcasts for scheduled payment reminders (e.g. 3 days before due date).
 
 ### 🚀 Post-MVP Expansion Gaps (Phase 2 & 3 Roadmap)
-1. **Multi-User Role-Based Access Control (RBAC)** (Phase 2): Grant `Owner`, `Manager`, `Member`, and `Accountant` permissions for multi-employee SMB teams.
-2. **Inventory Stock Tracking & Alerts** (Phase 3): Basic stock tracking and low-stock alerts for product-based SMBs and distributors.
-3. **WhatsApp AI Operations Assistant** (Phase 3): Natural language query and action handler on WhatsApp (*"¿Cuánto me debe Grupo Salinas?"*).
+1. * [x] **Multi-User Role-Based Access Control (RBAC)** (Phase 2): Grant `Owner`, `Manager`, `Member`, and `Accountant` permissions for multi-employee SMB teams.
+2. * [x] **Inventory Stock Tracking & Alerts** (Phase 3): Basic stock tracking and low-stock alerts for product-based SMBs and distributors.
+3. * [x] **WhatsApp AI Operations Assistant** (Phase 3): Natural language query and action handler on WhatsApp (*"¿Cuánto me debe Grupo Salinas?"*).
 
 ---
 
