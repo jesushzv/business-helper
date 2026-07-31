@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { validateRFC } from '@/lib/rfcValidator';
 
 export async function GET() {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({ clients: [] });
+  }
+
   try {
     const supabase = await createClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import {
   calculateBusinessMetrics,
   getTopClientsByRevenue,
@@ -7,6 +7,29 @@ import {
 } from '@/lib/dashboardAnalytics';
 
 export async function GET() {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({
+      metrics: {
+        collectedRevenue: 0,
+        pendingReceivables: 0,
+        overdueDebt: 0,
+        dueTodayAmount: 0,
+        upcomingAmount: 0,
+        activeClientsCount: 0,
+        acceptedQuotesCount: 0,
+        totalMilestonesCount: 0,
+      },
+      topClients: [],
+      cashFlowForecast: {
+        referenceDate: new Date().toISOString().split('T')[0],
+        days30: { periodLabel: 'Próximos 30 Días', daysRange: '0 - 30 días', amount: 0, count: 0 },
+        days60: { periodLabel: 'De 31 a 60 Días', daysRange: '31 - 60 días', amount: 0, count: 0 },
+        days90: { periodLabel: 'De 61 a 90 Días', daysRange: '61 - 90 días', amount: 0, count: 0 },
+        totalForecast: 0,
+      },
+    });
+  }
+
   try {
     const supabase = await createClient();
 
