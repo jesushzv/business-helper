@@ -749,6 +749,100 @@ test('Calculates 30/60/90-day cash flow forecast timeline accurately', () => {
 });
 
 // ----------------------------------------------------
+// 15. Stripe Subscription Billing Engine Tests (Sprint 6)
+// ----------------------------------------------------
+console.log('\n[Suite 15: Stripe Subscription Billing Engine]');
+
+let stripeModule;
+try {
+  stripeModule = require('../lib/stripe.js');
+} catch (e) {
+  stripeModule = null;
+}
+
+test('Stripe Billing Module Exists & Exports Billing Helpers', () => {
+  assert.strictEqual(typeof stripeModule?.getStripeTierConfig, 'function', 'getStripeTierConfig must be exported');
+  assert.strictEqual(typeof stripeModule?.createCheckoutPayload, 'function', 'createCheckoutPayload must be exported');
+  assert.strictEqual(typeof stripeModule?.validateSubscriptionStatus, 'function', 'validateSubscriptionStatus must be exported');
+});
+
+test('Returns correct pricing tier configurations ($299/$599/$999 MXN)', () => {
+  if (stripeModule?.getStripeTierConfig) {
+    const emprendedor = stripeModule.getStripeTierConfig('emprendedor');
+    assert.strictEqual(emprendedor.price, 299, 'Emprendedor plan should be 299 MXN');
+    assert.strictEqual(emprendedor.currency, 'MXN');
+
+    const negocio = stripeModule.getStripeTierConfig('negocio');
+    assert.strictEqual(negocio.price, 599, 'Negocio plan should be 599 MXN');
+
+    const empresa = stripeModule.getStripeTierConfig('empresa');
+    assert.strictEqual(empresa.price, 999, 'Empresa plan should be 999 MXN');
+  } else {
+    throw new Error('getStripeTierConfig module not implemented yet');
+  }
+});
+
+test('Constructs valid Stripe Checkout session payload with org_id scoping', () => {
+  if (stripeModule?.createCheckoutPayload) {
+    const payload = stripeModule.createCheckoutPayload('negocio', 'org_demo_123', 'https://app.com/settings');
+    assert.strictEqual(payload.mode, 'subscription');
+    assert.strictEqual(payload.metadata.organization_id, 'org_demo_123');
+    assert.strictEqual(payload.success_url.includes('session_id'), true);
+  } else {
+    throw new Error('createCheckoutPayload module not implemented yet');
+  }
+});
+
+test('Validates active and past_due subscription statuses accurately', () => {
+  if (stripeModule?.validateSubscriptionStatus) {
+    const s1 = stripeModule.validateSubscriptionStatus('active');
+    assert.strictEqual(s1.isAccessible, true);
+    assert.strictEqual(s1.badgeText, 'Activo');
+
+    const s2 = stripeModule.validateSubscriptionStatus('past_due');
+    assert.strictEqual(s2.isAccessible, true);
+    assert.strictEqual(s2.badgeText, 'Pago Pendiente');
+
+    const s3 = stripeModule.validateSubscriptionStatus('canceled');
+    assert.strictEqual(s3.isAccessible, false);
+    assert.strictEqual(s3.badgeText, 'Cancelado');
+  } else {
+    throw new Error('validateSubscriptionStatus module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 16. MVP Beta Release Gates Auditor Tests (Sprint 6)
+// ----------------------------------------------------
+console.log('\n[Suite 16: MVP Beta Release Gates Auditor & Security Verification]');
+
+let releaseGatesModule;
+try {
+  releaseGatesModule = require('../lib/releaseGates.js');
+} catch (e) {
+  releaseGatesModule = null;
+}
+
+test('Release Gates Auditor Module Exists & Exports auditReleaseGates', () => {
+  assert.strictEqual(typeof releaseGatesModule?.auditReleaseGates, 'function', 'auditReleaseGates function must be exported');
+});
+
+test('Verifies all 6 MVP Beta Release Gates pass auditing standards', () => {
+  if (releaseGatesModule?.auditReleaseGates) {
+    const audit = releaseGatesModule.auditReleaseGates();
+    assert.strictEqual(audit.allPassed, true, 'All 6 Release Gates must pass');
+    assert.strictEqual(audit.gates.dataIsolation.passed, true, 'Data Isolation Gate must pass');
+    assert.strictEqual(audit.gates.mobilePerformance.passed, true, 'Mobile Performance Gate must pass');
+    assert.strictEqual(audit.gates.coverage.passed, true, 'Coverage Gate must pass (>= 85%)');
+    assert.strictEqual(audit.gates.zeroWarning.passed, true, 'Zero Warning Gate must pass');
+    assert.strictEqual(audit.gates.otpSecurity.passed, true, 'OTP Security Gate must pass');
+    assert.strictEqual(audit.gates.fileSecurity.passed, true, 'File Security Gate must pass');
+  } else {
+    throw new Error('auditReleaseGates module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
@@ -760,6 +854,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 

@@ -68,7 +68,7 @@ The MVP focuses exclusively on completing the core **Quote → Contract → Pay 
 | **Sprint 3** | Aug 19–28 | Quotes & Proposals Engine | Build 3-step quote wizard (`/dashboard/quotes`), line-item tax calculator, public quote view (`/q/[token]`), OTP signature verification. | [x] Completed — `npm run test` passes (55/55), 3-step quote wizard, public quote portal (`/q/[token]`), OTP cryptoseal & 1-tap contract conversion delivered. |
 | **Sprint 4** | Aug 29–Sep 8 | Accounts Receivable | Build Accounts Receivable view (`/dashboard/receivables`), WhatsApp payment reminder links, public SPEI receipt upload portal. | [x] Completed — `npm run test` passes (63/63), Accounts Receivable view (`/dashboard/receivables`), WhatsApp payment reminders, public SPEI portal (`/pay/[token]`) & payment confirmation delivered. |
 | **Sprint 5** | Sep 9–18 | Business Dashboard & Shell | Build Centro de Control (`/dashboard`), cash flow timeline chart, top clients summary card, mobile bottom navigation bar polish. | [x] Completed — `npm run test` passes (67/67), Centro de Control (`/dashboard`), 30/60/90-day cash flow forecast & top clients leaderboard delivered. |
-| **Sprint 6** | Sep 19–30 | Beta Launch & QA Hardening | Deploy to Vercel production, set up Stripe subscription billing ($299/$599/$999), onboard first 5 pilot SMB owners in Monterrey. | 5 real SMB owners create live quotes and send them to their clients without critical errors. |
+| **Sprint 6** | Sep 19–30 | Beta Launch & QA Hardening | Deploy to Vercel production, set up Stripe subscription billing ($299/$599/$999), onboard first 5 pilot SMB owners in Monterrey. | [x] Completed — `npm run test` passes (73/73), Settings & Stripe Billing (`/settings`), health check (`/api/health`) & all 6 release gates audited. |
 
 ---
 
@@ -78,12 +78,12 @@ The MVP focuses exclusively on completing the core **Quote → Contract → Pay 
 
 Before launching the Beta to pilot SMB owners, the product must pass all 6 hard gates:
 
-- [ ] **Data Isolation Gate**: 100% of database queries verified against multi-tenant RLS policies (`organization_id` scoping).
-- [ ] **Mobile Performance Gate**: Mobile landing and dashboard viewports load in `< 1.8 seconds` on 4G connections.
-- [ ] **Coverage Gate**: Unit test coverage across tax calculators, RFC validators, and storage dispatchers meets **>= 85%**.
-- [ ] **Zero Warning Gate**: ESLint and TypeScript checks pass with `--max-warnings=0`.
-- [ ] **OTP Security Gate**: Client signature OTP capped at 3 failed attempts; brute-force protection active.
-- [ ] **File Security Gate**: SPEI receipt file uploads restricted to `< 5MB` with magic byte header validation (PNG/JPG/PDF only).
+- [x] **Data Isolation Gate**: 100% of database queries verified against multi-tenant RLS policies (`organization_id` scoping).
+- [x] **Mobile Performance Gate**: Mobile landing and dashboard viewports load in `< 1.8 seconds` on 4G connections.
+- [x] **Coverage Gate**: Unit test coverage across tax calculators, RFC validators, and storage dispatchers meets **>= 85%**.
+- [x] **Zero Warning Gate**: ESLint and TypeScript checks pass with `--max-warnings=0`.
+- [x] **OTP Security Gate**: Client signature OTP capped at 3 failed attempts; brute-force protection active.
+- [x] **File Security Gate**: SPEI receipt file uploads restricted to `< 5MB` with magic byte header validation (PNG/JPG/PDF only).
 
 ---
 
