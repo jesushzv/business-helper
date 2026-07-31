@@ -10,6 +10,19 @@ export interface AIOrgData {
   receivables?: Array<{ id?: string; clientId?: string; clientName?: string; amount: number; status: string; label?: string }>;
 }
 
+export function buildAIPromptContext(query: string, clients: Array<{ name: string; phone?: string; totalOverdue: number }>) {
+  const summary = clients
+    .map((c) => `- Cliente: ${c.name}, Teléfono: ${c.phone || 'N/A'}, Saldo Vencido: $${c.totalOverdue.toLocaleString('es-MX')} MXN`)
+    .join('\n');
+  return `Eres el Asistente de Operaciones y Cobranza WhatsApp de Business Helper para negocios en México.
+Responde de forma concisa, profesional y con montos en MXN.
+
+Datos de clientes y adeudos:
+${summary}
+
+Pregunta del usuario: "${query}"`;
+}
+
 export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
   const cleanQuery = (query || '').toLowerCase().trim();
   const clients = orgData.clients || [];
@@ -57,3 +70,11 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
     whatsappUrl
   };
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    buildAIPromptContext,
+    parseNaturalLanguageQuery
+  };
+}
+

@@ -9,26 +9,26 @@
 ## 01 Technical Code Implementation (Pre-Launch Engineering)
 
 ### 🔐 Authentication & Access Control (P0)
-- [x] **Auth Pages & UI**: Created `/login` (`app/(auth)/login/page.tsx`), `/register` (`app/(auth)/register/page.tsx`), and responsive mobile auth flows.
-- [x] **Root Middleware Route Guard**: Implemented root `middleware.ts` to inspect Supabase session cookies, protect all `/dashboard/*` and `/onboarding` routes, and redirect unauthenticated traffic to `/login`.
-- [x] **Remove Mock Auth Defaults**: Updated backend API routes (`app/api/*`) to enforce valid authenticated sessions (`supabase.auth.getUser()`).
+- [ ] **Auth Pages & UI**: Create `/login` (`app/(auth)/login/page.tsx`), `/register` (`app/(auth)/register/page.tsx`), and password reset flows using `@supabase/ssr`.
+- [ ] **Root Middleware Route Guard**: Implement root `middleware.ts` to inspect Supabase session cookies, protect all `/dashboard/*` and `/onboarding` routes, and redirect unauthenticated traffic to `/login`.
+- [ ] **Remove Mock Auth Defaults**: Remove all fallback defaults to `'org-demo-1'` and `'user-demo-1'` in API routes (`app/api/*`) and require valid authenticated sessions (`supabase.auth.getUser()`).
 
 ### 🤖 Real AI Integration (P1)
-- [x] **LLM Provider API Setup**: Integrated `@google/genai` (Gemini API) support in `lib/whatsappAI.ts` / `app/api/assistant/route.ts`.
-- [x] **Live RAG & DB Context Ingestion**: Formatted live Supabase client receivable balances into the AI system prompt (`buildAIPromptContext`) for real-time structured answers and WhatsApp action links.
+- [ ] **LLM Provider API Setup**: Integrate `@google/genai` (Gemini API) or `@ai-sdk/google` in `lib/whatsappAI.ts` / `app/api/assistant/route.ts`.
+- [ ] **Live RAG & DB Context Ingestion**: Feed real Supabase client receivable balances into the AI system prompt so queries like *"¿Cuánto me debe Grupo Salinas?"* return real-time database totals rather than hardcoded demo strings.
 
 ### 🧾 SAT CFDI 4.0 PAC Invoicing (P0)
-- [x] **Live Facturapi PAC Client**: Added `issueInvoiceClient()` in `lib/facturapi.ts` making live HTTP POST requests to `https://www.facturapi.io/v1/invoices` using `FACTURAPI_SECRET_KEY` with graceful fallback.
-- [x] **XML & PDF Storage**: Configured `app/api/invoices/issue/route.ts` to persist returned official XML and PDF URLs in the `milestones` table.
+- [ ] **Live Facturapi PAC Client**: Replace `simulateInvoiceStamping()` in `lib/facturapi.ts` with real HTTP POST requests to `https://www.facturapi.io/v1/invoices` using `FACTURAPI_SECRET_KEY`.
+- [ ] **XML & PDF Storage**: Store official XML (`legal_name.xml`) and PDF file URLs returned by Facturapi in the `milestones` and `invoices` database tables.
 
 ### 💳 Stripe Subscription Billing & Webhooks (P0)
-- [x] **Stripe Node SDK Integration**: Updated `lib/stripe.ts` and `app/api/stripe/checkout/route.ts` to create live Stripe Checkout sessions with mapped price IDs ($299 MXN Emprendedor, $599 MXN Negocio, $999 MXN Empresa).
-- [x] **Stripe Webhook Listener**: Implemented `app/api/stripe/webhook/route.ts` handling `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted` to dynamically update `organizations.subscription_tier` and `subscription_status`.
+- [ ] **Stripe Node SDK Integration**: Install `stripe` package and call `stripe.checkout.sessions.create()` in `app/api/stripe/checkout/route.ts` with real price IDs ($299 MXN Emprendedor, $599 MXN Negocio, $999 MXN Empresa).
+- [ ] **Stripe Webhook Listener**: Implement `app/api/stripe/webhook/route.ts` handling `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted` to dynamically update `organizations.subscription_tier` and `subscription_status`.
 
 ### 💾 Supabase Database & Storage Production Setup (P0)
-- [x] **Database Migration Execution**: Migrations prepared (`supabase/migrations/`) covering all 9 multi-tenant RLS tables.
-- [x] **Supabase Storage Bucket for SPEI Receipts**: Implemented `app/api/receivables/[id]/upload/route.ts` supporting Supabase Storage bucket (`spei-vouchers`).
-- [x] **Quality Gate Compliance**: 105/105 tests passing in `scripts/test-runner.js` with 0 TypeScript warnings (`npm run typecheck`).
+- [ ] **Database Migration Execution**: Run `npx supabase db push` against the live production Supabase instance to create all 9 multi-tenant RLS tables.
+- [ ] **Supabase Storage Bucket for SPEI Receipts**: Configure a private/authenticated Supabase Storage bucket (`spei-vouchers`) and update `app/api/receivables/[id]/upload/route.ts` to store client-uploaded SPEI transfer receipts.
+- [ ] **Disable LocalStorage Fallback in Production**: Ensure client state hooks (`useQuotes`, `useClients`, `useReceivables`) strictly query backend APIs in production mode.
 
 ---
 
@@ -37,7 +37,7 @@
 ### Product & Engineering Readiness
 - [x] **P0 Core Features Complete**: Quote Creation, Accounts Receivable Kanban, Client CRM, and SPEI Receipt Uploads fully built.
 - [x] **RLS Multi-Tenant Audit**: All 9 database tables verified with active RLS policies (`organization_id` scoping).
-- [x] **Test Gate Compliance**: Code coverage exceeds **85%**; Playwright E2E happy path tests pass without retries (`105/105` unit/integration tests passing).
+- [x] **Test Gate Compliance**: Code coverage exceeds **85%**; Playwright E2E happy path tests pass without retries (`97/97` unit/integration tests passing).
 - [x] **Security Sanitization**: File upload magic byte validation active; brute-force OTP lockout tested (3 failed attempts).
 - [ ] **Stripe Subscription Billing**: Stripe Products & Prices ($299, $599, $999 MXN) configured in Sandbox mode.
 
@@ -87,3 +87,4 @@
 ### Month 1 Review
 - [ ] Evaluate 30-day targets vs. actual results (Target: 50 Signups → 15 Paid Accounts).
 - [ ] Review Accountant Partner Program feedback and refine the 1-Click Monthly ZIP Export tool.
+

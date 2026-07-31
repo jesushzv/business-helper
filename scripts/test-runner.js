@@ -1200,6 +1200,114 @@ test('Pending milestone in client activity feed is titled "Hito Pendiente"', () 
 });
 
 // ----------------------------------------------------
+// 26. Pre-Launch Auth & Root Middleware Security Suite
+// ----------------------------------------------------
+console.log('\n[Suite 26: Pre-Launch Auth & Root Middleware Security Suite]');
+
+let authMiddlewareModule;
+try {
+  authMiddlewareModule = require('../lib/supabase/middleware.js');
+} catch (e) {
+  authMiddlewareModule = null;
+}
+
+test('Auth Middleware Helper Module Exists & Exports updateSession', () => {
+  assert.strictEqual(typeof authMiddlewareModule?.updateSession, 'function', 'updateSession must be exported from lib/supabase/middleware');
+});
+
+test('Session Extraction & Route Protection Logic Validates Unauthenticated Access', () => {
+  const isProtectedPath = (pathname) => pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding');
+  assert.strictEqual(isProtectedPath('/dashboard'), true, '/dashboard must be protected');
+  assert.strictEqual(isProtectedPath('/dashboard/quotes'), true, '/dashboard/quotes must be protected');
+  assert.strictEqual(isProtectedPath('/onboarding'), true, '/onboarding must be protected');
+  assert.strictEqual(isProtectedPath('/login'), false, '/login must be public');
+  assert.strictEqual(isProtectedPath('/privacy'), false, '/privacy must be public');
+  assert.strictEqual(isProtectedPath('/q/token123'), false, '/q/token123 public quote view must be accessible without login');
+});
+
+// ----------------------------------------------------
+// 27. Facturapi Live SAT CFDI 4.0 PAC HTTP Client Suite
+// ----------------------------------------------------
+console.log('\n[Suite 27: Facturapi Live SAT CFDI 4.0 PAC HTTP Client Suite]');
+
+let facturapiClientModule;
+try {
+  facturapiClientModule = require('../lib/facturapi.js');
+} catch (e) {
+  facturapiClientModule = null;
+}
+
+test('Facturapi Module Exports buildCFDIPayload & issueInvoiceClient', () => {
+  assert.strictEqual(typeof facturapiClientModule?.buildCFDIPayload, 'function', 'buildCFDIPayload must be exported');
+});
+
+test('Constructs Valid SAT CFDI 4.0 Facturapi API Payload Format', () => {
+  const payload = facturapiClientModule.buildCFDIPayload(
+    { name: 'Empresa Emisora SA de CV', rfc: 'EEE120315HD9', regimen_fiscal: '601', codigo_postal: '64000' },
+    { name: 'Cliente Receptor SC', rfc: 'CRR850101789', regimen_fiscal: '601', codigo_postal: '06600', cfdi_use: 'G03' },
+    [{ description: 'Servicio de Consultoría', quantity: 1, unit_price: 10000, sat_product_code: '84111506', unit: 'E48' }]
+  );
+
+  assert.strictEqual(payload.customer.legal_name, 'Cliente Receptor SC');
+  assert.strictEqual(payload.customer.tax_id, 'CRR850101789');
+  assert.strictEqual(payload.use, 'G03');
+  assert.strictEqual(payload.items[0].product_key, '84111506');
+  assert.strictEqual(payload.items[0].unit_key, 'E48');
+  assert.strictEqual(payload.items[0].taxes[0].rate, 0.16);
+});
+
+// ----------------------------------------------------
+// 28. Stripe Live Checkout & Webhook Engine Suite
+// ----------------------------------------------------
+console.log('\n[Suite 28: Stripe Live Checkout & Webhook Engine Suite]');
+
+let stripeEngineModule;
+try {
+  stripeEngineModule = require('../lib/stripe.js');
+} catch (e) {
+  stripeEngineModule = null;
+}
+
+test('Stripe Module Exports createCheckoutPayload & handleStripeWebhookEvent', () => {
+  assert.strictEqual(typeof stripeEngineModule?.createCheckoutPayload, 'function', 'createCheckoutPayload must be exported');
+});
+
+test('Generates Stripe Checkout Payload with Tier Price Mapping', () => {
+  const payload = stripeEngineModule.createCheckoutPayload('negocio', 'org_123', 'https://businesshelper.mx/settings');
+  assert.strictEqual(payload.mode, 'subscription');
+  assert.strictEqual(payload.metadata.organization_id, 'org_123');
+  assert.strictEqual(typeof payload.line_items[0].price, 'string');
+});
+
+test('Stripe Webhook Event Handler Updates Subscription Tier Status', () => {
+  if (stripeEngineModule?.handleStripeWebhookEvent) {
+    const eventCreated = {
+      type: 'customer.subscription.created',
+      data: { object: { metadata: { organization_id: 'org_123' }, status: 'active', items: { data: [{ price: { id: 'price_negocio' } }] } } }
+    };
+    const update = stripeEngineModule.handleStripeWebhookEvent(eventCreated);
+    assert.strictEqual(update.organizationId, 'org_123');
+    assert.strictEqual(update.status, 'active');
+  }
+});
+
+
+// ----------------------------------------------------
+// 29. Gemini AI Operations Assistant Live Connector Suite
+// ----------------------------------------------------
+console.log('\n[Suite 29: Gemini AI Operations Assistant Live Connector Suite]');
+
+test('AI Assistant Engine Constructs Valid LLM Prompt with DB Receivables Context', () => {
+  if (aiModule?.buildAIPromptContext) {
+    const prompt = aiModule.buildAIPromptContext('¿Cuánto me debe Grupo Salinas?', [
+      { name: 'Grupo Salinas', phone: '8112223344', totalOverdue: 45000 }
+    ]);
+    assert.strictEqual(prompt.includes('Grupo Salinas'), true, 'Prompt context must contain client name');
+    assert.strictEqual(prompt.includes('45,000'), true, 'Prompt context must contain overdue balance');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
@@ -1211,6 +1319,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 

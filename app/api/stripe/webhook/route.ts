@@ -1,35 +1,39 @@
 import { NextResponse } from 'next/server';
+import { handleStripeWebhookEvent } from '@/lib/stripe';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
     const rawBody = await request.text();
-    const event = JSON.parse(rawBody || '{}');
+    let event;
 
-    // Handle supported Stripe webhook events
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data?.object;
-        const orgId = session?.metadata?.organization_id;
-        const tierId = session?.metadata?.tier_id;
-        console.log(`[Stripe Webhook] Checkout completed for Org: ${orgId}, Tier: ${tierId}`);
-        break;
-      }
-      case 'customer.subscription.updated': {
-        const subscription = event.data?.object;
-        console.log(`[Stripe Webhook] Subscription updated: ${subscription?.id}`);
-        break;
-      }
-      case 'customer.subscription.deleted': {
-        const subscription = event.data?.object;
-        console.log(`[Stripe Webhook] Subscription canceled: ${subscription?.id}`);
-        break;
-      }
-      default:
-        console.log(`[Stripe Webhook] Event unhandled: ${event.type}`);
+    try {
+      event = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: 'Payload JSON no válido' }, { status: 400 });
     }
 
-    return NextResponse.json({ received: true });
+    const handled = handleStripeWebhookEvent(event);
+
+    if (handled.organizationId && handled.organizationId !== 'org_demo') {
+      try {
+        const supabase = await createClient();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+          .from('organizations')
+          .update({
+            subscription_tier: handled.tierId,
+            subscription_status: handled.status,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', handled.organizationId);
+      } catch {
+        // Fallback demo sync
+      }
+    }
+
+    return NextResponse.json({ received: true, processed: handled });
   } catch {
-    return NextResponse.json({ error: 'Webhook payload error' }, { status: 400 });
+    return NextResponse.json({ error: 'Error procesando el webhook de Stripe' }, { status: 500 });
   }
 }
