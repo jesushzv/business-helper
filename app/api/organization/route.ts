@@ -1,7 +1,20 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 
 export async function GET() {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({
+      organization: {
+        id: 'org-demo-1',
+        name: 'Distribuidora del Norte',
+        rfc: 'DNO850101HD9',
+        regimen_fiscal: '601',
+        codigo_postal: '64000',
+        industry: 'construction',
+      },
+    });
+  }
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { validateRFC } from '@/lib/rfcValidator';
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json(
+      { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
+      { status: 404 }
+    );
+  }
+
   try {
     const { id } = await params;
     const supabase = await createClient();

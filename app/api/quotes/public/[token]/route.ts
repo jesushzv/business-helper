@@ -1,11 +1,39 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { verifyOTP, generateDigitalSeal } from '@/lib/otpSeal';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  if (!isSupabaseConfigured()) {
+    const { token } = await params;
+    return NextResponse.json({
+      id: 'quote-public-1',
+      organization_id: 'org-demo-1',
+      client_id: 'client-demo-1',
+      created_by: 'user-demo-1',
+      title: 'Propuesta Comercial — Suministro de Materiales de Obra',
+      line_items: [
+        { description: 'Tonelada Cemento CPO 40', quantity: 5, unit_price: 3600, sat_code: '30111500', unit: 'TON' },
+        { description: 'Tonelada Varilla 3/8"', quantity: 3, unit_price: 22000, sat_code: '30101800', unit: 'TON' },
+      ],
+      subtotal_amount: 84000,
+      iva_amount: 13440,
+      retencion_isr_amount: 0,
+      retencion_iva_amount: 0,
+      total_amount: 97440,
+      currency: 'MXN',
+      status: 'sent',
+      valid_until: '2026-08-30',
+      notes: 'Entrega directa en obra en 48 horas hábiles tras recibir anticipo del 50%.',
+      public_token: token || 'demo-token',
+      converted_contract_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+  }
+
   try {
     const { token } = await params;
     const supabase = await createClient();

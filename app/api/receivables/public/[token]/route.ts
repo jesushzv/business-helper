@@ -1,10 +1,28 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({
+      milestone: {
+        id: 'milestone-demo-1',
+        label: 'Anticipo 50% — Suministro Cemento',
+        amount: 48720,
+        due_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        status: 'pending',
+        contract_title: 'Suministro de Cemento y Varilla',
+        client_name: 'Distribuidora del Norte S.A. de C.V.',
+        org_name: 'Business Helper Demo',
+        bank_name: 'BBVA México',
+        clabe: '012180001234567890',
+        beneficiary: 'Distribuidora del Norte S.A. de C.V.',
+      },
+    });
+  }
+
   try {
     const { token } = await params;
     const supabase = await createClient();

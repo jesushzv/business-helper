@@ -8,6 +8,16 @@ export async function updateSession(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-url.supabase.co';
   const isPlaceholderUrl = !process.env.NEXT_PUBLIC_SUPABASE_URL || supabaseUrl.includes('placeholder');
+  const isDemoQuery = request.nextUrl.searchParams.get('demo') === 'true';
+  const isDemoCookie = request.cookies.get('demo_mode')?.value === 'true';
+  const isDemoMode = isPlaceholderUrl || isDemoQuery || isDemoCookie;
+
+  const pathname = request.nextUrl.pathname;
+
+  // In demo mode or unconfigured Supabase, bypass remote auth network call immediately
+  if (isDemoMode) {
+    return supabaseResponse;
+  }
 
   const supabase = createServerClient(
     supabaseUrl,
@@ -32,12 +42,7 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-  const isDemoQuery = request.nextUrl.searchParams.get('demo') === 'true';
-  const isDemoCookie = request.cookies.get('demo_mode')?.value === 'true';
-  const isDemoMode = isPlaceholderUrl || isDemoQuery || isDemoCookie;
-
-  if (!user && !isDemoMode && (pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding'))) {
+  if (!user && (pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding'))) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
@@ -49,4 +54,5 @@ export async function updateSession(request: NextRequest) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { updateSession };
 }
+
 
