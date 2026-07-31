@@ -87,7 +87,24 @@ Before launching the Beta to pilot SMB owners, the product must pass all 6 hard 
 
 ---
 
-## 05 Post-MVP Feature Roadmap
+## 05 Product Gap Analysis & Prioritization
+
+The following strategic gaps have been identified and prioritized based on competitive benchmarks and customer friction analysis:
+
+### ⚡ Immediate MVP Launch Gaps (Phase 1.5 / Pre-Launch Polish)
+1. **SAT CFDI 4.0 Electronic Invoicing (Facturapi PAC)**: B2B clients in Mexico frequently withhold payment until a valid CFDI invoice is issued. Accelerate Facturapi 1-click PAC stamping so accepted quotes/receivables can generate certified XML+PDF bundles.
+2. **1-Click Accountant Export Package (ZIP/CSV)**: External accountants (*contadores*) are key B2B influencers in Mexico. Provide a 1-click monthly export containing sales totals, XMLs, PDFs, client RFCs, and uploaded SPEI vouchers to turn accountants into resellers.
+3. **Pre-Saved Product & Service Catalog**: Allow saving standard products/services with SAT unit keys (`E48`) and product codes (`84111506`) to speed up quote creation from minutes to seconds.
+4. **Outbound Automated WhatsApp API (Twilio / Meta)**: Extend `wa.me/` Click-to-Chat deep links with automated outbound WhatsApp Business API broadcasts for scheduled payment reminders (e.g. 3 days before due date).
+
+### 🚀 Post-MVP Expansion Gaps (Phase 2 & 3 Roadmap)
+1. **Multi-User Role-Based Access Control (RBAC)** (Phase 2): Grant `Owner`, `Manager`, `Member`, and `Accountant` permissions for multi-employee SMB teams.
+2. **Inventory Stock Tracking & Alerts** (Phase 3): Basic stock tracking and low-stock alerts for product-based SMBs and distributors.
+3. **WhatsApp AI Operations Assistant** (Phase 3): Natural language query and action handler on WhatsApp (*"¿Cuánto me debe Grupo Salinas?"*).
+
+---
+
+## 06 Post-MVP Feature Roadmap
 
 ### Phase 2: Invoicing & Team Roles (Weeks 9–14 — Q4 2026)
 

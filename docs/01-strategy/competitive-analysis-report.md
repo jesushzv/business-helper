@@ -153,10 +153,18 @@ Friction                     │                   10-Min Setup
 3. **Insight**: Odoo's total cost of ownership ($2,000+ USD implementation) scares away 80% of Mexican SMBs.
    * **Implication**: Frame Business Helper in marketing as *"El Odoo de 10 minutos para México: Sin consultores, sin cobros sorpresa."*
 
-### Vulnerabilities to Address
+### Vulnerabilities & Product Gap Roadmap
 
-* **Lack of Inventory (Phase 1–2)**: Competitors like Odoo and Alegra have full inventory tracking.
-  * *Action*: Clearly position Business Helper in Phase 1 for **service businesses, distributors with fixed catalogs, and agencies**. Add basic product line-item catalogs in Phase 1, and full stock tracking in Phase 3.
+#### ⚡ Immediate MVP Launch Gaps (High Impact / Pre-Launch Polish)
+* **SAT CFDI 4.0 Stamping**: Mexican B2B clients frequently withhold payment until an invoice is issued. Facturapi PAC integration is prioritized to enable 1-click CFDI generation from accepted quotes.
+* **1-Click Accountant Export (ZIP/CSV)**: Accountants are the key SMB advisors in Mexico. Providing a 1-click monthly export of sales, XMLs, PDFs, and SPEI receipts creates an accountant reseller loop.
+* **Pre-Saved Product/Service Catalog**: Saving catalog items with SAT unit keys (`E48`) and product codes (`84111506`) accelerates quote creation.
+* **Outbound Automated WhatsApp API**: Upgrading from `wa.me/` Click-to-Chat links to automated Twilio/Meta WhatsApp API reminders for scheduled follow-ups.
+
+#### 🚀 Post-MVP Expansion Gaps (Phase 2 & 3 Roadmap)
+* **Multi-User RBAC (Phase 2)**: Role-based permissions (`Owner`, `Manager`, `Member`, `Accountant`) for multi-employee SMBs.
+* **Basic Inventory & Stock Alerts (Phase 3)**: Basic stock tracking and low-stock alerts for product distributors.
+* **WhatsApp AI Operations Assistant (Phase 3)**: Natural language queries (*"¿Cuánto me debe Grupo Salinas?"*) via WhatsApp.
 
 ### Competitive Response Plan
 
