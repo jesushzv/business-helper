@@ -106,7 +106,7 @@ export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients }) =>
                       </a>
                     )}
                     <Link
-                      href={`/dashboard/clients/${client.id}`}
+                      href={`/clients/${client.id}`}
                       className="flex min-h-[48px] items-center rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-xs hover:bg-indigo-50 hover:text-indigo-600"
                     >
                       Perfil

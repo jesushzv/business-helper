@@ -115,7 +115,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         {/* Navigation Breadcrumb */}
         <div className="mb-6 flex items-center justify-between">
           <Link
-            href="/dashboard/clients"
+            href="/clients"
             className="flex min-h-[48px] items-center gap-2 text-xs font-bold text-indigo-600 transition-colors hover:text-indigo-800"
           >
             <ArrowLeft className="h-4 w-4" />
