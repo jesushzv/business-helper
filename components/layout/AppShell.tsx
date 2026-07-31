@@ -48,7 +48,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
                 href={item.href}
                 className={`flex min-h-[48px] items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
                   isActive
-                    ? 'bg-indigo-50 text-indigo-700 shadow-xs'
+                    ? 'bg-indigo-50 text-indigo-700 shadow-xs font-bold'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
@@ -69,11 +69,11 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       </aside>
 
       {/* Main Content Area */}
-      <div className="pb-20 md:pl-64 md:pb-0">
+      <div className="pb-24 md:pl-64 md:pb-0">
         <main className="mx-auto min-h-screen max-w-7xl">{children}</main>
       </div>
 
-      {/* Mobile Bottom Navigation Bar (Don Roberto constraint: >= 48px touch targets) */}
+      {/* Mobile Bottom Navigation Bar (Don Roberto constraint: >= 48px touch targets, clear active indicators) */}
       <div className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-gray-200 bg-white/95 px-2 backdrop-blur-md md:hidden">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -82,12 +82,15 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex min-h-[48px] min-w-[56px] flex-col items-center justify-center gap-1 rounded-xl p-1 text-center transition-all active:scale-95 ${
-                isActive ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-900'
+              className={`relative flex min-h-[48px] min-w-[56px] flex-col items-center justify-center gap-1 rounded-xl p-1 text-center transition-all active:scale-95 ${
+                isActive ? 'text-indigo-600 font-extrabold' : 'text-gray-500 hover:text-gray-900 font-medium'
               }`}
             >
-              <Icon className="h-5 w-5" />
-              <span className="text-[10px] font-bold leading-none">{item.label}</span>
+              {isActive && (
+                <span className="absolute top-0 h-1 w-8 rounded-full bg-indigo-600" />
+              )}
+              <Icon className={`h-5 w-5 ${isActive ? 'text-indigo-600' : 'text-gray-500'}`} />
+              <span className="text-[10px] leading-none">{item.label}</span>
             </Link>
           );
         })}

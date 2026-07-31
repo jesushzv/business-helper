@@ -657,6 +657,98 @@ test('Validates SPEI receipt file size (<5MB) and mime type (PNG/JPG/PDF)', () =
 });
 
 // ----------------------------------------------------
+// 14. Business Dashboard & Analytics Engine Tests (Sprint 5)
+// ----------------------------------------------------
+console.log('\n[Suite 14: Business Dashboard & Analytics Engine]');
+
+let dashboardAnalytics;
+try {
+  dashboardAnalytics = require('../lib/dashboardAnalytics.js');
+} catch (e) {
+  dashboardAnalytics = null;
+}
+
+test('Dashboard Analytics Module Exists & Exports Analytics Helpers', () => {
+  assert.strictEqual(typeof dashboardAnalytics?.calculateBusinessMetrics, 'function', 'calculateBusinessMetrics must be exported');
+  assert.strictEqual(typeof dashboardAnalytics?.getTopClientsByRevenue, 'function', 'getTopClientsByRevenue must be exported');
+  assert.strictEqual(typeof dashboardAnalytics?.calculateCashFlowForecast, 'function', 'calculateCashFlowForecast must be exported');
+});
+
+test('Aggregates collected revenue, pending receivables, and overdue debt correctly', () => {
+  if (dashboardAnalytics?.calculateBusinessMetrics) {
+    const todayStr = '2026-08-30';
+    const mockMilestones = [
+      { id: 'm1', label: 'Anticipo', amount: 10000, due_date: '2026-08-10', status: 'confirmed' },
+      { id: 'm2', label: 'Entrega 1', amount: 5000, due_date: '2026-08-20', status: 'pending' }, // Overdue
+      { id: 'm3', label: 'Finiquito', amount: 15000, due_date: '2026-09-10', status: 'requested' }, // Upcoming
+    ];
+    const mockQuotes = [
+      { id: 'q1', status: 'accepted', total_amount: 30000 },
+      { id: 'q2', status: 'draft', total_amount: 12000 }
+    ];
+    const mockClients = [{ id: 'c1' }, { id: 'c2' }];
+
+    const metrics = dashboardAnalytics.calculateBusinessMetrics(mockMilestones, mockQuotes, mockClients, todayStr);
+    assert.strictEqual(metrics.collectedRevenue, 10000, 'Collected revenue should be 10000');
+    assert.strictEqual(metrics.pendingReceivables, 20000, 'Pending receivables should be 20000');
+    assert.strictEqual(metrics.overdueDebt, 5000, 'Overdue debt should be 5000');
+    assert.strictEqual(metrics.activeClientsCount, 2, 'Active clients count should be 2');
+    assert.strictEqual(metrics.acceptedQuotesCount, 1, 'Accepted quotes count should be 1');
+  } else {
+    throw new Error('calculateBusinessMetrics module not implemented yet');
+  }
+});
+
+test('Ranks top clients by revenue accurately', () => {
+  if (dashboardAnalytics?.getTopClientsByRevenue) {
+    const mockClients = [
+      { id: 'c1', name: 'Construcciones Maya' },
+      { id: 'c2', name: 'Materiales del Norte' },
+      { id: 'c3', name: 'Servicios Logísticos' }
+    ];
+    const mockMilestones = [
+      { id: 'm1', contract_id: 'ct1', client_id: 'c1', amount: 20000, status: 'confirmed' },
+      { id: 'm2', contract_id: 'ct1', client_id: 'c1', amount: 15000, status: 'confirmed' },
+      { id: 'm3', contract_id: 'ct2', client_id: 'c2', amount: 10000, status: 'confirmed' },
+      { id: 'm4', contract_id: 'ct3', client_id: 'c3', amount: 50000, status: 'confirmed' },
+    ];
+
+    const topClients = dashboardAnalytics.getTopClientsByRevenue(mockMilestones, mockClients, 2);
+    assert.strictEqual(topClients.length, 2, 'Should return top 2 clients');
+    assert.strictEqual(topClients[0].id, 'c3', 'Client c3 should be rank 1 with 50000 revenue');
+    assert.strictEqual(topClients[0].totalRevenue, 50000);
+    assert.strictEqual(topClients[1].id, 'c1', 'Client c1 should be rank 2 with 35000 revenue');
+    assert.strictEqual(topClients[1].totalRevenue, 35000);
+  } else {
+    throw new Error('getTopClientsByRevenue module not implemented yet');
+  }
+});
+
+test('Calculates 30/60/90-day cash flow forecast timeline accurately', () => {
+  if (dashboardAnalytics?.calculateCashFlowForecast) {
+    const refDate = '2026-08-30';
+    const mockMilestones = [
+      { id: 'm1', amount: 10000, due_date: '2026-09-10', status: 'pending' }, // 11 days (30d bucket)
+      { id: 'm2', amount: 20000, due_date: '2026-10-15', status: 'requested' }, // 46 days (60d bucket)
+      { id: 'm3', amount: 15000, due_date: '2026-11-20', status: 'pending' }, // 82 days (90d bucket)
+      { id: 'm4', amount: 5000, due_date: '2026-08-15', status: 'pending' }, // Past due, excluded from forward projection
+      { id: 'm5', amount: 8000, due_date: '2026-09-05', status: 'confirmed' } // Confirmed, excluded from pending forecast
+    ];
+
+    const forecast = dashboardAnalytics.calculateCashFlowForecast(mockMilestones, refDate);
+    assert.strictEqual(forecast.days30.amount, 10000, '30-day forecast should be 10000');
+    assert.strictEqual(forecast.days30.count, 1);
+    assert.strictEqual(forecast.days60.amount, 20000, '60-day forecast should be 20000');
+    assert.strictEqual(forecast.days60.count, 1);
+    assert.strictEqual(forecast.days90.amount, 15000, '90-day forecast should be 15000');
+    assert.strictEqual(forecast.days90.count, 1);
+    assert.strictEqual(forecast.totalForecast, 45000, 'Total 90-day forecast should be 45000');
+  } else {
+    throw new Error('calculateCashFlowForecast module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
@@ -668,5 +760,6 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 

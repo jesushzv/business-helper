@@ -1,61 +1,61 @@
-# Feature Implementation Spec: Sprint 4 — Accounts Receivable & SPEI Tracking
+# Feature Implementation Spec: Sprint 5 — Business Dashboard & Analytics ("Centro de Control")
 
 > **Single-Session AI & Engineering Implementation Spec**
 >
-> A focused specification for executing Sprint 4 of **Business Helper** following the **Everything Claude Code (ECC) 4-Phase Execution Playbook**.
+> A focused specification for executing Sprint 5 of **Business Helper** following the **Everything Claude Code (ECC) 4-Phase Execution Playbook**.
 
 ---
 
 ## 01 Feature Summary
 
-* **Feature Name**: Sprint 4 — Accounts Receivable Dashboard ("Quién me Debe"), WhatsApp Payment Reminders, Public SPEI Receipt Upload Portal & Payment Confirmation Workflow
-* **Target Module**: Accounts Receivable & SPEI Tracking (`/app/(dashboard)/receivables`, `/app/pay/[token]`, `/components/receivables`, `/lib/receivablesCalculator.ts`, `/lib/whatsappReminder.ts`, `/lib/speiValidator.ts`, `/lib/hooks/useReceivables.ts`, `/app/api/receivables`)
+* **Feature Name**: Sprint 5 — Business Dashboard & Analytics ("Centro de Control"), Cash Flow Forecast, Top Clients Ranking & Mobile Bottom Navigation Polish
+* **Target Module**: Business Dashboard (`/app/(dashboard)/dashboard`, `/components/dashboard`, `/lib/dashboardAnalytics.ts`, `/lib/hooks/useDashboardAnalytics.ts`, `/app/api/dashboard/analytics`, `/components/layout/AppShell.tsx`)
 * **Primary User**: Don Roberto ("El Dueño Tradicional") & Lic. Mariana ("La Administradora Eficiente")
-* **Goal**: Deliver the "Quién me Debe" dashboard view (`/dashboard/receivables`), real-time totals for Overdue (*Atrasado*), Due Today (*Vence Hoy*), and Upcoming (*Por Vencer*), pre-filled WhatsApp payment reminder Click-to-Chat links (3 days before, on due date, overdue), zero-login mobile public SPEI receipt upload portal (`/pay/[token]`) with Banxico *Clave de Rastreo* entry, and 1-tap owner payment confirmation workflow.
+* **Goal**: Deliver the "Centro de Control" real-time executive dashboard view (`/dashboard`), providing high-level financial health indicators (Collected Revenue, Pending Receivables, Overdue Debt), top clients by revenue ranking card, 30/60/90-day projected cash flow forecast timeline based on active milestone due dates, dual-mode execution (Demo LocalStorage + Supabase API), and polished mobile bottom navigation.
 
 ### Scope Boundaries
 * **In Scope**:
-  * **"Quién me Debe" Summary Cards (`components/receivables/ReceivablesSummaryCards.tsx`)**: Real-time KPI breakdown for Overdue (*Atrasado*), Due Today (*Vence Hoy*), Upcoming (*Por Vencer*), and Confirmed Paid (*Cobrado*).
-  * **Accounts Receivable Dashboard (`app/(dashboard)/receivables/page.tsx`)**: Mobile-first list view with status filter tabs (`all`, `overdue`, `due_today`, `upcoming`, `marked_paid`, `confirmed`), client search, 1-tap WhatsApp reminder triggers, and 1-tap Payment Confirmation modal triggers.
-  * **WhatsApp Payment Reminders (`lib/whatsappReminder.ts`)**: Pre-filled Click-to-Chat follow-up links customized by status (`upcoming_3d`, `due_today`, `overdue`) including client name, milestone label, amount, due date, and public SPEI upload link (`/pay/[token]`).
-  * **Public SPEI Voucher Upload Portal (`app/pay/[token]/page.tsx`)**: Mobile zero-login web page allowing clients to view milestone amount, bank CLABE transfer details, upload receipt (PNG/JPG/PDF < 5MB), enter Banxico *Clave de Rastreo*, and submit proof.
-  * **Payment Confirmation Workflow (`components/receivables/SpeiConfirmModal.tsx` & `/api/receivables/[id]/confirm`)**: Owner reviews uploaded SPEI receipt, validates transferred amount, and confirms payment in 1 tap, updating milestone status to `confirmed`.
-  * **Core Logic Helpers (`lib/receivablesCalculator.ts`, `lib/whatsappReminder.ts`, `lib/speiValidator.ts`)**:
-    * `calculateReceivablesSummary`: Calculates total overdue, due today, upcoming, and collected amounts.
-    * `generatePaymentReminderLink`: Generates status-aware `wa.me/` links with pre-filled reminder text.
-    * `validateSpeiProof`: Validates file size (<5MB), mime type, and Banxico *Clave de Rastreo* format.
-  * **Custom React Hook (`lib/hooks/useReceivables.ts`)**: Dual-mode state dispatcher (Demo LocalStorage + Supabase `/api/receivables`).
-  * **API Route Handlers (`app/api/receivables/route.ts`, `app/api/receivables/[id]/route.ts`, `app/api/receivables/[id]/confirm/route.ts`, `app/api/receivables/public/[token]/route.ts`)**: Multi-tenant RLS routes for receivables lifecycle and public SPEI upload.
-  * **TDD Unit Test Suite in `scripts/test-runner.js`**: Unit tests for receivables aging calculations, WhatsApp reminder templates, and SPEI proof validators.
+  * **Financial Overview Cards (`components/dashboard/FinancialOverviewCards.tsx`)**: Real-time KPI metrics for Collected Revenue (*Cobrado*), Pending Receivables (*Por Cobrar*), and Overdue Debt (*Deuda Atrasada*).
+  * **Top Clients Ranking Card (`components/dashboard/TopClientsCard.tsx`)**: Leaderboard ranking top clients by total collected revenue and active contracts, complete with 1-tap WhatsApp quick actions.
+  * **Cash Flow Forecast Card (`components/dashboard/CashFlowForecastCard.tsx`)**: Projected 30-day, 60-day, and 90-day cash inflows breakdown calculated from active milestone due dates.
+  * **Centro de Control Page (`app/(dashboard)/dashboard/page.tsx`)**: Executive dashboard layout integrating financial KPIs, cash flow forecast, top clients, and client directory highlights.
+  * **Core Analytics Logic (`lib/dashboardAnalytics.ts` & `lib/dashboardAnalytics.js`)**:
+    * `calculateBusinessMetrics`: Aggregates total collected revenue, pending receivables, overdue debt, and active counts.
+    * `getTopClientsByRevenue`: Calculates revenue breakdown per client and returns sorted top N clients.
+    * `calculateCashFlowForecast`: Computes projected 30/60/90-day cash inflows from active milestones based on a reference date.
+  * **Custom React Hook (`lib/hooks/useDashboardAnalytics.ts`)**: Dual-mode state dispatcher (Demo LocalStorage + Supabase `/api/dashboard/analytics`).
+  * **API Route Handler (`app/api/dashboard/analytics/route.ts`)**: Multi-tenant RLS route for aggregated organization financial metrics.
+  * **Mobile Bottom Navigation Bar Polish (`components/layout/AppShell.tsx`)**: Touch target size verification (>= 48px), active tab visual indicator, and smooth mobile experience.
+  * **TDD Unit Test Suite in `scripts/test-runner.js`**: Unit tests for financial metric aggregations, client revenue ranking, and 30/60/90-day cash flow projections.
 * **Out of Scope**:
-  * Centro de Control main financial dashboard polish (Sprint 5).
   * SAT CFDI 4.0 electronic invoice stamping via Facturapi (Sprint 7).
+  * Multi-user team role permissions (Sprint 8).
 
 ---
 
 ## 02 Acceptance Criteria (P0 / P1 / P2)
 
 ### Must-Have (P0)
-- [ ] **AC 4.1**: Accounts Receivable Dashboard (`/dashboard/receivables`) displays real-time totals for Overdue (*Atrasado*), Due Today (*Vence Hoy*), and Upcoming (*Por Vencer*) with active status filters and client search.
-- [ ] **AC 4.2**: 1-Tap WhatsApp Payment Reminders generate pre-filled `wa.me/` links with status-specific messaging (3 days before, due today, overdue) and public SPEI portal link (`/pay/[token]`).
-- [ ] **AC 4.3**: Public SPEI Upload Portal (`/pay/[token]`) provides zero-login mobile interface displaying bank transfer CLABE details, file upload dropzone (< 5MB), Banxico *Clave de Rastreo* input, and submission feedback.
-- [ ] **AC 4.4**: Payment Confirmation Workflow allows owner to review uploaded SPEI receipt and mark milestone as `confirmed` with 1 tap, updating client health score and audit log.
-- [ ] **AC 4.5**: Core logic helpers `receivablesCalculator.ts`, `whatsappReminder.ts`, and `speiValidator.ts` are 100% unit-tested in `scripts/test-runner.js`.
-- [ ] **AC 4.6**: Multi-tenant `organization_id` security isolation enforced across all receivables API route handlers with dual-mode execution (Demo LocalStorage + Supabase).
-- [ ] **AC 4.7**: Quality gates (`npm run typecheck` and `npm test`) pass with 0 errors and 0 warnings.
+- [ ] **AC 5.1**: Centro de Control dashboard (`/dashboard`) displays real-time financial totals for Collected Revenue (*Cobrado*), Pending Receivables (*Por Cobrar*), and Overdue Debt (*Vencido*).
+- [ ] **AC 5.2**: Top Clients Ranking Card displays top 5 clients sorted by revenue with 1-tap WhatsApp link actions and profile navigation.
+- [ ] **AC 5.3**: Cash Flow Forecast Card displays projected 30-day, 60-day, and 90-day cash inflows derived from pending milestone due dates.
+- [ ] **AC 5.4**: Core analytics logic helpers in `lib/dashboardAnalytics.ts` and `lib/dashboardAnalytics.js` are 100% unit-tested in `scripts/test-runner.js`.
+- [ ] **AC 5.5**: API route handler `app/api/dashboard/analytics/route.ts` enforces `organization_id` multi-tenant security isolation.
+- [ ] **AC 5.6**: AppShell mobile bottom navigation bar enforces >= 48px touch targets and clear active tab indicators.
+- [ ] **AC 5.7**: Quality gates (`npm run typecheck` and `npm test`) pass with 0 errors and 0 warnings.
 
 ### Should-Have (P1)
-- [ ] **AC 4.8**: Empty state graphics for zero overdue receivables.
-- [ ] **AC 4.9**: Mobile responsive design optimized for 375px viewports with touch targets >= 48px.
+- [ ] **AC 5.8**: Visual indicator badges for zero overdue debt or high payment reliability scores.
+- [ ] **AC 5.9**: Mobile responsive design optimized for 375px viewports with touch targets >= 48px.
 
 ---
 
 ## 03 Mobile UX Rules (Don Roberto Persona Constraints)
 
-1. **Touch Target Size**: All interactive elements (buttons, filter tabs, WhatsApp reminder links, confirm triggers) MUST have a minimum height/width of **48px** (`min-h-[48px]`, `p-3`).
-2. **1-Tap WhatsApp Reminder Links**: Click-to-chat links must open `https://wa.me/521XXXXXXXXXX?text=...` directly with friendly yet direct Mexican business copy.
-3. **High-Contrast Metrics**: Receivables monetary totals shown in large bold typography with color-coded indicators (`text-red-600` for Overdue, `text-amber-600` for Due Today, `text-emerald-600` for Confirmed).
-4. **Zero-Friction SPEI Upload**: Public `/pay/[token]` portal works on mobile browsers without requiring login or app download.
+1. **Touch Target Size**: All interactive elements (navigation tabs, view profile buttons, WhatsApp quick actions) MUST have a minimum height/width of **48px** (`min-h-[48px]`, `p-3`).
+2. **High-Contrast Financial Numbers**: Display key financial numbers in bold, large typography with color-coded status badges (`text-emerald-600` for Cobrado, `text-amber-600` for Por Cobrar, `text-red-600` for Vencido).
+3. **1-Tap WhatsApp Links**: Quick actions on top clients list directly launch `https://wa.me/521XXXXXXXXXX?text=...`.
+4. **Bottom Nav Usability**: Bottom nav bar remains fixed on mobile screens with backdrop blur and clear active icons.
 
 ---
 
@@ -63,37 +63,31 @@
 
 ### Exact Files to Create / Modify
 
-#### Core Logic & Utilities
-* `lib/receivablesCalculator.ts` / `lib/receivablesCalculator.js` — Receivables aging & totals aggregator.
-* `lib/whatsappReminder.ts` / `lib/whatsappReminder.js` — Pre-filled WhatsApp payment reminder link generator.
-* `lib/speiValidator.ts` / `lib/speiValidator.js` — Banxico Clave de Rastreo & receipt file validator.
-* `lib/hooks/useReceivables.ts` — React hook for receivables state management and API dispatch.
+#### Core Analytics Logic & Helpers
+* `lib/dashboardAnalytics.ts` / `lib/dashboardAnalytics.js` — Business metrics aggregator, top clients calculator & 30/60/90-day cash flow forecaster.
+* `lib/hooks/useDashboardAnalytics.ts` — React hook for dashboard state management and API dispatching.
 
 #### UI Components & Layout
-* `components/receivables/ReceivablesSummaryCards.tsx` — KPI summary cards ("Quién me Debe").
-* `components/receivables/ReceivableCard.tsx` — Milestone receivable card with WhatsApp reminder & confirm trigger.
-* `components/receivables/SpeiConfirmModal.tsx` — Owner SPEI proof review & confirmation modal.
+* `components/dashboard/FinancialOverviewCards.tsx` — Executive KPI summary cards.
+* `components/dashboard/TopClientsCard.tsx` — Top revenue accounts ranking card.
+* `components/dashboard/CashFlowForecastCard.tsx` — Projected 30/60/90-day cash inflow timeline visualization.
+* `components/layout/AppShell.tsx` — Mobile bottom navigation polish and active tab highlighting.
 
 #### Pages & Views
-* `app/(dashboard)/receivables/page.tsx` — Accounts Receivable dashboard view.
-* `app/pay/[token]/page.tsx` — Public mobile SPEI receipt upload portal.
+* `app/(dashboard)/dashboard/page.tsx` — Centro de Control main page layout.
 
 #### Server API Handlers
-* `app/api/receivables/route.ts` — GET / POST for org receivables.
-* `app/api/receivables/[id]/route.ts` — GET / PUT / DELETE for single milestone.
-* `app/api/receivables/[id]/confirm/route.ts` — POST route to confirm milestone payment.
-* `app/api/receivables/public/[token]/route.ts` — GET / POST for public SPEI receipt upload portal.
+* `app/api/dashboard/analytics/route.ts` — GET route handler for multi-tenant org business metrics.
 
 #### Tests & Roadmap Sync
-* `scripts/test-runner.js` — Unit test suite expansion for receivables calculations, WhatsApp reminders, and SPEI validation.
-* `docs/03-product-specs/product-roadmap.md` — Sprint 4 completion update.
+* `scripts/test-runner.js` — Unit test suite expansion for dashboard analytics, top client ranking, and cash flow forecasting.
+* `docs/03-product-specs/product-roadmap.md` — Mark Sprint 5 completed.
 
 ---
 
 ## 05 4-Phase Execution Checklist
 
 - [ ] **Phase 1: Planning & Architecture**: Inspected database schema, app architecture, user personas; updated `feature_implementation_spec.md` and created `implementation_plan.md`.
-- [ ] **Phase 2: TDD (Test-Driven Development)**: Add failing unit tests to `scripts/test-runner.js` for receivables aging, WhatsApp payment reminders, and SPEI proof validation. Verify Red phase.
-- [ ] **Phase 3: Implementation & Security Review**: Implement logic helpers, hooks, API routes with `organization_id` multi-tenancy, Accounts Receivable view, SPEI confirmation modal, and Public SPEI upload portal.
-- [ ] **Phase 4: Verification & Quality Gates**: Execute `npm run typecheck` and `npm test` (0 errors/warnings). Mark Sprint 4 complete in `product-roadmap.md` and commit code.
-
+- [ ] **Phase 2: TDD (Test-Driven Development)**: Add failing unit tests to `scripts/test-runner.js` for financial metrics aggregation, top clients ranking, and cash flow forecast calculation. Verify Red phase.
+- [ ] **Phase 3: Implementation & Security Review**: Implement analytics logic helpers, custom hooks, API routes with `organization_id` multi-tenancy, dashboard components, and navigation bar polish.
+- [ ] **Phase 4: Verification & Quality Gates**: Execute `npm run typecheck` and `npm test` (0 errors/warnings). Mark Sprint 5 complete in `product-roadmap.md` and commit code.
