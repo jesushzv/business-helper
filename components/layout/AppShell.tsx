@@ -12,7 +12,7 @@ interface AppShellProps {
 const NAV_ITEMS = [
   { label: 'Control', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Cotizaciones', href: '/quotes', icon: FileText },
-  { label: 'Clientes', href: '/dashboard/clients', icon: Users },
+  { label: 'Clientes', href: '/clients', icon: Users },
   { label: 'Cobranza', href: '/receivables', icon: DollarSign },
   { label: 'Ajustes', href: '/settings', icon: Settings },
 ];

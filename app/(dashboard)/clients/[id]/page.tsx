@@ -41,7 +41,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <h3 className="text-xl font-bold text-gray-900">Cliente no encontrado</h3>
           <p className="mt-2 text-xs text-gray-500">El cliente solicitado no existe o fue eliminado.</p>
           <Link
-            href="/dashboard/clients"
+            href="/clients"
             className="mt-6 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-xs"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -59,7 +59,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const handleDelete = async () => {
     if (confirm(`¿Estás seguro de eliminar a ${client.name}?`)) {
       await deleteClient(id);
-      router.push('/dashboard/clients');
+      router.push('/clients');
     }
   };
 

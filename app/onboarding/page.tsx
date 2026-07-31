@@ -64,7 +64,7 @@ export default function OnboardingPage() {
       // Continue to dashboard anyway in demo mode
     } finally {
       setLoading(false);
-      router.push('/dashboard/clients');
+      router.push('/dashboard');
     }
   };
 

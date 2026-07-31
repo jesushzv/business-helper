@@ -41,7 +41,7 @@ export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients }) =>
         </div>
 
         <Link
-          href="/dashboard/clients"
+          href="/clients"
           className="flex min-h-[48px] items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800"
         >
           <span>Ver directorio</span>
