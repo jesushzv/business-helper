@@ -83,7 +83,7 @@ export function useInvoices() {
         )
       );
       return { success: true, stampResult };
-    } catch (e) {
+    } catch {
       return { success: false, error: 'Error al timbrar factura con Facturapi' };
     } finally {
       setStamping(false);
@@ -118,7 +118,7 @@ export function useInvoices() {
       document.body.removeChild(link);
 
       return { success: true, manifest, csvContent };
-    } catch (e) {
+    } catch {
       return { success: false, error: 'Error al generar paquete para contador' };
     } finally {
       setExporting(false);

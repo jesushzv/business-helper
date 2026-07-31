@@ -43,8 +43,8 @@ export function evaluateStockStatus(stockQuantity: number | null | undefined): S
   };
 }
 
-export function deductStock(currentStock: number | null, quantitySold: number): number {
-  if (currentStock === null || currentStock === undefined) return 0;
+export function deductStock(currentStock: number | null | undefined, quantitySold: number): number | null {
+  if (currentStock === null || currentStock === undefined) return null;
   const curr = Math.max(0, Number(currentStock) || 0);
   const sold = Math.max(0, Number(quantitySold) || 0);
   return Math.max(0, curr - sold);

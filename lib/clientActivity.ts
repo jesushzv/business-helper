@@ -61,12 +61,23 @@ export function formatClientActivity(
   if (milestones && Array.isArray(milestones)) {
     for (const m of milestones) {
       const eventDate = String(m.confirmed_at || m.created_at || new Date().toISOString());
+      const status = String(m.status || 'pending');
+
+      let title = `Hito Pendiente: ${m.label || 'Hito de Pago'}`;
+      if (status === 'confirmed') {
+        title = `Pago Recibido: ${m.label || 'Hito de Pago'}`;
+      } else if (status === 'marked_paid' || status === 'requested') {
+        title = `Comprobante Recibido: ${m.label || 'Hito de Pago'}`;
+      }
+
       items.push({
         id: `milestone-${m.id || Math.random()}`,
         type: 'payment',
-        title: `Pago Recibido: ${m.label || 'Hito de Pago'}`,
-        description: `Importe pagado: $${Number(m.amount || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
-        status: String(m.status || 'pending'),
+        title,
+        description: status === 'confirmed'
+          ? `Importe pagado: $${Number(m.amount || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`
+          : `Monto del hito: $${Number(m.amount || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
+        status,
         date: eventDate,
         timestamp: new Date(eventDate).getTime(),
         amount: Number(m.amount || 0),

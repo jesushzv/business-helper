@@ -25,7 +25,7 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
     const clientReceivables = receivables.filter(
       (r) => r.clientId === matchedClient?.id || (r.clientName && r.clientName.toLowerCase().includes(matchedClient?.name.toLowerCase() || ''))
     );
-    const totalOverdue = clientReceivables.reduce((acc, r) => acc + (r.amount || 0), 0) || 45000;
+    const totalOverdue = clientReceivables.reduce((acc, r) => acc + (r.amount || 0), 0);
     const clientPhone = matchedClient.phone || '8112223344';
     const rawPhone = clientPhone.startsWith('52') ? clientPhone : `52${clientPhone.replace(/\D/g, '')}`;
 
@@ -44,7 +44,7 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
   }
 
   // General cash flow query
-  const totalDebt = receivables.reduce((acc, r) => acc + (r.amount || 0), 0) || 138000;
+  const totalDebt = receivables.reduce((acc, r) => acc + (r.amount || 0), 0);
   const answerText = `Actualmente tienes un total por cobrar de $${totalDebt.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN registrado en tus hitos.`;
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(answerText)}`;
 

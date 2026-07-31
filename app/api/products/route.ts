@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     };
 
     return NextResponse.json(demoItem, { status: 201 });
-  } catch (e) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'SERVER_ERROR', message: 'Error interno al guardar producto' } },
       { status: 500 }

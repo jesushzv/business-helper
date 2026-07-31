@@ -1155,6 +1155,51 @@ test('Parses natural language client overdue balance queries and generates respo
 });
 
 // ----------------------------------------------------
+// 25. Exploratory Testing Bug Regression Suite
+// ----------------------------------------------------
+console.log('\n[Suite 25: Exploratory Testing Bug Regression Suite]');
+
+test('Quote-to-Contract split milestone amounts sum EXACTLY to contract total (no cent discrepancy)', () => {
+  const result = convertQuoteToContract({
+    id: 'q_test',
+    organization_id: 'org_1',
+    client_id: 'c_1',
+    title: 'Cotización Impar',
+    total_amount: 100.01,
+    status: 'accepted'
+  }, [0.5, 0.5]);
+
+  const sumMilestones = Math.round(result.milestones.reduce((acc, m) => acc + m.amount, 0) * 100) / 100;
+  assert.strictEqual(sumMilestones, result.contract.total_amount, 'Sum of milestone amounts must match contract total exactly');
+});
+
+test('Deducting stock on service item (null stock) returns null', () => {
+  if (inventoryModule?.deductStock) {
+    const stockResult = inventoryModule.deductStock(null, 2);
+    assert.strictEqual(stockResult, null, 'Service stock (null) must remain null');
+  } else {
+    throw new Error('deductStock not exported');
+  }
+});
+
+test('WhatsApp AI assistant reports 0 balance for client with no debt', () => {
+  if (aiModule?.parseNaturalLanguageQuery) {
+    const aiResult = aiModule.parseNaturalLanguageQuery('¿Cuánto me debe Don Roberto?', {
+      clients: [{ id: 'c1', name: 'Don Roberto', phone: '8112223344' }],
+      receivables: [{ clientId: 'c1', amount: 0, status: 'confirmed' }]
+    });
+    assert.strictEqual(aiResult.totalOverdue, 0, 'Zero debt must be reported as 0 MXN');
+  } else {
+    throw new Error('parseNaturalLanguageQuery not exported');
+  }
+});
+
+test('Pending milestone in client activity feed is titled "Hito Pendiente"', () => {
+  const activity = formatClientActivity([], [], [{ id: 'm1', label: 'Anticipo', amount: 5000, status: 'pending' }]);
+  assert.strictEqual(activity[0].title, 'Hito Pendiente: Anticipo', 'Pending milestone title must be Hito Pendiente');
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

@@ -57,28 +57,38 @@ export function convertQuoteToContract(quote: QuoteData, splitRatio: number[] = 
   const dueNow = new Date();
   const due30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-  const milestones = [
-    {
-      id: `m_${Date.now()}_1`,
+  const milestones: ContractResult['milestones'] = [];
+  let allocatedAmount = 0;
+
+  for (let i = 0; i < splitRatio.length; i++) {
+    const isLast = i === splitRatio.length - 1;
+    const isFirst = i === 0;
+    const ratioVal = splitRatio[i];
+    
+    let amt: number;
+    if (isLast) {
+      amt = Math.round((total - allocatedAmount) * 100) / 100;
+    } else {
+      amt = Math.round(total * ratioVal * 100) / 100;
+      allocatedAmount += amt;
+    }
+
+    const dueDate = isFirst ? dueNow : due30Days;
+    const label = isFirst 
+      ? `Anticipo (${Math.round(ratioVal * 100)}%)` 
+      : `Entrega Final (${Math.round(ratioVal * 100)}%)`;
+
+    milestones.push({
+      id: `m_${Date.now()}_${i + 1}`,
       organization_id: quote.organization_id,
       contract_id: contractId,
-      label: `Anticipo (${Math.round(splitRatio[0] * 100)}%)`,
-      amount: Math.round(total * splitRatio[0] * 100) / 100,
-      due_date: dueNow.toISOString().split('T')[0],
+      label,
+      amount: amt,
+      due_date: dueDate.toISOString().split('T')[0],
       status: 'pending',
       created_at: now,
-    },
-    {
-      id: `m_${Date.now()}_2`,
-      organization_id: quote.organization_id,
-      contract_id: contractId,
-      label: `Entrega Final (${Math.round(splitRatio[1] * 100)}%)`,
-      amount: Math.round(total * splitRatio[1] * 100) / 100,
-      due_date: due30Days.toISOString().split('T')[0],
-      status: 'pending',
-      created_at: now,
-    },
-  ];
+    });
+  }
 
   return { contract, milestones };
 }

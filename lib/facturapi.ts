@@ -107,7 +107,8 @@ export function buildCFDIPayload(
   };
 }
 
-export function simulateInvoiceStamping(milestoneId: string) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function simulateInvoiceStamping(_milestoneId: string) {
   const cfdiId = `cfdi_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   return {
     cfdiId,
