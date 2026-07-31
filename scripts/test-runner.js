@@ -869,6 +869,185 @@ test('Terms of Service page exists and defines SaaS terms', () => {
 });
 
 // ----------------------------------------------------
+// 18. Facturapi SAT CFDI 4.0 PAC Engine Tests (Sprint 7)
+// ----------------------------------------------------
+console.log('\n[Suite 18: Facturapi SAT CFDI 4.0 PAC Engine]');
+
+let facturapiModule;
+try {
+  facturapiModule = require('../lib/facturapi.js');
+} catch (e) {
+  facturapiModule = null;
+}
+
+test('Facturapi Module Exists & Exports Validation & Payload Helpers', () => {
+  assert.strictEqual(typeof facturapiModule?.validateCFDIMetadata, 'function', 'validateCFDIMetadata must be exported');
+  assert.strictEqual(typeof facturapiModule?.buildCFDIPayload, 'function', 'buildCFDIPayload must be exported');
+});
+
+test('Validates SAT CFDI 4.0 required metadata (RFC, Regimen, Postal Code, CFDI Use, Unit Key, Product Code)', () => {
+  if (facturapiModule?.validateCFDIMetadata) {
+    const validMetadata = {
+      issuerRfc: 'ABC120315HD9',
+      issuerRegimen: '601',
+      issuerPostalCode: '64000',
+      receiverRfc: 'GORM850101789',
+      receiverRegimen: '612',
+      receiverPostalCode: '64000',
+      cfdiUse: 'G03',
+      lineItems: [
+        { name: 'Servicios de Consultoría', unitPrice: 5000, unit: 'E48', satProductCode: '84111506' }
+      ]
+    };
+    const res = facturapiModule.validateCFDIMetadata(validMetadata);
+    assert.strictEqual(res.isValid, true, 'Valid metadata must pass CFDI 4.0 validation');
+
+    const invalidMetadata = {
+      issuerRfc: 'INVALID',
+      issuerPostalCode: '123',
+      lineItems: []
+    };
+    const resInv = facturapiModule.validateCFDIMetadata(invalidMetadata);
+    assert.strictEqual(resInv.isValid, false, 'Invalid metadata must be rejected');
+  } else {
+    throw new Error('facturapi module not implemented yet');
+  }
+});
+
+test('Constructs valid Facturapi invoice creation payload', () => {
+  if (facturapiModule?.buildCFDIPayload) {
+    const org = { name: 'Mi Empresa SA', rfc: 'ABC120315HD9', regimen_fiscal: '601', codigo_postal: '64000' };
+    const client = { name: 'Cliente Ejemplo', rfc: 'GORM850101789', regimen_fiscal: '612', codigo_postal: '64000', cfdi_use: 'G03' };
+    const items = [{ description: 'Desarrollo Web', amount: 10000, unit: 'E48', sat_product_code: '84111506' }];
+    const payload = facturapiModule.buildCFDIPayload(org, client, items);
+    assert.strictEqual(payload.customer.legal_name, 'Cliente Ejemplo');
+    assert.strictEqual(payload.customer.tax_id, 'GORM850101789');
+    assert.strictEqual(payload.items[0].product_key, '84111506');
+    assert.strictEqual(payload.items[0].unit_key, 'E48');
+  } else {
+    throw new Error('facturapi module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 19. 1-Click Monthly Accountant Export Package Tests (Sprint 7)
+// ----------------------------------------------------
+console.log('\n[Suite 19: 1-Click Monthly Accountant Export Package]');
+
+let accountantModule;
+try {
+  accountantModule = require('../lib/accountantExport.js');
+} catch (e) {
+  accountantModule = null;
+}
+
+test('Accountant Export Module Exists & Exports Generator Helpers', () => {
+  assert.strictEqual(typeof accountantModule?.generateMonthlySummaryCSV, 'function', 'generateMonthlySummaryCSV must be exported');
+  assert.strictEqual(typeof accountantModule?.buildAccountantZipManifest, 'function', 'buildAccountantZipManifest must be exported');
+});
+
+test('Generates structured monthly summary CSV with sales and tax breakdown', () => {
+  if (accountantModule?.generateMonthlySummaryCSV) {
+    const milestones = [
+      { id: 'm1', label: 'Anticipo', amount: 5000, due_date: '2026-08-15', status: 'confirmed', tracking_reference: 'SPEI12345', cfdi_id: 'FACT100' }
+    ];
+    const csv = accountantModule.generateMonthlySummaryCSV('org123', '2026-08', milestones);
+    assert.strictEqual(typeof csv, 'string');
+    assert.strictEqual(csv.includes('Monto,Estado,Fecha Vencimiento,Clave Rastreo'), true, 'CSV header must include standard column titles');
+    assert.strictEqual(csv.includes('5000'), true, 'CSV content must include milestone amount');
+  } else {
+    throw new Error('accountantExport module not implemented yet');
+  }
+});
+
+test('Builds accountant ZIP package manifest metadata', () => {
+  if (accountantModule?.buildAccountantZipManifest) {
+    const milestones = [
+      { id: 'm1', label: 'Hito 1', amount: 10000, cfdi_xml_url: 'https://storage/m1.xml', cfdi_pdf_url: 'https://storage/m1.pdf', receipt_url: 'https://storage/m1.jpg' }
+    ];
+    const manifest = accountantModule.buildAccountantZipManifest('org123', '2026-08', milestones);
+    assert.strictEqual(manifest.month, '2026-08');
+    assert.strictEqual(manifest.files.length >= 3, true, 'Manifest should list XML, PDF, and SPEI proof files');
+  } else {
+    throw new Error('accountantExport module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 20. Pre-Saved Product & Service Catalog Tests (Sprint 7)
+// ----------------------------------------------------
+console.log('\n[Suite 20: Pre-Saved Product & Service Catalog]');
+
+let productsModule;
+try {
+  productsModule = require('../lib/products.js');
+} catch (e) {
+  productsModule = null;
+}
+
+test('Product Catalog Module Exists & Exports Validator & Line-Item Formatter', () => {
+  assert.strictEqual(typeof productsModule?.validateProductCatalogItem, 'function', 'validateProductCatalogItem must be exported');
+  assert.strictEqual(typeof productsModule?.formatProductAsLineItem, 'function', 'formatProductAsLineItem must be exported');
+});
+
+test('Validates product catalog item with SAT unit keys and product codes', () => {
+  if (productsModule?.validateProductCatalogItem) {
+    const validProduct = { name: 'Mantenimiento Mensual', unit_price: 2500, unit: 'E48', sat_product_code: '84111506' };
+    const resValid = productsModule.validateProductCatalogItem(validProduct);
+    assert.strictEqual(resValid.isValid, true, 'Valid product must pass catalog validation');
+    assert.strictEqual(resValid.unit, 'E48');
+
+    const invalidProduct = { name: '', unit_price: -50 };
+    const resInvalid = productsModule.validateProductCatalogItem(invalidProduct);
+    assert.strictEqual(resInvalid.isValid, false, 'Invalid product must fail validation');
+  } else {
+    throw new Error('products module not implemented yet');
+  }
+});
+
+test('Formats product catalog entry into quote line-item', () => {
+  if (productsModule?.formatProductAsLineItem) {
+    const prod = { id: 'p1', name: 'Varilla 1/2 pulgada', unit_price: 150, unit: 'H87', sat_product_code: '30101800' };
+    const item = productsModule.formatProductAsLineItem(prod, 20);
+    assert.strictEqual(item.description, 'Varilla 1/2 pulgada');
+    assert.strictEqual(item.quantity, 20);
+    assert.strictEqual(item.unit_price, 150);
+    assert.strictEqual(item.sat_product_code, '30101800');
+  } else {
+    throw new Error('products module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
+// 21. Automated WhatsApp Outbound Broadcast Generator Tests (Sprint 7)
+// ----------------------------------------------------
+console.log('\n[Suite 21: Outbound Automated WhatsApp Reminder Broadcast Generator]');
+
+let broadcastModule;
+try {
+  broadcastModule = require('../lib/whatsappBroadcast.js');
+} catch (e) {
+  broadcastModule = null;
+}
+
+test('WhatsApp Broadcast Module Exists & Exports Reminder Broadcast Generator', () => {
+  assert.strictEqual(typeof broadcastModule?.generateReminderBroadcastPayload, 'function', 'generateReminderBroadcastPayload must be exported');
+});
+
+test('Generates status-aware payment reminder broadcast payloads with deep-links', () => {
+  if (broadcastModule?.generateReminderBroadcastPayload) {
+    const milestone = { id: 'm1', label: 'Finiquito', amount: 15000, due_date: '2026-08-20', status: 'pending' };
+    const client = { name: 'Construcciones MTY', phone: '8119998877' };
+    const payload = broadcastModule.generateReminderBroadcastPayload(milestone, client, 'overdue');
+    assert.strictEqual(payload.phone, '528119998877');
+    assert.strictEqual(payload.message.includes('Construcciones MTY'), true, 'Broadcast text must include client name');
+    assert.strictEqual(payload.whatsappUrl.startsWith('https://wa.me/528119998877'), true, 'WhatsApp link must target client number');
+  } else {
+    throw new Error('whatsappBroadcast module not implemented yet');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

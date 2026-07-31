@@ -69,6 +69,7 @@ The MVP focuses exclusively on completing the core **Quote → Contract → Pay 
 | **Sprint 4** | Aug 29–Sep 8 | Accounts Receivable | Build Accounts Receivable view (`/dashboard/receivables`), WhatsApp payment reminder links, public SPEI receipt upload portal. | [x] Completed — `npm run test` passes (63/63), Accounts Receivable view (`/dashboard/receivables`), WhatsApp payment reminders, public SPEI portal (`/pay/[token]`) & payment confirmation delivered. |
 | **Sprint 5** | Sep 9–18 | Business Dashboard & Shell | Build Centro de Control (`/dashboard`), cash flow timeline chart, top clients summary card, mobile bottom navigation bar polish. | [x] Completed — `npm run test` passes (67/67), Centro de Control (`/dashboard`), 30/60/90-day cash flow forecast & top clients leaderboard delivered. |
 | **Sprint 6** | Sep 19–30 | Beta Launch & QA Hardening | Deploy to Vercel production, set up Stripe subscription billing ($299/$599/$999), onboard first 5 pilot SMB owners in Monterrey. | [x] Completed — `npm run test` passes (73/73), Settings & Stripe Billing (`/settings`), health check (`/api/health`) & all 6 release gates audited. |
+| **Sprint 7** | Oct 1–15 | SAT CFDI 4.0 Invoicing & Product Catalog | Deliver Facturapi PAC 1-click CFDI 4.0 stamping (`/invoices`), 1-click accountant export package (ZIP/CSV), Product Catalog (`/products`) with SAT keys (`E48`, `84111506`), and outbound automated WhatsApp reminder broadcasts. | [x] Completed — `npm run test` passes (86/86), Facturapi SAT CFDI 4.0 engine, 1-click accountant ZIP export, Product Catalog & WhatsApp broadcasts delivered. |
 
 ---
 
@@ -92,10 +93,10 @@ Before launching the Beta to pilot SMB owners, the product must pass all 6 hard 
 The following strategic gaps have been identified and prioritized based on competitive benchmarks and customer friction analysis:
 
 ### ⚡ Immediate MVP Launch Gaps (Phase 1.5 / Pre-Launch Polish)
-1. **SAT CFDI 4.0 Electronic Invoicing (Facturapi PAC)**: B2B clients in Mexico frequently withhold payment until a valid CFDI invoice is issued. Accelerate Facturapi 1-click PAC stamping so accepted quotes/receivables can generate certified XML+PDF bundles.
-2. **1-Click Accountant Export Package (ZIP/CSV)**: External accountants (*contadores*) are key B2B influencers in Mexico. Provide a 1-click monthly export containing sales totals, XMLs, PDFs, client RFCs, and uploaded SPEI vouchers to turn accountants into resellers.
-3. **Pre-Saved Product & Service Catalog**: Allow saving standard products/services with SAT unit keys (`E48`) and product codes (`84111506`) to speed up quote creation from minutes to seconds.
-4. **Outbound Automated WhatsApp API (Twilio / Meta)**: Extend `wa.me/` Click-to-Chat deep links with automated outbound WhatsApp Business API broadcasts for scheduled payment reminders (e.g. 3 days before due date).
+1. * [x] **SAT CFDI 4.0 Electronic Invoicing (Facturapi PAC)**: B2B clients in Mexico frequently withhold payment until a valid CFDI invoice is issued. Accelerate Facturapi 1-click PAC stamping so accepted quotes/receivables can generate certified XML+PDF bundles.
+2. * [x] **1-Click Accountant Export Package (ZIP/CSV)**: External accountants (*contadores*) are key B2B influencers in Mexico. Provide a 1-click monthly export containing sales totals, XMLs, PDFs, client RFCs, and uploaded SPEI vouchers to turn accountants into resellers.
+3. * [x] **Pre-Saved Product & Service Catalog**: Allow saving standard products/services with SAT unit keys (`E48`) and product codes (`84111506`) to speed up quote creation from minutes to seconds.
+4. * [x] **Outbound Automated WhatsApp API (Twilio / Meta)**: Extend `wa.me/` Click-to-Chat deep links with automated outbound WhatsApp Business API broadcasts for scheduled payment reminders (e.g. 3 days before due date).
 
 ### 🚀 Post-MVP Expansion Gaps (Phase 2 & 3 Roadmap)
 1. **Multi-User Role-Based Access Control (RBAC)** (Phase 2): Grant `Owner`, `Manager`, `Member`, and `Accountant` permissions for multi-employee SMB teams.

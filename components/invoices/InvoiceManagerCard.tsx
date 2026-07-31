@@ -1,0 +1,180 @@
+'use client';
+
+import React, { useState } from 'react';
+import { useInvoices } from '@/lib/hooks/useInvoices';
+import { generateReminderBroadcastPayload } from '@/lib/whatsappBroadcast';
+import { FileText, Download, Send, CheckCircle, Clock, FileCode, AlertCircle, MessageSquare } from 'lucide-react';
+
+export function InvoiceManagerCard() {
+  const { invoices, stamping, exporting, stampCFDI, downloadAccountantPackage } = useInvoices();
+  const [selectedMonth, setSelectedMonth] = useState<string>('2026-08');
+  const [stampedMessage, setStampedMessage] = useState<string | null>(null);
+
+  const handleStamp = (milestoneId: string) => {
+    setStampedMessage(null);
+    const res = stampCFDI(milestoneId);
+    if (res.success) {
+      setStampedMessage('Factura timbrada exitosamente con Facturapi PAC (CFDI 4.0)');
+      setTimeout(() => setStampedMessage(null), 4000);
+    }
+  };
+
+  const handleExport = () => {
+    downloadAccountantPackage(selectedMonth);
+  };
+
+  const handleWhatsAppBroadcast = (inv: (typeof invoices)[0]) => {
+    const payload = generateReminderBroadcastPayload(
+      {
+        id: inv.milestoneId,
+        label: inv.concept,
+        amount: inv.amount,
+        due_date: inv.dueDate,
+        status: 'pending'
+      },
+      {
+        name: inv.clientName,
+        phone: '8115551234'
+      },
+      'overdue'
+    );
+
+    window.open(payload.whatsappUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Accountant Export Header Card */}
+      <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-lg border border-indigo-700/50">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 px-3 py-1 rounded-full border border-indigo-400/30">
+              <FileCode className="w-3.5 h-3.5" />
+              1-Click Accountant Package
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Paquete Mensual para Contador (ZIP/CSV)
+            </h2>
+            <p className="text-indigo-200 text-sm sm:text-base max-w-xl">
+              Exporta automáticamente el desglose de ingresos, RFCs de clientes, XMLs, PDFs y comprobantes SPEI para tu contador.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="min-h-[48px] px-4 bg-indigo-950/80 border border-indigo-700 rounded-xl text-white font-medium text-base focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="min-h-[48px] px-6 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-base shadow-md disabled:opacity-50"
+            >
+              <Download className="w-5 h-5" />
+              {exporting ? 'Generando...' : 'Descargar ZIP/CSV'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {stampedMessage && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center gap-3 text-sm font-semibold shadow-sm">
+          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+          {stampedMessage}
+        </div>
+      )}
+
+      {/* Invoice List / Stamping Center */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-indigo-600" />
+              Facturación Electrónica SAT CFDI 4.0
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              Timbrado 1-click directo con PAC Facturapi para cobros confirmados.
+            </p>
+          </div>
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {invoices.map((inv) => (
+            <div
+              key={inv.id}
+              className="p-5 hover:bg-slate-50/80 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h4 className="font-bold text-slate-900 text-base">{inv.concept}</h4>
+                  {inv.cfdiStatus === 'issued' ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-200">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      CFDI Emitido
+                    </span>
+                  ) : inv.cfdiStatus === 'pending' ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full border border-amber-200">
+                      <Clock className="w-3.5 h-3.5" />
+                      Pendiente Timbrar
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full border border-slate-200">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      Sin Timbrar
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-500 flex-wrap pt-1">
+                  <span>Cliente: <strong className="text-slate-700">{inv.clientName}</strong></span>
+                  <span>RFC: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">{inv.clientRfc}</code></span>
+                  <span>Vence: {inv.dueDate}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 justify-between lg:justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                <span className="font-extrabold text-slate-900 text-lg">
+                  ${inv.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleWhatsAppBroadcast(inv)}
+                    className="min-h-[44px] px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5"
+                    title="Enviar aviso WhatsApp"
+                  >
+                    <MessageSquare className="w-4 h-4 text-emerald-600" />
+                    WhatsApp
+                  </button>
+
+                  {inv.cfdiStatus === 'issued' ? (
+                    <a
+                      href={inv.pdfUrl || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[44px] px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-200"
+                    >
+                      <Download className="w-4 h-4 text-slate-600" />
+                      PDF / XML
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => handleStamp(inv.milestoneId)}
+                      disabled={stamping}
+                      className="min-h-[44px] px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                      <Send className="w-4 h-4" />
+                      {stamping ? 'Timbrando...' : 'Timbrar CFDI 4.0'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

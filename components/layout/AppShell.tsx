@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Users, DollarSign, Settings, Building2 } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, DollarSign, Settings, Building2, Package, FileCode } from 'lucide-react';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -14,6 +14,8 @@ const NAV_ITEMS = [
   { label: 'Cotizaciones', href: '/quotes', icon: FileText },
   { label: 'Clientes', href: '/clients', icon: Users },
   { label: 'Cobranza', href: '/receivables', icon: DollarSign },
+  { label: 'Catálogo', href: '/products', icon: Package },
+  { label: 'Facturación', href: '/invoices', icon: FileCode },
   { label: 'Ajustes', href: '/settings', icon: Settings },
 ];
 
