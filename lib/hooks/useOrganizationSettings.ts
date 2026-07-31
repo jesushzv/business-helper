@@ -68,8 +68,9 @@ export function useOrganizationSettings() {
       }).catch(() => {});
 
       return true;
-    } catch (err: any) {
-      setError(err?.message || 'Error al guardar los ajustes');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al guardar los ajustes';
+      setError(errorMessage);
       return false;
     } finally {
       setSaving(false);

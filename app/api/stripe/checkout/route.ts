@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       sessionId: `cs_test_demo_${Date.now()}`,
       payload,
     });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json({ error: 'Error al generar la sesión de pago de Stripe' }, { status: 500 });
   }
 }

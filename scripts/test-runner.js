@@ -843,6 +843,32 @@ test('Verifies all 6 MVP Beta Release Gates pass auditing standards', () => {
 });
 
 // ----------------------------------------------------
+// 17. Legal & Pre-Launch Compliance Assertions
+// ----------------------------------------------------
+console.log('\n[Suite 17: Legal & Pre-Launch Compliance Assertions]');
+
+const privacyPath = path.join(__dirname, '../app/privacy/page.tsx');
+const termsPath = path.join(__dirname, '../app/terms/page.tsx');
+
+test('Privacy Notice page exists and complies with LFPDPPP', () => {
+  assert.strictEqual(fs.existsSync(privacyPath), true, `Privacy page should exist at ${privacyPath}`);
+  if (fs.existsSync(privacyPath)) {
+    const content = fs.readFileSync(privacyPath, 'utf8');
+    assert.strictEqual(content.includes('LFPDPPP'), true, 'Privacy page must reference LFPDPPP');
+    assert.strictEqual(content.includes('Aviso de Privacidad'), true, 'Privacy page must contain Aviso de Privacidad header');
+  }
+});
+
+test('Terms of Service page exists and defines SaaS terms', () => {
+  assert.strictEqual(fs.existsSync(termsPath), true, `Terms page should exist at ${termsPath}`);
+  if (fs.existsSync(termsPath)) {
+    const content = fs.readFileSync(termsPath, 'utf8');
+    assert.strictEqual(content.includes('Términos y Condiciones'), true, 'Terms page must contain Términos y Condiciones header');
+    assert.strictEqual(content.includes('Business Helper'), true, 'Terms page must reference Business Helper');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

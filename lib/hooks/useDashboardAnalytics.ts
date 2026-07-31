@@ -41,8 +41,9 @@ export function useDashboardAnalytics() {
           setApiAnalytics(data);
         }
       }
-    } catch (err: any) {
-      console.warn('API Analytics fetch warning (fallback to computed local state):', err?.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('API Analytics fetch warning (fallback to computed local state):', message);
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export function useDashboardAnalytics() {
       label: r.label,
       amount: r.amount,
       due_date: r.due_date,
-      status: r.status as any,
+      status: r.status as MilestoneItem['status'],
       confirmed_at: r.confirmed_at,
     }));
 
@@ -92,7 +93,7 @@ export function useDashboardAnalytics() {
       label: r.label,
       amount: r.amount,
       due_date: r.due_date,
-      status: r.status as any,
+      status: r.status as MilestoneItem['status'],
       confirmed_at: r.confirmed_at,
     }));
 
@@ -115,7 +116,7 @@ export function useDashboardAnalytics() {
       label: r.label,
       amount: r.amount,
       due_date: r.due_date,
-      status: r.status as any,
+      status: r.status as MilestoneItem['status'],
       confirmed_at: r.confirmed_at,
     }));
 

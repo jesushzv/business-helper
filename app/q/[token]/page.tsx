@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Quote } from '@/types';
 import { OtpSignatureModal } from '@/components/quotes/OtpSignatureModal';
-import { ShieldCheck, MessageSquare, CheckCircle, FileText, Calendar, Building, Sparkles } from 'lucide-react';
+import { ShieldCheck, MessageSquare, CheckCircle, Calendar, Building, Sparkles } from 'lucide-react';
 
 export default function PublicQuotePage() {
   const params = useParams();

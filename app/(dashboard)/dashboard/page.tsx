@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
-import { Users, FileText, DollarSign, Plus } from 'lucide-react';
+import { DollarSign, Plus } from 'lucide-react';
 import { useDashboardAnalytics } from '@/lib/hooks/useDashboardAnalytics';
 import { FinancialOverviewCards } from '@/components/dashboard/FinancialOverviewCards';
 import { CashFlowForecastCard } from '@/components/dashboard/CashFlowForecastCard';

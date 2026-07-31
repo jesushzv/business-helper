@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Award, MessageSquare, ArrowUpRight, HeartPulse } from 'lucide-react';
+import { Award, MessageSquare, ArrowUpRight } from 'lucide-react';
 import { TopClientRevenue } from '@/lib/dashboardAnalytics';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
 

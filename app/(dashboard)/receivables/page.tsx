@@ -5,7 +5,7 @@ import { useReceivables, MilestoneWithClient } from '@/lib/hooks/useReceivables'
 import { ReceivablesSummaryCards } from '@/components/receivables/ReceivablesSummaryCards';
 import { ReceivableCard } from '@/components/receivables/ReceivableCard';
 import { SpeiConfirmModal } from '@/components/receivables/SpeiConfirmModal';
-import { Search, DollarSign, Wallet } from 'lucide-react';
+import { Search, Wallet } from 'lucide-react';
 
 export default function ReceivablesPage() {
   const {
