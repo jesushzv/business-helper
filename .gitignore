@@ -34,4 +34,7 @@ next-env.d.ts
 .DS_Store
 Thumbs.db
 
+# internal docs & prompts
 MASTER_PROMPT.md
+/docs/
+/design-docs/
