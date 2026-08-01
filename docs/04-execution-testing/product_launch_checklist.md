@@ -51,8 +51,12 @@
 ## 03 Pre-Launch (T-1 Week: Sep 12 – Sep 18, 2026)
 
 - [x] **Production Deployment Guide & Secrets Template**: Prepared `docs/deployment.md` and `.env.example` mapping all production keys (`NEXT_PUBLIC_SUPABASE_URL`, `FACTURAPI_SECRET_KEY`, `STRIPE_SECRET_KEY`, `TWILIO_AUTH_TOKEN`, `GEMINI_API_KEY`).
-- [ ] **Production DB Migrations**: Run `npx supabase db push` to production project.
-- [ ] **Domain & SSL Setup**: Custom domain `businesshelper.mx` configured on Vercel with SSL certificate.
+- [ ] **Production DB Migrations**: Run `npx supabase db push` to production project (`dfyoavffxzujvxvnsizi`).
+- [ ] **Domain & SSL Setup**: Configure custom domain `businesshelper.mx` on Vercel:
+  - Apex A Record: `76.76.21.21`
+  - Subdomain CNAME: `cname.vercel-dns.com`
+  - Sync Supabase Auth **Site URL** & **Redirect URL** (`/auth/callback`).
+  - Sync Stripe Webhook endpoint URL (`/api/stripe/webhook`).
 - [ ] **Sentry Monitoring Live**: Sentry error alerts configured to send instant alerts to founder's phone.
 
 ### Support & Operational Readiness
