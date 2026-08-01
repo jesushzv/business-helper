@@ -142,4 +142,14 @@ test.describe('Business Helper E2E User Scenarios', () => {
     await expect(page.locator('body')).toContainText('Panel de Administración');
   });
 
+  test('07 Live Production API Health Check Smoke Test', async ({ request }) => {
+    const response = await request.get('/api/health');
+    expect(response.status()).toBe(200);
+
+    const body = await response.json();
+    expect(body.status).toBe('healthy');
+    expect(body.services.database).toBe('connected');
+    expect(body.services.auth).toBe('active');
+  });
+
 });

@@ -1491,6 +1491,58 @@ test('Provides fallback logo and default brand colors when tenant settings are u
 });
 
 // ----------------------------------------------------
+// 34. Production Cloud QA & Health Check Assertions
+// ----------------------------------------------------
+console.log('\n[Suite 34: Production Cloud QA & Health Check Assertions]');
+
+let healthModule;
+try {
+  healthModule = require('../lib/health.js');
+} catch (e) {
+  healthModule = null;
+}
+
+test('Health Module Exists & Exports Status Generator', () => {
+  assert.notStrictEqual(healthModule, null, 'lib/health.js module should exist');
+  assert.strictEqual(typeof healthModule?.getHealthStatus, 'function');
+  assert.strictEqual(typeof healthModule?.auditEnvironmentSecrets, 'function');
+});
+
+test('Returns healthy status schema with database and auth service statuses', () => {
+  if (healthModule?.getHealthStatus) {
+    const health = healthModule.getHealthStatus({
+      NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test_anon_key'
+    });
+    assert.strictEqual(health.status, 'healthy');
+    assert.strictEqual(health.services.database, 'connected');
+    assert.strictEqual(health.services.auth, 'active');
+    assert.strictEqual(typeof health.timestamp, 'string');
+  }
+});
+
+// ----------------------------------------------------
+// 35. Live Deployment & Environment Secret Auditor
+// ----------------------------------------------------
+console.log('\n[Suite 35: Live Deployment & Environment Secret Auditor]');
+
+test('Audit Environment Secrets validates required production environment variables', () => {
+  if (healthModule?.auditEnvironmentSecrets) {
+    const validAudit = healthModule.auditEnvironmentSecrets({
+      NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test_anon_key',
+      NEXT_PUBLIC_APP_URL: 'https://business-helper.vercel.app'
+    });
+    assert.strictEqual(validAudit.isReadyForProduction, true);
+    assert.strictEqual(validAudit.missingRequired.length, 0);
+
+    const invalidAudit = healthModule.auditEnvironmentSecrets({});
+    assert.strictEqual(invalidAudit.isReadyForProduction, false);
+    assert.strictEqual(invalidAudit.missingRequired.includes('NEXT_PUBLIC_SUPABASE_URL'), true);
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

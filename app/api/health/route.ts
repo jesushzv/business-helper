@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { auditReleaseGates } from '@/lib/releaseGates';
+import { getHealthStatus } from '@/lib/health';
 
 export async function GET() {
   const auditReport = auditReleaseGates();
+  const baseHealth = getHealthStatus();
 
   return NextResponse.json({
-    status: auditReport.allPassed ? 'healthy' : 'degraded',
-    version: '0.1.0-beta',
-    environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString(),
+    ...baseHealth,
+    status: auditReport.allPassed && baseHealth.status === 'healthy' ? 'healthy' : 'degraded',
     releaseGates: auditReport,
   });
 }
