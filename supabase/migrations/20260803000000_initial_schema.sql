@@ -12,14 +12,6 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 -- 01. Helper Security Functions
 -- ----------------------------------------------------------------------------
 
--- Helper function: Returns active user's accessible organization IDs
-CREATE OR REPLACE FUNCTION auth.user_organization_ids()
-RETURNS SETOF uuid AS $$
-  SELECT organization_id 
-  FROM public.organization_members 
-  WHERE user_id = auth.uid();
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
-
 -- Trigger function: Automatically updates updated_at timestamp
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -249,6 +241,14 @@ CREATE TRIGGER set_quotes_updated_at BEFORE UPDATE ON public.quotes
 CREATE TRIGGER set_contracts_updated_at BEFORE UPDATE ON public.contracts
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+-- Helper function: Returns active user's accessible organization IDs
+CREATE OR REPLACE FUNCTION public.user_organization_ids()
+RETURNS SETOF uuid AS $$
+  SELECT organization_id 
+  FROM public.organization_members 
+  WHERE user_id = auth.uid();
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
 -- ----------------------------------------------------------------------------
 -- 05. Row-Level Security (RLS) Multi-Tenant Policies
 -- ----------------------------------------------------------------------------
@@ -267,35 +267,35 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can access owned or member organizations"
 ON public.organizations FOR ALL TO authenticated
 USING (
-  owner_id = auth.uid() OR id IN (SELECT auth.user_organization_ids())
+  owner_id = auth.uid() OR id IN (SELECT public.user_organization_ids())
 );
 
 -- 2. Organization Members Policy
 CREATE POLICY "Members can view co-members in their org"
 ON public.organization_members FOR ALL TO authenticated
 USING (
-  organization_id IN (SELECT auth.user_organization_ids())
+  organization_id IN (SELECT public.user_organization_ids())
 );
 
 -- 3. Clients Policy
 CREATE POLICY "Tenant members access organization clients"
 ON public.clients FOR ALL TO authenticated
 USING (
-  organization_id IN (SELECT auth.user_organization_ids())
+  organization_id IN (SELECT public.user_organization_ids())
 );
 
 -- 4. Products Policy
 CREATE POLICY "Tenant members access organization products"
 ON public.products FOR ALL TO authenticated
 USING (
-  organization_id IN (SELECT auth.user_organization_ids())
+  organization_id IN (SELECT public.user_organization_ids())
 );
 
 -- 5. Quotes Policy (Authenticated Members + Public Token Read)
 CREATE POLICY "Tenant members access organization quotes"
 ON public.quotes FOR ALL TO authenticated
 USING (
-  organization_id IN (SELECT auth.user_organization_ids())
+  organization_id IN (SELECT public.user_organization_ids())
 );
 
 CREATE POLICY "Public read quotes via public_token"
@@ -306,7 +306,7 @@ USING (public_token IS NOT NULL);
 CREATE POLICY "Tenant members access organization contracts"
 ON public.contracts FOR ALL TO authenticated
 USING (
-  organization_id IN (SELECT auth.user_organization_ids())
+  organization_id IN (SELECT public.user_organization_ids())
 );
 
 CREATE POLICY "Public read contracts for OTP signing"
@@ -317,19 +317,19 @@ USING (status IN ('sent', 'client_signed', 'accepted'));
 CREATE POLICY "Tenant members access organization milestones"
 ON public.milestones FOR ALL TO authenticated
 USING (
-  organization_id IN (SELECT auth.user_organization_ids())
+  organization_id IN (SELECT public.user_organization_ids())
 );
 
 -- 8. CSD Credentials Policy (Restricted to Owner/Accountant)
 CREATE POLICY "Tenant members access organization CSD credentials"
 ON public.csd_credentials FOR ALL TO authenticated
 USING (
-  organization_id IN (SELECT auth.user_organization_ids())
+  organization_id IN (SELECT public.user_organization_ids())
 );
 
 -- 9. Audit Logs Policy
 CREATE POLICY "Tenant members access organization audit logs"
 ON public.audit_logs FOR ALL TO authenticated
 USING (
-  organization_id IN (SELECT auth.user_organization_ids())
+  organization_id IN (SELECT public.user_organization_ids())
 );

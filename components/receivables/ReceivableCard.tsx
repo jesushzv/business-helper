@@ -102,43 +102,47 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
         </div>
       </div>
 
-      {/* Touch Action Buttons (>= 48px min-height) */}
-      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-100">
-        {!isConfirmed && (
+      {/* Touch Action Buttons */}
+      <div className="flex flex-col gap-2 pt-3 border-t border-slate-100">
+        <div className="flex items-center gap-2">
+          {!isConfirmed && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm text-xs sm:text-sm whitespace-nowrap"
+            >
+              <MessageSquare className="w-4 h-4 shrink-0" />
+              <span>Recordar WhatsApp</span>
+            </a>
+          )}
+
           <a
-            href={whatsappUrl}
+            href={`/pay/${milestone.public_token || 'demo'}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 min-h-[48px] px-4 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm text-sm"
+            className={`${
+              isConfirmed ? 'w-full' : 'shrink-0'
+            } min-h-[44px] px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap`}
           >
-            <MessageSquare className="w-5 h-5" />
-            <span>Recordar WhatsApp</span>
+            <ExternalLink className="w-4 h-4 shrink-0" />
+            <span>Portal SPEI</span>
           </a>
-        )}
+        </div>
 
         {!isConfirmed && (
           <button
             onClick={() => onOpenConfirmModal && onOpenConfirmModal(milestone)}
-            className={`min-h-[48px] px-4 py-3 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm text-sm ${
+            className={`w-full min-h-[44px] px-4 py-2.5 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm text-xs sm:text-sm whitespace-nowrap ${
               isMarkedPaid
                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
                 : 'bg-indigo-600 hover:bg-indigo-700 text-white'
             }`}
           >
-            <CheckCircle className="w-5 h-5" />
+            <CheckCircle className="w-4 h-4 shrink-0" />
             <span>{isMarkedPaid ? 'Revisar Comprobante' : 'Confirmar Pago'}</span>
           </button>
         )}
-
-        <a
-          href={`/pay/${milestone.public_token || 'demo'}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="min-h-[48px] px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-sm"
-        >
-          <ExternalLink className="w-4 h-4" />
-          <span>Portal SPEI</span>
-        </a>
       </div>
     </div>
   );

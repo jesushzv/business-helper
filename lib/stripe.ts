@@ -31,7 +31,7 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
       'Portal público de carga SPEI',
       'Soporte estándar por correo',
     ],
-    stripePriceId: 'price_emprendedor_299_mxn',
+    stripePriceId: process.env.STRIPE_PRICE_EMPRENDEDOR || 'price_emprendedor_299_mxn',
   },
   negocio: {
     id: 'negocio',
@@ -48,7 +48,7 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
       'Centro de Control y Proyección de Flujo 90 días',
       'Soporte prioritario WhatsApp',
     ],
-    stripePriceId: 'price_negocio_599_mxn',
+    stripePriceId: process.env.STRIPE_PRICE_NEGOCIO || 'price_negocio_599_mxn',
   },
   empresa: {
     id: 'empresa',
@@ -64,7 +64,7 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
       'Asesoría fiscal SAT personalizada',
       'Gerente de cuenta dedicado',
     ],
-    stripePriceId: 'price_empresa_999_mxn',
+    stripePriceId: process.env.STRIPE_PRICE_EMPRESA || 'price_empresa_999_mxn',
   },
 };
 

@@ -54,40 +54,42 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-100">
-        {/* 1-Tap WhatsApp Button (>= 48px touch target) */}
-        <a
-          href={whatsappUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 min-h-[48px] px-4 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm text-sm"
-        >
-          <MessageSquare className="w-5 h-5" />
-          <span>Enviar por WhatsApp</span>
-        </a>
+      <div className="flex flex-col gap-2 pt-3 border-t border-slate-100">
+        <div className="flex items-center gap-2">
+          {/* 1-Tap WhatsApp Button */}
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm text-xs sm:text-sm whitespace-nowrap"
+          >
+            <MessageSquare className="w-4 h-4 shrink-0" />
+            <span>Enviar por WhatsApp</span>
+          </a>
+
+          {/* View Details Link */}
+          <a
+            href={`/q/${quote.public_token}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-h-[44px] px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap shrink-0"
+          >
+            <FileText className="w-4 h-4 shrink-0" />
+            <span>Ver Portal</span>
+            <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+          </a>
+        </div>
 
         {/* Convert to Contract Action Button if Accepted */}
         {quote.status === 'accepted' && (
           <button
             onClick={() => onConvert && onConvert(quote.id)}
-            className="min-h-[48px] px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm text-sm"
+            className="w-full min-h-[44px] px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm text-xs sm:text-sm whitespace-nowrap"
           >
-            <CheckCircle className="w-5 h-5" />
+            <CheckCircle className="w-4 h-4 shrink-0" />
             <span>Convertir a Contrato</span>
           </button>
         )}
-
-        {/* View Details Link */}
-        <a
-          href={`/q/${quote.public_token}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="min-h-[48px] px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-sm"
-        >
-          <FileText className="w-4 h-4" />
-          <span>Ver Portal</span>
-          <ArrowRight className="w-4 h-4" />
-        </a>
       </div>
     </div>
   );
