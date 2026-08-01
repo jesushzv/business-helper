@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { validateTrackingReference, validateReceiptFile } from '@/lib/speiValidator';
+import { getOrganizationBranding, generateThemeCssVariables } from '@/lib/branding';
 import { Building2, Upload, CheckCircle2, ShieldCheck, Copy, Check, FileText } from 'lucide-react';
 
 interface PublicMilestone {
@@ -80,6 +81,9 @@ export default function PublicPayPortalPage() {
       setLoading(false);
     }
   }, [token]);
+
+  const branding = getOrganizationBranding({ companyName: milestone?.org_name || 'Business Helper Demo' });
+  const cssVars = generateThemeCssVariables(branding);
 
   const handleCopyClabe = () => {
     if (milestone?.clabe) {
@@ -176,15 +180,23 @@ export default function PublicPayPortalPage() {
   }).format(milestone.amount);
 
   return (
-    <div className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6">
+    <div style={cssVars as React.CSSProperties} className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6">
       <div className="max-w-md mx-auto space-y-6">
         {/* Header Branding */}
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto shadow-md">
-            <Building2 className="w-6 h-6" />
+          <div
+            className="w-12 h-12 rounded-2xl text-white flex items-center justify-center mx-auto shadow-md overflow-hidden"
+            style={{ backgroundColor: branding.primaryColor }}
+          >
+            {branding.hasCustomLogo && branding.logoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={branding.logoUrl} alt={branding.companyName} className="w-full h-full object-contain" />
+            ) : (
+              <Building2 className="w-6 h-6" />
+            )}
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900">{milestone.org_name || 'Business Helper'}</h1>
+            <h1 className="text-xl font-extrabold text-slate-900">{milestone.org_name || branding.companyName}</h1>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
               Portal de Pago y Registro SPEI
             </p>

@@ -1490,6 +1490,28 @@ test('Provides fallback logo and default brand colors when tenant settings are u
   }
 });
 
+test('Resolves custom logo URL, tagline and calculates hover color for custom primary colors', () => {
+  if (brandingModule?.getOrganizationBranding && brandingModule?.generateThemeCssVariables) {
+    const customConfig = {
+      primaryColor: '#059669',
+      logoUrl: 'https://ejemplo.com/logo.png',
+      tagline: 'Soluciones Logísticas y Construcción',
+      companyName: 'Constructora del Norte'
+    };
+
+    const branding = brandingModule.getOrganizationBranding(customConfig);
+    assert.strictEqual(branding.hasCustomLogo, true);
+    assert.strictEqual(branding.logoUrl, 'https://ejemplo.com/logo.png');
+    assert.strictEqual(branding.companyName, 'Constructora del Norte');
+    assert.strictEqual(branding.tagline, 'Soluciones Logísticas y Construcción');
+
+    const cssVars = brandingModule.generateThemeCssVariables(customConfig);
+    assert.strictEqual(cssVars['--primary-color'], '#059669');
+    assert.strictEqual(typeof cssVars['--primary-hover'], 'string');
+    assert.strictEqual(cssVars['--header-bg'], '#059669');
+  }
+});
+
 // ----------------------------------------------------
 // 34. Production Cloud QA & Health Check Assertions
 // ----------------------------------------------------
