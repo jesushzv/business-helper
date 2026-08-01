@@ -49,18 +49,19 @@ graph TD
    - **Root Directory**: `./`
    - **Build Command**: `npm run build`
    - **Output Directory**: `.next`
-3. Add Environment Variables (from `.env.example` template):
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `FACTURAPI_SECRET_KEY`
-   - `STRIPE_SECRET_KEY`
-   - `STRIPE_WEBHOOK_SECRET`
-   - `TWILIO_ACCOUNT_SID`
-   - `TWILIO_AUTH_TOKEN`
-   - `TWILIO_PHONE_NUMBER`
-   - `GEMINI_API_KEY`
-   - `NEXT_PUBLIC_APP_URL`
+3. Add Environment Variables (from [.env.production](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/.env.production) template):
+   - **Active Production Keys (Configured)**:
+     - `NEXT_PUBLIC_SUPABASE_URL`: `https://dfyoavffxzujvxvnsizi.supabase.co`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: `sb_publishable_4w3ZlvFUwFtRTWI5s6QfVw_127miFZO`
+     - `SUPABASE_SERVICE_ROLE_KEY`: `<your-supabase-service-role-secret-key>`
+     - `NODE_ENV`: `production`
+     - `NEXT_PUBLIC_APP_URL`: `https://business-helper.vercel.app`
+   - **Pending Third-Party Production Keys (To be added post-launch)**:
+     - `FACTURAPI_SECRET_KEY` (Live PAC key `sk_live_...` & SAT CSD `.cer`/`.key` upload)
+     - `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET` (Live Stripe key & signing secret)
+     - `STRIPE_PRICE_EMPRENDEDOR`, `STRIPE_PRICE_NEGOCIO`, `STRIPE_PRICE_EMPRESA` (Live Price IDs)
+     - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` (Live WhatsApp Business API)
+     - `GEMINI_API_KEY` (Google Cloud Gemini API Key)
 4. Click **Deploy**.
 
 ---

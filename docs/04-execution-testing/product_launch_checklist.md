@@ -51,7 +51,14 @@
 ## 03 Pre-Launch (T-1 Week: Sep 12 – Sep 18, 2026)
 
 - [x] **Production Deployment Guide & Secrets Template**: Prepared `docs/deployment.md` and `.env.example` mapping all production keys (`NEXT_PUBLIC_SUPABASE_URL`, `FACTURAPI_SECRET_KEY`, `STRIPE_SECRET_KEY`, `TWILIO_AUTH_TOKEN`, `GEMINI_API_KEY`).
-- [ ] **Production DB Migrations**: Run `npx supabase db push` to production project (`dfyoavffxzujvxvnsizi`).
+- [x] **Production DB Migrations**: Executed initial schema migration ([20260803000000_initial_schema.sql](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/supabase/migrations/20260803000000_initial_schema.sql)) to production project `dfyoavffxzujvxvnsizi`.
+- [x] **Supabase Production Infrastructure**: Provisioned `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` in [.env.production](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/.env.production).
+- [ ] **Pending Production API Keys (Post-Initial Deploy)**:
+  - [ ] `FACTURAPI_SECRET_KEY`: Replace `sk_test_...` with live PAC key (`sk_live_...`) & upload CSD certificates.
+  - [ ] `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`: Replace sandbox keys with live Stripe key & register webhook endpoint (`/api/stripe/webhook`).
+  - [ ] `STRIPE_PRICE_EMPRENDEDOR`, `STRIPE_PRICE_NEGOCIO`, `STRIPE_PRICE_EMPRESA`: Map live Stripe price IDs ($299, $599, $999 MXN).
+  - [ ] `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`: Configure live WhatsApp Business sender.
+  - [ ] `GEMINI_API_KEY`: Provide Google Cloud Gemini API key with active billing.
 - [ ] **Domain & SSL Setup**: Configure custom domain `businesshelper.mx` on Vercel:
   - Apex A Record: `76.76.21.21`
   - Subdomain CNAME: `cname.vercel-dns.com`
