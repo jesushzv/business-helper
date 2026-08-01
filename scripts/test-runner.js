@@ -1242,6 +1242,28 @@ test('Demo Mode Resolution Logic Allows Unauthenticated Access when Demo Flag or
   assert.strictEqual(evaluateDemoAccess({ id: 'u1' }, 'false', 'false', 'https://live.supabase.co'), 'allow_access', 'Authenticated user must always be allowed');
 });
 
+test('Middleware updateSession returns a valid Response contract object (preventing Edge Runtime invocation failure)', async () => {
+  if (authMiddlewareModule?.updateSession) {
+    const mockRequest = {
+      nextUrl: { pathname: '/dashboard', clone: () => ({ pathname: '/dashboard' }) }
+    };
+    const res = await authMiddlewareModule.updateSession(mockRequest);
+    assert.strictEqual(typeof res, 'object', 'Middleware return value must be an object');
+    assert.strictEqual('headers' in res || 'redirect' in res || 'status' in res, true, 'Middleware return value must fulfill Response contract');
+  }
+});
+
+test('ESLint & Build Integrity Gate: JS source files using CommonJS require() must include eslint-disable directive', () => {
+  const mwJsPath = path.join(__dirname, '../lib/supabase/middleware.js');
+  if (fs.existsSync(mwJsPath)) {
+    const content = fs.readFileSync(mwJsPath, 'utf8');
+    if (content.includes('require(') && !content.includes('eslint-disable')) {
+      throw new Error('lib/supabase/middleware.js uses require() without eslint-disable directive, which causes next build lint failure');
+    }
+  }
+});
+
+
 // ----------------------------------------------------
 // 27. Facturapi Live SAT CFDI 4.0 PAC HTTP Client Suite
 // ----------------------------------------------------
