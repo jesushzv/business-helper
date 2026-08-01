@@ -3,7 +3,11 @@ import { updateSession } from '@/lib/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
   try {
-    return await updateSession(request);
+    const response = await updateSession(request);
+    if (response && typeof response === 'object' && 'headers' in response) {
+      return response;
+    }
+    return NextResponse.next({ request });
   } catch (error) {
     console.error('Middleware execution exception:', error);
     return NextResponse.next({ request });

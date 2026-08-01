@@ -7,6 +7,18 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '5mb',
     },
   },
+  webpack: (config) => {
+    config.resolve.extensions = [
+      '.ts',
+      '.tsx',
+      '.js',
+      '.jsx',
+      ...config.resolve.extensions.filter(
+        (ext: string) => !['.ts', '.tsx', '.js', '.jsx'].includes(ext)
+      ),
+    ];
+    return config;
+  },
   async headers() {
     return [
       {
@@ -23,3 +35,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
