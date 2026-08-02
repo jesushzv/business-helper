@@ -1565,6 +1565,60 @@ test('Audit Environment Secrets validates required production environment variab
 });
 
 // ----------------------------------------------------
+// 36. Help Center & FAQ Engine Suite
+// ----------------------------------------------------
+console.log('\n[Suite 36: Help Center & FAQ Engine Suite]');
+
+let helpModule;
+try {
+  helpModule = require('../lib/helpFAQ.js');
+} catch (e) {
+  helpModule = null;
+}
+
+test('Help Module Exists & Exports Search Helpers and Data', () => {
+  assert.notStrictEqual(helpModule, null, 'lib/helpFAQ.js module should exist');
+  assert.strictEqual(Array.isArray(helpModule?.FAQ_ITEMS), true);
+  assert.strictEqual(Array.isArray(helpModule?.CATEGORIES), true);
+  assert.strictEqual(typeof helpModule?.searchFAQItems, 'function');
+  assert.strictEqual(typeof helpModule?.generateWhatsAppSupportLink, 'function');
+});
+
+test('Filters FAQ items by text query across questions, answers, and tags', () => {
+  if (helpModule?.searchFAQItems) {
+    const speiResults = helpModule.searchFAQItems('spei');
+    assert.strictEqual(speiResults.length > 0, true, 'Should find SPEI related FAQ items');
+    assert.strictEqual(speiResults.some(item => item.id === 'cob-1'), true);
+
+    const satResults = helpModule.searchFAQItems('SAT');
+    assert.strictEqual(satResults.length > 0, true, 'Should find SAT related FAQ items');
+
+    const emptyResults = helpModule.searchFAQItems('nonexistent_query_xyz');
+    assert.strictEqual(emptyResults.length, 0, 'Should return empty array for non-matching query');
+  }
+});
+
+test('Filters FAQ items by category pill', () => {
+  if (helpModule?.searchFAQItems) {
+    const cotizacionesOnly = helpModule.searchFAQItems('', 'cotizaciones');
+    assert.strictEqual(cotizacionesOnly.every(item => item.category === 'cotizaciones'), true);
+    
+    const cobranzaOnly = helpModule.searchFAQItems('', 'cobranza');
+    assert.strictEqual(cobranzaOnly.every(item => item.category === 'cobranza'), true);
+  }
+});
+
+test('Generates valid WhatsApp support link with custom or default message', () => {
+  if (helpModule?.generateWhatsAppSupportLink) {
+    const defaultLink = helpModule.generateWhatsAppSupportLink();
+    assert.strictEqual(defaultLink.startsWith('https://wa.me/528180000000?text='), true);
+
+    const customLink = helpModule.generateWhatsAppSupportLink('Facturación CFDI 4.0');
+    assert.strictEqual(customLink.includes('Facturaci%C3%B3n%20CFDI%204.0'), true);
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
