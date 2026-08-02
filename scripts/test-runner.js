@@ -1619,6 +1619,85 @@ test('Generates valid WhatsApp support link with custom or default message', () 
 });
 
 // ----------------------------------------------------
+// 37. Sentry Monitoring & Error Handler Engine Suite
+// ----------------------------------------------------
+console.log('\n[Suite 37: Sentry Monitoring & Error Handler Engine Suite]');
+
+let sentryModule;
+try {
+  sentryModule = require('../lib/sentry.js');
+} catch (e) {
+  sentryModule = null;
+}
+
+test('Sentry Module Exists & Exports Monitoring Helpers', () => {
+  assert.notStrictEqual(sentryModule, null, 'lib/sentry.js module should exist');
+  assert.strictEqual(typeof sentryModule?.isSentryConfigured, 'function');
+  assert.strictEqual(typeof sentryModule?.formatErrorPayload, 'function');
+  assert.strictEqual(typeof sentryModule?.captureException, 'function');
+  assert.strictEqual(typeof sentryModule?.captureMessage, 'function');
+});
+
+test('isSentryConfigured validates Sentry DSN syntax correctly', () => {
+  if (sentryModule?.isSentryConfigured) {
+    assert.strictEqual(sentryModule.isSentryConfigured({}), false);
+    assert.strictEqual(sentryModule.isSentryConfigured({ SENTRY_DSN: 'invalid_dsn' }), false);
+    assert.strictEqual(
+      sentryModule.isSentryConfigured({
+        NEXT_PUBLIC_SENTRY_DSN: 'https://123456@sentry.io/7890'
+      }),
+      true
+    );
+  }
+});
+
+test('formatErrorPayload constructs structured payload with org_id and route tags', () => {
+  if (sentryModule?.formatErrorPayload) {
+    const error = new Error('Test DB Connection Error');
+    const payload = sentryModule.formatErrorPayload(error, {
+      organization_id: 'org_test_123',
+      route: '/api/invoices',
+      level: 'fatal'
+    });
+
+    assert.strictEqual(payload.name, 'Error');
+    assert.strictEqual(payload.message, 'Test DB Connection Error');
+    assert.strictEqual(payload.tags.organization_id, 'org_test_123');
+    assert.strictEqual(payload.tags.route, '/api/invoices');
+    assert.strictEqual(payload.tags.severity, 'fatal');
+    assert.strictEqual(typeof payload.timestamp, 'string');
+  }
+});
+
+test('captureException handles errors gracefully without throwing when DSN is absent', () => {
+  if (sentryModule?.captureException) {
+    const result = sentryModule.captureException(
+      new Error('Middleware Auth Check Failed'),
+      { route: '/dashboard', organization_id: 'org_demo' },
+      {} // empty env (no DSN)
+    );
+
+    assert.strictEqual(result.handled, true);
+    assert.strictEqual(result.dispatchedToSentry, false);
+    assert.strictEqual(result.payload.message, 'Middleware Auth Check Failed');
+  }
+});
+
+test('captureMessage logs warning and info alerts cleanly', () => {
+  if (sentryModule?.captureMessage) {
+    const infoResult = sentryModule.captureMessage(
+      'Rate limit threshold warning',
+      'warning',
+      { route: '/api/quotes' },
+      {}
+    );
+
+    assert.strictEqual(infoResult.handled, true);
+    assert.strictEqual(infoResult.payload.level, 'warning');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

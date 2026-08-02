@@ -14,7 +14,7 @@ import {
   ExternalLink,
   Sparkles,
 } from 'lucide-react';
-import { FAQ_ITEMS, CATEGORIES, searchFAQItems, generateWhatsAppSupportLink } from '@/lib/helpFAQ';
+import { CATEGORIES, searchFAQItems, generateWhatsAppSupportLink } from '@/lib/helpFAQ';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   HelpCircle,
@@ -149,7 +149,7 @@ export const HelpCenterView: React.FC = () => {
           <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
             <HelpCircle className="mx-auto h-12 w-12 text-gray-300" />
             <h3 className="mt-3 text-base font-bold text-gray-900">
-              No encontramos respuestas para "{searchQuery}"
+              No encontramos respuestas para &quot;{searchQuery}&quot;
             </h3>
             <p className="mt-1 text-sm text-gray-500">
               Prueba buscar con otros términos o escríbenos directamente por WhatsApp.
