@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { parseNaturalLanguageQuery, checkRateLimit, validateAIQuota } from '@/lib/whatsappAI';
+import { parseNaturalLanguageQuery, checkRateLimit, validateAIQuota, sanitizeAIQuery } from '@/lib/whatsappAI';
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { query, tierKey = 'negocio', currentUsage = 0 } = body;
+    const { query, tierKey = 'demo', currentUsage = 0 } = body;
 
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
@@ -24,7 +24,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Tier Quota Guard (Emprendedor: 50, Negocio: 300, Empresa: 1500)
+    // 2. Input Sanitization & Truncation Guard (Max 300 characters)
+    const sanitizedQuery = sanitizeAIQuery(query, 300);
+    if (!sanitizedQuery) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_QUERY', message: 'La consulta no puede estar vacía' } },
+        { status: 400 }
+      );
+    }
+
+    // 3. Tier Quota Guard (Demo: 20, Emprendedor: 50, Negocio: 300, Empresa: 1500)
     const quotaCheck = validateAIQuota(tierKey, currentUsage);
     if (!quotaCheck.allowed) {
       return NextResponse.json(
@@ -44,7 +53,7 @@ export async function POST(request: Request) {
       ]
     };
 
-    const response = parseNaturalLanguageQuery(query, demoOrgData);
+    const response = parseNaturalLanguageQuery(sanitizedQuery, demoOrgData);
     return NextResponse.json({
       ...response,
       quota: quotaCheck

@@ -3,7 +3,7 @@
  * 
  * Natural language query parser for business owners (Don Roberto / Lic. Mariana)
  * answering queries on WhatsApp or mobile web about overdue debt, payments, and client totals.
- * Includes cost safeguards, tier quotas, and sliding-window rate limiting.
+ * Includes cost safeguards, tier quotas, input sanitization, and sliding-window rate limiting.
  */
 
 export interface AIOrgData {
@@ -20,6 +20,7 @@ export interface AIQuotaResult {
 }
 
 export const TIER_AI_QUOTAS: Record<string, number> = {
+  demo: 20,
   emprendedor: 50,
   negocio: 300,
   empresa: 1500,
@@ -43,9 +44,16 @@ export function checkRateLimit(identifier: string = 'anon', maxPerMinute: number
   return { allowed: true, remaining: maxPerMinute - timestamps.length };
 }
 
-export function validateAIQuota(tierKey: string = 'emprendedor', currentUsage: number = 0): AIQuotaResult {
-  const normalizedTier = (tierKey || 'emprendedor').toLowerCase();
-  const limit = TIER_AI_QUOTAS[normalizedTier] || TIER_AI_QUOTAS.emprendedor;
+export function sanitizeAIQuery(query: string = '', maxLength: number = 300): string {
+  if (!query || typeof query !== 'string') return '';
+  // Remove control characters and trim whitespace
+  const sanitized = query.replace(/[\x00-\x1F\x7F]/g, '').trim();
+  return sanitized.slice(0, maxLength);
+}
+
+export function validateAIQuota(tierKey: string = 'demo', currentUsage: number = 0): AIQuotaResult {
+  const normalizedTier = (tierKey || 'demo').toLowerCase();
+  const limit = TIER_AI_QUOTAS[normalizedTier] ?? TIER_AI_QUOTAS.demo;
 
   if (currentUsage >= limit) {
     return {
@@ -66,6 +74,7 @@ export function validateAIQuota(tierKey: string = 'emprendedor', currentUsage: n
 }
 
 export function buildAIPromptContext(query: string, clients: Array<{ name: string; phone?: string; totalOverdue: number }>) {
+  const cleanQuery = sanitizeAIQuery(query, 300);
   const summary = clients
     .map((c) => `- Cliente: ${c.name}, Teléfono: ${c.phone || 'N/A'}, Saldo Vencido: $${c.totalOverdue.toLocaleString('es-MX')} MXN`)
     .join('\n');
@@ -75,11 +84,12 @@ Responde de forma concisa, profesional y con montos en MXN.
 Datos de clientes y adeudos:
 ${summary}
 
-Pregunta del usuario: "${query}"`;
+Pregunta del usuario: "${cleanQuery}"`;
 }
 
 export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
-  const cleanQuery = (query || '').toLowerCase().trim();
+  const sanitizedQuery = sanitizeAIQuery(query, 300);
+  const cleanQuery = sanitizedQuery.toLowerCase();
   const clients = orgData.clients || [];
   const receivables = orgData.receivables || [];
 
@@ -102,7 +112,7 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
     const whatsappUrl = `https://wa.me/${rawPhone}?text=${messagePayload}`;
 
     return {
-      query,
+      query: sanitizedQuery,
       intent: 'client_overdue_balance',
       matchedClient: matchedClient.name,
       totalOverdue,
@@ -117,7 +127,7 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(answerText)}`;
 
   return {
-    query,
+    query: sanitizedQuery,
     intent: 'general_receivables_summary',
     matchedClient: null,
     totalOverdue: totalDebt,
@@ -130,6 +140,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     TIER_AI_QUOTAS,
     checkRateLimit,
+    sanitizeAIQuery,
     validateAIQuota,
     buildAIPromptContext,
     parseNaturalLanguageQuery

@@ -1902,6 +1902,36 @@ test('Facturapi SAT CFDI client uses simulateInvoiceStamping in Sandbox mode reg
 });
 
 // ----------------------------------------------------
+// 41. Sandbox Mode AI Security & Rate Limiting Audit Suite
+// ----------------------------------------------------
+console.log('\n[Suite 41: Sandbox Mode AI Security & Rate Limiting Audit]');
+
+test('AI Assistant truncates oversized prompt inputs to 300 characters max to prevent token abuse', () => {
+  if (aiModule?.sanitizeAIQuery) {
+    const hugeQuery = '¿Cuánto me debe Grupo Salinas? ' + 'x'.repeat(1000);
+    const sanitized = aiModule.sanitizeAIQuery(hugeQuery, 300);
+    assert.strictEqual(sanitized.length, 300, 'Query must be truncated to 300 characters');
+    assert.strictEqual(sanitized.startsWith('¿Cuánto me debe Grupo Salinas?'), true);
+  } else {
+    throw new Error('sanitizeAIQuery module not exported');
+  }
+});
+
+test('Rate limiter enforces max 5 queries per minute per sandbox IP/client', () => {
+  if (aiModule?.checkRateLimit) {
+    const testIp = 'audit_ip_999';
+    for (let i = 1; i <= 5; i++) {
+      const res = aiModule.checkRateLimit(testIp, 5);
+      assert.strictEqual(res.allowed, true, `Query ${i} should be allowed`);
+    }
+    const blockedRes = aiModule.checkRateLimit(testIp, 5);
+    assert.strictEqual(blockedRes.allowed, false, 'Query 6 must be blocked by rate limiter');
+  } else {
+    throw new Error('checkRateLimit module not exported');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
