@@ -25,9 +25,7 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title }) => {
         {/* Left Branding / View Title */}
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="flex items-center gap-2 transition-transform active:scale-95">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-400 to-teal-600 font-bold text-slate-950 shadow-md shadow-emerald-950/40">
-              <Building2 className="h-5 w-5" />
-            </div>
+            <img src="/logo-icon.svg" alt="Business Helper" className="h-9 w-9 object-contain" />
             <span className="hidden text-xl font-black tracking-tight text-white sm:inline-block">
               Business<span className="text-emerald-400">Helper</span>
             </span>

@@ -11,8 +11,13 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'BusinessHelper | Operaciones SMB Mexico',
-  description: 'Gestión de cotizaciones, clientes y cobranza SPEI para PyMEs en México',
+  title: 'Business Helper | Control de Cotizaciones, Cobranza y Facturación',
+  description: 'La plataforma operativa para PyMEs en México: cotizaciones en 2 min, cobro por WhatsApp y facturación CFDI 4.0.',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/logo-icon.svg',
+  },
 };
 
 export default function RootLayout({

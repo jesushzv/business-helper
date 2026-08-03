@@ -90,11 +90,11 @@ export const HelpCenterView: React.FC = () => {
               onClick={() => setSelectedCategory(cat.id)}
               className={`flex items-center gap-2 whitespace-nowrap rounded-2xl px-4 py-3 text-sm font-bold transition-all min-h-[48px] ${
                 isSelected
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-950/50'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
               }`}
             >
-              <Icon className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-indigo-600'}`} />
+              <Icon className={`h-4 w-4 ${isSelected ? 'text-slate-950' : 'text-emerald-400'}`} />
               <span>{cat.label}</span>
             </button>
           );
@@ -109,18 +109,18 @@ export const HelpCenterView: React.FC = () => {
             return (
               <div
                 key={item.id}
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white transition-all shadow-2xs hover:border-indigo-200"
+                className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90 transition-all shadow-xl hover:border-slate-700"
               >
                 <button
                   onClick={() => toggleExpand(item.id)}
                   className="flex w-full items-center justify-between gap-4 p-4 sm:p-5 text-left min-h-[56px] focus:outline-hidden"
                 >
-                  <span className="text-base font-bold text-gray-900">
+                  <span className="text-base font-bold text-white">
                     {item.question}
                   </span>
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-500 transition-transform ${
-                      isExpanded ? 'rotate-180 bg-indigo-50 text-indigo-600' : ''
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-400 transition-transform ${
+                      isExpanded ? 'rotate-180 bg-emerald-950/80 text-emerald-400 border border-emerald-500/30' : ''
                     }`}
                   >
                     <ChevronDown className="h-5 w-5" />
@@ -128,13 +128,13 @@ export const HelpCenterView: React.FC = () => {
                 </button>
 
                 {isExpanded && (
-                  <div className="border-t border-gray-100 bg-slate-50/50 p-4 sm:p-5 text-sm text-gray-700 leading-relaxed animate-in fade-in duration-150">
+                  <div className="border-t border-slate-800 bg-slate-950/80 p-4 sm:p-5 text-sm text-slate-300 leading-relaxed animate-in fade-in duration-150">
                     <p>{item.answer}</p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {item.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="rounded-lg bg-gray-200/60 px-2.5 py-1 text-[11px] font-semibold text-gray-600"
+                          className="rounded-lg bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-300 border border-slate-700 font-mono"
                         >
                           #{tag}
                         </span>
@@ -146,12 +146,12 @@ export const HelpCenterView: React.FC = () => {
             );
           })
         ) : (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
-            <HelpCircle className="mx-auto h-12 w-12 text-gray-300" />
-            <h3 className="mt-3 text-base font-bold text-gray-900">
+          <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/90 p-8 text-center text-white">
+            <HelpCircle className="mx-auto h-12 w-12 text-slate-600" />
+            <h3 className="mt-3 text-base font-bold text-white">
               No encontramos respuestas para &quot;{searchQuery}&quot;
             </h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-slate-400">
               Prueba buscar con otros términos o escríbenos directamente por WhatsApp.
             </p>
           </div>
@@ -159,17 +159,17 @@ export const HelpCenterView: React.FC = () => {
       </div>
 
       {/* WhatsApp 1-Tap Support CTA (Don Roberto Constraint) */}
-      <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-6 shadow-sm">
+      <div className="rounded-3xl border border-emerald-500/30 bg-emerald-950/80 p-6 shadow-xl text-white">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-slate-950 shadow-md">
               <MessageSquare className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">
+              <h3 className="text-lg font-bold text-white">
                 ¿Aún tienes dudas o necesitas asistencia?
               </h3>
-              <p className="text-sm text-gray-600 mt-0.5">
+              <p className="text-sm text-slate-300 mt-0.5">
                 Nuestro equipo de soporte para negocios te atiende directamente por WhatsApp.
               </p>
             </div>
@@ -179,7 +179,7 @@ export const HelpCenterView: React.FC = () => {
             href={whatsappSupportUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/30 transition-all hover:bg-emerald-700 active:scale-98 min-h-[48px] shrink-0"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-6 py-3.5 text-sm font-extrabold text-slate-950 shadow-lg shadow-emerald-950/50 transition-all active:scale-98 min-h-[48px] shrink-0"
           >
             <span>Soporte por WhatsApp</span>
             <ExternalLink className="h-4 w-4" />

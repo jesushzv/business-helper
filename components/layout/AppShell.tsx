@@ -72,9 +72,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         {/* Sidebar Header */}
         <div className="flex h-16 items-center justify-between border-b border-slate-800/80 px-6">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-400 to-teal-600 font-bold text-slate-950 shadow-md shadow-emerald-950/50">
-              <Building2 className="h-5 w-5" />
-            </div>
+            <img src="/logo-icon.svg" alt="Business Helper" className="h-9 w-9 object-contain" />
             <div>
               <span className="text-lg font-black tracking-tight text-white">
                 Business<span className="text-emerald-400">Helper</span>

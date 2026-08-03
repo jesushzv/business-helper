@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 240" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#060911"/>
+    </linearGradient>
+    
+    <!-- Emerald Brand Glow -->
+    <linearGradient id="emeraldGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="50%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    
+    <!-- Indigo Accent Gradient -->
+    <linearGradient id="indigoGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+
+    <!-- Border Gradient -->
+    <linearGradient id="borderGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#1e293b" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.6"/>
+    </linearGradient>
+    
+    <!-- Soft Glow Filter -->
+    <filter id="glowDark" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Logo Icon Badge -->
+  <g transform="translate(20, 20)">
+    <rect x="0" y="0" width="200" height="200" rx="44" fill="url(#bgGradDark)" stroke="url(#borderGradDark)" stroke-width="4"/>
+    
+    <!-- Building Bars -->
+    <g filter="url(#glowDark)">
+      <rect x="45" y="95" width="24" height="60" rx="6" fill="url(#indigoGradDark)" opacity="0.85"/>
+      <rect x="79" y="65" width="24" height="90" rx="6" fill="url(#indigoGradDark)"/>
+      <rect x="113" y="45" width="24" height="110" rx="6" fill="url(#emeraldGradDark)"/>
+    </g>
+
+    <!-- Checkmark Overlay -->
+    <path d="M50 110 L85 145 L145 70" 
+          fill="none" 
+          stroke="url(#emeraldGradDark)" 
+          stroke-width="18" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"
+          filter="url(#glowDark)"/>
+          
+    <path d="M50 110 L85 145 L145 70" 
+          fill="none" 
+          stroke="#ffffff" 
+          stroke-width="5" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"
+          opacity="0.9"/>
+  </g>
+
+  <!-- Typography -->
+  <!-- Main Brand Name -->
+  <text x="250" y="115" font-family="Plus Jakarta Sans, Outfit, system-ui, sans-serif" font-weight="900" font-size="64" letter-spacing="-1.5" fill="#ffffff">
+    Business<tspan fill="url(#emeraldGradDark)">Helper</tspan>
+  </text>
+  
+  <!-- Sub-descriptor -->
+  <text x="252" y="165" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="20" letter-spacing="0.5" fill="#94a3b8">
+    Cotizaciones • Cobranza • Facturación CFDI 4.0
+  </text>
+</svg>

@@ -6,7 +6,7 @@ export function isDemoModeActive(searchParamsStr?: string): boolean {
   if (typeof window !== 'undefined') {
     // Check URL search params
     const params = new URLSearchParams(searchParamsStr || window.location.search);
-    if (params.get('demo') === 'true') {
+    if (params.get('demo') === 'true' || params.get('sandbox') === 'true') {
       return true;
     }
     // Check localStorage sandbox / demo flag
@@ -16,7 +16,11 @@ export function isDemoModeActive(searchParamsStr?: string): boolean {
   }
 
   // Environment check fallback
-  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  if (
+    process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ||
+    process.env.IS_SANDBOX === 'true' ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL
+  ) {
     return true;
   }
 
@@ -32,3 +36,4 @@ export const DEMO_ORGANIZATION = {
   phone: '8115551234',
   plan_tier: 'pro',
 };
+

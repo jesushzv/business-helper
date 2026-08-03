@@ -101,78 +101,78 @@ export function InvoiceManagerCard() {
       )}
 
       {/* Invoice List / Stamping Center */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+      <div className="bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl overflow-hidden text-white">
+        <div className="p-6 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-indigo-600" />
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <FileText className="w-5 h-5 text-indigo-400" />
               Comprobantes Comerciales & Facturación SAT CFDI 4.0
             </h3>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
               Envía Notas de Venta inmediatas por WhatsApp o timbra facturas SAT CFDI (Opcional Pro).
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1.5 rounded-full border border-slate-200">
-            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-800 text-slate-300 px-3 py-1.5 rounded-full border border-slate-700">
+            <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
             SAT CFDI: Opcional Pro
           </span>
         </div>
 
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-slate-800/80">
           {invoices.map((inv) => (
             <div
               key={inv.id}
-              className="p-5 hover:bg-slate-50/80 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+              className="p-5 hover:bg-slate-800/50 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-4"
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <h4 className="font-bold text-slate-900 text-base">{inv.concept}</h4>
+                  <h4 className="font-bold text-white text-base">{inv.concept}</h4>
                   {inv.cfdiStatus === 'issued' ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-emerald-950/80 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30">
                       <CheckCircle className="w-3.5 h-3.5" />
                       CFDI Emitido
                     </span>
                   ) : inv.cfdiStatus === 'pending' ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full border border-amber-200">
+                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-amber-950/80 text-amber-300 px-2.5 py-1 rounded-full border border-amber-500/30">
                       <Clock className="w-3.5 h-3.5" />
                       Nota de Venta Lista
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full border border-slate-200">
+                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700">
                       <AlertCircle className="w-3.5 h-3.5" />
                       Nota de Venta Lista
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-500 flex-wrap pt-1">
-                  <span>Cliente: <strong className="text-slate-700">{inv.clientName}</strong></span>
-                  <span>RFC: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">{inv.clientRfc}</code></span>
+                <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-400 flex-wrap pt-1">
+                  <span>Cliente: <strong className="text-slate-200">{inv.clientName}</strong></span>
+                  <span>RFC: <code className="bg-slate-950 px-1.5 py-0.5 rounded text-slate-300 border border-slate-800 font-mono">{inv.clientRfc}</code></span>
                   <span>Vence: {inv.dueDate}</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 justify-between lg:justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100 flex-wrap">
-                <span className="font-extrabold text-slate-900 text-lg">
+              <div className="flex items-center gap-3 justify-between lg:justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800 flex-wrap">
+                <span className="font-mono font-extrabold text-white text-lg">
                   ${inv.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
                 </span>
 
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => handleNotaDeVenta(inv)}
-                    className="min-h-[44px] px-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5"
+                    className="min-h-[44px] px-3.5 bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5"
                     title="Generar Nota de Venta"
                   >
-                    <FileText className="w-4 h-4 text-indigo-600" />
+                    <FileText className="w-4 h-4 text-indigo-400" />
                     Nota de Venta PDF
                   </button>
 
                   <button
                     onClick={() => handleWhatsAppBroadcast(inv)}
-                    className="min-h-[44px] px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5"
+                    className="min-h-[44px] px-3 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5"
                     title="Enviar aviso WhatsApp"
                   >
-                    <MessageSquare className="w-4 h-4 text-emerald-600" />
+                    <MessageSquare className="w-4 h-4 text-emerald-400" />
                     Aviso WhatsApp
                   </button>
 
@@ -181,16 +181,16 @@ export function InvoiceManagerCard() {
                       href={inv.pdfUrl || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="min-h-[44px] px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-200"
+                      className="min-h-[44px] px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-700"
                     >
-                      <Download className="w-4 h-4 text-slate-600" />
+                      <Download className="w-4 h-4 text-slate-400" />
                       CFDI XML
                     </a>
                   ) : (
                     <button
                       onClick={() => handleStamp(inv.milestoneId)}
                       disabled={stamping}
-                      className="min-h-[44px] px-3.5 bg-slate-800 hover:bg-slate-900 active:scale-95 text-white font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                      className="min-h-[44px] px-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/50 disabled:opacity-50"
                       title="Opcional Pro: Timbrar CFDI SAT"
                     >
                       <Send className="w-4 h-4" />

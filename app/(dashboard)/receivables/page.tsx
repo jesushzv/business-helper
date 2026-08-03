@@ -32,10 +32,10 @@ export default function ReceivablesPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
             <span>Quién me Debe (Cuentas por Cobrar)</span>
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             Monitorea cobros pendientes, envía recordatorios por WhatsApp en 1 tap y valida comprobantes SPEI.
           </p>
         </div>
@@ -48,13 +48,13 @@ export default function ReceivablesPage() {
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         {/* Search Input */}
         <div className="relative flex-1">
-          <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por cliente, concepto o clave SPEI..."
-            className="w-full min-h-[48px] pl-11 pr-4 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+            className="w-full min-h-[48px] pl-11 pr-4 bg-slate-900/90 border border-slate-800 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
           />
         </div>
 
@@ -71,10 +71,10 @@ export default function ReceivablesPage() {
             <button
               key={f.id}
               onClick={() => setStatusFilter(f.id)}
-              className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+              className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                 statusFilter === f.id
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-950/50'
+                  : 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800'
               }`}
             >
               {f.label}
@@ -87,10 +87,10 @@ export default function ReceivablesPage() {
       {loading ? (
         <div className="p-12 text-center text-slate-400 font-medium">Cargando cuentas por cobrar...</div>
       ) : filteredReceivables.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
-          <Wallet className="w-12 h-12 text-slate-300 mx-auto" />
-          <h3 className="text-lg font-bold text-slate-800">No hay cobros en este filtro</h3>
-          <p className="text-sm text-slate-500 max-w-sm mx-auto">
+        <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-12 text-center space-y-3 text-white">
+          <Wallet className="w-12 h-12 text-slate-600 mx-auto" />
+          <h3 className="text-lg font-bold text-white">No hay cobros en este filtro</h3>
+          <p className="text-sm text-slate-400 max-w-sm mx-auto">
             Todas tus cuentas por cobrar están al día o no hay registros que coincidan con la búsqueda.
           </p>
         </div>

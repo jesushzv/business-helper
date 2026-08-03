@@ -15,11 +15,12 @@ export async function updateSession(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-url.supabase.co';
   const isPlaceholderUrl = !process.env.NEXT_PUBLIC_SUPABASE_URL || supabaseUrl.includes('placeholder');
-  const isDemoQuery = request.nextUrl.searchParams.get('demo') === 'true';
-  const isDemoCookie = request.cookies.get('demo_mode')?.value === 'true';
-  const isDemoMode = isPlaceholderUrl || isDemoQuery || isDemoCookie;
+  const isDemoQuery = request.nextUrl.searchParams.get('demo') === 'true' || request.nextUrl.searchParams.get('sandbox') === 'true';
+  const isDemoCookie = request.cookies.get('demo_mode')?.value === 'true' || request.cookies.get('sandbox')?.value === 'true' || request.cookies.get('business_helper_sandbox')?.value === 'true';
+  const isSandboxEnv = process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.IS_SANDBOX === 'true';
+  const isDemoMode = isPlaceholderUrl || isDemoQuery || isDemoCookie || isSandboxEnv;
 
-  // In demo mode or unconfigured Supabase, bypass remote auth network call immediately
+  // In sandbox / demo mode or unconfigured Supabase, bypass remote auth network call and login redirect immediately
   if (isDemoMode) {
     return supabaseResponse;
   }

@@ -57,15 +57,15 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
   const cssVars = generateThemeCssVariables({ primaryColor });
 
   return (
-    <div style={cssVars as React.CSSProperties} className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+    <div style={cssVars as React.CSSProperties} className="bg-slate-900/90 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 space-y-6 text-white">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+          <div className="p-3 bg-blue-950/80 text-blue-400 border border-blue-500/30 rounded-2xl">
             <Palette className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Marca Blanca y Personalización de Portales</h3>
-            <p className="text-xs text-slate-500">Personalice el color principal, logotipo y divisa predeterminada de sus propuestas públicas.</p>
+            <h3 className="text-lg font-bold text-white">Marca Blanca y Personalización de Portales</h3>
+            <p className="text-xs text-slate-400">Personalice el color principal, logotipo y divisa predeterminada de sus propuestas públicas.</p>
           </div>
         </div>
       </div>
@@ -73,7 +73,7 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
       <form onSubmit={handleSaveBranding} className="space-y-6">
         {/* Primary Theme Color Palette */}
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Color Principal de Marca</label>
+          <label className="block text-sm font-bold text-slate-300 mb-2">Color Principal de Marca</label>
           <div className="flex flex-wrap items-center gap-3">
             {PRESET_COLORS.map((color) => (
               <button
@@ -82,13 +82,13 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
                 onClick={() => setPrimaryColor(color.hex)}
                 className={`min-h-[48px] px-4 py-2 rounded-2xl flex items-center gap-2 border text-sm font-semibold transition-all ${
                   primaryColor === color.hex
-                    ? 'border-slate-900 bg-slate-50 shadow-sm ring-2 ring-slate-900/10'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                    ? 'border-emerald-500 bg-slate-800 text-white shadow-md ring-2 ring-emerald-500/30'
+                    : 'border-slate-800 hover:border-slate-700 bg-slate-950/80 text-slate-300'
                 }`}
               >
                 <span className="w-5 h-5 rounded-full border border-black/10" style={{ backgroundColor: color.hex }} />
                 <span>{color.name}</span>
-                {primaryColor === color.hex && <Check className="w-4 h-4 text-slate-900 ml-1" />}
+                {primaryColor === color.hex && <Check className="w-4 h-4 text-emerald-400 ml-1" />}
               </button>
             ))}
           </div>
@@ -97,42 +97,42 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
         {/* Custom Logo URL & Tagline */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">URL del Logotipo (PNG/SVG)</label>
+            <label className="block text-sm font-bold text-slate-300 mb-1">URL del Logotipo (PNG/SVG)</label>
             <div className="relative">
               <input
                 type="url"
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
                 placeholder="https://ejemplo.com/logo.png"
-                className="w-full min-h-[48px] px-4 pl-11 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-[48px] px-4 pl-11 rounded-2xl border border-slate-800 bg-slate-950/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
               />
-              <ImageIcon className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
+              <ImageIcon className="w-5 h-5 text-slate-500 absolute left-3.5 top-3.5" />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Lema o Eslogan de Empresa</label>
+            <label className="block text-sm font-bold text-slate-300 mb-1">Lema o Eslogan de Empresa</label>
             <input
               type="text"
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
               placeholder="Soluciones de construcción y logística"
-              className="w-full min-h-[48px] px-4 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-[48px] px-4 rounded-2xl border border-slate-800 bg-slate-950/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
             />
           </div>
         </div>
 
         {/* Currency Preference Selector */}
         <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Divisa Predeterminada para Cotizaciones</label>
+          <label className="block text-sm font-bold text-slate-300 mb-2">Divisa Predeterminada para Cotizaciones</label>
           <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={() => setDefaultCurrency('MXN')}
               className={`min-h-[48px] px-6 py-3 rounded-2xl border font-bold text-sm flex items-center gap-2 transition-all ${
                 defaultCurrency === 'MXN'
-                  ? 'border-blue-600 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20'
-                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  ? 'border-emerald-500 bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
+                  : 'border-slate-800 text-slate-300 bg-slate-950/80 hover:bg-slate-800'
               }`}
             >
               🇲🇽 Peso Mexicano (MXN)
@@ -142,8 +142,8 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
               onClick={() => setDefaultCurrency('USD')}
               className={`min-h-[48px] px-6 py-3 rounded-2xl border font-bold text-sm flex items-center gap-2 transition-all ${
                 defaultCurrency === 'USD'
-                  ? 'border-blue-600 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20'
-                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  ? 'border-emerald-500 bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
+                  : 'border-slate-800 text-slate-300 bg-slate-950/80 hover:bg-slate-800'
               }`}
             >
               🇺🇸 Dólar Americano (USD)
@@ -152,10 +152,10 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
         </div>
 
         {/* Live Portal Preview Badge */}
-        <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div className="p-4 rounded-2xl border border-slate-800 bg-slate-950/80 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
-              className="w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold text-sm shadow-sm"
+              className="w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold text-sm shadow-md"
               style={{ backgroundColor: primaryColor }}
             >
               {logoUrl ? (
@@ -167,7 +167,7 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
             </div>
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase">Vista Previa de Portal Público</p>
-              <p className="text-sm font-extrabold text-slate-900">{settings?.name || 'Mi Empresa'}</p>
+              <p className="text-sm font-extrabold text-white">{settings?.name || 'Mi Empresa'}</p>
             </div>
           </div>
           <span className="text-xs font-bold px-3 py-1 rounded-full text-white" style={{ backgroundColor: primaryColor }}>
@@ -177,11 +177,11 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
 
         {/* Submit Button */}
         <div className="flex items-center justify-end gap-3 pt-2">
-          {saveSuccess && <span className="text-xs font-bold text-emerald-600">¡Personalización guardada con éxito!</span>}
+          {saveSuccess && <span className="text-xs font-bold text-emerald-400">¡Personalización guardada con éxito!</span>}
           <button
             type="submit"
             disabled={saving}
-            className="min-h-[48px] px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-sm transition-all disabled:opacity-50"
+            className="min-h-[48px] px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl text-sm shadow-md transition-all active:scale-95 disabled:opacity-50"
           >
             {saving ? 'Guardando...' : 'Guardar Cambios de Marca'}
           </button>

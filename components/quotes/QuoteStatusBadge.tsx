@@ -10,19 +10,19 @@ export const QuoteStatusBadge: React.FC<QuoteStatusBadgeProps> = ({ status }) =>
   const getBadgeStyle = () => {
     switch (status) {
       case 'draft':
-        return 'bg-slate-100 text-slate-700 border-slate-300';
+        return 'bg-slate-800 text-slate-300 border-slate-700';
       case 'sent':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-blue-950/80 text-blue-300 border-blue-500/30';
       case 'accepted':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        return 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30';
       case 'rejected':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
+        return 'bg-rose-950/80 text-rose-400 border-rose-500/30';
       case 'expired':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'bg-amber-950/80 text-amber-300 border-amber-500/30';
       case 'converted':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+        return 'bg-indigo-950/80 text-indigo-300 border-indigo-500/30';
       default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
+        return 'bg-slate-800 text-slate-300 border-slate-700';
     }
   };
 

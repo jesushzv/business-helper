@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <linearGradient id="favBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#060911"/>
+    </linearGradient>
+    <linearGradient id="favEmerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="favIndigo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="28" fill="url(#favBg)"/>
+  
+  <g>
+    <rect x="28" y="60" width="16" height="40" rx="4" fill="url(#favIndigo)" opacity="0.85"/>
+    <rect x="52" y="40" width="16" height="60" rx="4" fill="url(#favIndigo)"/>
+    <rect x="76" y="26" width="16" height="74" rx="4" fill="url(#favEmerald)"/>
+  </g>
+
+  <path d="M30 70 L56 94 L96 42" 
+        fill="none" 
+        stroke="url(#favEmerald)" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+        
+  <path d="M30 70 L56 94 L96 42" 
+        fill="none" 
+        stroke="#ffffff" 
+        stroke-width="3" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        opacity="0.9"/>
+</svg>

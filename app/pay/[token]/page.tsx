@@ -155,7 +155,7 @@ export default function PublicPayPortalPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <div className="text-slate-400 font-medium">Cargando portal de pago...</div>
       </div>
     );
@@ -163,10 +163,10 @@ export default function PublicPayPortalPage() {
 
   if (!milestone) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center max-w-md">
-          <h2 className="text-xl font-bold text-slate-800">Enlace de Pago No Encontrado</h2>
-          <p className="text-sm text-slate-500 mt-2">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 text-center max-w-md text-white">
+          <h2 className="text-xl font-bold text-white">Enlace de Pago No Encontrado</h2>
+          <p className="text-sm text-slate-400 mt-2">
             La clave o ficha de cobro no existe o ha expirado.
           </p>
         </div>
@@ -180,10 +180,10 @@ export default function PublicPayPortalPage() {
   }).format(milestone.amount);
 
   return (
-    <div style={cssVars as React.CSSProperties} className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6">
+    <div style={cssVars as React.CSSProperties} className="min-h-screen bg-slate-950 py-8 px-4 sm:px-6 text-white">
       <div className="max-w-md mx-auto space-y-6">
         {/* Header Branding */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 text-center space-y-3">
+        <div className="bg-slate-900/90 rounded-3xl p-6 shadow-xl border border-slate-800 text-center space-y-3">
           <div
             className="w-12 h-12 rounded-2xl text-white flex items-center justify-center mx-auto shadow-md overflow-hidden"
             style={{ backgroundColor: branding.primaryColor }}
@@ -196,7 +196,7 @@ export default function PublicPayPortalPage() {
             )}
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900">{milestone.org_name || branding.companyName}</h1>
+            <h1 className="text-xl font-extrabold text-white">{milestone.org_name || branding.companyName}</h1>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
               Portal de Pago y Registro SPEI
             </p>
@@ -204,30 +204,30 @@ export default function PublicPayPortalPage() {
         </div>
 
         {/* Milestone Payment Summary Card */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+        <div className="bg-slate-900/90 rounded-3xl p-6 shadow-xl border border-slate-800 space-y-4">
           <div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Concepto de Cobro</span>
-            <h2 className="text-lg font-bold text-slate-900 leading-snug">{milestone.label}</h2>
-            <p className="text-sm text-slate-600 mt-0.5">{milestone.contract_title}</p>
+            <h2 className="text-lg font-bold text-white leading-snug">{milestone.label}</h2>
+            <p className="text-sm text-slate-300 mt-0.5">{milestone.contract_title}</p>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
+          <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
             <div>
-              <span className="text-xs font-semibold text-slate-500">Monto a Transferir</span>
+              <span className="text-xs font-semibold text-slate-400">Monto a Transferir</span>
               <p className="text-xs text-slate-400">Vence: {milestone.due_date}</p>
             </div>
-            <span className="text-2xl font-black text-slate-900">{formattedAmount}</span>
+            <span className="text-2xl font-black font-mono text-emerald-400">{formattedAmount}</span>
           </div>
         </div>
 
         {/* SPEI Bank Transfer Details Card */}
-        <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-3xl p-6 shadow-xl text-white space-y-4">
+        <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 rounded-3xl p-6 shadow-2xl border border-indigo-500/30 text-white space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-indigo-400" />
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-200">Datos para Transferencia SPEI</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">Datos para Transferencia SPEI</span>
             </div>
-            <span className="text-xs font-bold bg-indigo-800/80 px-2.5 py-1 rounded-full text-indigo-200">
+            <span className="text-xs font-bold bg-indigo-900/80 border border-indigo-500/30 px-2.5 py-1 rounded-full text-indigo-200">
               {milestone.bank_name || 'BBVA México'}
             </span>
           </div>
@@ -235,12 +235,12 @@ export default function PublicPayPortalPage() {
           <div className="space-y-3 pt-2">
             <div>
               <span className="text-xs text-slate-400 block font-medium">CLABE Interbancaria (18 dígitos)</span>
-              <div className="flex items-center justify-between mt-1 bg-white/10 p-3 rounded-2xl border border-white/10">
-                <span className="font-mono text-lg font-bold tracking-wider">{milestone.clabe || '012180001234567890'}</span>
+              <div className="flex items-center justify-between mt-1 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+                <span className="font-mono text-lg font-bold tracking-wider text-white">{milestone.clabe || '012180001234567890'}</span>
                 <button
                   type="button"
                   onClick={handleCopyClabe}
-                  className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
+                  className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center shadow-md"
                 >
                   {copiedClabe ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
                 </button>
@@ -249,41 +249,41 @@ export default function PublicPayPortalPage() {
 
             <div>
               <span className="text-xs text-slate-400 block font-medium">Beneficiario</span>
-              <p className="font-semibold text-sm text-slate-100">{milestone.beneficiary || milestone.org_name}</p>
+              <p className="font-semibold text-sm text-slate-200">{milestone.beneficiary || milestone.org_name}</p>
             </div>
           </div>
         </div>
 
         {/* Upload Proof Form */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+        <div className="bg-slate-900/90 rounded-3xl p-6 shadow-xl border border-slate-800">
           {submitted ? (
             <div className="text-center py-6 space-y-3">
-              <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+              <div className="w-14 h-14 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-bold text-slate-900">¡Comprobante Enviado Exitosamente!</h3>
-              <p className="text-sm text-slate-600 max-w-xs mx-auto">
+              <h3 className="text-xl font-bold text-white">¡Comprobante Enviado Exitosamente!</h3>
+              <p className="text-sm text-slate-300 max-w-xs mx-auto">
                 El proveedor revisará la Clave de Rastreo en Banxico y confirmará tu pago. ¡Gracias!
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmitProof} className="space-y-4">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="text-base font-bold text-slate-900">Subir Comprobante de Pago</h3>
-                <p className="text-xs text-slate-500">
+              <div className="border-b border-slate-800 pb-3">
+                <h3 className="text-base font-bold text-white">Subir Comprobante de Pago</h3>
+                <p className="text-xs text-slate-400">
                   Registra tu transferencia SPEI para validar y liberar tu factura.
                 </p>
               </div>
 
               {formError && (
-                <div className="p-3 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-100">
+                <div className="p-3 bg-rose-950/80 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30">
                   {formError}
                 </div>
               )}
 
               {/* Clave de Rastreo */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
                   Clave de Rastreo Banxico *
                 </label>
                 <input
@@ -292,13 +292,13 @@ export default function PublicPayPortalPage() {
                   onChange={(e) => setTrackingRef(e.target.value)}
                   placeholder="Ej. SPEI20260830123456"
                   required
-                  className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-600 outline-none uppercase font-mono"
+                  className="w-full min-h-[48px] px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-sm font-bold text-white focus:border-emerald-500 outline-none uppercase font-mono"
                 />
               </div>
 
               {/* Amount Transfered */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
                   Monto Transferido (MXN) *
                 </label>
                 <input
@@ -307,21 +307,21 @@ export default function PublicPayPortalPage() {
                   value={transferredAmount}
                   onChange={(e) => setTransferredAmount(e.target.value)}
                   required
-                  className="w-full min-h-[48px] px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-600 outline-none"
+                  className="w-full min-h-[48px] px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-sm font-bold font-mono text-white focus:border-emerald-500 outline-none"
                 />
               </div>
 
               {/* File Attachment Dropzone */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
                   Comprobante (PNG, JPG o PDF &lt; 5MB) *
                 </label>
-                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-indigo-500 bg-slate-50/50 transition-colors min-h-[100px]">
+                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-800 rounded-2xl cursor-pointer hover:border-emerald-500 bg-slate-950/50 transition-colors min-h-[100px]">
                   <Upload className="w-6 h-6 text-slate-400 mb-1" />
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-xs font-bold text-slate-300">
                     {selectedFile ? selectedFile.name : 'Haz clic para seleccionar comprobante'}
                   </span>
-                  <span className="text-[11px] text-slate-400 mt-0.5">Máximo 5MB (PNG/JPG/PDF)</span>
+                  <span className="text-[11px] text-slate-500 mt-0.5">Máximo 5MB (PNG/JPG/PDF)</span>
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/jpg,application/pdf"
@@ -335,7 +335,7 @@ export default function PublicPayPortalPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full min-h-[48px] px-5 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-2xl text-sm transition-colors shadow-md flex items-center justify-center gap-2"
+                className="w-full min-h-[48px] px-5 py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-2xl text-sm transition-all shadow-md flex items-center justify-center gap-2"
               >
                 {submitting ? (
                   <span>Enviando comprobante...</span>

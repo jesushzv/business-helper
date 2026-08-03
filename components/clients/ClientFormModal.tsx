@@ -76,8 +76,6 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   // Live RFC Modulo 11 Validation
   const rfcValidation = rfc ? validateRFC(rfc) : { isValid: false, type: null };
 
-  if (!isOpen) return null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -113,27 +111,29 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-gray-900/60 p-4 backdrop-blur-xs">
-      <div className="relative w-full max-w-lg rounded-3xl border border-gray-100 bg-white p-6 shadow-2xl transition-all sm:p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-md">
+      <div className="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl transition-all sm:p-8 text-white">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
           aria-label="Cerrar"
         >
           <X className="h-5 w-5" />
         </button>
 
-        <h3 className="text-xl font-extrabold text-gray-900">
+        <h3 className="text-xl font-extrabold text-white">
           {initialClient ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}
         </h3>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-slate-400">
           Captura los datos del cliente para cotizaciones y cobranza SAT.
         </p>
 
         {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700">
+          <div className="mt-4 flex items-center gap-2 rounded-xl bg-rose-950/80 border border-rose-500/30 p-3 text-xs font-semibold text-rose-400">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -142,18 +142,18 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           {/* Business / Client Name */}
           <div>
-            <label className="block text-xs font-bold text-gray-700">
-              Nombre o Razón Social <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-slate-300">
+              Nombre o Razón Social <span className="text-rose-400">*</span>
             </label>
             <div className="relative mt-1.5">
-              <Building2 className="absolute left-3.5 top-3.5 h-5 w-5 text-gray-400" />
+              <Building2 className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ej. Construcciones Maya S.A. de C.V."
-                className="w-full min-h-[48px] rounded-xl border border-gray-300 pl-11 pr-4 text-sm font-medium text-gray-900 placeholder-gray-400 transition-all focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                className="w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
               />
             </div>
           </div>
@@ -161,29 +161,29 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           {/* Contact Person & Phone */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-bold text-gray-700">Persona de Contacto</label>
+              <label className="block text-xs font-bold text-slate-300">Persona de Contacto</label>
               <div className="relative mt-1.5">
-                <User className="absolute left-3.5 top-3.5 h-5 w-5 text-gray-400" />
+                <User className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
                   type="text"
                   value={contactName}
                   onChange={(e) => setContactName(e.target.value)}
                   placeholder="Ej. Arq. Fernando Maya"
-                  className="w-full min-h-[48px] rounded-xl border border-gray-300 pl-11 pr-4 text-sm font-medium text-gray-900 placeholder-gray-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  className="w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700">Teléfono WhatsApp (10 dígitos)</label>
+              <label className="block text-xs font-bold text-slate-300">Teléfono WhatsApp (10 dígitos)</label>
               <div className="relative mt-1.5">
-                <Phone className="absolute left-3.5 top-3.5 h-5 w-5 text-gray-400" />
+                <Phone className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Ej. 8115551234"
-                  className="w-full min-h-[48px] rounded-xl border border-gray-300 pl-11 pr-4 text-sm font-medium text-gray-900 placeholder-gray-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  className="w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -192,26 +192,26 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           {/* Email & RFC */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-bold text-gray-700">Correo Electrónico</label>
+              <label className="block text-xs font-bold text-slate-300">Correo Electrónico</label>
               <div className="relative mt-1.5">
-                <Mail className="absolute left-3.5 top-3.5 h-5 w-5 text-gray-400" />
+                <Mail className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="contacto@cliente.com"
-                  className="w-full min-h-[48px] rounded-xl border border-gray-300 pl-11 pr-4 text-sm font-medium text-gray-900 placeholder-gray-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  className="w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-gray-700">RFC del Cliente</label>
+                <label className="block text-xs font-bold text-slate-300">RFC del Cliente</label>
                 {rfc && (
                   <span
                     className={`flex items-center gap-1 text-[11px] font-bold ${
-                      rfcValidation.isValid ? 'text-emerald-600' : 'text-amber-600'
+                      rfcValidation.isValid ? 'text-emerald-400' : 'text-amber-400'
                     }`}
                   >
                     {rfcValidation.isValid ? (
@@ -229,14 +229,14 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 )}
               </div>
               <div className="relative mt-1.5">
-                <FileText className="absolute left-3.5 top-3.5 h-5 w-5 text-gray-400" />
+                <FileText className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
                   type="text"
                   maxLength={13}
                   value={rfc}
                   onChange={(e) => setRfc(e.target.value.toUpperCase())}
                   placeholder="CMA120315HD9"
-                  className="w-full min-h-[48px] font-mono uppercase rounded-xl border border-gray-300 pl-11 pr-4 text-sm font-bold text-gray-900 placeholder-gray-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  className="w-full min-h-[48px] font-mono uppercase rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-bold text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -245,14 +245,14 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           {/* SAT Tax Regime & Postal Code */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-gray-700">Régimen Fiscal SAT</label>
+              <label className="block text-xs font-bold text-slate-300">Régimen Fiscal SAT</label>
               <select
                 value={regimenFiscal}
                 onChange={(e) => setRegimenFiscal(e.target.value)}
-                className="mt-1.5 w-full min-h-[48px] rounded-xl border border-gray-300 px-3 text-xs font-medium text-gray-900 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
               >
                 {REGIMENES_FISCALES.map((r) => (
-                  <option key={r.code} value={r.code}>
+                  <option key={r.code} value={r.code} className="bg-slate-900 text-white">
                     {r.label}
                   </option>
                 ))}
@@ -260,16 +260,16 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700">Código Postal</label>
+              <label className="block text-xs font-bold text-slate-300">Código Postal</label>
               <div className="relative mt-1.5">
-                <MapPin className="absolute left-3.5 top-3.5 h-5 w-5 text-gray-400" />
+                <MapPin className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
                   type="text"
                   maxLength={5}
                   value={codigoPostal}
                   onChange={(e) => setCodigoPostal(e.target.value)}
                   placeholder="64000"
-                  className="w-full min-h-[48px] rounded-xl border border-gray-300 pl-11 pr-4 text-sm font-medium text-gray-900 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  className="w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -277,14 +277,14 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
 
           {/* CFDI Usage */}
           <div>
-            <label className="block text-xs font-bold text-gray-700">Uso de CFDI Preferente</label>
+            <label className="block text-xs font-bold text-slate-300">Uso de CFDI Preferente</label>
             <select
               value={cfdiUse}
               onChange={(e) => setCfdiUse(e.target.value)}
-              className="mt-1.5 w-full min-h-[48px] rounded-xl border border-gray-300 px-3 text-xs font-medium text-gray-900 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+              className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
             >
               {CFDI_USES.map((u) => (
-                <option key={u.code} value={u.code}>
+                <option key={u.code} value={u.code} className="bg-slate-900 text-white">
                   {u.label}
                 </option>
               ))}
@@ -296,14 +296,14 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[48px] rounded-xl border border-gray-300 px-5 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 active:scale-95"
+              className="min-h-[48px] rounded-xl border border-slate-700 bg-slate-800 px-5 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-700 active:scale-95"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="min-h-[48px] rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-xs hover:bg-indigo-700 active:scale-95 disabled:opacity-50"
+              className="min-h-[48px] rounded-xl bg-emerald-500 hover:bg-emerald-400 px-6 py-2.5 text-sm font-bold text-slate-950 shadow-md active:scale-95 disabled:opacity-50"
             >
               {saving ? 'Guardando...' : initialClient ? 'Actualizar Cliente' : 'Guardar Cliente'}
             </button>

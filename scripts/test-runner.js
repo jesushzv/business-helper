@@ -2086,6 +2086,39 @@ test('Scans components and app directories for unescaped quotes in JSX text node
 });
 
 // ----------------------------------------------------
+// 46. Sandbox Auth Bypass & Environment Detection Tests
+// ----------------------------------------------------
+console.log('\n[Suite 46: Sandbox Auth Bypass & Environment Detection Engine]');
+
+let demoUtilsSuite46;
+try {
+  demoUtilsSuite46 = require('../lib/demoUtils.ts');
+} catch {
+  demoUtilsSuite46 = null;
+}
+
+test('Demo utils module exports isDemoModeActive and DEMO_ORGANIZATION', () => {
+  assert.notStrictEqual(demoUtilsSuite46, null, 'lib/demoUtils.ts should exist');
+  assert.strictEqual(typeof demoUtilsSuite46?.isDemoModeActive, 'function', 'isDemoModeActive should be a function');
+  assert.strictEqual(typeof demoUtilsSuite46?.DEMO_ORGANIZATION, 'object', 'DEMO_ORGANIZATION should be defined');
+  assert.strictEqual(demoUtilsSuite46.DEMO_ORGANIZATION.id, 'org-demo-1');
+});
+
+test('isDemoModeActive returns true when demo=true query parameter is present', () => {
+  if (demoUtilsSuite46?.isDemoModeActive) {
+    const isDemo = demoUtilsSuite46.isDemoModeActive('demo=true');
+    assert.strictEqual(isDemo, true, 'demo=true param should trigger demo mode');
+  }
+});
+
+test('isDemoModeActive returns true when sandbox=true query parameter is present', () => {
+  if (demoUtilsSuite46?.isDemoModeActive) {
+    const isSandbox = demoUtilsSuite46.isDemoModeActive('sandbox=true');
+    assert.strictEqual(isSandbox, true, 'sandbox=true param should trigger demo mode');
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
