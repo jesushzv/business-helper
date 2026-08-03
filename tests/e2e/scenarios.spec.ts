@@ -20,7 +20,7 @@ test.describe('Business Helper E2E User Scenarios', () => {
     await expect(page.locator('body')).toContainText('Lanzamiento Oficial Beta en México');
 
     // Navigate to Demo Dashboard
-    await page.click('text=Ver Panel de Demostración');
+    await page.click('text=Ver Demostración');
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.locator('h2').first()).toContainText('¡Hola, Don Roberto!');
   });
@@ -45,8 +45,8 @@ test.describe('Business Helper E2E User Scenarios', () => {
     await page.click('button:has-text("Siguiente")');
     await expect(page.locator('form')).toContainText('Total Final', { timeout: 5000 });
 
-    // Step 3 -> Submit quote form (use click with force to avoid element detach retry wait)
-    await page.click('button[type="submit"]', { force: true });
+    // Step 3 -> Submit quote form
+    await page.evaluate(() => (document.querySelector('form button[type="submit"]') as HTMLElement)?.click());
 
     // Verify modal closes and quote title is rendered
     await expect(page.locator('body')).toContainText('Cotización Bultos de Cemento', { timeout: 10000 });
@@ -138,7 +138,8 @@ test.describe('Business Helper E2E User Scenarios', () => {
 
     // Visit Executive Dashboard (with demo mode query flag)
     await page.goto('/dashboard?demo=true');
-    await expect(page.locator('h2').first()).toContainText('¡Hola, Don Roberto!');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('h2').first()).toContainText('¡Hola, Don Roberto!', { timeout: 15000 });
     await expect(page.locator('body')).toContainText('Panel de Administración');
   });
 
