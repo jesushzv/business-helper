@@ -4,15 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   X,
-  Check,
-  Zap,
-  ShieldCheck,
   Sparkles,
   ArrowRight,
-  TrendingUp,
-  FileText,
-  DollarSign,
-  Package,
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react';
@@ -194,7 +187,7 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-300 italic font-medium">"{item.painPoint}"</p>
+                    <p className="text-xs text-slate-300 italic font-medium">&quot;{item.painPoint}&quot;</p>
 
                     <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-4">
                       <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold mb-1">

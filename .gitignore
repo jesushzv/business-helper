@@ -41,3 +41,8 @@ Thumbs.db
 MASTER_PROMPT.md
 /docs/
 /design-docs/
+
+# media & demo assets
+/assets/
+/public/assets/
+*.webm

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronDown, HelpCircle, FileCheck, MessageSquare, CreditCard, ShieldCheck, Download } from 'lucide-react';
+import { ChevronDown, FileCheck, MessageSquare, CreditCard, ShieldCheck, Download } from 'lucide-react';
 
 interface FaqItem {
   id: string;

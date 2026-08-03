@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles, ArrowLeft, Zap, Layers, UserPlus } from 'lucide-react';
+import { ArrowLeft, Zap, Layers, UserPlus } from 'lucide-react';
 
 interface DemoBannerProps {
   onOpenTierModal?: () => void;

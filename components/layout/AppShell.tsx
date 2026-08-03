@@ -18,7 +18,6 @@ import {
   Menu,
   X,
   ChevronRight,
-  Layers,
   Sparkles,
 } from 'lucide-react';
 import { DemoBanner } from '@/components/demo/DemoBanner';
