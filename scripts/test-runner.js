@@ -1932,6 +1932,49 @@ test('Rate limiter enforces max 5 queries per minute per sandbox IP/client', () 
 });
 
 // ----------------------------------------------------
+// 42. URL Helper & Custom Domain Resolution Suite
+// ----------------------------------------------------
+console.log('\n[Suite 42: URL Helper & Custom Domain Resolution]');
+
+let urlModule;
+try {
+  urlModule = require('../lib/url.js');
+} catch (e) {
+  urlModule = null;
+}
+
+test('URL Helper Module Exists & Exports Functions', () => {
+  assert.notStrictEqual(urlModule, null, 'lib/url.js module should exist');
+  assert.strictEqual(typeof urlModule?.getAppBaseUrl, 'function');
+  assert.strictEqual(typeof urlModule?.getAuthCallbackUrl, 'function');
+  assert.strictEqual(typeof urlModule?.getStripeWebhookUrl, 'function');
+});
+
+test('getAppBaseUrl cleans trailing slashes and resolves HTTPS origin', () => {
+  if (urlModule?.getAppBaseUrl) {
+    const originalEnv = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'https://businesshelper.mx///';
+    const cleanUrl = urlModule.getAppBaseUrl();
+    assert.strictEqual(cleanUrl, 'https://businesshelper.mx', 'Trailing slashes should be stripped');
+
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    const defaultUrl = urlModule.getAppBaseUrl();
+    assert.strictEqual(defaultUrl.startsWith('http'), true, 'Default URL must start with http/https protocol');
+    process.env.NEXT_PUBLIC_APP_URL = originalEnv;
+  }
+});
+
+test('getAuthCallbackUrl and getStripeWebhookUrl format valid endpoints', () => {
+  if (urlModule?.getAuthCallbackUrl && urlModule?.getStripeWebhookUrl) {
+    const originalEnv = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'https://businesshelper.mx';
+    assert.strictEqual(urlModule.getAuthCallbackUrl(), 'https://businesshelper.mx/auth/callback');
+    assert.strictEqual(urlModule.getStripeWebhookUrl(), 'https://businesshelper.mx/api/stripe/webhook');
+    process.env.NEXT_PUBLIC_APP_URL = originalEnv;
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

@@ -73,8 +73,11 @@ export function getStripeTierConfig(tierKey: string): StripeTierConfig {
   return STRIPE_PLANS[normalized] || STRIPE_PLANS.emprendedor;
 }
 
-export function createCheckoutPayload(tierKey: string, organizationId: string, returnUrl: string) {
+import { getAppBaseUrl } from './url';
+
+export function createCheckoutPayload(tierKey: string, organizationId: string, returnUrl?: string) {
   const plan = getStripeTierConfig(tierKey);
+  const baseUrl = returnUrl || `${getAppBaseUrl()}/dashboard/settings`;
   return {
     mode: 'subscription',
     payment_method_types: ['card'],
@@ -88,8 +91,8 @@ export function createCheckoutPayload(tierKey: string, organizationId: string, r
       organization_id: organizationId,
       tier_id: plan.id,
     },
-    success_url: `${returnUrl}?session_id={CHECKOUT_SESSION_ID}&status=success`,
-    cancel_url: `${returnUrl}?status=cancelled`,
+    success_url: `${baseUrl}?session_id={CHECKOUT_SESSION_ID}&status=success`,
+    cancel_url: `${baseUrl}?status=cancelled`,
   };
 }
 
