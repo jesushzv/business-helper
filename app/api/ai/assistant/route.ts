@@ -1,15 +1,35 @@
 import { NextResponse } from 'next/server';
-import { parseNaturalLanguageQuery } from '@/lib/whatsappAI';
+import { parseNaturalLanguageQuery, checkRateLimit, validateAIQuota } from '@/lib/whatsappAI';
 
 export async function POST(request: Request) {
   try {
+    // 1. Rate Limiter Guard (Max 5 req/min per IP/client)
+    const clientIp = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const rateLimit = checkRateLimit(clientIp, 5);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Límite de solicitudes alcanzado. Por favor espera un minuto.' } },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
-    const { query } = body;
+    const { query, tierKey = 'negocio', currentUsage = 0 } = body;
 
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
         { error: { code: 'INVALID_QUERY', message: 'La consulta es requerida' } },
         { status: 400 }
+      );
+    }
+
+    // 2. Tier Quota Guard (Emprendedor: 50, Negocio: 300, Empresa: 1500)
+    const quotaCheck = validateAIQuota(tierKey, currentUsage);
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        { error: { code: 'QUOTA_EXCEEDED', message: quotaCheck.reason, quota: quotaCheck } },
+        { status: 403 }
       );
     }
 
@@ -25,7 +45,10 @@ export async function POST(request: Request) {
     };
 
     const response = parseNaturalLanguageQuery(query, demoOrgData);
-    return NextResponse.json(response);
+    return NextResponse.json({
+      ...response,
+      quota: quotaCheck
+    });
   } catch {
     return NextResponse.json(
       { error: { code: 'AI_ERROR', message: 'Error al procesar consulta de IA' } },

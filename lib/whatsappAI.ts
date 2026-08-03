@@ -3,11 +3,66 @@
  * 
  * Natural language query parser for business owners (Don Roberto / Lic. Mariana)
  * answering queries on WhatsApp or mobile web about overdue debt, payments, and client totals.
+ * Includes cost safeguards, tier quotas, and sliding-window rate limiting.
  */
 
 export interface AIOrgData {
   clients?: Array<{ id: string; name: string; phone?: string | null }>;
   receivables?: Array<{ id?: string; clientId?: string; clientName?: string; amount: number; status: string; label?: string }>;
+}
+
+export interface AIQuotaResult {
+  allowed: boolean;
+  remaining: number;
+  limit: number;
+  tier: string;
+  reason?: string;
+}
+
+export const TIER_AI_QUOTAS: Record<string, number> = {
+  emprendedor: 50,
+  negocio: 300,
+  empresa: 1500,
+};
+
+// In-memory rate limiter tracking timestamps per user/ip (max 5 requests per minute)
+const rateLimitMap = new Map<string, number[]>();
+
+export function checkRateLimit(identifier: string = 'anon', maxPerMinute: number = 5): { allowed: boolean; remaining: number } {
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const timestamps = (rateLimitMap.get(identifier) || []).filter((t) => now - t < windowMs);
+
+  if (timestamps.length >= maxPerMinute) {
+    rateLimitMap.set(identifier, timestamps);
+    return { allowed: false, remaining: 0 };
+  }
+
+  timestamps.push(now);
+  rateLimitMap.set(identifier, timestamps);
+  return { allowed: true, remaining: maxPerMinute - timestamps.length };
+}
+
+export function validateAIQuota(tierKey: string = 'emprendedor', currentUsage: number = 0): AIQuotaResult {
+  const normalizedTier = (tierKey || 'emprendedor').toLowerCase();
+  const limit = TIER_AI_QUOTAS[normalizedTier] || TIER_AI_QUOTAS.emprendedor;
+
+  if (currentUsage >= limit) {
+    return {
+      allowed: false,
+      remaining: 0,
+      limit,
+      tier: normalizedTier,
+      reason: `Has alcanzado tu límite mensual de ${limit} consultas de IA para el Plan ${normalizedTier.toUpperCase()}.`,
+    };
+  }
+
+  return {
+    allowed: true,
+    remaining: limit - currentUsage,
+    limit,
+    tier: normalizedTier,
+  };
 }
 
 export function buildAIPromptContext(query: string, clients: Array<{ name: string; phone?: string; totalOverdue: number }>) {
@@ -73,8 +128,10 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    TIER_AI_QUOTAS,
+    checkRateLimit,
+    validateAIQuota,
     buildAIPromptContext,
     parseNaturalLanguageQuery
   };
 }
-

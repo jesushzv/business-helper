@@ -1154,6 +1154,29 @@ test('Parses natural language client overdue balance queries and generates respo
   }
 });
 
+test('Validates monthly AI tier quotas and rate limiting safeguards', () => {
+  if (aiModule?.validateAIQuota && aiModule?.checkRateLimit) {
+    // Check tier limits
+    const emprendedorOK = aiModule.validateAIQuota('emprendedor', 49);
+    assert.strictEqual(emprendedorOK.allowed, true);
+    assert.strictEqual(emprendedorOK.remaining, 1);
+
+    const emprendedorBlocked = aiModule.validateAIQuota('emprendedor', 50);
+    assert.strictEqual(emprendedorBlocked.allowed, false);
+    assert.strictEqual(emprendedorBlocked.remaining, 0);
+
+    const negocioQuota = aiModule.validateAIQuota('negocio', 100);
+    assert.strictEqual(negocioQuota.allowed, true);
+    assert.strictEqual(negocioQuota.remaining, 200);
+
+    // Check sliding window rate limit
+    const rateCheck1 = aiModule.checkRateLimit('user_test_ip_1', 5);
+    assert.strictEqual(rateCheck1.allowed, true);
+  } else {
+    throw new Error('validateAIQuota or checkRateLimit functions not exported');
+  }
+});
+
 // ----------------------------------------------------
 // 25. Exploratory Testing Bug Regression Suite
 // ----------------------------------------------------
