@@ -21,21 +21,21 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
       {/* Top Header info */}
       <div>
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 font-bold text-indigo-700">
               <Building2 className="h-6 w-6" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <Link
                 href={`/clients/${client.id}`}
-                className="text-base font-extrabold text-gray-900 transition-colors hover:text-indigo-600 focus:outline-none"
+                className="text-base font-extrabold text-gray-900 transition-colors hover:text-indigo-600 focus:outline-none block truncate"
               >
                 {client.name}
               </Link>
               {client.contact_name && (
-                <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500">
-                  <UserCheck className="h-3.5 w-3.5 text-gray-400" />
-                  <span>{client.contact_name}</span>
+                <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500 truncate">
+                  <UserCheck className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                  <span className="truncate">{client.contact_name}</span>
                 </div>
               )}
             </div>

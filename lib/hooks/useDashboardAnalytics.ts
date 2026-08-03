@@ -58,7 +58,7 @@ export function useDashboardAnalytics() {
     const milestoneItems: MilestoneItem[] = receivables.map((r) => ({
       id: r.id,
       contract_id: r.contract_id,
-      client_id: r.client_name ? r.client_name : undefined, // fallback client linking
+      client_id: r.client_id || (r.client_name ? clients.find((c) => c.name === r.client_name)?.id || r.client_name : undefined),
       label: r.label,
       amount: r.amount,
       due_date: r.due_date,
@@ -89,7 +89,7 @@ export function useDashboardAnalytics() {
     const milestoneItems: MilestoneItem[] = receivables.map((r) => ({
       id: r.id,
       contract_id: r.contract_id,
-      client_id: clients.find((c) => c.name === r.client_name)?.id || r.client_name || r.id,
+      client_id: r.client_id || clients.find((c) => c.name === r.client_name)?.id || r.client_name || r.id,
       label: r.label,
       amount: r.amount,
       due_date: r.due_date,
