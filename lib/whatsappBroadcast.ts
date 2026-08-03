@@ -22,7 +22,7 @@ export function generateReminderBroadcastPayload(
   milestone: BroadcastMilestone,
   client: BroadcastClient,
   type: 'upcoming_3d' | 'due_today' | 'overdue' = 'overdue',
-  baseUrl: string = 'https://businesshelper.mx'
+  baseUrl: string = process.env.NEXT_PUBLIC_APP_URL || 'https://business-helper.vercel.app'
 ) {
   // Sanitize 10-digit phone
   let rawPhone = (client.phone || '').replace(/\D/g, '');

@@ -27,7 +27,7 @@ export function generatePaymentReminderLink(params: PaymentReminderParams): stri
     dueDate = '',
     status = 'due_today',
     payToken = '',
-    baseUrl = 'https://businesshelper.mx',
+    baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://business-helper.vercel.app',
   } = params;
 
   const formattedAmount = Number(amount).toLocaleString('es-MX', {
