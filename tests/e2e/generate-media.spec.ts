@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';
 
-const ARTIFACT_DIR = '/Users/jhzamora/.gemini/antigravity-ide/brain/8f6ed1e2-3bba-45a7-8b90-04ac3d5f53ad';
+const ARTIFACT_DIR = '/Users/jhzamora/.gemini/antigravity-ide/brain/5a4eec02-95e6-40bb-82d7-a6dd971900ee';
 
 // Configure video recording directory
 test.use({
@@ -70,7 +70,7 @@ test.describe('Generate App CUJ Live Demo Videos & Screenshots', () => {
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'cuj_04_quotes_list.png'), fullPage: true });
 
     // Open Quote creation modal
-    const newQuoteBtn = page.locator('button:has-text("Nueva Cotización")');
+    const newQuoteBtn = page.locator('button:has-text("Nueva Cotización"), button:has-text("Nueva")').first();
     if (await newQuoteBtn.isVisible()) {
       await newQuoteBtn.click();
       await page.waitForTimeout(1000);
