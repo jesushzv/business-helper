@@ -123,9 +123,22 @@ export function useDashboardAnalytics() {
     return calculateCashFlowForecast(milestoneItems);
   }, [receivables]);
 
-  const metrics = apiAnalytics?.metrics || computedMetrics;
-  const topClients = apiAnalytics?.topClients || computedTopClients;
-  const cashFlowForecast = apiAnalytics?.cashFlowForecast || computedCashFlowForecast;
+  const hasApiData = useMemo(() => {
+    if (!apiAnalytics) return false;
+    // If API metrics are all zeroes and no clients, fallback to computed demo state
+    if (
+      apiAnalytics.metrics.collectedRevenue === 0 &&
+      apiAnalytics.metrics.pendingReceivables === 0 &&
+      apiAnalytics.topClients.length === 0
+    ) {
+      return false;
+    }
+    return true;
+  }, [apiAnalytics]);
+
+  const metrics = hasApiData && apiAnalytics ? apiAnalytics.metrics : computedMetrics;
+  const topClients = hasApiData && apiAnalytics ? apiAnalytics.topClients : computedTopClients;
+  const cashFlowForecast = hasApiData && apiAnalytics ? apiAnalytics.cashFlowForecast : computedCashFlowForecast;
 
   const isInitialLoading = (clientsLoading || quotesLoading || receivablesLoading) && loading;
 

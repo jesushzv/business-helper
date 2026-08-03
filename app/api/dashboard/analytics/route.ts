@@ -6,28 +6,72 @@ import {
   calculateCashFlowForecast,
 } from '@/lib/dashboardAnalytics';
 
+import { MilestoneItem, QuoteItem } from '@/lib/dashboardAnalytics';
+
+const DEMO_MILESTONES: MilestoneItem[] = [
+  {
+    id: 'milestone-demo-1',
+    contract_id: 'contract-demo-1',
+    client_id: 'client-demo-1',
+    label: 'Anticipo 50% — Suministro Cemento',
+    amount: 48720,
+    due_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    status: 'pending',
+    confirmed_at: null,
+  },
+  {
+    id: 'milestone-demo-2',
+    contract_id: 'contract-demo-2',
+    client_id: 'client-demo-2',
+    label: 'Pago Inicial Estudio Geotécnico',
+    amount: 17636.66,
+    due_date: new Date().toISOString().split('T')[0],
+    status: 'marked_paid',
+    confirmed_at: null,
+  },
+  {
+    id: 'milestone-demo-3',
+    contract_id: 'contract-demo-1',
+    client_id: 'client-demo-1',
+    label: 'Entrega Final 50% — Cemento',
+    amount: 48720,
+    due_date: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    status: 'pending',
+    confirmed_at: null,
+  },
+  {
+    id: 'milestone-demo-4',
+    contract_id: 'contract-demo-3',
+    client_id: 'client-demo-3',
+    label: 'Anticipo Proyecto Remodelación',
+    amount: 30000,
+    due_date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    status: 'confirmed',
+    confirmed_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
+const DEMO_QUOTES: QuoteItem[] = [
+  { id: 'quote-demo-1', client_id: 'client-demo-1', status: 'sent', total_amount: 97440 },
+  { id: 'quote-demo-2', client_id: 'client-demo-2', status: 'accepted', total_amount: 35273.32 },
+];
+
+const DEMO_CLIENTS = [
+  { id: 'client-demo-1', name: 'Construcciones Maya S.A.', contact_name: 'Arq. Fernando Maya', phone: '8115551234', health_score: 95, rfc: 'CMA120315HD9' },
+  { id: 'client-demo-2', name: 'Desarrollos Inmobiliarios del Norte', contact_name: 'Lic. Sofía Garza', phone: '8189998877', health_score: 65, rfc: 'DIN080920AB3' },
+  { id: 'client-demo-3', name: 'Taller Industrial Regiomontano', contact_name: 'Roberto Gómez', phone: '8112223344', health_score: 100, rfc: 'GORR750412890' },
+];
+
+function getDemoAnalytics() {
+  const metrics = calculateBusinessMetrics(DEMO_MILESTONES, DEMO_QUOTES, DEMO_CLIENTS);
+  const topClients = getTopClientsByRevenue(DEMO_MILESTONES, DEMO_CLIENTS, 5);
+  const cashFlowForecast = calculateCashFlowForecast(DEMO_MILESTONES);
+  return { metrics, topClients, cashFlowForecast, demo: true };
+}
+
 export async function GET() {
   if (!isSupabaseConfigured()) {
-    return NextResponse.json({
-      metrics: {
-        collectedRevenue: 0,
-        pendingReceivables: 0,
-        overdueDebt: 0,
-        dueTodayAmount: 0,
-        upcomingAmount: 0,
-        activeClientsCount: 0,
-        acceptedQuotesCount: 0,
-        totalMilestonesCount: 0,
-      },
-      topClients: [],
-      cashFlowForecast: {
-        referenceDate: new Date().toISOString().split('T')[0],
-        days30: { periodLabel: 'Próximos 30 Días', daysRange: '0 - 30 días', amount: 0, count: 0 },
-        days60: { periodLabel: 'De 31 a 60 Días', daysRange: '31 - 60 días', amount: 0, count: 0 },
-        days90: { periodLabel: 'De 61 a 90 Días', daysRange: '61 - 90 días', amount: 0, count: 0 },
-        totalForecast: 0,
-      },
-    });
+    return NextResponse.json(getDemoAnalytics());
   }
 
   try {
@@ -49,6 +93,10 @@ export async function GET() {
       .from('clients')
       .select('id, name, contact_name, phone, health_score, rfc');
 
+    if (!milestones || milestones.length === 0) {
+      return NextResponse.json(getDemoAnalytics());
+    }
+
     const milestoneList = milestones || [];
     const quoteList = quotes || [];
     const clientList = clients || [];
@@ -63,26 +111,7 @@ export async function GET() {
       cashFlowForecast,
     });
   } catch {
-    // Return empty fallback analytics
-    return NextResponse.json({
-      metrics: {
-        collectedRevenue: 0,
-        pendingReceivables: 0,
-        overdueDebt: 0,
-        dueTodayAmount: 0,
-        upcomingAmount: 0,
-        activeClientsCount: 0,
-        acceptedQuotesCount: 0,
-        totalMilestonesCount: 0,
-      },
-      topClients: [],
-      cashFlowForecast: {
-        referenceDate: new Date().toISOString().split('T')[0],
-        days30: { periodLabel: 'Próximos 30 Días', daysRange: '0 - 30 días', amount: 0, count: 0 },
-        days60: { periodLabel: 'De 31 a 60 Días', daysRange: '31 - 60 días', amount: 0, count: 0 },
-        days90: { periodLabel: 'De 61 a 90 Días', daysRange: '61 - 90 días', amount: 0, count: 0 },
-        totalForecast: 0,
-      },
-    });
+    return NextResponse.json(getDemoAnalytics());
   }
 }
+

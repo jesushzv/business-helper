@@ -1975,6 +1975,75 @@ test('getAuthCallbackUrl and getStripeWebhookUrl format valid endpoints', () => 
 });
 
 // ----------------------------------------------------
+// 43. Demo Mode Analytics & Fallback Engine Tests
+// ----------------------------------------------------
+console.log('\n[Suite 43: Demo Mode Analytics & Fallback Engine]');
+
+let demoUtils;
+try {
+  demoUtils = require('../lib/demoUtils.ts');
+} catch {
+  demoUtils = null;
+}
+
+test('Demo Utils Module Exists & Exports isDemoModeActive and DEMO_ORGANIZATION', () => {
+  assert.notStrictEqual(demoUtils, null, 'lib/demoUtils.ts module should exist');
+  assert.strictEqual(typeof demoUtils?.isDemoModeActive, 'function');
+  assert.strictEqual(demoUtils?.DEMO_ORGANIZATION?.id, 'org-demo-1');
+  assert.strictEqual(demoUtils?.DEMO_ORGANIZATION?.contact_name, 'Don Roberto');
+});
+
+test('isDemoModeActive returns true for ?demo=true search string', () => {
+  if (demoUtils?.isDemoModeActive) {
+    const isActive = demoUtils.isDemoModeActive('demo=true');
+    assert.strictEqual(isActive, true, '?demo=true should activate demo mode');
+  }
+});
+
+// ----------------------------------------------------
+// 44. App Tier Features & Value-Adds Data Engine Tests
+// ----------------------------------------------------
+console.log('\n[Suite 44: App Tier Features, Pain Points & Value-Adds Data Engine]');
+
+let tierFeaturesData;
+try {
+  tierFeaturesData = require('../lib/tierFeaturesData.ts');
+} catch {
+  tierFeaturesData = null;
+}
+
+test('Tier Features Module Exists & Exports Data Structures', () => {
+  assert.notStrictEqual(tierFeaturesData, null, 'lib/tierFeaturesData.ts should exist');
+  assert.strictEqual(Array.isArray(tierFeaturesData?.APP_TIERS), true);
+  assert.strictEqual(Array.isArray(tierFeaturesData?.PAIN_POINTS_SOLUTIONS), true);
+  assert.strictEqual(Array.isArray(tierFeaturesData?.VALUE_ADDS_ROI), true);
+});
+
+test('Defines 3 app tiers (Básico, Pro, Enterprise) with pricing and features', () => {
+  if (tierFeaturesData?.APP_TIERS) {
+    const tiers = tierFeaturesData.APP_TIERS;
+    assert.strictEqual(tiers.length, 3, 'Should define exactly 3 tiers');
+    assert.strictEqual(tiers[0].id, 'basico');
+    assert.strictEqual(tiers[0].priceMonthly, 299);
+    assert.strictEqual(tiers[1].id, 'pro');
+    assert.strictEqual(tiers[1].priceMonthly, 699);
+    assert.strictEqual(tiers[1].recommended, true, 'Pro plan should be marked recommended');
+    assert.strictEqual(tiers[2].id, 'enterprise');
+    assert.strictEqual(tiers[2].priceMonthly, 1499);
+  }
+});
+
+test('Defines core pain points vs solutions mapping for Mexican PyMEs', () => {
+  if (tierFeaturesData?.PAIN_POINTS_SOLUTIONS) {
+    const pps = tierFeaturesData.PAIN_POINTS_SOLUTIONS;
+    assert.strictEqual(pps.length >= 4, true, 'Should include at least 4 pain point solutions');
+    assert.strictEqual(pps[0].impact.includes('Cotizaciones'), true);
+    assert.strictEqual(pps[1].impact.includes('Cobro'), true);
+    assert.strictEqual(pps[2].impact.includes('SAT'), true);
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

@@ -17,32 +17,32 @@ export const CashFlowForecastCard: React.FC<CashFlowForecastCardProps> = ({ fore
   };
 
   const buckets = [
-    { ...forecast.days30, color: 'bg-emerald-500', bgLight: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
-    { ...forecast.days60, color: 'bg-indigo-500', bgLight: 'bg-indigo-50 text-indigo-800 border-indigo-200' },
-    { ...forecast.days90, color: 'bg-purple-500', bgLight: 'bg-purple-50 text-purple-800 border-purple-200' },
+    { ...forecast.days30, color: 'bg-emerald-500', bgDark: 'bg-slate-950/60 text-slate-100 border-emerald-500/30' },
+    { ...forecast.days60, color: 'bg-teal-400', bgDark: 'bg-slate-950/60 text-slate-100 border-teal-500/30' },
+    { ...forecast.days90, color: 'bg-indigo-400', bgDark: 'bg-slate-950/60 text-slate-100 border-indigo-500/30' },
   ];
 
   const maxAmount = Math.max(...buckets.map((b) => b.amount), 1);
 
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-xs sm:p-8">
-      <div className="flex flex-col justify-between gap-2 border-b border-gray-100 pb-5 sm:flex-row sm:items-center">
+    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-xl sm:p-8">
+      <div className="flex flex-col justify-between gap-2 border-b border-slate-800 pb-5 sm:flex-row sm:items-center">
         <div>
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
               <Calendar className="h-4 w-4" />
             </div>
-            <h3 className="text-xl font-extrabold tracking-tight text-gray-900">
+            <h3 className="text-xl font-extrabold tracking-tight text-white">
               Proyección de Flujo de Efectivo
             </h3>
           </div>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-slate-400">
             Pronóstico de entradas de dinero a 30, 60 y 90 días basado en fechas de vencimiento de hitos.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-900 border border-indigo-100">
-          <TrendingUp className="h-4 w-4 text-indigo-600" />
+        <div className="flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-xs font-bold text-emerald-400 border border-emerald-500/30">
+          <TrendingUp className="h-4 w-4 text-emerald-400" />
           <span>Total Proyectado: {formatCurrency(forecast.totalForecast)}</span>
         </div>
       </div>
@@ -53,26 +53,26 @@ export const CashFlowForecastCard: React.FC<CashFlowForecastCardProps> = ({ fore
           return (
             <div
               key={idx}
-              className={`flex flex-col justify-between rounded-2xl border p-5 transition-all hover:shadow-md ${bucket.bgLight}`}
+              className={`flex flex-col justify-between rounded-2xl border p-5 transition-all hover:border-slate-700 ${bucket.bgDark}`}
             >
               <div>
-                <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider opacity-80">
+                <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
                   <span>{bucket.periodLabel}</span>
                   <span>{bucket.daysRange}</span>
                 </div>
 
-                <p className="mt-3 text-2xl font-black tracking-tight text-gray-900">
+                <p className="mt-3 font-mono text-2xl font-black tracking-tight text-white">
                   {formatCurrency(bucket.amount)}
                 </p>
 
-                <p className="mt-1 text-xs font-medium text-gray-600">
+                <p className="mt-1 text-xs font-medium text-slate-400">
                   {bucket.count === 1 ? '1 hito por cobrar' : `${bucket.count} hitos por cobrar`}
                 </p>
               </div>
 
               {/* Progress Bar Visualization */}
               <div className="mt-4">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
                   <div
                     className={`h-full transition-all duration-500 ${bucket.color}`}
                     style={{ width: `${Math.max(percentage, 5)}%` }}
@@ -84,13 +84,13 @@ export const CashFlowForecastCard: React.FC<CashFlowForecastCardProps> = ({ fore
         })}
       </div>
 
-      <div className="mt-6 flex flex-col items-center justify-between gap-2 rounded-2xl bg-gray-50 p-4 text-xs font-medium text-gray-600 sm:flex-row border border-gray-100">
+      <div className="mt-6 flex flex-col items-center justify-between gap-2 rounded-2xl bg-slate-950/80 p-4 text-xs font-medium text-slate-400 sm:flex-row border border-slate-800">
         <div className="flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 text-emerald-600" />
+          <CheckCircle className="h-4 w-4 text-emerald-400" />
           <span>Monitoreo automático de liquidez de negocio en tiempo real.</span>
         </div>
-        <div className="flex items-center gap-1 font-bold text-gray-700">
-          <ShieldAlert className="h-4 w-4 text-amber-500" />
+        <div className="flex items-center gap-1 font-bold text-slate-300">
+          <ShieldAlert className="h-4 w-4 text-amber-400" />
           <span>Excluye montos ya cobrados o vencidos.</span>
         </div>
       </div>
