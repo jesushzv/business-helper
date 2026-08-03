@@ -10,6 +10,7 @@ import { ClientFormModal } from '@/components/clients/ClientFormModal';
 import { useClients } from '@/lib/hooks/useClients';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
 import { formatClientActivity } from '@/lib/clientActivity';
+import { calculateClientCreditSummary } from '@/lib/clientCredit';
 import {
   ArrowLeft,
   Building2,
@@ -208,22 +209,83 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <div className="space-y-6">
             <HealthScoreMeter score={client.health_score ?? 100} milestones={mockMilestones} />
 
-            <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-xs">
-              <h3 className="text-base font-extrabold text-gray-900">Perfil Fiscal SAT (CFDI 4.0)</h3>
-              <p className="mt-0.5 text-xs text-gray-500">Datos requeridos para facturación electrónica</p>
+            {/* B2B Credit Utilization Card */}
+            {(() => {
+              const creditSummary = calculateClientCreditSummary(client, mockMilestones);
+              return (
+                <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-extrabold text-white">Línea de Crédito B2B</h3>
+                      <p className="mt-0.5 text-xs text-slate-400">Condiciones de pago y saldo utilizado</p>
+                    </div>
+                    <span className={`rounded-xl px-3 py-1 text-xs font-bold border ${
+                      creditSummary.status === 'blocked'
+                        ? 'bg-rose-950/80 text-rose-400 border-rose-500/30'
+                        : creditSummary.status === 'suspended'
+                        ? 'bg-amber-950/80 text-amber-400 border-amber-500/30'
+                        : 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
+                    }`}>
+                      {creditSummary.status === 'blocked' ? 'Bloqueado' : creditSummary.status === 'suspended' ? 'Suspendido' : 'Activo'}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                      <span className="font-semibold text-slate-400">Límite de Crédito Autorizado</span>
+                      <span className="font-bold text-white font-mono">${creditSummary.totalLimit.toLocaleString('es-MX')} MXN</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                      <span className="font-semibold text-slate-400">Crédito Utilizado (Cuentas Activas)</span>
+                      <span className="font-bold text-amber-400 font-mono">${creditSummary.usedCredit.toLocaleString('es-MX')} MXN</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                      <span className="font-semibold text-slate-400">Crédito Disponible</span>
+                      <span className="font-bold text-emerald-400 font-mono">${creditSummary.availableCredit.toLocaleString('es-MX')} MXN</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                      <span className="font-semibold text-slate-400">Plazo de Pago (Días)</span>
+                      <span className="font-bold text-indigo-400">{creditSummary.creditDays > 0 ? `${creditSummary.creditDays} Días de Crédito` : 'Contado (0 días)'}</span>
+                    </div>
+                  </div>
+
+                  {/* Credit Utilization Bar */}
+                  {creditSummary.totalLimit > 0 && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1.5">
+                        <span>Uso de Línea</span>
+                        <span>{creditSummary.utilizationPercentage}%</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-950 border border-slate-800">
+                        <div
+                          className={`h-full transition-all ${
+                            creditSummary.utilizationPercentage > 85 ? 'bg-rose-500' : creditSummary.utilizationPercentage > 60 ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.max(5, creditSummary.utilizationPercentage)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl text-white">
+              <h3 className="text-base font-extrabold text-white">Perfil Fiscal SAT (CFDI 4.0)</h3>
+              <p className="mt-0.5 text-xs text-slate-400">Datos requeridos para facturación electrónica</p>
 
               <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3 text-xs">
-                  <span className="font-semibold text-gray-500">Régimen Fiscal</span>
-                  <span className="font-bold text-gray-900">{client.regimen_fiscal || '601'}</span>
+                <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                  <span className="font-semibold text-slate-400">Régimen Fiscal</span>
+                  <span className="font-bold text-white">{client.regimen_fiscal || '601'}</span>
                 </div>
-                <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3 text-xs">
-                  <span className="font-semibold text-gray-500">Uso de CFDI</span>
-                  <span className="font-bold text-gray-900">{client.cfdi_use || 'G03'}</span>
+                <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                  <span className="font-semibold text-slate-400">Uso de CFDI</span>
+                  <span className="font-bold text-white">{client.cfdi_use || 'G03'}</span>
                 </div>
-                <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3 text-xs">
-                  <span className="font-semibold text-gray-500">Código Postal</span>
-                  <span className="font-bold text-gray-900">{client.codigo_postal || 'N/A'}</span>
+                <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                  <span className="font-semibold text-slate-400">Código Postal</span>
+                  <span className="font-bold text-white">{client.codigo_postal || 'N/A'}</span>
                 </div>
               </div>
             </div>

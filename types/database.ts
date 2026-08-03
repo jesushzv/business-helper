@@ -102,6 +102,9 @@ export interface Database {
           cfdi_use: string | null;
           notes: string | null;
           health_score: number;
+          credit_limit: number | null;
+          credit_days: number | null;
+          credit_status: 'active' | 'suspended' | 'blocked' | null;
           created_at: string;
           updated_at: string;
         };
@@ -118,6 +121,9 @@ export interface Database {
           cfdi_use?: string | null;
           notes?: string | null;
           health_score?: number;
+          credit_limit?: number | null;
+          credit_days?: number | null;
+          credit_status?: 'active' | 'suspended' | 'blocked' | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -134,6 +140,9 @@ export interface Database {
           cfdi_use?: string | null;
           notes?: string | null;
           health_score?: number;
+          credit_limit?: number | null;
+          credit_days?: number | null;
+          credit_status?: 'active' | 'suspended' | 'blocked' | null;
           created_at?: string;
           updated_at?: string;
         };

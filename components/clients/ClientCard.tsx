@@ -43,7 +43,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
           <HealthScoreMeter score={client.health_score ?? 100} compact />
         </div>
 
-        {/* SAT Tax Meta */}
+        {/* SAT Tax Meta & B2B Credit Badge */}
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-300">
           <span className="rounded-lg bg-slate-950 px-2.5 py-1 font-mono font-bold text-slate-200 border border-slate-800">
             RFC: {client.rfc || 'Sin RFC'}
@@ -56,6 +56,21 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
           {client.codigo_postal && (
             <span className="rounded-lg bg-slate-800 px-2.5 py-1 text-slate-300 border border-slate-700">
               CP {client.codigo_postal}
+            </span>
+          )}
+          {(client.credit_limit ?? 0) > 0 ? (
+            <span className={`rounded-lg px-2.5 py-1 font-bold border ${
+              client.credit_status === 'blocked'
+                ? 'bg-rose-950/80 text-rose-300 border-rose-500/40'
+                : client.credit_status === 'suspended'
+                ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
+                : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+            }`}>
+              Crédito: ${(client.credit_limit || 0).toLocaleString('es-MX')} MXN ({client.credit_days || 0}d)
+            </span>
+          ) : (
+            <span className="rounded-lg bg-slate-950 px-2.5 py-1 text-slate-400 border border-slate-800">
+              Contado (0 días)
             </span>
           )}
         </div>

@@ -43,6 +43,9 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [regimenFiscal, setRegimenFiscal] = useState('601');
   const [codigoPostal, setCodigoPostal] = useState('');
   const [cfdiUse, setCfdiUse] = useState('G03');
+  const [creditLimit, setCreditLimit] = useState<number | ''>('');
+  const [creditDays, setCreditDays] = useState<number>(0);
+  const [creditStatus, setCreditStatus] = useState<'active' | 'suspended' | 'blocked'>('active');
   const [notes, setNotes] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -58,6 +61,9 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setRegimenFiscal(initialClient.regimen_fiscal || '601');
       setCodigoPostal(initialClient.codigo_postal || '');
       setCfdiUse(initialClient.cfdi_use || 'G03');
+      setCreditLimit(initialClient.credit_limit ?? '');
+      setCreditDays(initialClient.credit_days ?? 0);
+      setCreditStatus(initialClient.credit_status || 'active');
       setNotes(initialClient.notes || '');
     } else {
       setName('');
@@ -68,6 +74,9 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setRegimenFiscal('601');
       setCodigoPostal('');
       setCfdiUse('G03');
+      setCreditLimit('');
+      setCreditDays(0);
+      setCreditStatus('active');
       setNotes('');
     }
     setError(null);
@@ -100,6 +109,9 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         regimen_fiscal: regimenFiscal,
         codigo_postal: codigoPostal.trim() || undefined,
         cfdi_use: cfdiUse,
+        credit_limit: creditLimit !== '' ? Number(creditLimit) : 0,
+        credit_days: Number(creditDays),
+        credit_status: creditStatus,
         notes: notes.trim() || undefined,
       });
       onClose();
@@ -289,6 +301,61 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* B2B Credit Conditions */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 space-y-4">
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-400">
+              Condiciones de Crédito B2B
+            </h4>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {/* Credit Limit */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300">Límite de Crédito ($ MXN)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  value={creditLimit}
+                  onChange={(e) => setCreditLimit(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="Ej. 50000"
+                  className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-900 px-3 text-sm font-semibold text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Credit Days / Payment Terms */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300">Plazo de Crédito (Días)</label>
+                <select
+                  value={creditDays}
+                  onChange={(e) => setCreditDays(Number(e.target.value))}
+                  className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
+                >
+                  <option value={0} className="bg-slate-900 text-white">0 días (Contado)</option>
+                  <option value={7} className="bg-slate-900 text-white">7 días</option>
+                  <option value={15} className="bg-slate-900 text-white">15 días</option>
+                  <option value={30} className="bg-slate-900 text-white">30 días</option>
+                  <option value={45} className="bg-slate-900 text-white">45 días</option>
+                  <option value={60} className="bg-slate-900 text-white">60 días</option>
+                  <option value={90} className="bg-slate-900 text-white">90 días</option>
+                </select>
+              </div>
+
+              {/* Credit Status */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300">Estatus de Crédito</label>
+                <select
+                  value={creditStatus}
+                  onChange={(e) => setCreditStatus(e.target.value as 'active' | 'suspended' | 'blocked')}
+                  className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
+                >
+                  <option value="active" className="bg-slate-900 text-emerald-400">Activo (Crédito Permitido)</option>
+                  <option value="suspended" className="bg-slate-900 text-amber-400">Suspendido (Requiere Revisión)</option>
+                  <option value="blocked" className="bg-slate-900 text-rose-400">Bloqueado (Solo Contado)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Buttons */}

@@ -39,3 +39,14 @@ export interface AccountsReceivableSummary {
   totalUpcoming: number;
   overdueCount: number;
 }
+
+export interface ClientCreditSummary {
+  totalLimit: number;
+  usedCredit: number;
+  availableCredit: number;
+  creditDays: number;
+  status: 'active' | 'suspended' | 'blocked';
+  isOverLimit: boolean;
+  utilizationPercentage: number;
+}
+

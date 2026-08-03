@@ -73,8 +73,13 @@ export function validateCFDIMetadata(metadata: CFDIMetadataInput): { isValid: bo
 export function buildCFDIPayload(
   org: { name: string; rfc?: string | null; regimen_fiscal?: string | null; codigo_postal?: string | null },
   client: { name: string; rfc?: string | null; regimen_fiscal?: string | null; codigo_postal?: string | null; cfdi_use?: string | null },
-  items: CFDIItemInput[]
+  items: CFDIItemInput[],
+  options?: { paymentMethod?: 'PUE' | 'PPD'; paymentForm?: string }
 ) {
+  const method = options?.paymentMethod || 'PUE';
+  // SAT Rule: PPD must use payment_form '99' (Por definir)
+  const form = method === 'PPD' ? '99' : (options?.paymentForm || '03');
+
   return {
     customer: {
       legal_name: client.name,
@@ -83,8 +88,8 @@ export function buildCFDIPayload(
       zip: client.codigo_postal || '64000'
     },
     use: client.cfdi_use || 'G03',
-    payment_form: '03',
-    payment_method: 'PUE',
+    payment_form: form,
+    payment_method: method,
     currency: 'MXN',
     items: (items || []).map((item) => {
       const price = item.unit_price ?? item.amount ?? 0;
@@ -106,6 +111,39 @@ export function buildCFDIPayload(
     })
   };
 }
+
+/**
+ * Builds Facturapi API payload for SAT Complemento de Recepción de Pagos (CPP)
+ * when a payment is confirmed for a PPD invoice.
+ */
+export function buildComplementoPagoPayload(input: {
+  invoiceId: string;
+  amount: number;
+  paymentForm?: string;
+  operationNumber?: string;
+  date?: string;
+}) {
+  return {
+    type: 'P',
+    payments: [
+      {
+        payment_form: input.paymentForm || '03',
+        currency: 'MXN',
+        amount: input.amount,
+        date: input.date || new Date().toISOString(),
+        operation_number: input.operationNumber || `SPEI-${Date.now()}`,
+        related_documents: [
+          {
+            invoice_id: input.invoiceId,
+            installment: 1,
+            currency: 'MXN'
+          }
+        ]
+      }
+    ]
+  };
+}
+
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function simulateInvoiceStamping(_milestoneId: string) {

@@ -2152,6 +2152,81 @@ test('Dashboard pages render Header component for unified navigation bar', () =>
 });
 
 // ----------------------------------------------------
+// 47. B2B Client Trade Credit & SAT PPD/CPP Invoicing Engine Tests
+// ----------------------------------------------------
+console.log('\n[Suite 47: B2B Client Trade Credit & SAT PPD/CPP Invoicing Engine]');
+
+let clientCreditModule;
+try {
+  clientCreditModule = require('../lib/clientCredit.js');
+} catch {
+  clientCreditModule = null;
+}
+
+test('Client Credit module exists & exports calculateClientCreditSummary and validateQuoteCreditLimit', () => {
+  assert.notStrictEqual(clientCreditModule, null, 'lib/clientCredit.js should exist');
+  assert.strictEqual(typeof clientCreditModule?.calculateClientCreditSummary, 'function');
+  assert.strictEqual(typeof clientCreditModule?.validateQuoteCreditLimit, 'function');
+});
+
+test('calculateClientCreditSummary accurately calculates used credit and available credit', () => {
+  if (clientCreditModule?.calculateClientCreditSummary) {
+    const mockClient = { id: 'c-1', credit_limit: 50000, credit_days: 30, credit_status: 'active' };
+    const mockReceivables = [
+      { clientId: 'c-1', amount: 15000, status: 'pending' },
+      { clientId: 'c-1', amount: 10000, status: 'requested' },
+      { clientId: 'c-1', amount: 20000, status: 'confirmed' },
+    ];
+    const summary = clientCreditModule.calculateClientCreditSummary(mockClient, mockReceivables);
+    assert.strictEqual(summary.totalLimit, 50000);
+    assert.strictEqual(summary.usedCredit, 25000);
+    assert.strictEqual(summary.availableCredit, 25000);
+    assert.strictEqual(summary.isOverLimit, false);
+    assert.strictEqual(summary.utilizationPercentage, 50);
+  }
+});
+
+test('validateQuoteCreditLimit identifies quote totals exceeding available credit', () => {
+  if (clientCreditModule?.validateQuoteCreditLimit) {
+    const valid = clientCreditModule.validateQuoteCreditLimit(15000, 25000, 'active');
+    assert.strictEqual(valid.isAllowed, true);
+    assert.strictEqual(valid.isExceeding, false);
+
+    const exceeding = clientCreditModule.validateQuoteCreditLimit(30000, 25000, 'active');
+    assert.strictEqual(exceeding.isExceeding, true);
+    assert.strictEqual(exceeding.warningMessage.includes('excede'), true);
+
+    const blocked = clientCreditModule.validateQuoteCreditLimit(5000, 25000, 'blocked');
+    assert.strictEqual(blocked.isAllowed, false);
+    assert.strictEqual(blocked.warningMessage.includes('bloqueado'), true);
+  }
+});
+
+test('Facturapi module supports PPD payment_method and Complemento de Pago (CPP) payloads', () => {
+  const facturapiModule = require('../lib/facturapi.js');
+  assert.strictEqual(typeof facturapiModule.buildCFDIPayload, 'function');
+  assert.strictEqual(typeof facturapiModule.buildComplementoPagoPayload, 'function');
+
+  const ppdPayload = facturapiModule.buildCFDIPayload(
+    { name: 'Org' },
+    { name: 'Client' },
+    [{ description: 'Items', unit_price: 1000 }],
+    { paymentMethod: 'PPD' }
+  );
+  assert.strictEqual(ppdPayload.payment_method, 'PPD');
+  assert.strictEqual(ppdPayload.payment_form, '99');
+
+  const cppPayload = facturapiModule.buildComplementoPagoPayload({
+    invoiceId: 'inv-100',
+    amount: 5000,
+    paymentForm: '03',
+    operationNumber: 'SPEI-12345'
+  });
+  assert.strictEqual(cppPayload.type, 'P');
+  assert.strictEqual(cppPayload.payments[0].amount, 5000);
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

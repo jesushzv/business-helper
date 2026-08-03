@@ -1,9 +1,8 @@
-'use client';
-
 import React, { useState } from 'react';
 import { Client, LineItem } from '@/types';
 import { calculateQuoteTotals } from '@/lib/quoteCalculator';
-import { X, Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles } from 'lucide-react';
+import { calculateClientCreditSummary, validateQuoteCreditLimit } from '@/lib/clientCredit';
+import { X, Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles, AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface QuoteWizardModalProps {
   isOpen: boolean;
@@ -47,9 +46,21 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
 
   React.useEffect(() => {
     if (isOpen && clients && clients.length > 0 && (!clientId || !clients.some(c => c.id === clientId))) {
-      setClientId(clients[0].id);
+      const selected = clients[0];
+      setClientId(selected.id);
+      if (selected.credit_days && selected.credit_days > 0) {
+        setValidUntil(new Date(Date.now() + selected.credit_days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+      }
     }
   }, [isOpen, clients, clientId]);
+
+  const handleClientChange = (newId: string) => {
+    setClientId(newId);
+    const selected = clients.find((c) => c.id === newId);
+    if (selected && selected.credit_days && selected.credit_days > 0) {
+      setValidUntil(new Date(Date.now() + selected.credit_days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -58,6 +69,14 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
     applyRetencionIsr,
     applyRetencionIva,
   });
+
+  const selectedClient = clients.find((c) => c.id === (clientId || clients[0]?.id));
+  const creditSummary = calculateClientCreditSummary(selectedClient);
+  const creditValidation = validateQuoteCreditLimit(
+    totals.totalAmount,
+    creditSummary.availableCredit,
+    creditSummary.status
+  );
 
   const handleAddLineItem = () => {
     setLineItems((prev) => [
@@ -155,7 +174,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                 <label className="block text-sm font-bold text-slate-300 mb-2">Seleccionar Cliente</label>
                 <select
                   value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
+                  onChange={(e) => handleClientChange(e.target.value)}
                   className="w-full min-h-[48px] px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl font-medium text-white focus:border-emerald-500 focus:outline-none"
                   required
                 >
@@ -165,6 +184,29 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                     </option>
                   ))}
                 </select>
+
+                {/* Selected Client Credit Info Banner */}
+                {selectedClient && (
+                  <div className="mt-2.5 rounded-xl border border-slate-800 bg-slate-950/90 p-3.5 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-300">Condiciones de Crédito B2B:</span>
+                      <span className={`font-extrabold px-2 py-0.5 rounded-md ${
+                        creditSummary.status === 'blocked' ? 'bg-rose-950 text-rose-400 border border-rose-500/30' :
+                        creditSummary.status === 'suspended' ? 'bg-amber-950 text-amber-400 border border-amber-500/30' :
+                        'bg-emerald-950 text-emerald-400 border border-emerald-500/30'
+                      }`}>
+                        {creditSummary.totalLimit > 0 ? `$${creditSummary.availableCredit.toLocaleString('es-MX')} MXN Disp. (${creditSummary.creditDays}d)` : 'Contado (0 días)'}
+                      </span>
+                    </div>
+
+                    {creditValidation.warningMessage && (
+                      <div className="flex items-center gap-2 rounded-lg bg-amber-950/80 border border-amber-500/30 p-2.5 text-amber-300 font-semibold">
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                        <span>{creditValidation.warningMessage}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -345,6 +387,16 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                     <span className="text-emerald-400">${totals.totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} {currency}</span>
                   </div>
                 </div>
+
+                {creditValidation.warningMessage && (
+                  <div className="rounded-xl bg-amber-950/80 border border-amber-500/40 p-3.5 text-xs text-amber-300 font-semibold flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 shrink-0 text-amber-400 mt-0.5" />
+                    <div>
+                      <span className="font-extrabold text-amber-200">Alerta de Crédito Comercial:</span>
+                      <p className="mt-0.5 text-amber-300/90">{creditValidation.warningMessage}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
