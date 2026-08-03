@@ -1698,6 +1698,60 @@ test('captureMessage logs warning and info alerts cleanly', () => {
 });
 
 // ----------------------------------------------------
+// 38. Stripe Production Billing & Sandbox Auditor Suite
+// ----------------------------------------------------
+console.log('\n[Suite 38: Stripe Production Billing & Sandbox Auditor Suite]');
+
+let stripeAuditorModule;
+try {
+  stripeAuditorModule = require('../lib/stripe.js');
+} catch (e) {
+  stripeAuditorModule = null;
+}
+
+test('Stripe Module Exists & Exports Billing Helpers & Environment Auditor', () => {
+  assert.notStrictEqual(stripeAuditorModule, null, 'lib/stripe.js module should exist');
+  assert.strictEqual(typeof stripeAuditorModule?.getStripeTierConfig, 'function');
+  assert.strictEqual(typeof stripeAuditorModule?.createCheckoutPayload, 'function');
+  assert.strictEqual(typeof stripeAuditorModule?.handleStripeWebhookEvent, 'function');
+  assert.strictEqual(typeof stripeAuditorModule?.auditStripeEnvironment, 'function');
+});
+
+test('auditStripeEnvironment identifies sandbox vs live keys correctly', () => {
+  if (stripeAuditorModule?.auditStripeEnvironment) {
+    const unconfigAudit = stripeAuditorModule.auditStripeEnvironment({});
+    assert.strictEqual(unconfigAudit.mode, 'unconfigured');
+    assert.strictEqual(unconfigAudit.isReady, false);
+    assert.strictEqual(unconfigAudit.missingKeys.includes('STRIPE_SECRET_KEY'), true);
+
+    const sandboxAudit = stripeAuditorModule.auditStripeEnvironment({
+      STRIPE_SECRET_KEY: 'sk_test_123456789',
+      STRIPE_WEBHOOK_SECRET: 'whsec_987654321'
+    });
+    assert.strictEqual(sandboxAudit.mode, 'sandbox');
+    assert.strictEqual(sandboxAudit.isReady, true);
+    assert.strictEqual(sandboxAudit.isWebhookConfigured, true);
+
+    const liveAudit = stripeAuditorModule.auditStripeEnvironment({
+      STRIPE_SECRET_KEY: 'sk_live_123456789',
+      STRIPE_WEBHOOK_SECRET: 'whsec_987654321'
+    });
+    assert.strictEqual(liveAudit.mode, 'live');
+    assert.strictEqual(liveAudit.isReady, true);
+  }
+});
+
+test('createCheckoutPayload includes organization_id metadata and price mapping', () => {
+  if (stripeAuditorModule?.createCheckoutPayload) {
+    const payload = stripeAuditorModule.createCheckoutPayload('negocio', 'org_distribuidora', 'https://businesshelper.mx/settings');
+    assert.strictEqual(payload.mode, 'subscription');
+    assert.strictEqual(payload.metadata.organization_id, 'org_distribuidora');
+    assert.strictEqual(payload.metadata.tier_id, 'negocio');
+    assert.strictEqual(payload.success_url.includes('CHECKOUT_SESSION_ID'), true);
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

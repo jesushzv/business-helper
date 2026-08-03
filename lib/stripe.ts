@@ -2,7 +2,7 @@
  * Business Helper — Stripe Subscription Billing Engine
  * 
  * Provides tier configurations, checkout session payload creation,
- * and subscription status validation for Mexican SMBs.
+ * environment secret auditing, and subscription status validation for Mexican SMBs.
  */
 
 export interface StripeTierConfig {
@@ -93,7 +93,6 @@ export function createCheckoutPayload(tierKey: string, organizationId: string, r
   };
 }
 
-
 export interface SubscriptionStatusResult {
   status: string;
   isAccessible: boolean;
@@ -149,13 +148,48 @@ export function handleStripeWebhookEvent(event: { type: string; data?: { object?
   };
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    STRIPE_PLANS,
-    getStripeTierConfig,
-    createCheckoutPayload,
-    validateSubscriptionStatus,
-    handleStripeWebhookEvent
+export interface StripeEnvironmentAudit {
+  mode: 'sandbox' | 'live' | 'unconfigured';
+  isReady: boolean;
+  isWebhookConfigured: boolean;
+  hasSecretKey: boolean;
+  priceIds: {
+    emprendedor: string;
+    negocio: string;
+    empresa: string;
   };
+  missingKeys: string[];
 }
 
+export function auditStripeEnvironment(env: Record<string, string | undefined> = process.env): StripeEnvironmentAudit {
+  const secretKey = env.STRIPE_SECRET_KEY || '';
+  const webhookSecret = env.STRIPE_WEBHOOK_SECRET || '';
+
+  let mode: 'sandbox' | 'live' | 'unconfigured' = 'unconfigured';
+  if (secretKey.startsWith('sk_test_')) {
+    mode = 'sandbox';
+  } else if (secretKey.startsWith('sk_live_')) {
+    mode = 'live';
+  }
+
+  const isWebhookConfigured = webhookSecret.startsWith('whsec_');
+  const priceIds = {
+    emprendedor: env.STRIPE_PRICE_EMPRENDEDOR || STRIPE_PLANS.emprendedor.stripePriceId || 'price_emprendedor_299_mxn',
+    negocio: env.STRIPE_PRICE_NEGOCIO || STRIPE_PLANS.negocio.stripePriceId || 'price_negocio_599_mxn',
+    empresa: env.STRIPE_PRICE_EMPRESA || STRIPE_PLANS.empresa.stripePriceId || 'price_empresa_999_mxn',
+  };
+
+  const isReady = mode !== 'unconfigured' && isWebhookConfigured;
+
+  return {
+    mode,
+    isReady,
+    isWebhookConfigured,
+    hasSecretKey: Boolean(secretKey),
+    priceIds,
+    missingKeys: [
+      !secretKey ? 'STRIPE_SECRET_KEY' : null,
+      !webhookSecret ? 'STRIPE_WEBHOOK_SECRET' : null,
+    ].filter((k): k is string => k !== null)
+  };
+}
