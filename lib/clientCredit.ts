@@ -4,8 +4,8 @@
 
 import { ClientCreditSummary } from '@/types';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const clientCreditCore = require('./clientCredit.js');
+// @ts-expect-error JS file export
+import clientCreditCore from './clientCredit.js';
 
 export interface MilestoneRecordInput {
   clientId?: string | null;

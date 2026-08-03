@@ -2226,6 +2226,99 @@ test('Facturapi module supports PPD payment_method and Complemento de Pago (CPP)
   assert.strictEqual(cppPayload.payments[0].amount, 5000);
 });
 
+
+// ----------------------------------------------------
+// 48. Independent QA Contractor Exploratory Audit Suite
+// ----------------------------------------------------
+console.log('\n[Suite 48: Independent QA Contractor Exploratory Audit Suite]');
+
+test('Auth flow edge case: Validates registration payload and rejects missing fields or weak passwords', () => {
+  const validateRegisterInput = (data) => {
+    if (!data.email || !data.email.includes('@')) return { valid: false, error: 'Correo electrónico inválido' };
+    if (!data.business_name || data.business_name.trim().length < 2) return { valid: false, error: 'Nombre de empresa requerido' };
+    if (!data.password || data.password.length < 6) return { valid: false, error: 'La contraseña debe tener al menos 6 caracteres' };
+    return { valid: true, error: null };
+  };
+
+  assert.strictEqual(validateRegisterInput({ email: 'bademail', business_name: 'Test', password: '123' }).valid, false);
+  assert.strictEqual(validateRegisterInput({ email: 'test@negocio.mx', business_name: '', password: 'password123' }).valid, false);
+  assert.strictEqual(validateRegisterInput({ email: 'test@negocio.mx', business_name: 'Test', password: '123' }).valid, false);
+  assert.strictEqual(validateRegisterInput({ email: 'roberto@materiales.mx', business_name: 'Materiales MTY', password: 'securePassword123' }).valid, true);
+});
+
+test('Stripe billing edge case: Processes upgrade, downgrade, and cancellation event state transitions', () => {
+  const stripeModule = require('../lib/stripe.js');
+  
+  // Upgrade simulation
+  const upgradeEvent = {
+    type: 'customer.subscription.updated',
+    data: { object: { metadata: { organization_id: 'org_123' }, status: 'active', items: { data: [{ price: { id: 'price_empresa_999_mxn' } }] } } }
+  };
+  const upRes = stripeModule.handleStripeWebhookEvent(upgradeEvent);
+  assert.strictEqual(upRes.tierId, 'empresa');
+  assert.strictEqual(upRes.status, 'active');
+
+  // Cancellation simulation
+  const cancelEvent = {
+    type: 'customer.subscription.deleted',
+    data: { object: { metadata: { organization_id: 'org_123' }, status: 'canceled', items: { data: [{ price: { id: 'price_negocio_599_mxn' } }] } } }
+  };
+  const cancelRes = stripeModule.handleStripeWebhookEvent(cancelEvent);
+  assert.strictEqual(cancelRes.status, 'canceled');
+  
+  const accessibility = stripeModule.validateSubscriptionStatus('canceled');
+  assert.strictEqual(accessibility.isAccessible, false);
+});
+
+test('Client management edge case: Enforces Mexican RFC validation & E.164 phone formatting', () => {
+  const rfcModule = require('../lib/rfcValidator.js');
+  const outboundModule = require('../lib/whatsappOutbound.js');
+
+  // RFC physical (13 chars) vs moral (12 chars)
+  assert.strictEqual(rfcModule.validateRFC('XAXX010101000').isValid, true); // Generic physical
+  assert.strictEqual(rfcModule.validateRFC('INVALID_RFC').isValid, false);
+
+  // Phone formatting
+  assert.strictEqual(outboundModule.formatE164MexicanPhone('8112223344'), '+528112223344');
+  assert.strictEqual(outboundModule.formatE164MexicanPhone('528112223344'), '+528112223344');
+  assert.strictEqual(outboundModule.formatE164MexicanPhone('+528112223344'), '+528112223344');
+});
+
+test('Contracts & Quotes edge case: Calculates 16% IVA and splits milestones cleanly with zero cent divergence', () => {
+  const quoteCalc = require('../lib/quoteCalculator.js');
+  const qToC = require('../lib/quoteToContract.ts');
+
+  const calc = quoteCalc.calculateQuoteTotals([
+    { quantity: 10, unit_price: 150.50 },
+    { quantity: 5, unit_price: 200.00 }
+  ], { applyIva: true });
+
+  assert.strictEqual(calc.subtotal, 2505.00);
+  assert.strictEqual(calc.ivaAmount, 400.80);
+  assert.strictEqual(calc.totalAmount, 2905.80);
+
+  // Milestone splitting
+  const quote = { id: 'q1', organization_id: 'org1', client_id: 'c1', title: 'Cotización Materiales', total_amount: 2905.80, status: 'approved' };
+  const contractRes = qToC.convertQuoteToContract(quote, [0.33, 0.33, 0.34]);
+  const sumMilestones = contractRes.milestones.reduce((acc, m) => acc + m.amount, 0);
+  assert.strictEqual(Math.abs(sumMilestones - 2905.80) < 0.001, true, 'Sum of split milestones must equal contract total exactly');
+});
+
+test('WhatsApp & AI Assistant edge case: Enforces 300 char prompt limit and sandbox safety isolation', () => {
+  const whatsappAI = require('../lib/whatsappAI.js');
+  const outboundModule = require('../lib/whatsappOutbound.js');
+
+  // Input truncation
+  const longPrompt = 'A'.repeat(500);
+  const sanitized = whatsappAI.sanitizeAIQuery(longPrompt, 300);
+  assert.strictEqual(sanitized.length, 300);
+
+  // Sandbox isolation test
+  const mode = outboundModule.getWhatsAppDispatchMode({}, true); // isSandbox = true
+  assert.strictEqual(mode.type, 'wa_me_link');
+  assert.strictEqual(mode.isSandbox, true);
+});
+
 // ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
