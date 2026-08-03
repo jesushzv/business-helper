@@ -22,7 +22,7 @@ test.describe('Business Helper E2E User Scenarios', () => {
     // Navigate to Demo Dashboard
     await page.click('text=Ver Panel de Demostración');
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.locator('h2')).toContainText('¡Hola, Don Roberto!');
+    await expect(page.locator('h2').first()).toContainText('¡Hola, Don Roberto!');
   });
 
   test('02 Don Roberto Scenario: Quote Creation Wizard & WhatsApp 1-Tap Link', async ({ page }) => {
@@ -136,9 +136,9 @@ test.describe('Business Helper E2E User Scenarios', () => {
     await page.click('button:has-text("¿Cuánto me debe Grupo Salinas?")');
     await expect(page.locator('body')).toContainText('Grupo Salinas tiene un saldo pendiente');
 
-    // Visit Executive Dashboard
-    await page.goto('/dashboard');
-    await expect(page.locator('h2')).toContainText('¡Hola, Don Roberto!');
+    // Visit Executive Dashboard (with demo mode query flag)
+    await page.goto('/dashboard?demo=true');
+    await expect(page.locator('h2').first()).toContainText('¡Hola, Don Roberto!');
     await expect(page.locator('body')).toContainText('Panel de Administración');
   });
 
