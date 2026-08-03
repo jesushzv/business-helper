@@ -2044,6 +2044,48 @@ test('Defines core pain points vs solutions mapping for Mexican PyMEs', () => {
 });
 
 // ----------------------------------------------------
+// 45. JSX Syntax & Unescaped Entities Quality Gate Audit
+// ----------------------------------------------------
+console.log('\n[Suite 45: JSX Syntax & Unescaped Entities Quality Gate Audit]');
+
+test('Scans components and app directories for unescaped quotes in JSX text nodes', () => {
+  function scanDir(dir, fileList = []) {
+    if (!fs.existsSync(dir)) return fileList;
+    const files = fs.readdirSync(dir);
+    files.forEach((file) => {
+      const filePath = path.join(dir, file);
+      if (fs.statSync(filePath).isDirectory()) {
+        scanDir(filePath, fileList);
+      } else if (file.endsWith('.tsx')) {
+        fileList.push(filePath);
+      }
+    });
+    return fileList;
+  }
+
+  const tsxFiles = [...scanDir(path.join(__dirname, '../components')), ...scanDir(path.join(__dirname, '../app'))];
+  const unescapedQuotePattern = />[^<{]*"[^<{]*</;
+  const offendingFiles = [];
+
+  tsxFiles.forEach((filePath) => {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+    lines.forEach((line, idx) => {
+      // Exclude comments, imports, or lines containing valid escaped quotes
+      if (!line.trim().startsWith('//') && !line.includes('eslint-disable') && unescapedQuotePattern.test(line)) {
+        offendingFiles.push(`${path.basename(filePath)}:${idx + 1}`);
+      }
+    });
+  });
+
+  assert.strictEqual(
+    offendingFiles.length,
+    0,
+    `Found unescaped quote entities in JSX text nodes: ${offendingFiles.join(', ')}`
+  );
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
