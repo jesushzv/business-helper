@@ -27,8 +27,8 @@ export function RoiCalculator() {
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
         {/* Controls Column */}
         <div className="lg:col-span-6 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-            <Calculator className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+            <Calculator className="w-4 h-4" />
             <span>Calculadora de Impacto Financiero</span>
           </div>
 
@@ -42,23 +42,26 @@ export function RoiCalculator() {
           </div>
 
           {/* Slider 1: Quotes per Month */}
-          <div className="space-y-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
+          <div className="space-y-3 bg-slate-950/70 p-5 rounded-2xl border border-slate-800/80">
             <div className="flex justify-between items-center text-xs font-bold">
               <span className="text-slate-300">Cotizaciones al mes</span>
-              <span className="text-emerald-400 text-base font-black px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <span className="text-emerald-400 text-base font-black px-3.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                 {quotesPerMonth} cotizaciones
               </span>
             </div>
-            <input
-              type="range"
-              min="5"
-              max="150"
-              step="5"
-              value={quotesPerMonth}
-              onChange={(e) => setQuotesPerMonth(Number(e.target.value))}
-              className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-            />
-            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+            <div className="py-2">
+              <input
+                type="range"
+                min="5"
+                max="150"
+                step="5"
+                value={quotesPerMonth}
+                onChange={(e) => setQuotesPerMonth(Number(e.target.value))}
+                className="w-full h-3 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 min-h-[48px] py-3"
+                aria-label="Cotizaciones al mes"
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
               <span>5 / mes</span>
               <span>75 / mes</span>
               <span>150 / mes</span>
@@ -66,23 +69,26 @@ export function RoiCalculator() {
           </div>
 
           {/* Slider 2: Average Quote Value */}
-          <div className="space-y-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
+          <div className="space-y-3 bg-slate-950/70 p-5 rounded-2xl border border-slate-800/80">
             <div className="flex justify-between items-center text-xs font-bold">
               <span className="text-slate-300">Valor promedio por cotización</span>
-              <span className="text-indigo-400 text-base font-black px-3 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+              <span className="text-indigo-400 text-base font-black px-3.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
                 ${avgQuoteValue.toLocaleString('es-MX')} MXN
               </span>
             </div>
-            <input
-              type="range"
-              min="2000"
-              max="150000"
-              step="1000"
-              value={avgQuoteValue}
-              onChange={(e) => setAvgQuoteValue(Number(e.target.value))}
-              className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-            />
-            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+            <div className="py-2">
+              <input
+                type="range"
+                min="2000"
+                max="150000"
+                step="1000"
+                value={avgQuoteValue}
+                onChange={(e) => setAvgQuoteValue(Number(e.target.value))}
+                className="w-full h-3 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 min-h-[48px] py-3"
+                aria-label="Valor promedio por cotización"
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
               <span>$2,000 MXN</span>
               <span>$75,000 MXN</span>
               <span>$150,000 MXN</span>

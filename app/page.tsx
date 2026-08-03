@@ -13,6 +13,7 @@ import {
   Sparkles,
   ShieldCheck,
   Star,
+  Download,
 } from 'lucide-react';
 import { RoiCalculator } from '@/components/landing/RoiCalculator';
 import { FaqAccordion } from '@/components/landing/FaqAccordion';
@@ -27,9 +28,9 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950">
       {/* Top Banner Announcement */}
-      <div className="bg-linear-to-r from-indigo-700 via-indigo-600 to-emerald-500 text-white text-center py-2.5 px-4 text-xs font-bold tracking-wide uppercase flex items-center justify-center gap-2 shadow-md">
+      <div className="bg-linear-to-r from-indigo-700 via-indigo-600 to-emerald-500 text-white text-center py-2.5 px-4 text-xs font-bold tracking-wide uppercase flex items-center justify-center gap-2 shadow-md min-h-[40px]">
         <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-        <span>⚡ Lanzamiento Oficial Beta en México — Prueba 14 días sin costo</span>
+        <span>⚡ LA PLATAFORMA TODO-EN-UNO PARA PYMES EN MÉXICO — Prueba 14 Días Sin Costo</span>
       </div>
 
       {/* Navigation Header */}
@@ -51,19 +52,19 @@ export default function LandingPage() {
 
           {/* Navigation Links */}
           <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-300">
-            <a href="#caracteristicas" className="hover:text-emerald-400 transition-colors">
+            <a href="#caracteristicas" className="hover:text-emerald-400 transition-colors py-2">
               Características
             </a>
-            <a href="#testimonios" className="hover:text-emerald-400 transition-colors">
+            <a href="#testimonios" className="hover:text-emerald-400 transition-colors py-2">
               Casos de Éxito
             </a>
-            <a href="#calculadora" className="hover:text-emerald-400 transition-colors">
+            <a href="#calculadora" className="hover:text-emerald-400 transition-colors py-2">
               Calculadora ROI
             </a>
-            <a href="#precios" className="hover:text-emerald-400 transition-colors">
+            <a href="#precios" className="hover:text-emerald-400 transition-colors py-2">
               Precios
             </a>
-            <a href="#faq" className="hover:text-emerald-400 transition-colors">
+            <a href="#faq" className="hover:text-emerald-400 transition-colors py-2">
               Preguntas Frecuentes
             </a>
           </nav>
@@ -71,13 +72,13 @@ export default function LandingPage() {
           <div className="flex items-center gap-4">
             <Link
               href="/login"
-              className="text-xs sm:text-sm font-semibold text-slate-300 hover:text-white transition-colors px-3 py-2 rounded-xl hover:bg-slate-900"
+              className="min-h-[48px] px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-300 hover:text-white transition-colors rounded-xl hover:bg-slate-900 flex items-center justify-center"
             >
               Iniciar Sesión
             </Link>
             <Link
               href="/onboarding"
-              className="min-h-[44px] px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-black rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all flex items-center gap-2 active:scale-95"
+              className="min-h-[48px] px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-black rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all flex items-center gap-2 active:scale-95"
             >
               <span>Probar Gratis</span>
               <ArrowRight className="w-4 h-4" />
@@ -255,9 +256,9 @@ export default function LandingPage() {
               <div className="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-400 border border-teal-500/20 flex items-center justify-center">
                 <FileCheck className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-white">Facturación SAT CFDI 4.0</h3>
+              <h3 className="text-lg font-bold text-white">Notas de Venta y SAT CFDI 4.0</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Convierte cotizaciones o cobros en facturas timbradas ante el SAT sin complicaciones. Descarga paquetes de XML/PDF para tu contador.
+                Entrega notas de venta y recibos de pago en PDF al instante. Si lo requieres, timbra facturas fiscales CFDI 4.0 y exporta paquetes ZIP a tu contador.
               </p>
             </div>
 
@@ -363,6 +364,50 @@ export default function LandingPage() {
             </div>
           </div>
 
+          {/* Showcase Item 3 */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            <div className="lg:col-span-6 space-y-6">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                03. Exportación 1-Clic para Contador
+              </span>
+              <h3 className="text-3xl font-black text-white tracking-tight">
+                Entrega mensual a tu despacho contable sin perder horas reconciliando
+              </h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Descarga en un solo clic un archivo ZIP comprimido con todas tus notas de venta en PDF, comprobantes de pago SPEI, resúmenes CSV de ingresos y facturas XML de forma ordenada.
+              </p>
+              <ul className="space-y-3 text-xs text-slate-300">
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" /> Paquete ZIP completo listo para enviar por correo o WhatsApp
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" /> Resumen estructurado en formato CSV con desglose de impuestos
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" /> Historial de clientes con RFC y régimen fiscal SAT
+                </li>
+              </ul>
+            </div>
+            <div className="lg:col-span-6">
+              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+                      <Download className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Paquete_Contable_Agosto_2026.zip</div>
+                      <div className="text-[10px] text-slate-400">PDFs, XMLs, SPEI y CSV de ventas</div>
+                    </div>
+                  </div>
+                  <span className="min-h-[48px] px-4 py-2 bg-amber-500/20 text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 flex items-center justify-center">
+                    1-Click Export
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -463,9 +508,10 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Hasta 50 cotizaciones / mes</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Enlaces directos a WhatsApp</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Portal de comprobantes SPEI</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Notas de Venta PDF ilimitadas</li>
                 </ul>
               </div>
-              <Link href="/onboarding" className="block text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs">
+              <Link href="/onboarding" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
                 Seleccionar Emprendedor
               </Link>
             </div>
@@ -488,7 +534,7 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Score de Salud del Cliente</li>
                 </ul>
               </div>
-              <Link href="/onboarding" className="block text-center w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-md">
+              <Link href="/onboarding" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-md active:scale-95">
                 Probar 14 Días Gratis
               </Link>
             </div>
@@ -507,7 +553,7 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Descarga 1-click ZIP para Contador</li>
                 </ul>
               </div>
-              <Link href="/onboarding" className="block text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs">
+              <Link href="/onboarding" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
                 Contactar Ventas
               </Link>
             </div>
@@ -548,7 +594,7 @@ export default function LandingPage() {
               <input
                 type="text"
                 placeholder="ej. Materiales Elizondo"
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
+                className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div className="space-y-1">
@@ -556,7 +602,7 @@ export default function LandingPage() {
               <input
                 type="email"
                 placeholder="contacto@tunegocio.mx"
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
+                className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div className="space-y-1">
@@ -564,12 +610,12 @@ export default function LandingPage() {
               <input
                 type="password"
                 placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
+                className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
               />
             </div>
             <Link
               href="/onboarding"
-              className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl shadow-lg shadow-emerald-500/20 text-sm text-center block transition-all active:scale-95"
+              className="w-full min-h-[54px] py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl shadow-lg shadow-emerald-500/20 text-sm text-center flex items-center justify-center transition-all active:scale-95"
             >
               Crear Mi Cuenta Gratis
             </Link>
@@ -590,13 +636,13 @@ export default function LandingPage() {
             <span>© 2026 Business Helper S.A.P.I. de C.V. Todos los derechos reservados.</span>
           </div>
           <div className="flex items-center gap-6">
-            <Link href="/privacy" className="hover:text-slate-300 transition-colors">
+            <Link href="/privacy" className="hover:text-slate-300 transition-colors py-2">
               Aviso de Privacidad (LFPDPPP)
             </Link>
-            <Link href="/terms" className="hover:text-slate-300 transition-colors">
+            <Link href="/terms" className="hover:text-slate-300 transition-colors py-2">
               Términos del Servicio
             </Link>
-            <Link href="/dashboard" className="hover:text-slate-300 transition-colors">
+            <Link href="/dashboard" className="hover:text-slate-300 transition-colors py-2">
               Panel de Control
             </Link>
           </div>

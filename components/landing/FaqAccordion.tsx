@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronDown, HelpCircle, FileCheck, MessageSquare, CreditCard, ShieldCheck } from 'lucide-react';
+import { ChevronDown, HelpCircle, FileCheck, MessageSquare, CreditCard, ShieldCheck, Download } from 'lucide-react';
 
 interface FaqItem {
   id: string;
@@ -12,39 +12,39 @@ interface FaqItem {
 
 const FAQS: FaqItem[] = [
   {
-    id: 'sat-cfdi',
-    question: '¿Tiene validez fiscal ante el SAT (CFDI 4.0)?',
-    answer: 'Sí. Business Helper está integrado directamente con Proveedores Autorizados de Certificación (PAC) autorizados por el SAT. Todas tus facturas se emiten bajo el esquema CFDI 4.0 con tus sellos CSD y se entregan en formato XML y PDF.',
+    id: 'invoicing-sat',
+    question: '¿Genera Notas de Venta y Facturas SAT CFDI 4.0?',
+    answer: 'Sí. Business Helper incluye un motor de Nota de Venta y Recibo de Pago PDF de 1 clic para entregar comprobantes inmediatos a tus clientes sin necesidad de sellos CSD ni trámites complejos ante el SAT. Si tu empresa requiere facturación fiscal oficial, el addon Pro te permite timbrar facturas CFDI 4.0 ante el SAT a través de Proveedores Autorizados (PAC).',
     icon: FileCheck,
   },
   {
     id: 'whatsapp-integration',
     question: '¿Cómo funciona la integración con WhatsApp?',
-    answer: 'Al crear una cotización o recordatorio de cobro, Business Helper genera un enlace único de 1-Tap Click-to-Chat. Al presionar el botón en tu celular, se abre tu aplicación oficial de WhatsApp con el mensaje formateado y el enlace interactivo para tu cliente.',
+    answer: 'Al generar una cotización o recordatorio de cobranza, Business Helper crea un enlace único de 1-Tap Click-to-Chat (wa.me). Al presionar el botón en tu celular, se abre WhatsApp con el mensaje pre-redactado y el enlace interactivo para tu cliente, sin pagar costos adicionales de API de terceros.',
     icon: MessageSquare,
   },
   {
-    id: 'no-credit-card',
-    question: '¿Necesito ingresar tarjeta de crédito para la prueba gratis?',
-    answer: 'No. Obtienes 14 días de acceso completo a todas las funciones sin ingresar ninguna tarjeta de crédito. Solo se te pedirán datos de pago si decides continuar al finalizar el periodo de prueba.',
-    icon: CreditCard,
-  },
-  {
-    id: 'client-app',
-    question: '¿Mis clientes necesitan descargar alguna app o registrarse?',
-    answer: 'No. Tus clientes reciben un enlace web seguro que se abre directamente en el navegador de su celular o computadora. Pueden revisar, aceptar con código de seguridad OTP y firmar digitalmente sin crear ninguna cuenta.',
+    id: 'spei-verification',
+    question: '¿Cómo confirmo las transferencias bancarias SPEI de Banxico?',
+    answer: 'Tus clientes cuentan con un portal público seguro donde pueden adjuntar su comprobante de pago SPEI e ingresar la Clave de Rastreo de Banxico. Tú recibes una notificación inmediata en tu celular y confirmas el pago con un solo toque.',
     icon: ShieldCheck,
   },
   {
     id: 'accountant-export',
-    question: '¿Puedo exportar reportes para mi contador a fin de mes?',
-    answer: 'Absolutamente. En la sección de reportes puedes descargar con 1 clic un archivo comprimido (.ZIP) organizado por mes con todos los comprobantes SPEI, cotizaciones firmadas y facturas XML/PDF de tu negocio.',
-    icon: HelpCircle,
+    question: '¿Cómo funciona la exportación para mi contador a fin de mes?',
+    answer: 'Al final de cada mes, puedes descargar con 1 clic un paquete comprimido (.ZIP) y un resumen estructurado en CSV que contiene todos tus comprobantes SPEI, notas de venta en PDF, cotizaciones firmadas y facturas XML/PDF ordenados para entregárselos a tu despacho contable.',
+    icon: Download,
+  },
+  {
+    id: 'no-credit-card',
+    question: '¿Necesito ingresar tarjeta de crédito para la prueba de 14 días?',
+    answer: 'No. Obtienes 14 días de acceso completo a todas las funciones sin ingresar ninguna tarjeta de crédito. Solo se te solicitarán datos de pago si decides continuar al finalizar el periodo de prueba.',
+    icon: CreditCard,
   },
 ];
 
 export function FaqAccordion() {
-  const [openId, setOpenId] = useState<string | null>('sat-cfdi');
+  const [openId, setOpenId] = useState<string | null>('invoicing-sat');
 
   const toggle = (id: string) => {
     setOpenId(openId === id ? null : id);
@@ -66,8 +66,9 @@ export function FaqAccordion() {
             }`}
           >
             <button
+              type="button"
               onClick={() => toggle(faq.id)}
-              className="w-full p-5 sm:p-6 text-left flex items-center justify-between gap-4 cursor-pointer focus:outline-none"
+              className="w-full min-h-[48px] p-5 sm:p-6 text-left flex items-center justify-between gap-4 cursor-pointer focus:outline-none"
             >
               <div className="flex items-center gap-3.5">
                 <div
