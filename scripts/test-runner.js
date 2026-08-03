@@ -1752,6 +1752,64 @@ test('createCheckoutPayload includes organization_id metadata and price mapping'
 });
 
 // ----------------------------------------------------
+// Suite 39: Nota de Venta & Zero-SAT Recibo PDF Suite
+// ----------------------------------------------------
+console.log('\n[Suite 39: Nota de Venta & Zero-SAT Recibo PDF Suite]');
+
+let receiptModule;
+try {
+  receiptModule = require('../lib/receiptGenerator.js');
+} catch (e) {
+  receiptModule = null;
+}
+
+test('Receipt Module Exists & Exports generateNotaDeVentaPayload', () => {
+  assert.notStrictEqual(receiptModule, null, 'lib/receiptGenerator.js module should exist');
+  assert.strictEqual(typeof receiptModule?.generateNotaDeVentaPayload, 'function');
+  assert.strictEqual(typeof receiptModule?.generateReceiptWhatsAppLink, 'function');
+});
+
+test('generateNotaDeVentaPayload calculates IVA 16% and formats zero-SAT receipt metadata correctly', () => {
+  if (receiptModule?.generateNotaDeVentaPayload) {
+    const payload = receiptModule.generateNotaDeVentaPayload(
+      {
+        title: 'Desarrollo Web E-Commerce',
+        clientName: 'Distribuidora del Norte S.A.',
+        clientRfc: 'DNO120405XYZ',
+        amount: 10000,
+        includeIva: true,
+      },
+      {
+        name: 'Agencia Digital MX',
+        rfc: 'ADM180909ABC',
+      }
+    );
+
+    assert.strictEqual(payload.tenant.name, 'Agencia Digital MX');
+    assert.strictEqual(payload.client.name, 'Distribuidora del Norte S.A.');
+    assert.strictEqual(payload.subtotal, 10000);
+    assert.strictEqual(payload.ivaAmount, 1600);
+    assert.strictEqual(payload.total, 11600);
+    assert.strictEqual(payload.formattedTotal.includes('11,600.00'), true);
+    assert.strictEqual(payload.status, 'PAGADO');
+  }
+});
+
+test('generateReceiptWhatsAppLink generates status-aware wa.me link with receipt summary', () => {
+  if (receiptModule?.generateReceiptWhatsAppLink && receiptModule?.generateNotaDeVentaPayload) {
+    const payload = receiptModule.generateNotaDeVentaPayload({
+      title: 'Mantenimiento Mensual',
+      clientName: 'Carlos López',
+      amount: 5000,
+    });
+
+    const waUrl = receiptModule.generateReceiptWhatsAppLink(payload, '5512345678');
+    assert.strictEqual(waUrl.includes('https://wa.me/525512345678'), true);
+    assert.strictEqual(waUrl.includes('Mantenimiento%20Mensual'), true);
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

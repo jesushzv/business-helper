@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useInvoices } from '@/lib/hooks/useInvoices';
 import { generateReminderBroadcastPayload } from '@/lib/whatsappBroadcast';
+import { generateNotaDeVentaPayload, generateReceiptWhatsAppLink } from '@/lib/receiptGenerator';
 import { FileText, Download, Send, CheckCircle, Clock, FileCode, AlertCircle, MessageSquare } from 'lucide-react';
 
 export function InvoiceManagerCard() {
@@ -42,6 +43,19 @@ export function InvoiceManagerCard() {
     window.open(payload.whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 
+  const handleNotaDeVenta = (inv: (typeof invoices)[0]) => {
+    const payload = generateNotaDeVentaPayload({
+      title: inv.concept,
+      clientName: inv.clientName,
+      clientRfc: inv.clientRfc,
+      amount: inv.amount,
+      status: inv.cfdiStatus === 'issued' ? 'FACTURADO SAT' : 'PAGADO',
+    });
+
+    const waUrl = generateReceiptWhatsAppLink(payload, '8115551234');
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className="space-y-6">
       {/* Accountant Export Header Card */}
@@ -50,13 +64,13 @@ export function InvoiceManagerCard() {
           <div className="space-y-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 px-3 py-1 rounded-full border border-indigo-400/30">
               <FileCode className="w-3.5 h-3.5" />
-              1-Click Accountant Package
+              1-Click Zero-SAT Comprobantes
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Paquete Mensual para Contador (ZIP/CSV)
+              Notas de Venta & Paquete para Contador (ZIP/CSV)
             </h2>
             <p className="text-indigo-200 text-sm sm:text-base max-w-xl">
-              Exporta automáticamente el desglose de ingresos, RFCs de clientes, XMLs, PDFs y comprobantes SPEI para tu contador.
+              Genera Notas de Venta inmediatas para tus clientes o exporta el paquete mensual directo para tu contador sin necesidad de certificados SAT CSD.
             </p>
           </div>
 
@@ -88,16 +102,20 @@ export function InvoiceManagerCard() {
 
       {/* Invoice List / Stamping Center */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
           <div>
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <FileText className="w-5 h-5 text-indigo-600" />
-              Facturación Electrónica SAT CFDI 4.0
+              Comprobantes Comerciales & Facturación SAT CFDI 4.0
             </h3>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Timbrado 1-click directo con PAC Facturapi para cobros confirmados.
+              Envía Notas de Venta inmediatas por WhatsApp o timbra facturas SAT CFDI (Opcional Pro).
             </p>
           </div>
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1.5 rounded-full border border-slate-200">
+            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+            SAT CFDI: Opcional Pro
+          </span>
         </div>
 
         <div className="divide-y divide-slate-100">
@@ -117,12 +135,12 @@ export function InvoiceManagerCard() {
                   ) : inv.cfdiStatus === 'pending' ? (
                     <span className="inline-flex items-center gap-1 text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full border border-amber-200">
                       <Clock className="w-3.5 h-3.5" />
-                      Pendiente Timbrar
+                      Nota de Venta Lista
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-xs font-bold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full border border-slate-200">
                       <AlertCircle className="w-3.5 h-3.5" />
-                      Sin Timbrar
+                      Nota de Venta Lista
                     </span>
                   )}
                 </div>
@@ -134,19 +152,28 @@ export function InvoiceManagerCard() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 justify-between lg:justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+              <div className="flex items-center gap-3 justify-between lg:justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100 flex-wrap">
                 <span className="font-extrabold text-slate-900 text-lg">
                   ${inv.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
                 </span>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => handleNotaDeVenta(inv)}
+                    className="min-h-[44px] px-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5"
+                    title="Generar Nota de Venta"
+                  >
+                    <FileText className="w-4 h-4 text-indigo-600" />
+                    Nota de Venta PDF
+                  </button>
+
                   <button
                     onClick={() => handleWhatsAppBroadcast(inv)}
                     className="min-h-[44px] px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5"
                     title="Enviar aviso WhatsApp"
                   >
                     <MessageSquare className="w-4 h-4 text-emerald-600" />
-                    WhatsApp
+                    Aviso WhatsApp
                   </button>
 
                   {inv.cfdiStatus === 'issued' ? (
@@ -157,16 +184,17 @@ export function InvoiceManagerCard() {
                       className="min-h-[44px] px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-200"
                     >
                       <Download className="w-4 h-4 text-slate-600" />
-                      PDF / XML
+                      CFDI XML
                     </a>
                   ) : (
                     <button
                       onClick={() => handleStamp(inv.milestoneId)}
                       disabled={stamping}
-                      className="min-h-[44px] px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                      className="min-h-[44px] px-3.5 bg-slate-800 hover:bg-slate-900 active:scale-95 text-white font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                      title="Opcional Pro: Timbrar CFDI SAT"
                     >
                       <Send className="w-4 h-4" />
-                      {stamping ? 'Timbrando...' : 'Timbrar CFDI 4.0'}
+                      {stamping ? 'Timbrando...' : 'Timbrar SAT (Pro)'}
                     </button>
                   )}
                 </div>
