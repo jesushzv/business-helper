@@ -128,23 +128,27 @@ export function useClients() {
       updated_at: new Date().toISOString(),
     };
 
-    // Try API
-    try {
-      const res = await fetch('/api/clients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(clientData),
-      });
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || !process.env.NEXT_PUBLIC_SUPABASE_URL || (typeof window !== 'undefined' && localStorage.getItem('business_helper_sandbox') === 'true');
 
-      if (res.ok) {
-        const saved = await res.json();
-        if (saved && saved.id) {
-          setClients((prev) => [saved, ...prev]);
-          return saved;
+    // Try API only when not in demo/sandbox mode
+    if (!isDemoMode) {
+      try {
+        const res = await fetch('/api/clients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(clientData),
+        });
+
+        if (res.ok) {
+          const saved = await res.json();
+          if (saved && saved.id) {
+            setClients((prev) => [saved, ...prev]);
+            return saved;
+          }
         }
+      } catch {
+        // Fallback to local state mutation
       }
-    } catch {
-      // Fallback to local state mutation
     }
 
     setClients((prev) => {

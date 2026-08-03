@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
       amountDue: Number(amountDue),
       dueDate: dueDate || new Date().toISOString().split('T')[0],
       token,
+      isSandbox: isDemoMode,
     });
 
     return NextResponse.json({

@@ -12,6 +12,7 @@ export interface WhatsAppReminderOptions {
   dueDate: string;
   token: string;
   baseUrl?: string;
+  isSandbox?: boolean;
 }
 
 export interface OutboundPayload {
@@ -24,6 +25,7 @@ export interface OutboundPayload {
 export interface WhatsAppDispatchMode {
   type: 'twilio_api' | 'meta_cloud_api' | 'wa_me_link';
   isApiConfigured: boolean;
+  isSandbox?: boolean;
 }
 
 /**
@@ -41,16 +43,26 @@ export function formatE164MexicanPhone(phone: string): string {
 }
 
 /**
- * Returns active dispatch mode depending on environment credentials
+ * Returns active dispatch mode depending on environment credentials.
+ * Forces wa_me_link when in demo/sandbox mode to prevent prod API calls or sending SMS to real numbers.
  */
-export function getWhatsAppDispatchMode(env: Record<string, string | undefined> = process.env): WhatsAppDispatchMode {
+export function getWhatsAppDispatchMode(
+  env: Record<string, string | undefined> = process.env,
+  isSandboxOption?: boolean
+): WhatsAppDispatchMode {
+  const isDemo = isSandboxOption || env.NEXT_PUBLIC_DEMO_MODE === 'true' || env.IS_SANDBOX === 'true';
+
+  if (isDemo) {
+    return { type: 'wa_me_link', isApiConfigured: false, isSandbox: true };
+  }
+
   if (env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_WHATSAPP_NUMBER) {
-    return { type: 'twilio_api', isApiConfigured: true };
+    return { type: 'twilio_api', isApiConfigured: true, isSandbox: false };
   }
   if (env.META_WHATSAPP_TOKEN && env.META_PHONE_NUMBER_ID) {
-    return { type: 'meta_cloud_api', isApiConfigured: true };
+    return { type: 'meta_cloud_api', isApiConfigured: true, isSandbox: false };
   }
-  return { type: 'wa_me_link', isApiConfigured: false };
+  return { type: 'wa_me_link', isApiConfigured: false, isSandbox: false };
 }
 
 /**
@@ -82,7 +94,7 @@ export async function dispatchWhatsAppReminder(
   options: WhatsAppReminderOptions,
   env: Record<string, string | undefined> = process.env
 ): Promise<{ success: boolean; mode: string; dispatchId?: string; waMeUrl?: string }> {
-  const mode = getWhatsAppDispatchMode(env);
+  const mode = getWhatsAppDispatchMode(env, options.isSandbox);
   const payload = formatOutboundReminderPayload(options);
 
   if (mode.type === 'wa_me_link') {

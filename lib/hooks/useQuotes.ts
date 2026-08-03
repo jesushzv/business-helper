@@ -150,26 +150,30 @@ export function useQuotes() {
       updated_at: new Date().toISOString(),
     };
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
-      const res = await fetch('/api/quotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newQuote),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || !process.env.NEXT_PUBLIC_SUPABASE_URL || (typeof window !== 'undefined' && localStorage.getItem('business_helper_sandbox') === 'true');
 
-      if (res.ok) {
-        const saved = await res.json();
-        if (saved && saved.id) {
-          setQuotes((prev) => [saved, ...prev]);
-          return saved;
+    if (!isDemoMode) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
+        const res = await fetch('/api/quotes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newQuote),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const saved = await res.json();
+          if (saved && saved.id) {
+            setQuotes((prev) => [saved, ...prev]);
+            return saved;
+          }
         }
+      } catch {
+        // Fallback to local state mutation
       }
-    } catch {
-      // Fallback to local state mutation
     }
 
     setQuotes((prev) => {

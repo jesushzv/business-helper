@@ -1810,6 +1810,75 @@ test('generateReceiptWhatsAppLink generates status-aware wa.me link with receipt
 });
 
 // ----------------------------------------------------
+// 40. Sandbox Mode Production Safety & Isolation Guardrails Suite
+// ----------------------------------------------------
+console.log('\n[Suite 40: Sandbox Mode Production Safety & Isolation Guardrails Suite]');
+
+let sandboxWhatsAppModule;
+let sandboxFacturapiModule;
+try {
+  sandboxWhatsAppModule = require('../lib/whatsappOutbound.js');
+  sandboxFacturapiModule = require('../lib/facturapi.ts');
+} catch (e) {
+  sandboxWhatsAppModule = null;
+  sandboxFacturapiModule = null;
+}
+
+test('WhatsApp Outbound Engine forces wa_me_link in Sandbox mode even if live Twilio/Meta keys are set', () => {
+  if (sandboxWhatsAppModule?.getWhatsAppDispatchMode) {
+    const mockEnvWithLiveKeys = {
+      TWILIO_ACCOUNT_SID: 'AC_live_123456789',
+      TWILIO_AUTH_TOKEN: 'auth_token_live',
+      TWILIO_WHATSAPP_NUMBER: '+14155238886',
+      NEXT_PUBLIC_DEMO_MODE: 'true',
+    };
+
+    const mode = sandboxWhatsAppModule.getWhatsAppDispatchMode(mockEnvWithLiveKeys);
+    assert.strictEqual(mode.type, 'wa_me_link');
+    assert.strictEqual(mode.isApiConfigured, false);
+    assert.strictEqual(mode.isSandbox, true);
+  }
+});
+
+test('dispatchWhatsAppReminder returns safe wa.me URL without invoking outbound API calls when isSandbox option is set', async () => {
+  if (sandboxWhatsAppModule?.dispatchWhatsAppReminder) {
+    const res = await sandboxWhatsAppModule.dispatchWhatsAppReminder({
+      clientName: 'Don Roberto',
+      phone: '8115551234',
+      amountDue: 5000,
+      dueDate: '2026-08-15',
+      token: 'demo-token-123',
+      isSandbox: true,
+    }, {
+      TWILIO_ACCOUNT_SID: 'AC_live_123456789',
+      TWILIO_AUTH_TOKEN: 'auth_token_live',
+      TWILIO_WHATSAPP_NUMBER: '+14155238886',
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.mode, 'wa_me_link');
+    assert.strictEqual(res.waMeUrl.includes('https://wa.me/528115551234'), true);
+  }
+});
+
+test('Facturapi SAT CFDI client uses simulateInvoiceStamping in Sandbox mode regardless of live API key', async () => {
+  if (sandboxFacturapiModule?.issueInvoiceClient) {
+    const payload = {
+      customer: { legal_name: 'Don Roberto', tax_id: 'XAXX010101000', tax_system: '601', zip: '64000' },
+      use: 'G03',
+      payment_form: '03',
+      payment_method: 'PUE',
+      currency: 'MXN',
+      items: [{ quantity: 1, product_key: '84111506', unit_key: 'E48', description: 'Servicio', price: 1000 }]
+    };
+
+    const res = await sandboxFacturapiModule.issueInvoiceClient(payload, 'milestone_demo_1', true);
+    assert.strictEqual(res.status, 'issued');
+    assert.strictEqual(res.cfdiId.startsWith('cfdi_'), true);
+  }
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

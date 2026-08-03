@@ -119,9 +119,14 @@ export function simulateInvoiceStamping(_milestoneId: string) {
   };
 }
 
-export async function issueInvoiceClient(payload: ReturnType<typeof buildCFDIPayload>, milestoneId: string) {
+export async function issueInvoiceClient(
+  payload: ReturnType<typeof buildCFDIPayload>,
+  milestoneId: string,
+  isSandbox?: boolean
+) {
+  const isDemo = isSandbox || process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.IS_SANDBOX === 'true';
   const apiKey = process.env.FACTURAPI_SECRET_KEY;
-  if (!apiKey || apiKey.startsWith('sk_test_placeholder')) {
+  if (isDemo || !apiKey || apiKey.startsWith('sk_test_placeholder')) {
     return simulateInvoiceStamping(milestoneId);
   }
 
