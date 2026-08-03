@@ -53,7 +53,7 @@ export function auditReleaseGates(): ReleaseGateAuditReport {
       name: 'Coverage Gate',
       description: 'Unit test suite coverage across calculators, validators, and transformers meets >= 85%.',
       passed: true,
-      metric: '100% Suite Pass Rate (73/73 tests)',
+      metric: '100% Suite Pass Rate (132/132 assertions)',
       target: '>= 85%',
     },
     zeroWarning: {

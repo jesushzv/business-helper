@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright E2E Test Configuration — Business Helper
  * 
- * Configures cross-browser & mobile viewport testing using system Chrome.
+ * Configures cross-browser & mobile viewport testing.
  */
 export default defineConfig({
   testDir: './tests/e2e',
@@ -16,28 +16,25 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
-    channel: 'chrome', // Use system Google Chrome on macOS
   },
 
   projects: [
     {
-      name: 'desktop-chrome',
+      name: 'desktop-chromium',
       use: {
         ...devices['Desktop Chrome'],
-        channel: 'chrome',
       },
     },
     {
-      name: 'mobile-chrome',
+      name: 'mobile-chromium',
       use: {
         ...devices['Pixel 7'],
-        channel: 'chrome',
       },
     },
   ],
 
   webServer: {
-    command: 'npm run dev',
+    command: 'npm run start || npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: true,
     timeout: 120000,
