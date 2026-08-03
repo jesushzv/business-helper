@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Header } from '@/components/layout/Header';
 import { useReceivables, MilestoneWithClient } from '@/lib/hooks/useReceivables';
 import { ReceivablesSummaryCards } from '@/components/receivables/ReceivablesSummaryCards';
 import { ReceivableCard } from '@/components/receivables/ReceivableCard';
@@ -28,7 +29,9 @@ export default function ReceivablesPage() {
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+    <>
+      <Header title="Cuentas por Cobrar (SPEI)" />
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -119,5 +122,6 @@ export default function ReceivablesPage() {
         }}
       />
     </div>
+    </>
   );
 }

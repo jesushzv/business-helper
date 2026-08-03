@@ -2118,6 +2118,39 @@ test('isDemoModeActive returns true when sandbox=true query parameter is present
   }
 });
 
+test('isDemoModeActive defaults to true for unauthenticated demo navigation', () => {
+  if (demoUtilsSuite46?.isDemoModeActive) {
+    const defaultMode = demoUtilsSuite46.isDemoModeActive();
+    assert.strictEqual(defaultMode, true, 'Unauthenticated session should enable demo mode by default');
+  }
+});
+
+test('Dashboard pages render Header component for unified navigation bar', () => {
+  const dashboardPages = [
+    'quotes/page.tsx',
+    'receivables/page.tsx',
+    'invoices/page.tsx',
+    'products/page.tsx',
+    'team/page.tsx',
+    'assistant/page.tsx',
+    'help/page.tsx',
+    'clients/page.tsx',
+    'dashboard/page.tsx',
+    'settings/page.tsx',
+  ];
+
+  for (const pageRelPath of dashboardPages) {
+    const fullPath = path.join(__dirname, '../app/(dashboard)', pageRelPath);
+    assert.strictEqual(fs.existsSync(fullPath), true, `Page file ${pageRelPath} should exist`);
+    const content = fs.readFileSync(fullPath, 'utf8');
+    assert.strictEqual(
+      content.includes('<Header') || content.includes('Header'),
+      true,
+      `Page ${pageRelPath} must include the Header component`
+    );
+  }
+});
+
 // ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------

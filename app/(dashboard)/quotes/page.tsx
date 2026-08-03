@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Header } from '@/components/layout/Header';
 import { useQuotes } from '@/lib/hooks/useQuotes';
 import { useClients } from '@/lib/hooks/useClients';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
@@ -28,7 +29,20 @@ export default function QuotesPage() {
   const totalAmountSum = quotes.reduce((acc, q) => acc + q.total_amount, 0);
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+    <>
+      <Header
+        title="Cotizaciones y Propuestas"
+        actionButton={
+          <button
+            onClick={() => setIsWizardOpen(true)}
+            className="flex min-h-[40px] items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-md shadow-emerald-950/50 transition-all hover:bg-emerald-400 active:scale-95"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nueva Cotización</span>
+          </button>
+        }
+      />
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -169,5 +183,6 @@ export default function QuotesPage() {
         }}
       />
     </div>
+    </>
   );
 }

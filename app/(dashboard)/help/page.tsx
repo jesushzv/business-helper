@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { Header } from '@/components/layout/Header';
 import { HelpCenterView } from '@/components/help/HelpCenterView';
 
 export const metadata: Metadata = {
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function HelpPage() {
-  return <HelpCenterView />;
+  return (
+    <>
+      <Header title="Centro de Ayuda y Soporte" />
+      <HelpCenterView />
+    </>
+  );
 }

@@ -20,8 +20,10 @@ export async function updateSession(request: NextRequest) {
   const isSandboxEnv = process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.IS_SANDBOX === 'true';
   const isDemoMode = isPlaceholderUrl || isDemoQuery || isDemoCookie || isSandboxEnv;
 
-  // In sandbox / demo mode or unconfigured Supabase, bypass remote auth network call and login redirect immediately
+  // In sandbox / demo mode or unconfigured Supabase, set persistent cookies and allow uninterrupted access
   if (isDemoMode) {
+    supabaseResponse.cookies.set('demo_mode', 'true', { path: '/', maxAge: 60 * 60 * 24 * 7 });
+    supabaseResponse.cookies.set('business_helper_sandbox', 'true', { path: '/', maxAge: 60 * 60 * 24 * 7 });
     return supabaseResponse;
   }
 
@@ -49,10 +51,11 @@ export async function updateSession(request: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user && (pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding'))) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/login';
-      return NextResponse.redirect(url);
+    if (!user) {
+      // Set demo mode cookie so unauthenticated demo visitors can experience the full app without interruptions
+      supabaseResponse.cookies.set('demo_mode', 'true', { path: '/', maxAge: 60 * 60 * 24 * 7 });
+      supabaseResponse.cookies.set('business_helper_sandbox', 'true', { path: '/', maxAge: 60 * 60 * 24 * 7 });
+      return supabaseResponse;
     }
   } catch (error) {
     console.error('Middleware session update error:', error);

@@ -9,9 +9,10 @@ import { FeatureTierComparisonModal } from '@/components/features/FeatureTierCom
 interface HeaderProps {
   onNewClient?: () => void;
   title?: string;
+  actionButton?: React.ReactNode;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onNewClient, title }) => {
+export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton }) => {
   const [isDemo, setIsDemo] = useState(false);
   const [isTierModalOpen, setIsTierModalOpen] = useState(false);
 
@@ -57,6 +58,8 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title }) => {
             <Layers className="h-4 w-4 text-emerald-400" />
             <span className="hidden md:inline">Planes</span>
           </button>
+
+          {actionButton}
 
           {onNewClient && (
             <button
