@@ -1,10 +1,14 @@
 /**
- * WhatsApp AI Operations Assistant Engine — Business Helper
+ * WhatsApp AI Operations Assistant & Automated Support Router Engine — Business Helper
  * 
  * Natural language query parser for business owners (Don Roberto / Lic. Mariana)
- * answering queries on WhatsApp or mobile web about overdue debt, payments, and client totals.
- * Includes cost safeguards, tier quotas, input sanitization, and sliding-window rate limiting.
+ * answering queries on WhatsApp or mobile web about overdue debt, payments, client totals,
+ * and product support FAQs (Quotes, SPEI, SAT CFDI 4.0, Branding, RBAC).
+ * Includes cost safeguards, tier quotas, input sanitization, sliding-window rate limiting,
+ * and automated Meta/Twilio WhatsApp webhook challenge verification.
  */
+
+import { FAQ_ITEMS, searchFAQItems, FAQItem } from './helpFAQ';
 
 export interface AIOrgData {
   clients?: Array<{ id: string; name: string; phone?: string | null }>;
@@ -73,6 +77,39 @@ export function validateAIQuota(tierKey: string = 'demo', currentUsage: number =
   };
 }
 
+export function matchFAQSupportQuery(query: string = ''): FAQItem | null {
+  const clean = query.toLowerCase().trim();
+  if (!clean) return null;
+
+  // Direct match using searchFAQItems
+  const matches = searchFAQItems(clean);
+  if (matches.length > 0) {
+    return matches[0];
+  }
+
+  // Keyword heuristic matching
+  if (clean.includes('cotiza') || clean.includes('propuesta')) {
+    return FAQ_ITEMS.find((f) => f.id === 'cot-1') || null;
+  }
+  if (clean.includes('spei') || clean.includes('comprobante') || clean.includes('transferencia')) {
+    return FAQ_ITEMS.find((f) => f.id === 'cob-1') || null;
+  }
+  if (clean.includes('sat') || clean.includes('cfdi') || clean.includes('factura')) {
+    return FAQ_ITEMS.find((f) => f.id === 'fac-1') || null;
+  }
+  if (clean.includes('contador') || clean.includes('zip') || clean.includes('csv')) {
+    return FAQ_ITEMS.find((f) => f.id === 'fac-2') || null;
+  }
+  if (clean.includes('logo') || clean.includes('marca') || clean.includes('color')) {
+    return FAQ_ITEMS.find((f) => f.id === 'cue-1') || null;
+  }
+  if (clean.includes('equipo') || clean.includes('rol') || clean.includes('permiso')) {
+    return FAQ_ITEMS.find((f) => f.id === 'cue-2') || null;
+  }
+
+  return null;
+}
+
 export function buildAIPromptContext(query: string, clients: Array<{ name: string; phone?: string; totalOverdue: number }>) {
   const cleanQuery = sanitizeAIQuery(query, 300);
   const summary = clients
@@ -87,14 +124,82 @@ ${summary}
 Pregunta del usuario: "${cleanQuery}"`;
 }
 
-export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
+export function buildAISupportPromptContext(query: string, matchedFAQ?: FAQItem | null): string {
+  const cleanQuery = sanitizeAIQuery(query, 300);
+  const faqText = matchedFAQ
+    ? `Respuesta FAQ Relevante:\nPregunta: ${matchedFAQ.question}\nRespuesta: ${matchedFAQ.answer}`
+    : 'No hay FAQ exacta asociada.';
+
+  return `Eres el Asistente de IA de Soporte Técnico y Atención al Cliente de Business Helper.
+Tu objetivo es resolver dudas de dueños de negocios en México sobre cotizaciones, cobranza SPEI, facturación SAT CFDI 4.0, personalización de marca y gestión de equipos.
+
+Contexto FAQ:
+${faqText}
+
+Pregunta del usuario: "${cleanQuery}"
+Responde de forma amable, clara y en español neutro (para México).`;
+}
+
+export function verifyWebhookChallenge(
+  receivedToken: string,
+  expectedToken: string = 'business_helper_verify_token',
+  challenge: string = ''
+): { status: number; challenge?: string; error?: string } {
+  if (receivedToken && receivedToken === expectedToken) {
+    return { status: 200, challenge };
+  }
+  return { status: 403, error: 'Forbidden: Invalid verify token' };
+}
+
+export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData = {}) {
   const sanitizedQuery = sanitizeAIQuery(query, 300);
   const cleanQuery = sanitizedQuery.toLowerCase();
   const clients = orgData.clients || [];
   const receivables = orgData.receivables || [];
 
-  // Match client name
-  let matchedClient = clients.find((c) => cleanQuery.includes(c.name.toLowerCase()));
+  // 1. Check for Human Handoff Intent
+  const humanKeywords = ['humano', 'asesor', 'persona', 'soporte tecnico', 'soporte técnico', 'atención humana', 'hablar con alguien'];
+  const isHumanRequest = humanKeywords.some((k) => cleanQuery.includes(k));
+
+  if (isHumanRequest) {
+    const supportPhone = '528180000000';
+    const encodedMsg = encodeURIComponent(`Solicitud de Asistencia Humana: "${sanitizedQuery}"`);
+    const whatsappUrl = `https://wa.me/${supportPhone}?text=${encodedMsg}`;
+    const answerText = 'Te estamos transfiriendo con un especialista de nuestro equipo de soporte humano por WhatsApp. Puedes iniciar el chat directo presionando el botón.';
+
+    return {
+      query: sanitizedQuery,
+      intent: 'human_handoff_request',
+      matchedClient: null,
+      matchedFAQ: null,
+      requiresHumanHandoff: true,
+      totalOverdue: 0,
+      answerText,
+      whatsappUrl,
+    };
+  }
+
+  // 2. Check for App Support FAQ Intent
+  const matchedFAQ = matchFAQSupportQuery(sanitizedQuery);
+  if (matchedFAQ) {
+    const supportPhone = '528180000000';
+    const encodedMsg = encodeURIComponent(`Consulta Soporte AI: ${matchedFAQ.question}`);
+    const whatsappUrl = `https://wa.me/${supportPhone}?text=${encodedMsg}`;
+
+    return {
+      query: sanitizedQuery,
+      intent: 'app_support_faq',
+      matchedClient: null,
+      matchedFAQ,
+      requiresHumanHandoff: false,
+      totalOverdue: 0,
+      answerText: `📌 Categoría ${matchedFAQ.category.toUpperCase()}:\n\n${matchedFAQ.answer}`,
+      whatsappUrl,
+    };
+  }
+
+  // 3. Match client name for overdue balance
+  let matchedClient = clients.find((c) => c.name && cleanQuery.includes(c.name.toLowerCase()));
   if (!matchedClient && cleanQuery.includes('salinas')) {
     matchedClient = { id: 'c-salinas', name: 'Grupo Salinas', phone: '8112223344' };
   }
@@ -115,13 +220,15 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
       query: sanitizedQuery,
       intent: 'client_overdue_balance',
       matchedClient: matchedClient.name,
+      matchedFAQ: null,
+      requiresHumanHandoff: false,
       totalOverdue,
       answerText,
-      whatsappUrl
+      whatsappUrl,
     };
   }
 
-  // General cash flow query
+  // 4. General cash flow / receivables fallback
   const totalDebt = receivables.reduce((acc, r) => acc + (r.amount || 0), 0);
   const answerText = `Actualmente tienes un total por cobrar de $${totalDebt.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN registrado en tus hitos.`;
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(answerText)}`;
@@ -130,9 +237,11 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData) {
     query: sanitizedQuery,
     intent: 'general_receivables_summary',
     matchedClient: null,
+    matchedFAQ: null,
+    requiresHumanHandoff: false,
     totalOverdue: totalDebt,
     answerText,
-    whatsappUrl
+    whatsappUrl,
   };
 }
 
@@ -142,7 +251,10 @@ if (typeof module !== 'undefined' && module.exports) {
     checkRateLimit,
     sanitizeAIQuery,
     validateAIQuota,
+    matchFAQSupportQuery,
     buildAIPromptContext,
-    parseNaturalLanguageQuery
+    buildAISupportPromptContext,
+    verifyWebhookChallenge,
+    parseNaturalLanguageQuery,
   };
 }

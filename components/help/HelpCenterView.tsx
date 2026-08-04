@@ -9,12 +9,14 @@ import {
   FileCode,
   Settings,
   ChevronDown,
-  MessageSquare,
   X,
-  ExternalLink,
   Sparkles,
+  Send,
+  Loader2,
+  Bot,
+  User,
 } from 'lucide-react';
-import { CATEGORIES, searchFAQItems, generateWhatsAppSupportLink } from '@/lib/helpFAQ';
+import { CATEGORIES, searchFAQItems } from '@/lib/helpFAQ';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   HelpCircle,
@@ -24,16 +26,86 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Settings,
 };
 
+interface ChatMessage {
+  id: string;
+  sender: 'user' | 'bot';
+  text: string;
+  category?: string;
+}
+
 export const HelpCenterView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('todas');
   const [expandedId, setExpandedId] = useState<string | null>('cot-1');
 
+  // In-App AI Support Chat State
+  const [aiQuestion, setAiQuestion] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome',
+      sender: 'bot',
+      text: '¡Hola! Soy tu Agente de IA de Soporte Técnico para Business Helper. Pregúntame sobre cómo crear cotizaciones, subir pagos SPEI, facturación SAT CFDI 4.0, roles de equipo o personalización de marca.',
+    },
+  ]);
+
   const filteredItems = searchFAQItems(searchQuery, selectedCategory);
-  const whatsappSupportUrl = generateWhatsAppSupportLink(searchQuery);
 
   const toggleExpand = (id: string) => {
-    setExpandedId(prev => (prev === id ? null : id));
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
+
+  const handleAskAI = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const query = aiQuestion.trim();
+    if (!query || isAiLoading) return;
+
+    // Append user message
+    const userMsgId = `u-${Date.now()}`;
+    setChatMessages((prev) => [...prev, { id: userMsgId, sender: 'user', text: query }]);
+    setAiQuestion('');
+    setIsAiLoading(true);
+
+    try {
+      const res = await fetch('/api/ai/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+
+      if (data?.response?.answerText) {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `b-${Date.now()}`,
+            sender: 'bot',
+            text: data.response.answerText,
+            category: data.response.matchedFAQ?.category,
+          },
+        ]);
+      } else {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `b-${Date.now()}`,
+            sender: 'bot',
+            text: 'Disculpa, no pude procesar tu duda en este momento. Por favor selecciona un tema en el buscador o intenta reformular tu pregunta.',
+          },
+        ]);
+      }
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `b-${Date.now()}`,
+          sender: 'bot',
+          text: 'Ocurrió un error al conectar con el Agente de IA. Revisa tu conexión a internet e intenta nuevamente.',
+        },
+      ]);
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   return (
@@ -44,13 +116,13 @@ export const HelpCenterView: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-500/30 px-3 py-1 text-xs font-semibold text-indigo-100 backdrop-blur-md">
               <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-              <span>Centro de Ayuda & Preguntas Frecuentes</span>
+              <span>Centro de Ayuda & Agente de IA de Soporte</span>
             </div>
             <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
               ¿En qué podemos ayudarte hoy?
             </h1>
             <p className="mt-1 text-sm text-indigo-100">
-              Respuestas rápidas sobre Cotizaciones, Cobranza SPEI y Facturación SAT CFDI 4.0
+              Obtén respuestas al instante de nuestro Agente de IA de Soporte o explora las preguntas frecuentes.
             </p>
           </div>
         </div>
@@ -64,7 +136,7 @@ export const HelpCenterView: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar duda (ej: SPEI, SAT, Cotización)..."
+            placeholder="Buscar duda en la base de conocimientos (ej: SPEI, SAT, Cotización)..."
             className="w-full rounded-2xl border-0 bg-white py-3.5 pl-11 pr-10 text-sm font-medium text-gray-900 shadow-lg placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 min-h-[48px]"
           />
           {searchQuery && (
@@ -77,6 +149,92 @@ export const HelpCenterView: React.FC = () => {
             </button>
           )}
         </div>
+      </div>
+
+      {/* In-App Interactive AI Support Agent Chat */}
+      <div className="overflow-hidden rounded-3xl border border-indigo-500/30 bg-slate-900/90 p-6 shadow-xl text-white">
+        <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-slate-950 font-bold shadow-md">
+            <Bot className="h-6 w-6" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              Agente de IA para Soporte Técnico
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/40">
+                24/7 En Vivo
+              </span>
+            </h3>
+            <p className="text-xs text-slate-400">
+              Resuelve tus dudas al instante sobre cómo funciona el producto y sus herramientas.
+            </p>
+          </div>
+        </div>
+
+        {/* Chat Feed */}
+        <div className="mt-4 max-h-72 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
+          {chatMessages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex items-start gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              {msg.sender === 'bot' && (
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white mt-1">
+                  <Bot className="h-4 w-4" />
+                </div>
+              )}
+              <div
+                className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed ${
+                  msg.sender === 'user'
+                    ? 'bg-emerald-500 text-slate-950 font-semibold rounded-tr-none'
+                    : 'bg-slate-950 text-slate-200 border border-slate-800 rounded-tl-none'
+                }`}
+              >
+                {msg.category && (
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-1">
+                    Tema: {msg.category}
+                  </span>
+                )}
+                <p className="whitespace-pre-line">{msg.text}</p>
+              </div>
+              {msg.sender === 'user' && (
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-slate-950 font-bold mt-1">
+                  <User className="h-4 w-4" />
+                </div>
+              )}
+            </div>
+          ))}
+          {isAiLoading && (
+            <div className="flex items-center gap-3 text-xs text-slate-400 italic bg-slate-950/80 p-3 rounded-2xl border border-slate-800 w-fit">
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+              <span>El Agente de IA está analizando tu pregunta...</span>
+            </div>
+          )}
+        </div>
+
+        {/* Input Form */}
+        <form onSubmit={handleAskAI} className="mt-4 flex items-center gap-2">
+          <input
+            type="text"
+            value={aiQuestion}
+            onChange={(e) => setAiQuestion(e.target.value)}
+            placeholder="Escribe tu pregunta para la IA (ej: ¿Cómo descargo el paquete para mi contador?)"
+            className="flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm font-medium text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 min-h-[48px]"
+          />
+          <button
+            type="submit"
+            disabled={!aiQuestion.trim() || isAiLoading}
+            className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 text-sm font-extrabold text-slate-950 transition-all min-h-[48px] shrink-0 shadow-md"
+          >
+            {isAiLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <span>Preguntar</span>
+                <Send className="h-4 w-4" />
+              </>
+            )}
+          </button>
+        </form>
       </div>
 
       {/* Category Pills */}
@@ -152,39 +310,10 @@ export const HelpCenterView: React.FC = () => {
               No encontramos respuestas para &quot;{searchQuery}&quot;
             </h3>
             <p className="mt-1 text-sm text-slate-400">
-              Prueba buscar con otros términos o escríbenos directamente por WhatsApp.
+              Utiliza el Agente de IA para Soporte arriba para escribir tu consulta personalizada.
             </p>
           </div>
         )}
-      </div>
-
-      {/* WhatsApp 1-Tap Support CTA (Don Roberto Constraint) */}
-      <div className="rounded-3xl border border-emerald-500/30 bg-emerald-950/80 p-6 shadow-xl text-white">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-slate-950 shadow-md">
-              <MessageSquare className="h-6 w-6" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">
-                ¿Aún tienes dudas o necesitas asistencia?
-              </h3>
-              <p className="text-sm text-slate-300 mt-0.5">
-                Nuestro equipo de soporte para negocios te atiende directamente por WhatsApp.
-              </p>
-            </div>
-          </div>
-
-          <a
-            href={whatsappSupportUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-6 py-3.5 text-sm font-extrabold text-slate-950 shadow-lg shadow-emerald-950/50 transition-all active:scale-98 min-h-[48px] shrink-0"
-          >
-            <span>Soporte por WhatsApp</span>
-            <ExternalLink className="h-4 w-4" />
-          </a>
-        </div>
       </div>
     </div>
   );

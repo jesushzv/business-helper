@@ -2320,6 +2320,38 @@ test('WhatsApp & AI Assistant edge case: Enforces 300 char prompt limit and sand
 });
 
 // ----------------------------------------------------
+// 49. In-App AI Support Agent Engine (Sprint 16)
+// ----------------------------------------------------
+console.log('\n[Suite 49: In-App AI Support Agent Engine]');
+
+test('AI Support Engine exports FAQ matcher and support context builder', () => {
+  const whatsappAI = require('../lib/whatsappAI.js');
+  assert.strictEqual(typeof whatsappAI.matchFAQSupportQuery, 'function', 'matchFAQSupportQuery must be exported');
+  assert.strictEqual(typeof whatsappAI.buildAISupportPromptContext, 'function', 'buildAISupportPromptContext must be exported');
+});
+
+test('Matches product FAQ support queries in-app and returns structured answer', () => {
+  const whatsappAI = require('../lib/whatsappAI.js');
+  const res = whatsappAI.parseNaturalLanguageQuery('¿Cómo creo y envío una cotización?', {});
+  assert.strictEqual(res.intent, 'app_support_faq', 'Intent must be app_support_faq');
+  assert.strictEqual(res.matchedFAQ !== null, true, 'Must match FAQ item');
+  assert.strictEqual(res.answerText.includes('Cotizaciones'), true, 'Answer text must explain quote creation');
+});
+
+test('Detects human handoff intent when user requests human assistance in-app', () => {
+  const whatsappAI = require('../lib/whatsappAI.js');
+  const res = whatsappAI.parseNaturalLanguageQuery('Quiero hablar con un asesor humano', {});
+  assert.strictEqual(res.intent, 'human_handoff_request', 'Intent must be human_handoff_request');
+  assert.strictEqual(res.requiresHumanHandoff, true, 'requiresHumanHandoff flag must be true');
+});
+
+test('Evaluates support prompt context generator with product FAQs', () => {
+  const whatsappAI = require('../lib/whatsappAI.js');
+  const prompt = whatsappAI.buildAISupportPromptContext('¿Cómo subo un SPEI?', { question: 'SPEI', answer: 'Subir comprobante' });
+  assert.strictEqual(prompt.includes('SPEI'), true, 'Prompt context must contain FAQ data');
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
