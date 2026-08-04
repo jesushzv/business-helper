@@ -31,13 +31,13 @@ export interface TeamMember {
   avatarBg: string;
   highlights: string[];
   linkedinUrl: string;
-  whatsappContactUrl: string;
+  contactEmail: string;
 }
 
 export interface ContactDetails {
-  phoneDisplay: string;
-  whatsappNumber: string;
   email: string;
+  founderEmail: string;
+  supportEmail: string;
   privacyEmail: string;
   streetAddress: string;
   neighborhood: string;
@@ -66,7 +66,7 @@ export const TESTIMONIALS: Testimonial[] = [
     location: 'Monterrey, NL',
     industry: 'Construcción y Materiales',
     quote:
-      'Antes me pasaba todos los viernes revisando hojas de Excel y pidiendo a recepción que llamaran a los clientes para cobrar anticipos. Con Business Helper mandamos la cotización y el recordatorio por WhatsApp con 1 toque. Redujimos nuestra cartera vencida un 40% en solo 60 días.',
+      'Antes me pasaba todos los viernes revisando hojas de Excel y pidiendo a recepción que llamaran a los clientes para cobrar anticipos. Con Business Helper mandamos la cotización y el recordatorio con 1 toque. Redujimos nuestra cartera vencida un 40% en solo 60 días.',
     rating: 5,
     metricTag: '-40% Cartera Vencida',
     avatarInitials: 'RE',
@@ -155,15 +155,7 @@ export const TRUST_BADGES: TrustBadge[] = [
   },
 ];
 
-// Resolves actual configured WhatsApp support phone number or defaults
-export function getSupportWhatsAppNumber(): string {
-  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP) {
-    return process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP.replace(/\D/g, '');
-  }
-  return '526640000000'; // Default Tijuana/San Diego area code support number
-}
-
-// Resolves actual configured support email or defaults
+// Configurable support emails
 export function getSupportEmail(): string {
   if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SUPPORT_EMAIL) {
     return process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
@@ -171,8 +163,23 @@ export function getSupportEmail(): string {
   return 'contacto@businesshelper.mx';
 }
 
-const activePhone = getSupportWhatsAppNumber();
-const activeEmail = getSupportEmail();
+export function getFounderEmail(): string {
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_FOUNDER_EMAIL) {
+    return process.env.NEXT_PUBLIC_FOUNDER_EMAIL;
+  }
+  return 'hector@businesshelper.mx';
+}
+
+export function getTechSupportEmail(): string {
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TECH_SUPPORT_EMAIL) {
+    return process.env.NEXT_PUBLIC_TECH_SUPPORT_EMAIL;
+  }
+  return 'soporte@businesshelper.mx';
+}
+
+const activeContactoEmail = getSupportEmail();
+const activeHectorEmail = getFounderEmail();
+const activeSoporteEmail = getTechSupportEmail();
 
 export const TEAM_MEMBERS: TeamMember[] = [
   {
@@ -185,7 +192,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     avatarBg: 'bg-emerald-600',
     highlights: ['Líder de Visión & Estrategia', 'Enfoque en Cash Flow PyME', 'Atención Directa a Clientes'],
     linkedinUrl: 'https://linkedin.com/company/business-helper-mx',
-    whatsappContactUrl: `https://wa.me/${activePhone}?text=Hola%20Hector%2C%20quisiera%20agendar%20una%20demostraci%C3%B3n%20para%20mi%20negocio`,
+    contactEmail: activeHectorEmail,
   },
   {
     id: 'team-2',
@@ -197,7 +204,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     avatarBg: 'bg-indigo-600',
     highlights: ['Arquitectura Cloud & Seguridad', 'Infraestructura Multitenant', 'Integraciones SAT & SPEI'],
     linkedinUrl: 'https://linkedin.com/company/business-helper-mx',
-    whatsappContactUrl: `https://wa.me/${activePhone}?text=Hola%20Gilberto%2C%20tengo%20dudas%20t%C3%A9cnicas%20sobre%20la%20plataforma`,
+    contactEmail: activeSoporteEmail,
   },
   {
     id: 'team-3',
@@ -209,21 +216,21 @@ export const TEAM_MEMBERS: TeamMember[] = [
     avatarBg: 'bg-teal-600',
     highlights: ['Operaciones & Alianzas B2B', 'Relación con Contadores', 'Experiencia de Usuario'],
     linkedinUrl: 'https://linkedin.com/company/business-helper-mx',
-    whatsappContactUrl: `https://wa.me/${activePhone}?text=Hola%20Guillermo%2C%20quisiera%20informaci%C3%B3n%20sobre%20alianzas%20y%20planes`,
+    contactEmail: activeContactoEmail,
   },
 ];
 
 export const CONTACT_INFO: ContactDetails = {
-  phoneDisplay: '+52 (664) 000-0000',
-  whatsappNumber: activePhone,
-  email: activeEmail,
+  email: activeContactoEmail,
+  founderEmail: activeHectorEmail,
+  supportEmail: activeSoporteEmail,
   privacyEmail: 'privacidad@businesshelper.mx',
   streetAddress: 'Av. Revolución 1025, Piso 5',
   neighborhood: 'Zona Centro',
   cityState: 'Tijuana, B.C., México / San Diego, CA',
   country: 'México / EE.UU.',
   hours: 'Lunes a Viernes: 8:00 AM – 6:00 PM (Hora Pacífico PST)',
-  responseTimeSLA: '< 15 Minutos en WhatsApp',
+  responseTimeSLA: '< 2 Horas por Correo',
 };
 
 export const DEMO_WALKTHROUGH_STEPS: DemoStep[] = [
@@ -240,11 +247,11 @@ export const DEMO_WALKTHROUGH_STEPS: DemoStep[] = [
   {
     id: 'send-whatsapp',
     stepNumber: 2,
-    title: 'Envía por WhatsApp con 1 Toque',
+    title: 'Comparte con tu Cliente',
     durationSeconds: 15,
     description:
-      'Haz clic en "Enviar por WhatsApp". Se abre la app en tu celular con un mensaje personalizado y un enlace interactivo seguro para tu cliente.',
-    actionText: '2. Enlace 1-Tap Click-to-Chat',
+      'Envía la propuesta mediante un enlace interactivo seguro. Tu cliente la abre en su celular sin descargar aplicaciones.',
+    actionText: '2. Enlace Interactivo Seguro',
     screenMockupType: 'whatsapp',
   },
   {

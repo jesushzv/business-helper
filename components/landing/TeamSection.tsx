@@ -2,14 +2,14 @@
 
 import React from 'react';
 import { TEAM_MEMBERS, CONTACT_INFO } from '@/lib/trustData';
-import { Building2, CheckCircle2, MessageSquare, ExternalLink, Quote } from 'lucide-react';
+import { Building2, CheckCircle2, Mail, ExternalLink, Quote } from 'lucide-react';
 
 export function TeamSection() {
   return (
     <div className="w-full space-y-12">
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-3.5 py-1 rounded-full border border-indigo-500/20">
-          Transparencia y Equipo Lider
+          Transparencia y Equipo Líder
         </span>
         <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
           Diseñado por Empresarios e Ingenieros en Tijuana / San Diego
@@ -36,15 +36,13 @@ export function TeamSection() {
           </div>
 
           <a
-            href={`https://wa.me/${CONTACT_INFO.whatsappNumber}?text=${encodeURIComponent(
-              'Hola Hector, me gustaría platicar sobre Business Helper para mi empresa'
+            href={`mailto:${CONTACT_INFO.email}?subject=${encodeURIComponent(
+              'Contacto Directo con Fundador — Hector Zamora'
             )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="min-h-[48px] px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-black flex items-center gap-2 transition-all shrink-0 active:scale-95 shadow-lg shadow-emerald-500/20"
+            className="min-h-[48px] px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-black flex items-center gap-2 transition-all shrink-0 active:scale-95 shadow-lg shadow-indigo-600/20"
           >
-            <MessageSquare className="w-4 h-4 fill-current" />
-            <span>Hablar con Hector Zamora</span>
+            <Mail className="w-4 h-4" />
+            <span>Contactar al CEO</span>
           </a>
         </div>
       </div>
@@ -94,13 +92,11 @@ export function TeamSection() {
 
             <div className="pt-4 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
               <a
-                href={member.whatsappContactUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-emerald-400 font-bold hover:underline py-1"
+                href={`mailto:${member.contactEmail}?subject=${encodeURIComponent(`Contacto para ${member.name}`)}`}
+                className="flex items-center gap-1.5 text-indigo-400 font-bold hover:underline py-1"
               >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Contactar Directo</span>
+                <Mail className="w-3.5 h-3.5" />
+                <span>Contactar por Correo</span>
               </a>
               <a
                 href={member.linkedinUrl}

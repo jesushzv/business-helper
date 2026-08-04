@@ -677,13 +677,9 @@ export default function LandingPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-6 text-xs font-semibold text-slate-300">
-              <a href={`https://wa.me/${CONTACT_INFO.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
-                <MessageSquare className="w-4 h-4 text-emerald-400" />
-                <span>WhatsApp: {CONTACT_INFO.phoneDisplay}</span>
-              </a>
-              <a href={`mailto:${CONTACT_INFO.email}`} className="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
-                <Mail className="w-4 h-4 text-emerald-400" />
-                <span>{CONTACT_INFO.email}</span>
+              <a href={`mailto:${CONTACT_INFO.email}`} className="hover:text-indigo-400 transition-colors flex items-center gap-1.5">
+                <Mail className="w-4 h-4 text-indigo-400" />
+                <span>Atención & Soporte: {CONTACT_INFO.email}</span>
               </a>
             </div>
           </div>
