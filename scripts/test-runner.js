@@ -2352,6 +2352,77 @@ test('Evaluates support prompt context generator with product FAQs', () => {
 });
 
 // ----------------------------------------------------
+// 50. WS-A Credibility & Trust Fixes Suite (Product Readiness Workback Phase 1)
+// ----------------------------------------------------
+console.log('\n[Suite 50: WS-A Credibility & Trust Fixes Suite]');
+
+test('Trust Data Module exports required social proof, team, badges, and contact details', () => {
+  let trustData;
+  try {
+    trustData = require('../lib/trustData.ts');
+  } catch {
+    try {
+      trustData = require('../lib/trustData.js');
+    } catch {
+      trustData = null;
+    }
+  }
+  assert.strictEqual(trustData !== null, true, 'lib/trustData module must exist');
+  assert.strictEqual(Array.isArray(trustData.TESTIMONIALS), true, 'TESTIMONIALS must be an array');
+  assert.strictEqual(trustData.TESTIMONIALS.length >= 4, true, 'Must have at least 4 credible testimonials');
+  assert.strictEqual(Array.isArray(trustData.TRUST_BADGES), true, 'TRUST_BADGES must be an array');
+  assert.strictEqual(trustData.TRUST_BADGES.length >= 4, true, 'Must have at least 4 trust badges');
+  assert.strictEqual(Array.isArray(trustData.TEAM_MEMBERS), true, 'TEAM_MEMBERS must be an array');
+  assert.strictEqual(trustData.TEAM_MEMBERS.length >= 3, true, 'Must have at least 3 team members');
+  assert.strictEqual(typeof trustData.CONTACT_INFO, 'object', 'CONTACT_INFO must be an object');
+  assert.strictEqual(Array.isArray(trustData.DEMO_WALKTHROUGH_STEPS), true, 'DEMO_WALKTHROUGH_STEPS must be an array');
+  assert.strictEqual(trustData.DEMO_WALKTHROUGH_STEPS.length >= 4, true, 'Must have 4 demo video walkthrough steps');
+});
+
+test('Testimonials contain realistic Mexican SME profiles, locations, and metric tags', () => {
+  const trustData = require('../lib/trustData.ts');
+  const roberto = trustData.TESTIMONIALS.find(t => t.author.includes('Roberto Elizondo'));
+  assert.strictEqual(roberto !== undefined, true, 'Roberto Elizondo testimonial must exist');
+  assert.strictEqual(roberto.location.includes('Monterrey, NL'), true, 'Roberto must be in Monterrey, NL');
+  assert.strictEqual(roberto.company.length > 5, true, 'Company name must be populated');
+  assert.strictEqual(roberto.rating, 5, 'Rating must be 5 stars');
+  assert.strictEqual(typeof roberto.metricTag, 'string', 'Metric tag must exist');
+
+  const mariana = trustData.TESTIMONIALS.find(t => t.author.includes('Mariana Fuentes'));
+  assert.strictEqual(mariana !== undefined, true, 'Mariana Fuentes testimonial must exist');
+  assert.strictEqual(mariana.location.includes('CDMX'), true, 'Mariana must be in CDMX');
+});
+
+test('Trust badges feature SAT CFDI 4.0, SSL 256-bit, Banxico SPEI, and PAC partner seals', () => {
+  const trustData = require('../lib/trustData.ts');
+  const satBadge = trustData.TRUST_BADGES.find(b => b.id === 'sat-cfdi');
+  assert.strictEqual(satBadge !== undefined, true, 'SAT CFDI badge must exist');
+  assert.strictEqual(satBadge.title.includes('SAT CFDI 4.0'), true, 'SAT badge title');
+
+  const sslBadge = trustData.TRUST_BADGES.find(b => b.id === 'ssl-encryption');
+  assert.strictEqual(sslBadge !== undefined, true, 'SSL badge must exist');
+
+  const speiBadge = trustData.TRUST_BADGES.find(b => b.id === 'banxico-spei');
+  assert.strictEqual(speiBadge !== undefined, true, 'SPEI badge must exist');
+
+  const pacBadge = trustData.TRUST_BADGES.find(b => b.id === 'pac-partner');
+  assert.strictEqual(pacBadge !== undefined, true, 'PAC partner badge must exist');
+});
+
+test('Contact info includes Monterrey NL address, WhatsApp support number, and support email', () => {
+  const trustData = require('../lib/trustData.ts');
+  assert.strictEqual(trustData.CONTACT_INFO.whatsappNumber.includes('81'), true, 'WhatsApp number must be Monterrey area code (81)');
+  assert.strictEqual(trustData.CONTACT_INFO.email, 'soporte@businesshelper.mx', 'Support email must match');
+  assert.strictEqual(trustData.CONTACT_INFO.cityState, 'San Pedro Garza García, N.L., México', 'City/State must match Monterrey area');
+});
+
+test('Demo video walkthrough steps match full quote-to-payment CUJ flow', () => {
+  const trustData = require('../lib/trustData.ts');
+  const stepIds = trustData.DEMO_WALKTHROUGH_STEPS.map(s => s.id);
+  assert.deepStrictEqual(stepIds, ['create-quote', 'send-whatsapp', 'otp-signature', 'spei-notification']);
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
@@ -2363,6 +2434,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 

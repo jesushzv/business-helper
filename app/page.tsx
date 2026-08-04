@@ -14,9 +14,16 @@ import {
   ShieldCheck,
   Star,
   Download,
+  Mail,
+  MapPin,
 } from 'lucide-react';
 import { RoiCalculator } from '@/components/landing/RoiCalculator';
 import { FaqAccordion } from '@/components/landing/FaqAccordion';
+import { TrustBadges } from '@/components/landing/TrustBadges';
+import { TeamSection } from '@/components/landing/TeamSection';
+import { ContactSection } from '@/components/landing/ContactSection';
+import { DemoVideoPlayer } from '@/components/landing/DemoVideoPlayer';
+import { TESTIMONIALS, CONTACT_INFO } from '@/lib/trustData';
 
 export const metadata = {
   title: 'Business Helper — Control de Cotizaciones, Cobranza y Facturación para PyMEs en México',
@@ -49,21 +56,27 @@ export default function LandingPage() {
           </div>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-300">
+          <nav className="hidden lg:flex items-center gap-7 text-xs font-bold text-slate-300">
             <a href="#caracteristicas" className="hover:text-emerald-400 transition-colors py-2">
               Características
+            </a>
+            <a href="#demostracion" className="hover:text-emerald-400 transition-colors py-2">
+              Demo Interactiva
+            </a>
+            <a href="#garantia" className="hover:text-emerald-400 transition-colors py-2">
+              Seguridad SAT
             </a>
             <a href="#testimonios" className="hover:text-emerald-400 transition-colors py-2">
               Casos de Éxito
             </a>
-            <a href="#calculadora" className="hover:text-emerald-400 transition-colors py-2">
-              Calculadora ROI
-            </a>
             <a href="#precios" className="hover:text-emerald-400 transition-colors py-2">
               Precios
             </a>
-            <a href="#faq" className="hover:text-emerald-400 transition-colors py-2">
-              Preguntas Frecuentes
+            <a href="#equipo" className="hover:text-emerald-400 transition-colors py-2">
+              Nosotros
+            </a>
+            <a href="#contacto" className="hover:text-emerald-400 transition-colors py-2">
+              Contacto
             </a>
           </nav>
 
@@ -117,13 +130,13 @@ export default function LandingPage() {
                   <span>Probar 14 Días Gratis</span>
                   <ArrowRight className="w-5 h-5" />
                 </Link>
-                <Link
-                  href="/dashboard?demo=true"
+                <a
+                  href="#demostracion"
                   className="w-full sm:w-auto min-h-[54px] px-6 py-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 text-sm"
                 >
                   <span>Ver Demostración en Vivo</span>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
-                </Link>
+                </a>
               </div>
 
               {/* Trust Badges */}
@@ -144,7 +157,8 @@ export default function LandingPage() {
                 <div className="flex -space-x-2 overflow-hidden">
                   <div className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">RE</div>
                   <div className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">MF</div>
-                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 bg-teal-600 text-white font-bold text-xs flex items-center justify-center">AG</div>
+                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 bg-teal-600 text-white font-bold text-xs flex items-center justify-center">CT</div>
+                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 bg-amber-600 text-white font-bold text-xs flex items-center justify-center">SM</div>
                 </div>
                 <div className="text-xs text-slate-400 text-left">
                   <div className="flex items-center text-amber-400 gap-0.5">
@@ -186,7 +200,7 @@ export default function LandingPage() {
                   {/* Status Item */}
                   <div className="p-3.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-bold text-white">Construcciones Maya</div>
+                      <div className="text-xs font-bold text-white">Construcciones Maya S.A. de C.V.</div>
                       <div className="text-[11px] text-slate-400">Cotización #Q-2026-088</div>
                     </div>
                     <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30 flex items-center gap-1">
@@ -350,8 +364,9 @@ export default function LandingPage() {
                   <div className="text-xs font-bold text-white flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-emerald-400" /> Sello Digital Cryptoseal SHA-256
                   </div>
-                  <div className="text-[10px] font-mono text-slate-400 break-all">
-                    0x9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e
+                  <div className="text-[11px] font-mono text-emerald-400/90 break-all bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 font-sans font-medium block mb-1 text-[10px]">Ejemplo Sello Digital SHA-256:</span>
+                    sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
                   </div>
                 </div>
                 <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center text-xs">
@@ -409,8 +424,22 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Social Proof & Testimonials */}
-      <section id="testimonios" className="py-20 border-t border-slate-900 bg-slate-950/60">
+      {/* Demo Video Section (Task A3) */}
+      <section id="demostracion" className="py-20 border-t border-slate-900 bg-slate-950/40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <DemoVideoPlayer />
+        </div>
+      </section>
+
+      {/* Trust & SAT Security Section (Task A4) */}
+      <section id="garantia" className="py-20 border-t border-slate-900 bg-slate-950/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <TrustBadges />
+        </div>
+      </section>
+
+      {/* Social Proof & Testimonials (Task A1) */}
+      <section id="testimonios" className="py-20 border-t border-slate-900 bg-slate-950/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto space-y-4">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
@@ -419,54 +448,49 @@ export default function LandingPage() {
             <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
               Lo que opinan empresarios que ya cobran a tiempo
             </h2>
+            <p className="text-slate-400 text-xs sm:text-sm max-w-2xl mx-auto">
+              Negocios en Monterrey, CDMX y Guadalajara que transformaron su control financiero y aceleraron su liquidez.
+            </p>
           </div>
 
           <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Testimonial 1 */}
-            <div className="p-8 rounded-3xl bg-slate-900/80 border border-slate-800 space-y-6 relative">
-              <div className="flex items-center text-amber-400 gap-1">
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-              </div>
-              <p className="text-slate-300 text-sm leading-relaxed italic">
-                &ldquo;Antes me pasaba los viernes revisando archivos de Excel para ver quién no había pagado el anticipo. Con Business Helper mando el recordatorio por WhatsApp y cobro un 40% más rápido.&rdquo;
-              </p>
-              <div className="flex items-center gap-3 pt-4 border-t border-slate-800/80">
-                <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs">
-                  RE
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-white">Roberto Elizondo</div>
-                  <div className="text-xs text-slate-400">Director General en Distribuidora de Materiales del Norte (Monterrey, NL)</div>
-                </div>
-              </div>
-            </div>
+            {TESTIMONIALS.map((t) => (
+              <div key={t.id} className="p-8 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-6 relative flex flex-col justify-between shadow-xl hover:border-slate-700 transition-colors">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center text-amber-400 gap-1">
+                      {Array.from({ length: t.rating }).map((_, i) => (
+                        <Star key={i} className="w-4 h-4 fill-current" />
+                      ))}
+                    </div>
+                    <span className="text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                      {t.metricTag}
+                    </span>
+                  </div>
 
-            {/* Testimonial 2 */}
-            <div className="p-8 rounded-3xl bg-slate-900/80 border border-slate-800 space-y-6 relative">
-              <div className="flex items-center text-amber-400 gap-1">
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-              </div>
-              <p className="text-slate-300 text-sm leading-relaxed italic">
-                &ldquo;Manejamos 15 clientes simultáneos. Las cotizaciones se ven impecables, las autorizan con un clic y al final del mes le mando todo al contador en un ZIP. Nos ahorra al menos 15 horas a la semana.&rdquo;
-              </p>
-              <div className="flex items-center gap-3 pt-4 border-t border-slate-800/80">
-                <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">
-                  MF
+                  <p className="text-slate-300 text-sm leading-relaxed italic">
+                    &ldquo;{t.quote}&rdquo;
+                  </p>
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-white">Lic. Mariana Fuentes</div>
-                  <div className="text-xs text-slate-400">Directora de Operaciones en Pixel & Code MX (CDMX)</div>
+
+                <div className="flex items-center justify-between pt-4 border-t border-slate-800/80 mt-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full ${t.avatarBg} text-white font-bold flex items-center justify-center text-xs shadow-md border border-white/10 shrink-0`}>
+                      {t.avatarInitials}
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">{t.author}</div>
+                      <div className="text-xs text-slate-400">{t.role} en <span className="text-slate-300 font-semibold">{t.company}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="hidden sm:block text-right">
+                    <span className="text-[10px] font-mono text-emerald-400 block">{t.location}</span>
+                    <span className="text-[10px] text-slate-500">{t.industry}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
@@ -559,6 +583,13 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Team / Founders Section (Task A6) */}
+      <section id="equipo" className="py-20 border-t border-slate-900 bg-slate-950/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <TeamSection />
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section id="faq" className="py-20 border-t border-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
@@ -571,6 +602,13 @@ export default function LandingPage() {
             </h2>
           </div>
           <FaqAccordion />
+        </div>
+      </section>
+
+      {/* Visible Contact Information Block (Task A5) */}
+      <section id="contacto" className="py-20 border-t border-slate-900 bg-slate-950/70">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <ContactSection />
         </div>
       </section>
 
@@ -628,21 +666,44 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-emerald-400" />
-            <span>© 2026 Business Helper S.A.P.I. de C.V. Todos los derechos reservados.</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-xs text-slate-400 border-b border-slate-900 pb-8">
+            <div className="flex items-center gap-3">
+              <img src="/logo-icon.svg" alt="Business Helper" className="h-8 w-8 object-contain" />
+              <div>
+                <div className="font-extrabold text-white text-sm">Business Helper S.A.P.I. de C.V.</div>
+                <div className="text-slate-400 text-[11px]">{CONTACT_INFO.streetAddress}, {CONTACT_INFO.cityState}</div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-6 text-xs font-semibold text-slate-300">
+              <a href={`https://wa.me/${CONTACT_INFO.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                <MessageSquare className="w-4 h-4 text-emerald-400" />
+                <span>WhatsApp: {CONTACT_INFO.phoneDisplay}</span>
+              </a>
+              <a href={`mailto:${CONTACT_INFO.email}`} className="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                <Mail className="w-4 h-4 text-emerald-400" />
+                <span>{CONTACT_INFO.email}</span>
+              </a>
+            </div>
           </div>
-          <div className="flex items-center gap-6">
-            <Link href="/privacy" className="hover:text-slate-300 transition-colors py-2">
-              Aviso de Privacidad (LFPDPPP)
-            </Link>
-            <Link href="/terms" className="hover:text-slate-300 transition-colors py-2">
-              Términos del Servicio
-            </Link>
-            <Link href="/dashboard" className="hover:text-slate-300 transition-colors py-2">
-              Panel de Control
-            </Link>
+
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-emerald-400" />
+              <span>© 2026 Business Helper S.A.P.I. de C.V. Todos los derechos reservados. San Pedro Garza García, N.L.</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <Link href="/privacy" className="hover:text-slate-300 transition-colors py-2">
+                Aviso de Privacidad (LFPDPPP)
+              </Link>
+              <Link href="/terms" className="hover:text-slate-300 transition-colors py-2">
+                Términos del Servicio
+              </Link>
+              <Link href="/dashboard" className="hover:text-slate-300 transition-colors py-2">
+                Panel de Control
+              </Link>
+            </div>
           </div>
         </div>
       </footer>
