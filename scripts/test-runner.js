@@ -2643,6 +2643,51 @@ test('app/page.tsx hero title includes short responsive mobile H1 (Cotiza y cobr
 });
 
 // ----------------------------------------------------
+// 54. WS-E SEO & Technical Polish Suite
+// ----------------------------------------------------
+console.log('\n[Suite 54: WS-E SEO & Technical Polish Suite]');
+
+test('components/seo/JsonLd.tsx exists and exports SoftwareApplication and FAQPage JSON-LD schemas', () => {
+  const jsonLdContent = fs.readFileSync(path.join(__dirname, '../components/seo/JsonLd.tsx'), 'utf8');
+
+  assert.strictEqual(jsonLdContent.includes('SoftwareApplication'), true, 'JsonLd must include SoftwareApplication schema');
+  assert.strictEqual(jsonLdContent.includes('FAQPage'), true, 'JsonLd must include FAQPage schema');
+  assert.strictEqual(jsonLdContent.includes('application/ld+json'), true, 'JsonLd must render script tag with application/ld+json');
+});
+
+test('app/page.tsx title metadata is strictly under 60 characters to prevent SERP truncation', () => {
+  const pageContent = fs.readFileSync(path.join(__dirname, '../app/page.tsx'), 'utf8');
+  const match = pageContent.match(/title:\s*['"]([^'"]+)['"]/);
+
+  assert.strictEqual(match !== null, true, 'page.tsx must define title metadata');
+  if (match) {
+    assert.strictEqual(match[1].length < 60, true, `Title "${match[1]}" must be under 60 characters`);
+  }
+});
+
+test('app/layout.tsx metadata includes Open Graph and Twitter Card configurations', () => {
+  const layoutContent = fs.readFileSync(path.join(__dirname, '../app/layout.tsx'), 'utf8');
+
+  assert.strictEqual(layoutContent.includes('openGraph'), true, 'layout.tsx must configure Open Graph metadata');
+  assert.strictEqual(layoutContent.includes('twitter'), true, 'layout.tsx must configure Twitter Card metadata');
+  assert.strictEqual(layoutContent.includes('es_MX'), true, 'layout.tsx must specify es_MX locale');
+});
+
+test('next.config.ts configures Content-Security-Policy HTTP security header', () => {
+  const configContent = fs.readFileSync(path.join(__dirname, '../next.config.ts'), 'utf8');
+
+  assert.strictEqual(configContent.includes('Content-Security-Policy'), true, 'next.config.ts must configure Content-Security-Policy header');
+  assert.strictEqual(configContent.includes("default-src 'self'"), true, 'CSP must specify default-src self directive');
+});
+
+test('app/page.tsx avatar images specify lazy loading and async decoding attributes', () => {
+  const pageContent = fs.readFileSync(path.join(__dirname, '../app/page.tsx'), 'utf8');
+
+  assert.strictEqual(pageContent.includes('loading="lazy"'), true, 'page.tsx images must include loading="lazy"');
+  assert.strictEqual(pageContent.includes('decoding="async"'), true, 'page.tsx images must include decoding="async"');
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

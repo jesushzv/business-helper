@@ -1,0 +1,53 @@
+import { describe, it, expect } from 'vitest';
+import fs from 'fs';
+import path from 'path';
+
+describe('WS-E SEO & Technical Polish Test Suite', () => {
+  it('verifies JsonLd component exists and exports structured JSON-LD schemas', () => {
+    const jsonLdPath = path.join(process.cwd(), 'components', 'seo', 'JsonLd.tsx');
+    expect(fs.existsSync(jsonLdPath)).toBe(true);
+
+    const content = fs.readFileSync(jsonLdPath, 'utf8');
+    expect(content).toContain('SoftwareApplication');
+    expect(content).toContain('FAQPage');
+    expect(content).toContain('application/ld+json');
+  });
+
+  it('verifies landing page metadata title in page.tsx is under 60 characters to prevent SERP truncation', () => {
+    const pagePath = path.join(process.cwd(), 'app', 'page.tsx');
+    const content = fs.readFileSync(pagePath, 'utf8');
+
+    // Extract metadata title string
+    const match = content.match(/title:\s*['"]([^'"]+)['"]/);
+    expect(match).not.toBeNull();
+    if (match) {
+      const title = match[1];
+      expect(title.length).toBeLessThan(60);
+      expect(title).toContain('Business Helper');
+    }
+  });
+
+  it('verifies layout.tsx exports Open Graph and Twitter metadata tags', () => {
+    const layoutPath = path.join(process.cwd(), 'app', 'layout.tsx');
+    const content = fs.readFileSync(layoutPath, 'utf8');
+
+    expect(content).toContain('openGraph');
+    expect(content).toContain('twitter');
+    expect(content).toContain('es_MX');
+  });
+
+  it('verifies next.config.ts includes Content-Security-Policy header', () => {
+    const configPath = path.join(process.cwd(), 'next.config.ts');
+    const content = fs.readFileSync(configPath, 'utf8');
+
+    expect(content).toContain('Content-Security-Policy');
+    expect(content).toContain("default-src 'self'");
+  });
+
+  it('verifies below-fold images on landing page include lazy loading attributes', () => {
+    const pagePath = path.join(process.cwd(), 'app', 'page.tsx');
+    const content = fs.readFileSync(pagePath, 'utf8');
+
+    expect(content).toContain('loading="lazy"');
+  });
+});

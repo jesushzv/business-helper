@@ -16,12 +16,35 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Business Helper | Control de Cotizaciones, Cobranza y Facturación',
+  metadataBase: new URL('https://businesshelper.mx'),
+  title: 'Business Helper | Cotizaciones, Cobranza y CFDI 4.0',
   description: 'La plataforma operativa para PyMEs en México: cotizaciones en 2 min, cobro por WhatsApp y facturación CFDI 4.0.',
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
     apple: '/logo-icon.svg',
+  },
+  openGraph: {
+    title: 'Business Helper | Cotizaciones, Cobranza y CFDI 4.0',
+    description: 'La plataforma todo-en-uno para PyMEs en México: cotizaciones rápidas, cobro por WhatsApp y CFDI 4.0.',
+    url: 'https://businesshelper.mx',
+    siteName: 'Business Helper México',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Business Helper — Cotizaciones, Cobranza y Facturación para PyMEs',
+      },
+    ],
+    locale: 'es_MX',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Business Helper | Cotizaciones, Cobranza y CFDI 4.0',
+    description: 'Control de cotizaciones y cobranza por WhatsApp para PyMEs en México.',
+    images: ['/og-image.png'],
   },
 };
 

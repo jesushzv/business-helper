@@ -23,10 +23,11 @@ import { TeamSection } from '@/components/landing/TeamSection';
 import { ContactSection } from '@/components/landing/ContactSection';
 import { DemoVideoPlayer } from '@/components/landing/DemoVideoPlayer';
 import { StickyMobileCta } from '@/components/landing/StickyMobileCta';
+import { JsonLd } from '@/components/seo/JsonLd';
 import { TESTIMONIALS, CONTACT_INFO } from '@/lib/trustData';
 
 export const metadata = {
-  title: 'Business Helper — Control de Cotizaciones, Cobranza y Facturación para PyMEs en México',
+  title: 'Business Helper | Cotizaciones, Cobranza y CFDI 4.0',
   description:
     'La plataforma todo-en-uno para PyMEs en México. Genera cotizaciones en 2 minutos, envíalas por WhatsApp y mantén el control de quién te debe dinero.',
 };
@@ -34,6 +35,7 @@ export const metadata = {
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950">
+      <JsonLd />
       {/* Top Banner Announcement */}
       <div className="bg-linear-to-r from-indigo-700 via-indigo-600 to-emerald-500 text-white text-center py-2.5 px-4 text-xs font-bold tracking-wide uppercase flex items-center justify-center gap-2 shadow-md min-h-[40px]">
         <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
@@ -156,8 +158,8 @@ export default function LandingPage() {
               {/* Micro Social Proof Banner */}
               <div className="pt-4 border-t border-slate-900 flex items-center justify-center lg:justify-start gap-3">
                 <div className="flex -space-x-2 overflow-hidden">
-                  <img src="/avatars/mariana_fuentes.png" alt="Mariana Fuentes" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
-                  <img src="/avatars/carlos_trevino.png" alt="Carlos Treviño" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                  <img src="/avatars/mariana_fuentes.png" alt="Mariana Fuentes" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                  <img src="/avatars/carlos_trevino.png" alt="Carlos Treviño" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
                 </div>
                 <div className="text-xs text-slate-400 text-left">
                   <div className="flex items-center text-amber-400 gap-0.5">
