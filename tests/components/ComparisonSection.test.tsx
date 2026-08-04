@@ -14,9 +14,10 @@ describe('ComparisonSection Component Suite', () => {
 
   it('renders side-by-side metric comparison rows with accurate attributes', () => {
     render(<ComparisonSection />);
-    expect(screen.getByText('Cotizaciones en 2 minutos')).toBeInTheDocument();
-    expect(screen.getByText('Portal SPEI con Firma OTP')).toBeInTheDocument();
-    expect(screen.getByText('Score de Salud del Cliente')).toBeInTheDocument();
+    expect(screen.getByText('Tiempo por Cotización')).toBeInTheDocument();
+    expect(screen.getByText('Firma Legal & Aceptación OTP')).toBeInTheDocument();
+    expect(screen.getByText(/Score de Salud del Cliente/i)).toBeInTheDocument();
     expect(screen.getByText('Timbrado CFDI 4.0 PAC')).toBeInTheDocument();
+    expect(screen.getByText('Precio & Modelo de Licencia')).toBeInTheDocument();
   });
 });

@@ -2699,10 +2699,10 @@ test('components/landing/PhoneFrameMockup.tsx exists and renders mobile phone ch
   assert.strictEqual(mockupContent.includes('9:41'), true, 'PhoneFrameMockup must include status bar time');
 });
 
-test('components/landing/DemoSchedulerModal.tsx exists and exports live demo scheduling modal', () => {
+test('components/landing/DemoSchedulerModal.tsx exists and exports video case study request modal', () => {
   const schedulerContent = fs.readFileSync(path.join(__dirname, '../components/landing/DemoSchedulerModal.tsx'), 'utf8');
 
-  assert.strictEqual(schedulerContent.includes('Agendar Demostración en Vivo'), true, 'DemoSchedulerModal must include live demo title');
+  assert.strictEqual(schedulerContent.includes('Ver Video de Caso de Estudio PyME'), true, 'DemoSchedulerModal must include video case study title');
   assert.strictEqual(schedulerContent.includes('min-h-[48px]'), true, 'DemoSchedulerModal touch targets must be >= 48px');
 });
 
@@ -2711,7 +2711,7 @@ test('components/landing/ComparisonSection.tsx exists and renders side-by-side c
 
   assert.strictEqual(compContent.includes('¿Por qué las PyMEs eligen Business Helper?'), true, 'ComparisonSection must render comparison title');
   assert.strictEqual(compContent.includes('Sistemas Tradicionales'), true, 'ComparisonSection must include traditional systems column');
-  assert.strictEqual(compContent.includes('Portal SPEI con Firma OTP'), true, 'ComparisonSection must include SPEI OTP comparison row');
+  assert.strictEqual(compContent.includes('Firma Legal & Aceptación OTP'), true, 'ComparisonSection must include OTP signature comparison row');
 });
 
 test('components/landing/HealthScoreExplainer.tsx exists and renders 0-100 credit risk algorithm', () => {

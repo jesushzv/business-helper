@@ -173,38 +173,21 @@ export default function LandingPage() {
 
             {/* Hero Right Visual Mockup */}
             <div className="lg:col-span-5 flex justify-center">
-              <PhoneFrameMockup title="Centro de Control — Mobile">
-                {/* Mockup Body Content */}
-                <div className="p-3.5 space-y-4">
-                  {/* KPI Card */}
-                  <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Por Cobrar Este Mes</span>
-                    <div className="text-3xl font-black text-white">$145,000.00 MXN</div>
-                    <div className="flex items-center gap-2 pt-1 text-xs text-emerald-400 font-semibold">
-                      <TrendingUp className="w-4 h-4 text-emerald-400" /> 3 cobranzas agendadas por WhatsApp
-                    </div>
-                  </div>
-
-                  {/* Status Item */}
-                  <div className="p-3.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-bold text-white">Construcciones Maya S.A.</div>
-                      <div className="text-[11px] text-slate-400">Cotización #Q-2026-088</div>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30 flex items-center gap-1">
-                      <Check className="w-3 h-3" /> OTP Aceptado
-                    </span>
-                  </div>
-
-                  {/* WhatsApp Action Preview */}
-                  <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 text-xs font-bold text-emerald-300">
-                      <MessageSquare className="w-4 h-4 text-emerald-400" />
-                      <span>Recordatorio WhatsApp</span>
-                    </div>
-                    <span className="text-[11px] font-extrabold text-slate-950 px-3 py-1 bg-emerald-400 rounded-lg shadow-xs">
-                      1-Tap Share
-                    </span>
+              <PhoneFrameMockup>
+                <div className="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-auto object-cover rounded-2xl"
+                    poster="/assets/demo/cuj_02_dashboard_kpis.png"
+                  >
+                    <source src="/assets/demo/cuj_02_dashboard_mobile.webm" type="video/webm" />
+                  </video>
+                  <div className="p-2.5 bg-slate-900/90 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                    <span>App Real en Producción</span>
+                    <span className="text-emerald-400 font-bold">● iOS / Android</span>
                   </div>
                 </div>
               </PhoneFrameMockup>

@@ -6,40 +6,52 @@ import { Check, X, Sparkles } from 'lucide-react';
 export function ComparisonSection() {
   const comparisonRows = [
     {
-      feature: 'Cotizaciones en 2 minutos',
-      bh: 'Sí (plantillas WhatsApp y PDF 1-click)',
-      manual: 'No (15–30 min editando Excel)',
-      traditional: 'No (proceso complejo en PC desktop)',
+      feature: 'Tiempo por Cotización',
+      bh: '2 minutos (Cálculo automático de IVA 16% e ISR)',
+      manual: '15–30 min (Edición manual en Excel)',
+      traditional: '20+ min (Módulo complejo en PC de escritorio)',
     },
     {
-      feature: 'Envíos por WhatsApp Directo',
-      bh: 'Sí (enlace wa.me pre-llenado)',
-      manual: 'Manual (adjuntar archivo PDF manualmente)',
+      feature: 'Envíos y Seguimiento WhatsApp',
+      bh: '1-Tap Directo (enlace wa.me con vista previa)',
+      manual: 'Manual (descargar y adjuntar PDF)',
       traditional: 'No (solo envío por correo interno)',
     },
     {
-      feature: 'Portal SPEI con Firma OTP',
-      bh: 'Sí (sello digital SHA-256 e historial)',
-      manual: 'No (chats perdidos en WhatsApp)',
-      traditional: 'No (validación manual bancaria)',
+      feature: 'Firma Legal & Aceptación OTP',
+      bh: 'Sí (Sello Cryptoseal SHA-256 sin registro del cliente)',
+      manual: 'No (mensajes informales en chat)',
+      traditional: 'No (requiere impresión o firma física)',
     },
     {
-      feature: 'Score de Salud del Cliente',
-      bh: 'Sí (algoritmo 0–100 de riesgo crediticio)',
-      manual: 'No (memoria o corazonada)',
-      traditional: 'No (reportes estáticos de antigüedad)',
+      feature: 'Portal SPEI Banxico & Comprobantes',
+      bh: 'Sí (Validación de Clave de Rastreo en tiempo real)',
+      manual: 'No (comprobantes perdidos en chats)',
+      traditional: 'No (conciliación manual en banca en línea)',
+    },
+    {
+      feature: 'Score de Salud del Cliente (0–100)',
+      bh: 'Sí (Evaluación automática de riesgo crediticio PyME)',
+      manual: 'No (basado en memoria o corazonadas)',
+      traditional: 'No (reportes estáticos de antigüedad de saldos)',
     },
     {
       feature: 'Timbrado CFDI 4.0 PAC',
-      bh: 'Sí ($2–$5 MXN/folio sin bloqueos)',
+      bh: 'Sí (Integración PAC Facturapi, $2–$5 MXN/folio)',
       manual: 'No (sitio SAT lento o sin PAC)',
-      traditional: 'Sí ($15,000+ MXN licencias anuales)',
+      traditional: 'Licencias costosas ($15,000+ MXN/año o sin CFDI)',
     },
     {
-      feature: 'Uso 100% desde Celular',
-      bh: 'Sí (diseñado para iPhone y Android)',
-      manual: 'Incómodo (hojas de cálculo en pantalla chica)',
-      traditional: 'No (requiere Windows PC y red local)',
+      feature: 'Precio & Modelo de Licencia',
+      bh: '$299–$999 MXN/mes (Por empresa, usuarios ilimitados)',
+      manual: 'Gratis (pero cuesta 20 hrs/mes en horas trabajo)',
+      traditional: 'Prayser/Flexio ($1,199–$3,000+ MXN) u Odoo ($20-$50 USD/user)',
+    },
+    {
+      feature: 'Implementación & Curva de Aprendizaje',
+      bh: '< 10 minutos (Self-Serve 100% Celular)',
+      manual: 'Caótico (archivos duplicados o desactualizados)',
+      traditional: '3–6 semanas (Requiere consultor o técnico)',
     },
   ];
 
@@ -48,13 +60,13 @@ export function ComparisonSection() {
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 inline-flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Comparativa Directa</span>
+          <span>Comparativa Directa de Mercado</span>
         </span>
         <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
           ¿Por qué las PyMEs eligen Business Helper?
         </h2>
         <p className="text-slate-400 text-xs sm:text-sm">
-          Compara cómo se diferencia nuestra solución frente al trabajo manual en Excel o los sistemas tradicionales pesados.
+          Compara cómo nos diferenciamos frente a Excel, sistemas tradicionales de escritorio (CONTPAQi/Aspel) y ERPs complejos (Odoo/Prayser/Flexio).
         </p>
       </div>
 
@@ -70,7 +82,7 @@ export function ComparisonSection() {
                 Excel / WhatsApp Manual
               </th>
               <th className="p-4 sm:p-6 font-bold text-slate-300 w-1/4 text-center">
-                Sistemas Tradicionales (CONTPAQi / Aspel / Prayser)
+                Sistemas Tradicionales (Prayser / CONTPAQi / Odoo)
               </th>
             </tr>
           </thead>

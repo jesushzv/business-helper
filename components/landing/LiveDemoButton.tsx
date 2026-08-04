@@ -36,7 +36,7 @@ export function LiveDemoButton({
             'w-full sm:w-auto min-h-[54px] px-6 py-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 text-sm cursor-pointer'
           }
         >
-          <span>{children || 'Ver Demostración en Vivo'}</span>
+          <span>{children || 'Ver Demostración en Video'}</span>
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>
       )}

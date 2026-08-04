@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { DEMO_WALKTHROUGH_STEPS, DemoStep } from '@/lib/trustData';
-import { Play, Pause, MessageSquare, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
+import { Play, Pause, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 import { PhoneFrameMockup } from '@/components/landing/PhoneFrameMockup';
@@ -129,77 +129,69 @@ export function DemoVideoPlayer() {
         {/* Right Phone Mockup Visual */}
         <div className="lg:col-span-6 flex justify-center">
           <PhoneFrameMockup>
-            {/* Dynamic Step Content */}
-            {currentStep.screenMockupType === 'quote' && (
-              <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800">
-                <div className="flex justify-between items-center text-xs font-bold text-slate-200 pb-2 border-b border-slate-800">
-                  <span>Materiales Elizondo</span>
-                  <span className="text-emerald-400">Cotización #Q-2026-088</span>
-                </div>
-                <div className="space-y-1.5 text-[11px] text-slate-300">
-                  <div className="flex justify-between"><span>20 Ton. Cemento Tolteca</span><span>$84,000.00</span></div>
-                  <div className="flex justify-between text-slate-400"><span>IVA (16%)</span><span>$13,440.00</span></div>
-                  <div className="flex justify-between font-black text-white pt-1.5 border-t border-slate-800 text-xs"><span>Total</span><span>$97,440.00 MXN</span></div>
-                </div>
-                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-center text-[11px] font-bold">
-                  ✓ Enlace WhatsApp Listo (1-Tap)
-                </div>
-              </div>
-            )}
+            {/* Dynamic Step Content with Real Assets */}
+            <div className="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
+              {currentStep.screenMockupType === 'quote' && (
+                <video
+                  key="quote-video"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-auto object-cover rounded-2xl"
+                  poster="/assets/demo/cuj_04_quote_wizard_modal.png"
+                >
+                  <source src="/assets/demo/cuj_04_quotes_wizard_mobile.webm" type="video/webm" />
+                </video>
+              )}
 
-            {currentStep.screenMockupType === 'whatsapp' && (
-              <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 pb-2 border-b border-slate-800">
-                  <MessageSquare className="w-4 h-4 text-emerald-400" />
-                  <span>Mensaje Automatizado de WhatsApp</span>
-                </div>
-                <div className="p-3 bg-slate-950 rounded-xl text-xs text-slate-300 leading-relaxed font-mono border border-slate-800">
-                  &quot;Hola Arq. Ramírez, adjunto cotización #Q-088 por $97,440 MXN. Haz clic aquí para aceptar y pagar: https://bh.app/q/98a72b&quot;
-                </div>
-                <div className="p-2.5 bg-emerald-500 text-slate-950 font-black text-xs text-center rounded-xl">
-                  Enviado desde tu número por WhatsApp
-                </div>
-              </div>
-            )}
+              {currentStep.screenMockupType === 'whatsapp' && (
+                <video
+                  key="whatsapp-video"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-auto object-cover rounded-2xl"
+                  poster="/assets/demo/cuj_05_public_proposal.png"
+                >
+                  <source src="/assets/demo/cuj_08_whatsapp_ai_assistant_mobile.webm" type="video/webm" />
+                </video>
+              )}
 
-            {currentStep.screenMockupType === 'otp' && (
-              <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800">
-                <div className="text-xs font-bold text-slate-200 pb-2 border-b border-slate-800 flex justify-between items-center">
-                  <span>Aceptación Digital OTP</span>
-                  <span className="text-emerald-400 text-[10px] font-mono">Cryptoseal SHA-256</span>
-                </div>
-                <div className="p-3 bg-slate-950 rounded-xl text-center space-y-2 border border-slate-800">
-                  <div className="text-[10px] text-slate-400">Código de Verificación Envíado por SMS/WhatsApp</div>
-                  <div className="text-xl font-mono font-black text-emerald-400 tracking-widest">[ 8 4 9 2 0 1 ]</div>
-                  <div className="text-[9px] text-slate-400 font-mono">Sello: 0x8a92b...c7f4e</div>
-                </div>
-                <div className="p-2.5 bg-indigo-500 text-white font-bold text-xs text-center rounded-xl">
-                  Cotización Aceptada Legalmente
-                </div>
-              </div>
-            )}
+              {currentStep.screenMockupType === 'otp' && (
+                <video
+                  key="otp-video"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-auto object-cover rounded-2xl"
+                  poster="/assets/demo/cuj_05_signing_otp_modal.png"
+                >
+                  <source src="/assets/demo/cuj_05_proposal_signing_mobile.webm" type="video/webm" />
+                </video>
+              )}
 
-            {currentStep.screenMockupType === 'spei' && (
-              <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800">
-                <div className="text-xs font-bold text-slate-200 pb-2 border-b border-slate-800 flex justify-between items-center">
-                  <span>Pago Recibido — Banxico SPEI</span>
-                  <span className="text-emerald-400 font-bold">100% Confirmado</span>
-                </div>
-                <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-center space-y-1">
-                  <div className="text-white font-bold">Comprobante SPEI Validado</div>
-                  <div className="text-slate-400 text-[11px]">Clave Rastreo: <span className="text-white font-mono font-bold">20260803882910</span></div>
-                  <div className="text-emerald-400 font-extrabold text-sm pt-1">$97,440.00 MXN Acreditados</div>
-                </div>
-                <div className="p-2.5 bg-emerald-500 text-slate-950 font-black text-xs text-center rounded-xl">
-                  ✓ Factura & Recibo Listos
-                </div>
-              </div>
-            )}
+              {currentStep.screenMockupType === 'spei' && (
+                <video
+                  key="spei-video"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-auto object-cover rounded-2xl"
+                  poster="/assets/demo/cuj_07_spei_portal.png"
+                >
+                  <source src="/assets/demo/cuj_07_spei_portal_mobile.webm" type="video/webm" />
+                </video>
+              )}
 
-            {/* Bottom Bar */}
-            <div className="mt-3 pt-2 border-t border-slate-900 flex justify-between items-center text-[10px] text-slate-500 font-mono">
-              <span>Business Helper Mobile</span>
-              <span className="text-emerald-400">● En Línea</span>
+              {/* Bottom Status Overlay */}
+              <div className="p-2.5 bg-slate-900/90 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                <span>Grabación Real de Celular</span>
+                <span className="text-emerald-400 font-bold">● /assets/demo/</span>
+              </div>
             </div>
           </PhoneFrameMockup>
         </div>
