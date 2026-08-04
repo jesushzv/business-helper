@@ -9,7 +9,6 @@ import {
   Check,
   Zap,
   Building2,
-  ChevronRight,
   Sparkles,
   ShieldCheck,
   Star,
@@ -23,6 +22,10 @@ import { TeamSection } from '@/components/landing/TeamSection';
 import { ContactSection } from '@/components/landing/ContactSection';
 import { DemoVideoPlayer } from '@/components/landing/DemoVideoPlayer';
 import { StickyMobileCta } from '@/components/landing/StickyMobileCta';
+import { ComparisonSection } from '@/components/landing/ComparisonSection';
+import { HealthScoreExplainer } from '@/components/landing/HealthScoreExplainer';
+import { PhoneFrameMockup } from '@/components/landing/PhoneFrameMockup';
+import { LiveDemoButton } from '@/components/landing/LiveDemoButton';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { TESTIMONIALS, CONTACT_INFO } from '@/lib/trustData';
 
@@ -133,13 +136,7 @@ export default function LandingPage() {
                   <span>Probar 14 Días Gratis</span>
                   <ArrowRight className="w-5 h-5" />
                 </Link>
-                <a
-                  href="#demostracion"
-                  className="w-full sm:w-auto min-h-[54px] px-6 py-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 text-sm"
-                >
-                  <span>Ver Demostración en Vivo</span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </a>
+                <LiveDemoButton />
               </div>
 
               {/* Trust Badges */}
@@ -175,20 +172,10 @@ export default function LandingPage() {
             </div>
 
             {/* Hero Right Visual Mockup */}
-            <div className="lg:col-span-5">
-              <div className="relative mx-auto max-w-md lg:max-w-none rounded-3xl border border-slate-800 bg-slate-900/90 p-4 sm:p-6 shadow-2xl shadow-emerald-950/40 backdrop-blur-xl">
-                {/* Header Mockup */}
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                    <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                  </div>
-                  <span className="text-xs font-mono font-semibold text-slate-400">Centro de Control — Mobile</span>
-                </div>
-
+            <div className="lg:col-span-5 flex justify-center">
+              <PhoneFrameMockup title="Centro de Control — Mobile">
                 {/* Mockup Body Content */}
-                <div className="mt-6 space-y-4">
+                <div className="p-3.5 space-y-4">
                   {/* KPI Card */}
                   <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-1">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Por Cobrar Este Mes</span>
@@ -201,11 +188,11 @@ export default function LandingPage() {
                   {/* Status Item */}
                   <div className="p-3.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-bold text-white">Construcciones Maya S.A. de C.V.</div>
+                      <div className="text-xs font-bold text-white">Construcciones Maya S.A.</div>
                       <div className="text-[11px] text-slate-400">Cotización #Q-2026-088</div>
                     </div>
                     <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30 flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Aceptado por OTP
+                      <Check className="w-3 h-3" /> OTP Aceptado
                     </span>
                   </div>
 
@@ -213,14 +200,14 @@ export default function LandingPage() {
                   <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between">
                     <div className="flex items-center gap-2.5 text-xs font-bold text-emerald-300">
                       <MessageSquare className="w-4 h-4 text-emerald-400" />
-                      <span>Recordatorio WhatsApp listo</span>
+                      <span>Recordatorio WhatsApp</span>
                     </div>
                     <span className="text-[11px] font-extrabold text-slate-950 px-3 py-1 bg-emerald-400 rounded-lg shadow-xs">
                       1-Tap Share
                     </span>
                   </div>
                 </div>
-              </div>
+              </PhoneFrameMockup>
             </div>
           </div>
         </div>
@@ -434,14 +421,15 @@ export default function LandingPage() {
 
       {/* Trust & SAT Security Section (Task A4) */}
       <section id="garantia" className="py-20 border-t border-slate-900 bg-slate-950/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
           <TrustBadges />
+          <HealthScoreExplainer />
         </div>
       </section>
 
       {/* Social Proof & Testimonials (Task A1) */}
       <section id="testimonios" className="py-20 border-t border-slate-900 bg-slate-950/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
           <div className="text-center max-w-3xl mx-auto space-y-4">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
               Casos de Uso PyME
@@ -454,7 +442,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {TESTIMONIALS.map((t) => (
               <div key={t.id} className="p-8 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-6 relative flex flex-col justify-between shadow-xl hover:border-slate-700 transition-colors">
                 <div className="space-y-4">
@@ -478,6 +466,8 @@ export default function LandingPage() {
                       src={t.avatarUrl}
                       alt={t.personaLabel || t.author}
                       className="w-11 h-11 rounded-full object-cover shadow-md border-2 border-emerald-500/40 shrink-0"
+                      loading="lazy"
+                      decoding="async"
                     />
                     <div>
                       <div className="text-xs font-bold text-white">
@@ -494,6 +484,9 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+
+          {/* Side-by-Side Competitor Comparison Section (Task F3) */}
+          <ComparisonSection />
         </div>
       </section>
 

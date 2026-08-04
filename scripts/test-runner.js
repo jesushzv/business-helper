@@ -2688,6 +2688,49 @@ test('app/page.tsx avatar images specify lazy loading and async decoding attribu
 });
 
 // ----------------------------------------------------
+// 55. WS-F: Demo & Trust Assets Suite
+// ----------------------------------------------------
+console.log('\n[Suite 55: WS-F Demo & Trust Assets Suite]');
+
+test('components/landing/PhoneFrameMockup.tsx exists and renders mobile phone chassis with notch and status bar', () => {
+  const mockupContent = fs.readFileSync(path.join(__dirname, '../components/landing/PhoneFrameMockup.tsx'), 'utf8');
+
+  assert.strictEqual(mockupContent.includes('Dynamic Island Notch') || mockupContent.includes('border-[10px]'), true, 'PhoneFrameMockup must render mobile device chassis');
+  assert.strictEqual(mockupContent.includes('9:41'), true, 'PhoneFrameMockup must include status bar time');
+});
+
+test('components/landing/DemoSchedulerModal.tsx exists and exports live demo scheduling modal', () => {
+  const schedulerContent = fs.readFileSync(path.join(__dirname, '../components/landing/DemoSchedulerModal.tsx'), 'utf8');
+
+  assert.strictEqual(schedulerContent.includes('Agendar Demostración en Vivo'), true, 'DemoSchedulerModal must include live demo title');
+  assert.strictEqual(schedulerContent.includes('min-h-[48px]'), true, 'DemoSchedulerModal touch targets must be >= 48px');
+});
+
+test('components/landing/ComparisonSection.tsx exists and renders side-by-side competitor matrix', () => {
+  const compContent = fs.readFileSync(path.join(__dirname, '../components/landing/ComparisonSection.tsx'), 'utf8');
+
+  assert.strictEqual(compContent.includes('¿Por qué las PyMEs eligen Business Helper?'), true, 'ComparisonSection must render comparison title');
+  assert.strictEqual(compContent.includes('Sistemas Tradicionales'), true, 'ComparisonSection must include traditional systems column');
+  assert.strictEqual(compContent.includes('Portal SPEI con Firma OTP'), true, 'ComparisonSection must include SPEI OTP comparison row');
+});
+
+test('components/landing/HealthScoreExplainer.tsx exists and renders 0-100 credit risk algorithm', () => {
+  const healthContent = fs.readFileSync(path.join(__dirname, '../components/landing/HealthScoreExplainer.tsx'), 'utf8');
+
+  assert.strictEqual(healthContent.includes('Score de Salud del Cliente'), true, 'HealthScoreExplainer must render health score title');
+  assert.strictEqual(healthContent.includes('90–100'), true, 'HealthScoreExplainer must include excellent tier');
+  assert.strictEqual(healthContent.includes('Riesgo Severo'), true, 'HealthScoreExplainer must include severe risk tier');
+});
+
+test('app/page.tsx embeds PhoneFrameMockup, ComparisonSection, and HealthScoreExplainer components', () => {
+  const pageContent = fs.readFileSync(path.join(__dirname, '../app/page.tsx'), 'utf8');
+
+  assert.strictEqual(pageContent.includes('<PhoneFrameMockup'), true, 'page.tsx must embed PhoneFrameMockup');
+  assert.strictEqual(pageContent.includes('<ComparisonSection'), true, 'page.tsx must embed ComparisonSection');
+  assert.strictEqual(pageContent.includes('<HealthScoreExplainer'), true, 'page.tsx must embed HealthScoreExplainer');
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

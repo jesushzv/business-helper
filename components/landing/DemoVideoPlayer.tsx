@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { DEMO_WALKTHROUGH_STEPS, DemoStep } from '@/lib/trustData';
-import { Play, Pause, MessageSquare, ShieldCheck, TrendingUp, Sparkles, Smartphone, ArrowRight } from 'lucide-react';
+import { Play, Pause, MessageSquare, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+
+import { PhoneFrameMockup } from '@/components/landing/PhoneFrameMockup';
 
 export function DemoVideoPlayer() {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
@@ -126,12 +128,7 @@ export function DemoVideoPlayer() {
 
         {/* Right Phone Mockup Visual */}
         <div className="lg:col-span-6 flex justify-center">
-          <div className="w-full max-w-sm rounded-[36px] border-4 border-slate-800 bg-slate-950 p-4 shadow-2xl shadow-emerald-950/50 relative">
-            {/* Phone Top Notch */}
-            <div className="w-32 h-4 bg-slate-900 rounded-b-xl mx-auto mb-4 border-x border-b border-slate-800 flex items-center justify-center">
-              <div className="w-3 h-3 rounded-full bg-slate-950 border border-slate-800" />
-            </div>
-
+          <PhoneFrameMockup>
             {/* Dynamic Step Content */}
             {currentStep.screenMockupType === 'quote' && (
               <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800">
@@ -142,75 +139,69 @@ export function DemoVideoPlayer() {
                 <div className="space-y-1.5 text-[11px] text-slate-300">
                   <div className="flex justify-between"><span>20 Ton. Cemento Tolteca</span><span>$84,000.00</span></div>
                   <div className="flex justify-between text-slate-400"><span>IVA (16%)</span><span>$13,440.00</span></div>
-                  <div className="flex justify-between font-bold text-white pt-2 border-t border-slate-800 text-xs">
-                    <span>Total Net MXN</span>
-                    <span className="text-emerald-400 font-extrabold">$97,440.00</span>
-                  </div>
+                  <div className="flex justify-between font-black text-white pt-1.5 border-t border-slate-800 text-xs"><span>Total</span><span>$97,440.00 MXN</span></div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold text-center">
-                  ✓ Calculado con Impuestos SAT
+                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-center text-[11px] font-bold">
+                  ✓ Enlace WhatsApp Listo (1-Tap)
                 </div>
               </div>
             )}
 
             {currentStep.screenMockupType === 'whatsapp' && (
-              <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-emerald-500/30">
+              <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800">
                 <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 pb-2 border-b border-slate-800">
-                  <MessageSquare className="w-4 h-4" />
-                  <span>WhatsApp Click-to-Chat</span>
+                  <MessageSquare className="w-4 h-4 text-emerald-400" />
+                  <span>Mensaje Automatizado de WhatsApp</span>
                 </div>
-                <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/20 text-xs text-emerald-100 space-y-1">
-                  <p className="font-semibold">Hola Construcciones Maya,</p>
-                  <p className="text-[11px] text-emerald-200">Adjunto la cotización #Q-2026-088 por $97,440.00 MXN para revisión y firma:</p>
-                  <div className="text-[10px] font-mono text-emerald-400 underline pt-1">
-                    https://businesshelper.mx/q/cot-2026-088
-                  </div>
+                <div className="p-3 bg-slate-950 rounded-xl text-xs text-slate-300 leading-relaxed font-mono border border-slate-800">
+                  &quot;Hola Arq. Ramírez, adjunto cotización #Q-088 por $97,440 MXN. Haz clic aquí para aceptar y pagar: https://bh.app/q/98a72b&quot;
                 </div>
-                <div className="p-2 bg-emerald-500 text-slate-950 font-black text-xs text-center rounded-xl">
-                  Enviado con 1-Tap
+                <div className="p-2.5 bg-emerald-500 text-slate-950 font-black text-xs text-center rounded-xl">
+                  Enviado desde tu número por WhatsApp
                 </div>
               </div>
             )}
 
             {currentStep.screenMockupType === 'otp' && (
-              <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-indigo-500/30">
-                <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 pb-2 border-b border-slate-800">
-                  <Smartphone className="w-4 h-4" />
-                  <span>Firma Digital Cryptoseal</span>
+              <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800">
+                <div className="text-xs font-bold text-slate-200 pb-2 border-b border-slate-800 flex justify-between items-center">
+                  <span>Aceptación Digital OTP</span>
+                  <span className="text-emerald-400 text-[10px] font-mono">Cryptoseal SHA-256</span>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-2">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Código OTP Verificado</span>
-                  <div className="text-xl font-mono font-black text-emerald-400 tracking-widest">4 8 2 - 9 1 0</div>
-                  <div className="p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-[10px] font-mono text-emerald-300 break-all">
-                    Ejemplo Sello Digital Cryptoseal SHA-256: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-                  </div>
+                <div className="p-3 bg-slate-950 rounded-xl text-center space-y-2 border border-slate-800">
+                  <div className="text-[10px] text-slate-400">Código de Verificación Envíado por SMS/WhatsApp</div>
+                  <div className="text-xl font-mono font-black text-emerald-400 tracking-widest">[ 8 4 9 2 0 1 ]</div>
+                  <div className="text-[9px] text-slate-400 font-mono">Sello: 0x8a92b...c7f4e</div>
+                </div>
+                <div className="p-2.5 bg-indigo-500 text-white font-bold text-xs text-center rounded-xl">
+                  Cotización Aceptada Legalmente
                 </div>
               </div>
             )}
 
             {currentStep.screenMockupType === 'spei' && (
-              <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-amber-500/30">
-                <div className="flex items-center justify-between text-xs font-bold text-amber-400 pb-2 border-b border-slate-800">
-                  <span className="flex items-center gap-1.5"><TrendingUp className="w-4 h-4" /> Alerta de Pago SPEI</span>
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px]">Banxico OK</span>
+              <div className="space-y-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800">
+                <div className="text-xs font-bold text-slate-200 pb-2 border-b border-slate-800 flex justify-between items-center">
+                  <span>Pago Recibido — Banxico SPEI</span>
+                  <span className="text-emerald-400 font-bold">100% Confirmado</span>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs">
+                <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-center space-y-1">
                   <div className="text-white font-bold">Comprobante SPEI Validado</div>
                   <div className="text-slate-400 text-[11px]">Clave Rastreo: <span className="text-white font-mono font-bold">20260803882910</span></div>
                   <div className="text-emerald-400 font-extrabold text-sm pt-1">$97,440.00 MXN Acreditados</div>
                 </div>
-                <div className="p-2 bg-emerald-500 text-slate-950 font-black text-xs text-center rounded-xl">
+                <div className="p-2.5 bg-emerald-500 text-slate-950 font-black text-xs text-center rounded-xl">
                   ✓ Factura & Recibo Listos
                 </div>
               </div>
             )}
 
             {/* Bottom Bar */}
-            <div className="mt-4 pt-3 border-t border-slate-900 flex justify-between items-center text-[10px] text-slate-500 font-mono">
+            <div className="mt-3 pt-2 border-t border-slate-900 flex justify-between items-center text-[10px] text-slate-500 font-mono">
               <span>Business Helper Mobile</span>
               <span className="text-emerald-400">● En Línea</span>
             </div>
-          </div>
+          </PhoneFrameMockup>
         </div>
       </div>
     </div>
