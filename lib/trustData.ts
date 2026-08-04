@@ -11,6 +11,7 @@ export interface Testimonial {
   avatarInitials: string;
   avatarBg: string;
   avatarIcon: string;
+  avatarUrl: string;
 }
 
 export interface TrustBadge {
@@ -73,6 +74,7 @@ export const TESTIMONIALS: Testimonial[] = [
     avatarInitials: 'RE',
     avatarBg: 'bg-emerald-600',
     avatarIcon: 'Building2',
+    avatarUrl: '/avatars/roberto_elizondo.png',
   },
   {
     id: 'test-2',
@@ -88,6 +90,7 @@ export const TESTIMONIALS: Testimonial[] = [
     avatarInitials: 'MF',
     avatarBg: 'bg-indigo-600',
     avatarIcon: 'Briefcase',
+    avatarUrl: '/avatars/mariana_fuentes.png',
   },
   {
     id: 'test-3',
@@ -103,6 +106,7 @@ export const TESTIMONIALS: Testimonial[] = [
     avatarInitials: 'CT',
     avatarBg: 'bg-teal-600',
     avatarIcon: 'Wrench',
+    avatarUrl: '/avatars/carlos_trevino.png',
   },
   {
     id: 'test-4',
@@ -118,6 +122,7 @@ export const TESTIMONIALS: Testimonial[] = [
     avatarInitials: 'SM',
     avatarBg: 'bg-amber-600',
     avatarIcon: 'Stethoscope',
+    avatarUrl: '/avatars/sofia_morales.png',
   },
 ];
 

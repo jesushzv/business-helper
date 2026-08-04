@@ -154,10 +154,10 @@ export default function LandingPage() {
               {/* Micro Social Proof Banner */}
               <div className="pt-4 border-t border-slate-900 flex items-center justify-center lg:justify-start gap-3">
                 <div className="flex -space-x-2 overflow-hidden">
-                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">RE</div>
-                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">MF</div>
-                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 bg-teal-600 text-white font-bold text-xs flex items-center justify-center">CT</div>
-                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 bg-amber-600 text-white font-bold text-xs flex items-center justify-center">SM</div>
+                  <img src="/avatars/roberto_elizondo.png" alt="Roberto Elizondo" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                  <img src="/avatars/mariana_fuentes.png" alt="Mariana Fuentes" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                  <img src="/avatars/carlos_trevino.png" alt="Carlos Treviño" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                  <img src="/avatars/sofia_morales.png" alt="Sofía Morales" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
                 </div>
                 <div className="text-xs text-slate-400 text-left">
                   <div className="flex items-center text-amber-400 gap-0.5">
@@ -474,11 +474,15 @@ export default function LandingPage() {
 
                 <div className="flex items-center justify-between pt-4 border-t border-slate-800/80 mt-4">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full ${t.avatarBg} text-white font-bold flex items-center justify-center text-xs shadow-md border border-white/10 shrink-0`}>
-                      {t.avatarInitials}
-                    </div>
+                    <img
+                      src={t.avatarUrl}
+                      alt={t.author}
+                      className="w-11 h-11 rounded-full object-cover shadow-md border-2 border-emerald-500/40 shrink-0"
+                    />
                     <div>
-                      <div className="text-sm font-bold text-white">{t.author}</div>
+                      <div className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>{t.author}</span>
+                      </div>
                       <div className="text-xs text-slate-400">{t.role} en <span className="text-slate-300 font-semibold">{t.company}</span></div>
                     </div>
                   </div>
