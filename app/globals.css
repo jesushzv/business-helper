@@ -16,5 +16,20 @@
     @apply antialiased bg-gray-50 text-gray-900;
     font-family: var(--font-sans);
   }
+  /* Don Roberto Constraint: Prevent iOS Safari forced auto-zoom on input focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
+
+/* Reduced motion accessibility & low-end Android device optimization */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 

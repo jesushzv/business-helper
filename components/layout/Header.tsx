@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Building2, Plus, Bell, Zap, Layers } from 'lucide-react';
+import { Plus, Bell, Zap, Layers } from 'lucide-react';
 import { isDemoModeActive } from '@/lib/demoUtils';
 import { FeatureTierComparisonModal } from '@/components/features/FeatureTierComparisonModal';
 

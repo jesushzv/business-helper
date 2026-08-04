@@ -1,11 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calculator, Clock, TrendingUp, Sparkles } from 'lucide-react';
+import { Calculator, Clock, TrendingUp, Sparkles, Plus, Minus } from 'lucide-react';
 
 export function RoiCalculator() {
   const [quotesPerMonth, setQuotesPerMonth] = useState<number>(30);
   const [avgQuoteValue, setAvgQuoteValue] = useState<number>(25000);
+
+  // Helper stepper functions
+  const handleDecrementQuotes = () => setQuotesPerMonth((prev) => Math.max(5, prev - 5));
+  const handleIncrementQuotes = () => setQuotesPerMonth((prev) => Math.min(150, prev + 5));
+
+  const handleDecrementValue = () => setAvgQuoteValue((prev) => Math.max(2000, prev - 5000));
+  const handleIncrementValue = () => setAvgQuoteValue((prev) => Math.min(150000, prev + 5000));
 
   // Calculations
   const totalVolume = quotesPerMonth * avgQuoteValue;
@@ -49,7 +56,31 @@ export function RoiCalculator() {
                 {quotesPerMonth} cotizaciones
               </span>
             </div>
-            <div className="py-2">
+
+            {/* Mobile Stepper Controls */}
+            <div className="flex items-center justify-between gap-3 sm:hidden pt-1">
+              <button
+                type="button"
+                onClick={handleDecrementQuotes}
+                aria-label="Disminuir cotizaciones"
+                className="min-h-[48px] min-w-[48px] px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-400 rounded-xl font-bold flex items-center justify-center active:scale-95 transition-transform"
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+              <div className="flex-1 text-center font-mono font-bold text-white text-sm bg-slate-900/60 py-3 rounded-xl border border-slate-800">
+                {quotesPerMonth} / mes
+              </div>
+              <button
+                type="button"
+                onClick={handleIncrementQuotes}
+                aria-label="Aumentar cotizaciones"
+                className="min-h-[48px] min-w-[48px] px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-400 rounded-xl font-bold flex items-center justify-center active:scale-95 transition-transform"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="py-2 hidden sm:block">
               <input
                 type="range"
                 min="5"
@@ -76,7 +107,31 @@ export function RoiCalculator() {
                 ${avgQuoteValue.toLocaleString('es-MX')} MXN
               </span>
             </div>
-            <div className="py-2">
+
+            {/* Mobile Stepper Controls */}
+            <div className="flex items-center justify-between gap-3 sm:hidden pt-1">
+              <button
+                type="button"
+                onClick={handleDecrementValue}
+                aria-label="Disminuir valor promedio"
+                className="min-h-[48px] min-w-[48px] px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-indigo-400 rounded-xl font-bold flex items-center justify-center active:scale-95 transition-transform"
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+              <div className="flex-1 text-center font-mono font-bold text-white text-xs bg-slate-900/60 py-3 rounded-xl border border-slate-800 truncate">
+                ${avgQuoteValue.toLocaleString('es-MX')} MXN
+              </div>
+              <button
+                type="button"
+                onClick={handleIncrementValue}
+                aria-label="Aumentar valor promedio"
+                className="min-h-[48px] min-w-[48px] px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-indigo-400 rounded-xl font-bold flex items-center justify-center active:scale-95 transition-transform"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="py-2 hidden sm:block">
               <input
                 type="range"
                 min="2000"

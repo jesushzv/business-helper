@@ -2600,6 +2600,49 @@ test('components/landing/DemoVideoPlayer.tsx section header accurately specifies
 });
 
 // ----------------------------------------------------
+// 53. WS-D Mobile Responsiveness Hardening Suite
+// ----------------------------------------------------
+console.log('\n[Suite 53: WS-D Mobile Responsiveness Hardening Suite]');
+
+test('app/layout.tsx exports Viewport configuration metadata with device-width and initial-scale 1', () => {
+  const layoutContent = fs.readFileSync(path.join(__dirname, '../app/layout.tsx'), 'utf8');
+
+  assert.strictEqual(layoutContent.includes('viewport') || layoutContent.includes('Viewport'), true, 'app/layout.tsx must import and export Viewport metadata');
+  assert.strictEqual(layoutContent.includes("width: 'device-width'") || layoutContent.includes('device-width'), true, 'Viewport must include device-width setting');
+  assert.strictEqual(layoutContent.includes('initialScale: 1') || layoutContent.includes('initial-scale=1'), true, 'Viewport must include initialScale: 1 setting');
+});
+
+test('app/globals.css enforces 16px minimum font size on inputs to prevent iOS Safari auto-zoom', () => {
+  const globalsContent = fs.readFileSync(path.join(__dirname, '../app/globals.css'), 'utf8');
+
+  assert.strictEqual(globalsContent.includes('font-size: 16px'), true, 'globals.css must enforce font-size: 16px on inputs');
+  assert.strictEqual(globalsContent.includes('prefers-reduced-motion: reduce'), true, 'globals.css must include prefers-reduced-motion media query');
+});
+
+test('components/landing/RoiCalculator.tsx includes mobile stepper buttons (+ / -) with min-h-[48px] touch targets', () => {
+  const calculatorContent = fs.readFileSync(path.join(__dirname, '../components/landing/RoiCalculator.tsx'), 'utf8');
+
+  assert.strictEqual(calculatorContent.includes('Disminuir cotizaciones') || calculatorContent.includes('Minus'), true, 'RoiCalculator must include decrement stepper button');
+  assert.strictEqual(calculatorContent.includes('Aumentar cotizaciones') || calculatorContent.includes('Plus'), true, 'RoiCalculator must include increment stepper button');
+  assert.strictEqual(calculatorContent.includes('min-h-[48px]') && calculatorContent.includes('min-w-[48px]'), true, 'Stepper buttons must enforce 48px touch target');
+});
+
+test('components/landing/StickyMobileCta.tsx component exists and provides mobile sticky CTA button', () => {
+  const stickyContent = fs.readFileSync(path.join(__dirname, '../components/landing/StickyMobileCta.tsx'), 'utf8');
+
+  assert.strictEqual(stickyContent.includes('Probar 14 Días Gratis'), true, 'StickyMobileCta must include CTA button text');
+  assert.strictEqual(stickyContent.includes('/onboarding'), true, 'StickyMobileCta must link to /onboarding');
+  assert.strictEqual(stickyContent.includes('min-h-[48px]'), true, 'StickyMobileCta must enforce min-h-[48px] touch target');
+});
+
+test('app/page.tsx hero title includes short responsive mobile H1 (Cotiza y cobra desde tu celular)', () => {
+  const pageContent = fs.readFileSync(path.join(__dirname, '../app/page.tsx'), 'utf8');
+
+  assert.strictEqual(pageContent.includes('Cotiza y cobra'), true, 'page.tsx must include short mobile hero title text');
+  assert.strictEqual(pageContent.includes('StickyMobileCta'), true, 'page.tsx must embed StickyMobileCta component');
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

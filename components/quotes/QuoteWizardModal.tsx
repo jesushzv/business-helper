@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Client, LineItem } from '@/types';
 import { calculateQuoteTotals } from '@/lib/quoteCalculator';
 import { calculateClientCreditSummary, validateQuoteCreditLimit } from '@/lib/clientCredit';
-import { X, Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles, AlertTriangle, AlertCircle } from 'lucide-react';
+import { X, Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles, AlertTriangle } from 'lucide-react';
 
 interface QuoteWizardModalProps {
   isOpen: boolean;

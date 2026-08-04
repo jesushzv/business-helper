@@ -142,24 +142,31 @@ export const TRUST_BADGES: TrustBadge[] = [
   },
 ];
 
+function sanitizeEmail(envValue: string | undefined, fallback: string): string {
+  if (!envValue || envValue.includes('yourdomain.com') || envValue.includes('example.com') || envValue.includes('placeholder')) {
+    return fallback;
+  }
+  return envValue;
+}
+
 // Configurable support emails
 export function getSupportEmail(): string {
-  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SUPPORT_EMAIL) {
-    return process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
+  if (typeof process !== 'undefined') {
+    return sanitizeEmail(process.env.NEXT_PUBLIC_SUPPORT_EMAIL, 'contacto@businesshelper.mx');
   }
   return 'contacto@businesshelper.mx';
 }
 
 export function getFounderEmail(): string {
-  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_FOUNDER_EMAIL) {
-    return process.env.NEXT_PUBLIC_FOUNDER_EMAIL;
+  if (typeof process !== 'undefined') {
+    return sanitizeEmail(process.env.NEXT_PUBLIC_FOUNDER_EMAIL, 'hector@businesshelper.mx');
   }
   return 'hector@businesshelper.mx';
 }
 
 export function getTechSupportEmail(): string {
-  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TECH_SUPPORT_EMAIL) {
-    return process.env.NEXT_PUBLIC_TECH_SUPPORT_EMAIL;
+  if (typeof process !== 'undefined') {
+    return sanitizeEmail(process.env.NEXT_PUBLIC_TECH_SUPPORT_EMAIL, 'soporte@businesshelper.mx');
   }
   return 'soporte@businesshelper.mx';
 }
@@ -212,8 +219,8 @@ export const CONTACT_INFO: ContactDetails = {
   founderEmail: activeHectorEmail,
   supportEmail: activeSoporteEmail,
   privacyEmail: 'privacidad@businesshelper.mx',
-  streetAddress: 'Av. Revolución 1025, Piso 5',
-  neighborhood: 'Zona Centro',
+  streetAddress: 'Tijuana, B.C. / San Diego, CA',
+  neighborhood: 'Frontera México / EE.UU.',
   cityState: 'Tijuana, B.C., México / San Diego, CA',
   country: 'México / EE.UU.',
   hours: 'Lunes a Viernes: 8:00 AM – 6:00 PM (Hora Pacífico PST)',

@@ -22,6 +22,7 @@ import { TrustBadges } from '@/components/landing/TrustBadges';
 import { TeamSection } from '@/components/landing/TeamSection';
 import { ContactSection } from '@/components/landing/ContactSection';
 import { DemoVideoPlayer } from '@/components/landing/DemoVideoPlayer';
+import { StickyMobileCta } from '@/components/landing/StickyMobileCta';
 import { TESTIMONIALS, CONTACT_INFO } from '@/lib/trustData';
 
 export const metadata = {
@@ -113,7 +114,8 @@ export default function LandingPage() {
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15]">
-                Controla tus cotizaciones, cobranza y facturación <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 via-teal-300 to-indigo-400">desde tu celular</span>.
+                <span className="hidden sm:inline">Controla tus cotizaciones, cobranza y facturación <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 via-teal-300 to-indigo-400">desde tu celular</span>.</span>
+                <span className="sm:hidden">Cotiza y cobra <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 via-teal-300 to-indigo-400">desde tu celular</span>.</span>
               </h1>
 
               <p className="text-slate-400 text-base sm:text-lg max-w-2xl mx-auto lg:mx-0 leading-relaxed">
@@ -788,6 +790,9 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Floating Mobile Sticky CTA */}
+      <StickyMobileCta />
     </div>
   );
 }
