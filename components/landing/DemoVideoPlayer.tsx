@@ -6,6 +6,7 @@ import { Play, Pause, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 import { PhoneFrameMockup } from '@/components/landing/PhoneFrameMockup';
+import { SmartVideoPlayer } from '@/components/landing/SmartVideoPlayer';
 
 export function DemoVideoPlayer() {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
@@ -132,59 +133,35 @@ export function DemoVideoPlayer() {
             {/* Dynamic Step Content with Real Assets */}
             <div className="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
               {currentStep.screenMockupType === 'quote' && (
-                <video
-                  key="quote-video"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-auto object-cover rounded-2xl"
+                <SmartVideoPlayer
+                  src="/assets/demo/cuj_04_quotes_wizard_mobile.webm"
                   poster="/assets/demo/cuj_04_quote_wizard_modal.png"
-                >
-                  <source src="/assets/demo/cuj_04_quotes_wizard_mobile.webm" type="video/webm" />
-                </video>
+                  alt="Demostración de Cotización"
+                />
               )}
 
               {currentStep.screenMockupType === 'whatsapp' && (
-                <video
-                  key="whatsapp-video"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-auto object-cover rounded-2xl"
+                <SmartVideoPlayer
+                  src="/assets/demo/cuj_08_whatsapp_ai_assistant_mobile.webm"
                   poster="/assets/demo/cuj_05_public_proposal.png"
-                >
-                  <source src="/assets/demo/cuj_08_whatsapp_ai_assistant_mobile.webm" type="video/webm" />
-                </video>
+                  alt="Demostración de propuesta en WhatsApp"
+                />
               )}
 
               {currentStep.screenMockupType === 'otp' && (
-                <video
-                  key="otp-video"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-auto object-cover rounded-2xl"
+                <SmartVideoPlayer
+                  src="/assets/demo/cuj_05_proposal_signing_mobile.webm"
                   poster="/assets/demo/cuj_05_signing_otp_modal.png"
-                >
-                  <source src="/assets/demo/cuj_05_proposal_signing_mobile.webm" type="video/webm" />
-                </video>
+                  alt="Demostración de firma OTP"
+                />
               )}
 
               {currentStep.screenMockupType === 'spei' && (
-                <video
-                  key="spei-video"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-auto object-cover rounded-2xl"
+                <SmartVideoPlayer
+                  src="/assets/demo/cuj_07_spei_portal_mobile.webm"
                   poster="/assets/demo/cuj_07_spei_portal.png"
-                >
-                  <source src="/assets/demo/cuj_07_spei_portal_mobile.webm" type="video/webm" />
-                </video>
+                  alt="Demostración de pago SPEI"
+                />
               )}
 
               {/* Bottom Status Overlay */}
