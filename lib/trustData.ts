@@ -1,18 +1,62 @@
-export interface Testimonial {
+export interface UseCaseScenario {
   id: string;
-  author: string;
-  role: string;
-  company: string;
-  location: string;
+  useCaseTitle: string;
+  personaLabel: string;
   industry: string;
+  location: string;
   quote: string;
   rating: number;
   metricTag: string;
-  avatarInitials: string;
-  avatarBg: string;
   avatarIcon: string;
   avatarUrl: string;
+  // Backward compatibility fields
+  author: string;
+  role: string;
+  company: string;
+  avatarInitials: string;
+  avatarBg: string;
 }
+
+export type Testimonial = UseCaseScenario;
+
+export const TESTIMONIALS: UseCaseScenario[] = [
+  {
+    id: 'usecase-1',
+    useCaseTitle: 'Caso de Uso 01: Agencia Digital & Consultoría B2B',
+    personaLabel: 'Perfil: Dirección de Operaciones B2B',
+    author: 'Directora de Operaciones',
+    role: 'Perfil de Usuario',
+    company: 'Agencia Digital & Consultoría B2B',
+    location: 'CDMX',
+    industry: 'Servicios Digitales & Consultoría B2B',
+    quote:
+      'Manejamos más de 15 proyectos simultáneos con clientes corporativos. Las cotizaciones se ven impecables con nuestra marca, las autorizan con firma OTP al instante y al final del mes le envío todo a mi contador en un paquete ZIP ordenado. Ahorro estimado de 15 horas a la semana.',
+    rating: 5,
+    metricTag: '15 hrs/semana Ahorradas',
+    avatarInitials: 'MF',
+    avatarBg: 'bg-indigo-600',
+    avatarIcon: 'Briefcase',
+    avatarUrl: '/avatars/mariana_fuentes.png',
+  },
+  {
+    id: 'usecase-2',
+    useCaseTitle: 'Caso de Uso 02: Mantenimiento & Servicios Industriales',
+    personaLabel: 'Perfil: Gerencia Comercial & Campo',
+    author: 'Gerente Comercial',
+    role: 'Perfil de Usuario',
+    company: 'Mantenimiento & Servicios Industriales',
+    location: 'Tijuana, BC',
+    industry: 'HVAC & Servicios Industriales',
+    quote:
+      'Nuestros técnicos andan siempre en campo. Poder cotizar un mantenimiento desde el celular en 2 minutos mientras están con el cliente y recibir la notificación cuando el cliente sube su comprobante SPEI cambió por completo nuestro flujo de caja.',
+    rating: 5,
+    metricTag: 'Cobros 5 días más rápidos',
+    avatarInitials: 'CT',
+    avatarBg: 'bg-teal-600',
+    avatarIcon: 'Wrench',
+    avatarUrl: '/avatars/carlos_trevino.png',
+  },
+];
 
 export interface TrustBadge {
   id: string;
@@ -58,41 +102,6 @@ export interface DemoStep {
   actionText: string;
   screenMockupType: 'quote' | 'whatsapp' | 'otp' | 'spei';
 }
-
-export const TESTIMONIALS: Testimonial[] = [
-  {
-    id: 'test-2',
-    author: 'Mariana F.',
-    role: 'Directora de Operaciones',
-    company: 'Agencia Digital & Consultoría B2B',
-    location: 'CDMX',
-    industry: 'Servicios Digitales B2B',
-    quote:
-      'Manejamos más de 15 proyectos simultáneos con clientes corporativos. Las cotizaciones se ven impecables con nuestra marca, las autorizan con firma OTP al instante y al final del mes le envío todo a mi contador en un paquete ZIP ordenado. Nos ahorra al menos 15 horas a la semana.',
-    rating: 5,
-    metricTag: '15 hrs/semana Ahorradas',
-    avatarInitials: 'MF',
-    avatarBg: 'bg-indigo-600',
-    avatarIcon: 'Briefcase',
-    avatarUrl: '/avatars/mariana_fuentes.png',
-  },
-  {
-    id: 'test-3',
-    author: 'Carlos T.',
-    role: 'Gerente Comercial',
-    company: 'Empresa de Mantenimiento HVAC Industrial',
-    location: 'Tijuana, BC',
-    industry: 'Mantenimiento & Servicios Industriales',
-    quote:
-      'Nuestros técnicos andan siempre en campo. Poder cotizar un mantenimiento desde el celular en 2 minutos mientras están con el cliente y recibir la notificación cuando el cliente sube su comprobante SPEI cambió por completo nuestro flujo de caja.',
-    rating: 5,
-    metricTag: 'Cobros 5 días más rápidos',
-    avatarInitials: 'CT',
-    avatarBg: 'bg-teal-600',
-    avatarIcon: 'Wrench',
-    avatarUrl: '/avatars/carlos_trevino.png',
-  },
-];
 
 export const TRUST_BADGES: TrustBadge[] = [
   {

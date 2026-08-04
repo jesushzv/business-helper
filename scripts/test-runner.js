@@ -2381,16 +2381,14 @@ test('Trust Data Module exports required social proof, team, badges, and contact
 
 test('Testimonials contain realistic Mexican SME profiles, locations, and metric tags', () => {
   const trustData = require('../lib/trustData.ts');
-  const mariana = trustData.TESTIMONIALS.find(t => t.author.includes('Mariana'));
-  assert.strictEqual(mariana !== undefined, true, 'Mariana testimonial must exist');
-  assert.strictEqual(mariana.location.includes('CDMX'), true, 'Mariana must be in CDMX');
-  assert.strictEqual(mariana.company.length > 5, true, 'Company name must be populated');
-  assert.strictEqual(mariana.rating, 5, 'Rating must be 5 stars');
-  assert.strictEqual(typeof mariana.metricTag, 'string', 'Metric tag must exist');
+  const useCase1 = trustData.TESTIMONIALS.find(t => t.location.includes('CDMX'));
+  assert.strictEqual(useCase1 !== undefined, true, 'CDMX Use Case must exist');
+  assert.strictEqual(typeof useCase1.useCaseTitle, 'string', 'Use case title must exist');
+  assert.strictEqual(typeof useCase1.metricTag, 'string', 'Metric tag must exist');
 
-  const carlos = trustData.TESTIMONIALS.find(t => t.author.includes('Carlos'));
-  assert.strictEqual(carlos !== undefined, true, 'Carlos testimonial must exist');
-  assert.strictEqual(carlos.location.includes('Tijuana, BC'), true, 'Carlos must be in Tijuana, BC');
+  const useCase2 = trustData.TESTIMONIALS.find(t => t.location.includes('Tijuana, BC'));
+  assert.strictEqual(useCase2 !== undefined, true, 'Tijuana Use Case must exist');
+  assert.strictEqual(typeof useCase2.useCaseTitle, 'string', 'Use case title must exist');
 });
 
 test('Trust badges feature SAT CFDI 4.0, SSL 256-bit, Banxico SPEI, and PAC partner seals', () => {
