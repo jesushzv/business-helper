@@ -195,12 +195,5 @@ export async function issueInvoiceClient(
   return simulateInvoiceStamping(milestoneId);
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    validateCFDIMetadata,
-    buildCFDIPayload,
-    simulateInvoiceStamping,
-    issueInvoiceClient
-  };
-}
+
 

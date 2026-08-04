@@ -8,7 +8,10 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
-    "test": "npm run lint && npm run typecheck && node scripts/test-runner.js",
+    "test": "npm run lint && npm run typecheck && vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "test:legacy": "node scripts/test-runner.js",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -24,13 +27,20 @@
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
     "@types/node": "^22.13.1",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9.20.1",
     "eslint-config-next": "^15.1.7",
+    "jsdom": "^30.0.1",
     "postcss": "^8.5.25",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.10"
   }
 }
