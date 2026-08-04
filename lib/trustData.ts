@@ -122,7 +122,7 @@ export const TRUST_BADGES: TrustBadge[] = [
     title: 'SAT CFDI 4.0 Compliant',
     subtitle: 'Timbrado Fiscal Oficial',
     description:
-      'Cumple con los requerimientos vigentes del Anexo 20 del SAT para Notas de Venta, Recibos de Pago y Facturación CFDI 4.0.',
+      'Cumple con los requerimientos vigentes del Anexo 20 del SAT para Facturación CFDI 4.0. Garantía de Seguridad: Nunca almacenamos tus certificados SAT (.cer/.key); mantienes el control total de tus llaves con tu PAC de confianza.',
     iconName: 'Building2',
     badgeTag: 'SAT Anexo 20',
   },

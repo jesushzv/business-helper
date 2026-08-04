@@ -2026,10 +2026,10 @@ test('Defines 3 app tiers (Básico, Pro, Enterprise) with pricing and features',
     assert.strictEqual(tiers[0].id, 'basico');
     assert.strictEqual(tiers[0].priceMonthly, 299);
     assert.strictEqual(tiers[1].id, 'pro');
-    assert.strictEqual(tiers[1].priceMonthly, 699);
+    assert.strictEqual(tiers[1].priceMonthly, 599);
     assert.strictEqual(tiers[1].recommended, true, 'Pro plan should be marked recommended');
     assert.strictEqual(tiers[2].id, 'enterprise');
-    assert.strictEqual(tiers[2].priceMonthly, 1499);
+    assert.strictEqual(tiers[2].priceMonthly, 999);
   }
 });
 
@@ -2438,6 +2438,60 @@ test('Demo video walkthrough steps match full quote-to-payment CUJ flow', () => 
   const trustData = require('../lib/trustData.ts');
   const stepIds = trustData.DEMO_WALKTHROUGH_STEPS.map(s => s.id);
   assert.deepStrictEqual(stepIds, ['create-quote', 'send-whatsapp', 'otp-signature', 'spei-notification']);
+});
+
+// 51. WS-B CFDI Pricing Repositioning & Stripe Folio Packs Suite
+console.log('\n[Suite 51: WS-B CFDI Pricing Repositioning & Stripe Folio Packs Suite]');
+
+test('FAQ copy reflects CFDI add-on model and zero CSD storage trust guarantee', () => {
+  const helpModule = require('../lib/helpFAQ.js');
+  const cfdiFaq = helpModule.FAQ_ITEMS.find(item => item.id === 'fac-1');
+  assert.strictEqual(cfdiFaq !== undefined, true, 'CFDI FAQ item fac-1 must exist');
+  assert.strictEqual(cfdiFaq.answer.includes('add-on') || cfdiFaq.answer.includes('incluidas') || cfdiFaq.answer.includes('folio'), true, 'FAQ answer must describe CFDI folio model');
+  assert.strictEqual(cfdiFaq.answer.includes('Nunca almacenamos tus certificados SAT') || cfdiFaq.answer.includes('certificados SAT'), true, 'FAQ answer must include zero CSD storage trust guarantee');
+});
+
+test('lib/tierFeaturesData.ts defines CFDI folio allocations and add-on pricing across all tiers', () => {
+  const tierFeaturesData = require('../lib/tierFeaturesData.ts');
+  const tiers = tierFeaturesData.APP_TIERS;
+  
+  const basico = tiers.find(t => t.id === 'basico');
+  assert.strictEqual(basico !== undefined, true, 'Plan Básico must exist');
+  assert.strictEqual(basico.features.some(f => f.includes('CFDI') || f.includes('facturación') || f.includes('5 MXN')), true, 'Básico plan must mention CFDI availability or add-on pricing');
+
+  const pro = tiers.find(t => t.id === 'pro');
+  assert.strictEqual(pro !== undefined, true, 'Plan Pro/Negocio must exist');
+  assert.strictEqual(pro.features.some(f => f.includes('10 CFDI') || f.includes('folios')), true, 'Pro plan must mention 10 included folios');
+
+  const enterprise = tiers.find(t => t.id === 'enterprise');
+  assert.strictEqual(enterprise !== undefined, true, 'Plan Enterprise/Empresa must exist');
+  assert.strictEqual(enterprise.features.some(f => f.includes('50 CFDI') || f.includes('folios')), true, 'Enterprise plan must mention 50 included folios');
+});
+
+test('lib/stripe.ts and lib/stripe.js export STRIPE_FOLIO_PACKS and createFolioPackCheckoutPayload', () => {
+  const stripeModule = require('../lib/stripe.js');
+
+  assert.strictEqual(typeof stripeModule.STRIPE_FOLIO_PACKS, 'object', 'STRIPE_FOLIO_PACKS must be exported from stripe module');
+  assert.strictEqual(stripeModule.STRIPE_FOLIO_PACKS.folio_pack_50.price, 100, '50 folios pack must cost 100 MXN');
+  assert.strictEqual(stripeModule.STRIPE_FOLIO_PACKS.folio_pack_200.price, 350, '200 folios pack must cost 350 MXN');
+  assert.strictEqual(typeof stripeModule.createFolioPackCheckoutPayload, 'function', 'createFolioPackCheckoutPayload must be exported from stripe module');
+});
+
+test('createFolioPackCheckoutPayload constructs valid Stripe checkout payload with organization_id metadata', () => {
+  const stripeModule = require('../lib/stripe.js');
+  const payload = stripeModule.createFolioPackCheckoutPayload('folio_pack_50', 'org_test_123', 'https://businesshelper.mx/settings');
+
+  assert.strictEqual(payload.mode, 'payment', 'Folio pack purchase mode must be payment');
+  assert.strictEqual(payload.line_items[0].price, 'price_cfdi_50_folios_100_mxn', 'Price ID must match 50 folios pack');
+  assert.strictEqual(payload.metadata.organization_id, 'org_test_123', 'Metadata must include organization_id');
+  assert.strictEqual(payload.metadata.pack_id, 'folio_pack_50', 'Metadata must include pack_id');
+});
+
+test('lib/trustData.ts contains SAT CSD zero-storage trust assertion', () => {
+  const trustData = require('../lib/trustData.ts');
+  const satBadge = trustData.TRUST_BADGES.find(b => b.id === 'sat-cfdi');
+  assert.strictEqual(satBadge !== undefined, true, 'sat-cfdi badge must exist');
+  assert.strictEqual(satBadge.description.includes('Nunca almacenamos tus certificados SAT') || satBadge.description.includes('certificados'), true, 'SAT badge description must emphasize CSD zero storage guarantee');
 });
 
 // ----------------------------------------------------

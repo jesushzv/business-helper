@@ -3,7 +3,10 @@
  * 
  * Provides tier configurations, checkout session payload creation,
  * environment secret auditing, and subscription status validation for Mexican SMBs.
+ * Includes CFDI Folio Pack products per docs/02-architecture/cfdi_integration_architecture.md
  */
+
+import { getAppBaseUrl } from './url.js';
 
 export interface StripeTierConfig {
   id: 'emprendedor' | 'negocio' | 'empresa';
@@ -15,7 +18,37 @@ export interface StripeTierConfig {
   features: string[];
   stripePriceId?: string;
   popular?: boolean;
+  includedFolios: number;
+  addOnPricePerFolio: number;
 }
+
+export interface FolioPackConfig {
+  id: 'folio_pack_50' | 'folio_pack_200';
+  name: string;
+  folios: number;
+  price: number;
+  currency: string;
+  stripePriceId: string;
+}
+
+export const STRIPE_FOLIO_PACKS: Record<string, FolioPackConfig> = {
+  folio_pack_50: {
+    id: 'folio_pack_50',
+    name: 'Paquete 50 Folios CFDI',
+    folios: 50,
+    price: 100,
+    currency: 'MXN',
+    stripePriceId: process.env.STRIPE_PRICE_FOLIO_50 || 'price_cfdi_50_folios_100_mxn',
+  },
+  folio_pack_200: {
+    id: 'folio_pack_200',
+    name: 'Paquete 200 Folios CFDI',
+    folios: 200,
+    price: 350,
+    currency: 'MXN',
+    stripePriceId: process.env.STRIPE_PRICE_FOLIO_200 || 'price_cfdi_200_folios_350_mxn',
+  },
+};
 
 export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
   emprendedor: {
@@ -25,10 +58,13 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
     currency: 'MXN',
     interval: 'mes',
     description: 'Ideal para independientes y freelancers que van iniciando.',
+    includedFolios: 0,
+    addOnPricePerFolio: 5,
     features: [
       'Hasta 25 cotizaciones por mes',
       'Firma digital OTP por WhatsApp',
       'Portal público de carga SPEI',
+      'Facturación CFDI 4.0 disponible ($5 MXN/folio o con tu PAC)',
       'Soporte estándar por correo',
     ],
     stripePriceId: process.env.STRIPE_PRICE_EMPRENDEDOR || 'price_emprendedor_299_mxn',
@@ -41,8 +77,11 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
     interval: 'mes',
     description: 'Para negocios en crecimiento que requieren control total.',
     popular: true,
+    includedFolios: 10,
+    addOnPricePerFolio: 3,
     features: [
       'Cotizaciones ilimitadas',
+      '10 folios CFDI 4.0/mes incluidos ($3 MXN/folio adicional)',
       'Firma digital OTP + Cryptoseal SHA-256',
       'Recordatorios automáticos de WhatsApp',
       'Centro de Control y Proyección de Flujo 90 días',
@@ -57,8 +96,12 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
     currency: 'MXN',
     interval: 'mes',
     description: 'Para empresas estructuradas con múltiples operaciones.',
+    includedFolios: 50,
+    addOnPricePerFolio: 2,
     features: [
       'Todo lo del Plan Negocio',
+      '50 folios CFDI 4.0/mes incluidos ($2 MXN/folio adicional)',
+      'Paquetes de folios add-on (50 por $100 MXN / 200 por $350 MXN)',
       'Multi-usuario y roles de equipo',
       'Exportación masiva para contador',
       'Asesoría fiscal SAT personalizada',
@@ -72,8 +115,6 @@ export function getStripeTierConfig(tierKey: string): StripeTierConfig {
   const normalized = (tierKey || 'emprendedor').toLowerCase();
   return STRIPE_PLANS[normalized] || STRIPE_PLANS.emprendedor;
 }
-
-import { getAppBaseUrl } from './url';
 
 export function createCheckoutPayload(tierKey: string, organizationId: string, returnUrl?: string) {
   const plan = getStripeTierConfig(tierKey);
@@ -92,6 +133,28 @@ export function createCheckoutPayload(tierKey: string, organizationId: string, r
       tier_id: plan.id,
     },
     success_url: `${baseUrl}?session_id={CHECKOUT_SESSION_ID}&status=success`,
+    cancel_url: `${baseUrl}?status=cancelled`,
+  };
+}
+
+export function createFolioPackCheckoutPayload(packKey: string, organizationId: string, returnUrl?: string) {
+  const pack = STRIPE_FOLIO_PACKS[packKey] || STRIPE_FOLIO_PACKS.folio_pack_50;
+  const baseUrl = returnUrl || `${getAppBaseUrl()}/dashboard/settings`;
+  return {
+    mode: 'payment',
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price: pack.stripePriceId || 'price_cfdi_50_folios_100_mxn',
+        quantity: 1,
+      },
+    ],
+    metadata: {
+      organization_id: organizationId,
+      pack_id: pack.id,
+      folios: pack.folios.toString(),
+    },
+    success_url: `${baseUrl}?session_id={CHECKOUT_SESSION_ID}&status=success&pack=${pack.id}`,
     cancel_url: `${baseUrl}?status=cancelled`,
   };
 }

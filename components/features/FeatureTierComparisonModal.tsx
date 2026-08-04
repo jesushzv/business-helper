@@ -156,6 +156,11 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
                   </div>
                 ))}
               </div>
+
+              {/* SAT CSD Trust Banner */}
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 text-center text-xs text-slate-300">
+                <span className="font-bold text-emerald-400">Garantía de Seguridad SAT:</span> Nunca almacenamos tus certificados SAT (.cer/.key). Conecta tu PAC de confianza y mantén el control total de tus llaves.
+              </div>
             </div>
           )}
 
