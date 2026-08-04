@@ -62,11 +62,11 @@ export interface DemoStep {
 export const TESTIMONIALS: Testimonial[] = [
   {
     id: 'test-2',
-    author: 'Lic. Mariana Fuentes',
+    author: 'Mariana F.',
     role: 'Directora de Operaciones',
-    company: 'Pixel & Code MX',
+    company: 'Agencia Digital & Consultoría B2B',
     location: 'CDMX',
-    industry: 'Agencia Digital & Consultoría B2B',
+    industry: 'Servicios Digitales B2B',
     quote:
       'Manejamos más de 15 proyectos simultáneos con clientes corporativos. Las cotizaciones se ven impecables con nuestra marca, las autorizan con firma OTP al instante y al final del mes le envío todo a mi contador en un paquete ZIP ordenado. Nos ahorra al menos 15 horas a la semana.',
     rating: 5,
@@ -78,11 +78,11 @@ export const TESTIMONIALS: Testimonial[] = [
   },
   {
     id: 'test-3',
-    author: 'Ing. Carlos Treviño',
+    author: 'Carlos T.',
     role: 'Gerente Comercial',
-    company: 'Climas y Servicios Industriales del Norte',
+    company: 'Empresa de Mantenimiento HVAC Industrial',
     location: 'Tijuana, BC',
-    industry: 'HVAC & Mantenimiento Industrial',
+    industry: 'Mantenimiento & Servicios Industriales',
     quote:
       'Nuestros técnicos andan siempre en campo. Poder cotizar un mantenimiento desde el celular en 2 minutos mientras están con el cliente y recibir la notificación cuando el cliente sube su comprobante SPEI cambió por completo nuestro flujo de caja.',
     rating: 5,

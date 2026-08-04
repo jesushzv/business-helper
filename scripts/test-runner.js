@@ -2381,15 +2381,15 @@ test('Trust Data Module exports required social proof, team, badges, and contact
 
 test('Testimonials contain realistic Mexican SME profiles, locations, and metric tags', () => {
   const trustData = require('../lib/trustData.ts');
-  const mariana = trustData.TESTIMONIALS.find(t => t.author.includes('Mariana Fuentes'));
-  assert.strictEqual(mariana !== undefined, true, 'Mariana Fuentes testimonial must exist');
+  const mariana = trustData.TESTIMONIALS.find(t => t.author.includes('Mariana'));
+  assert.strictEqual(mariana !== undefined, true, 'Mariana testimonial must exist');
   assert.strictEqual(mariana.location.includes('CDMX'), true, 'Mariana must be in CDMX');
   assert.strictEqual(mariana.company.length > 5, true, 'Company name must be populated');
   assert.strictEqual(mariana.rating, 5, 'Rating must be 5 stars');
   assert.strictEqual(typeof mariana.metricTag, 'string', 'Metric tag must exist');
 
-  const carlos = trustData.TESTIMONIALS.find(t => t.author.includes('Carlos Treviño'));
-  assert.strictEqual(carlos !== undefined, true, 'Carlos Treviño testimonial must exist');
+  const carlos = trustData.TESTIMONIALS.find(t => t.author.includes('Carlos'));
+  assert.strictEqual(carlos !== undefined, true, 'Carlos testimonial must exist');
   assert.strictEqual(carlos.location.includes('Tijuana, BC'), true, 'Carlos must be in Tijuana, BC');
 });
 
