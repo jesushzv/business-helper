@@ -2409,9 +2409,11 @@ test('Trust badges feature SAT CFDI 4.0, SSL 256-bit, Banxico SPEI, and PAC part
   assert.strictEqual(pacBadge !== undefined, true, 'PAC partner badge must exist');
 });
 
-test('Contact info includes Tijuana / San Diego location, support email, and privacy email', () => {
+test('Contact info includes Tijuana / San Diego location, contacto, hector, and soporte email channels', () => {
   const trustData = require('../lib/trustData.ts');
-  assert.strictEqual(typeof trustData.CONTACT_INFO.email, 'string', 'Support email must exist');
+  assert.strictEqual(typeof trustData.CONTACT_INFO.email, 'string', 'General contacto email must exist');
+  assert.strictEqual(typeof trustData.CONTACT_INFO.founderEmail, 'string', 'Founder hector email must exist');
+  assert.strictEqual(typeof trustData.CONTACT_INFO.supportEmail, 'string', 'Tech soporte email must exist');
   assert.strictEqual(trustData.CONTACT_INFO.privacyEmail, 'privacidad@businesshelper.mx', 'Privacy email must match privacidad@businesshelper.mx');
   assert.strictEqual(trustData.CONTACT_INFO.cityState.includes('Tijuana'), true, 'City/State must include Tijuana');
 });

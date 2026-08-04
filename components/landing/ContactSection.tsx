@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { CONTACT_INFO } from '@/lib/trustData';
-import { Mail, MapPin, Clock, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Mail, MapPin, Clock, ShieldCheck, CheckCircle2, User, HelpCircle } from 'lucide-react';
 
 export function ContactSection() {
   return (
@@ -13,7 +13,7 @@ export function ContactSection() {
         <div className="lg:col-span-6 space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-wider">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Contacto Directo y Atención Transparente</span>
+            <span>Canales Oficiales de Atención</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
@@ -21,32 +21,52 @@ export function ContactSection() {
           </h2>
 
           <p className="text-slate-300 text-sm leading-relaxed">
-            ¿Tienes dudas sobre la integración del SAT CFDI 4.0, la validación de transferencias SPEI o cómo configurar tu catálogo de productos? Escríbenos directamente a nuestro correo oficial.
+            ¿Tienes dudas sobre la plataforma, quieres comunicarte con nuestro Fundador Hector Zamora o necesitas soporte técnico con el SAT CFDI 4.0? Contamos con canales dedicados por correo.
           </p>
 
           <div className="pt-2 flex flex-col sm:flex-row gap-4">
             <a
               href={`mailto:${CONTACT_INFO.email}?subject=${encodeURIComponent(
-                'Consulta de Información — Business Helper'
+                'Información General — Business Helper'
               )}`}
               className="min-h-[50px] px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2.5 text-sm active:scale-95"
             >
               <Mail className="w-5 h-5" />
-              <span>Contactar por Correo Electrónico</span>
+              <span>Escribir a Contacto General</span>
             </a>
           </div>
         </div>
 
         <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Main Support Email Card */}
-          <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 sm:col-span-2">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
-              <Mail className="w-5 h-5" />
+          {/* General Contact Card */}
+          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs">
+              <Mail className="w-4 h-4" />
+              <span>Contacto General</span>
             </div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Correo Principal de Soporte</div>
-            <div className="text-lg font-extrabold text-white break-all">{CONTACT_INFO.email}</div>
-            <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Tiempo estimado de respuesta: {CONTACT_INFO.responseTimeSLA}
+            <div className="text-sm font-extrabold text-white break-all">{CONTACT_INFO.email}</div>
+            <div className="text-[11px] text-slate-400">Información comercial & demos</div>
+          </div>
+
+          {/* Founder Direct Card */}
+          <div className="p-4 rounded-2xl bg-slate-950 border border-emerald-500/30 space-y-1.5">
+            <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+              <User className="w-4 h-4" />
+              <span>Fundador & CEO</span>
+            </div>
+            <div className="text-sm font-extrabold text-white break-all">{CONTACT_INFO.founderEmail}</div>
+            <div className="text-[11px] text-emerald-400 font-medium">Contacto directo con Hector Zamora</div>
+          </div>
+
+          {/* Tech Support Card */}
+          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5 sm:col-span-2">
+            <div className="flex items-center gap-2 text-teal-400 font-bold text-xs">
+              <HelpCircle className="w-4 h-4" />
+              <span>Soporte Técnico & SAT CFDI</span>
+            </div>
+            <div className="text-sm font-extrabold text-white break-all">{CONTACT_INFO.supportEmail}</div>
+            <div className="text-[11px] text-slate-400 flex items-center gap-1 pt-1">
+              <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Tiempo estimado de respuesta: {CONTACT_INFO.responseTimeSLA}
             </div>
           </div>
 
