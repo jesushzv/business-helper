@@ -10,6 +10,7 @@ export interface Testimonial {
   metricTag: string;
   avatarInitials: string;
   avatarBg: string;
+  avatarIcon: string;
 }
 
 export interface TrustBadge {
@@ -71,6 +72,7 @@ export const TESTIMONIALS: Testimonial[] = [
     metricTag: '-40% Cartera Vencida',
     avatarInitials: 'RE',
     avatarBg: 'bg-emerald-600',
+    avatarIcon: 'Building2',
   },
   {
     id: 'test-2',
@@ -85,6 +87,7 @@ export const TESTIMONIALS: Testimonial[] = [
     metricTag: '15 hrs/semana Ahorradas',
     avatarInitials: 'MF',
     avatarBg: 'bg-indigo-600',
+    avatarIcon: 'Briefcase',
   },
   {
     id: 'test-3',
@@ -99,6 +102,7 @@ export const TESTIMONIALS: Testimonial[] = [
     metricTag: 'Cobros 5 días más rápidos',
     avatarInitials: 'CT',
     avatarBg: 'bg-teal-600',
+    avatarIcon: 'Wrench',
   },
   {
     id: 'test-4',
@@ -113,6 +117,7 @@ export const TESTIMONIALS: Testimonial[] = [
     metricTag: 'Score de Salud Activo',
     avatarInitials: 'SM',
     avatarBg: 'bg-amber-600',
+    avatarIcon: 'Stethoscope',
   },
 ];
 

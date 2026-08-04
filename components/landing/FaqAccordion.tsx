@@ -14,7 +14,7 @@ const FAQS: FaqItem[] = [
   {
     id: 'invoicing-sat',
     question: '¿Genera Notas de Venta y Facturas SAT CFDI 4.0?',
-    answer: 'Sí. Business Helper incluye un motor de Nota de Venta y Recibo de Pago PDF de 1 clic para entregar comprobantes inmediatos a tus clientes sin necesidad de sellos CSD ni trámites complejos ante el SAT. Si tu empresa requiere facturación fiscal oficial, el addon Pro te permite timbrar facturas CFDI 4.0 ante el SAT a través de Proveedores Autorizados (PAC).',
+    answer: 'Sí. Todos nuestros planes incluyen timbrado fiscal CFDI 4.0 ante el SAT. El plan Emprendedor cobra $5 MXN por folio timbrado; Negocio incluye 10 folios/mes ($3 MXN por adicional); Empresa incluye 50 folios/mes ($2 MXN por adicional). Además, puedes adquirir paquetes de folios add-on (50 folios por $100 MXN / 200 folios por $350 MXN). Mantienes el control total de tus sellos CSD con tu PAC de confianza (Facturapi).',
     icon: FileCheck,
   },
   {

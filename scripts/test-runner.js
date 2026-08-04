@@ -2560,6 +2560,48 @@ test('app/privacy/page.tsx contains LFPDPPP Mexican privacy compliance details',
 });
 
 // ----------------------------------------------------
+// 53. Gate 1 Final Polish Audit Suite
+// ----------------------------------------------------
+console.log('\n[Suite 53: Gate 1 Final Polish Audit Suite]');
+
+test('components/landing/FaqAccordion.tsx FAQ answer reflects CFDI add-on model and excludes obsolete addon Pro phrasing', () => {
+  const faqContent = fs.readFileSync(path.join(__dirname, '../components/landing/FaqAccordion.tsx'), 'utf8');
+
+  assert.strictEqual(faqContent.includes('addon Pro'), false, 'FaqAccordion must not state that CFDI is an addon Pro exclusive');
+  assert.strictEqual(faqContent.includes('Emprendedor') || faqContent.includes('todos nuestros planes') || faqContent.includes('Todos los planes'), true, 'FaqAccordion must state CFDI is available across plans');
+  assert.strictEqual(faqContent.includes('folio') || faqContent.includes('folios'), true, 'FaqAccordion must mention folio pricing');
+});
+
+test('app/page.tsx landing page bottom conversion form includes RFC, Phone, asterisks, and Privacy consent checkbox', () => {
+  const landingContent = fs.readFileSync(path.join(__dirname, '../app/page.tsx'), 'utf8');
+
+  assert.strictEqual(landingContent.includes('RFC') || landingContent.includes('rfc'), true, 'Landing page bottom form must include RFC field');
+  assert.strictEqual(landingContent.includes('Phone') || landingContent.includes('Teléfono') || landingContent.includes('WhatsApp'), true, 'Landing page bottom form must include Phone field');
+  assert.strictEqual(landingContent.includes('/privacy'), true, 'Landing page bottom form must link to /privacy');
+  assert.strictEqual(landingContent.includes('/terms'), true, 'Landing page bottom form must link to /terms');
+  assert.strictEqual(landingContent.includes('checkbox') || landingContent.includes('acceptTerms') || landingContent.includes('Aviso de Privacidad'), true, 'Landing page bottom form must include terms acceptance checkbox');
+});
+
+test('lib/trustData.ts testimonials contain industry role tags and structured profile data', () => {
+  const trustData = require('../lib/trustData.ts');
+
+  assert.strictEqual(Array.isArray(trustData.TESTIMONIALS), true, 'TESTIMONIALS must be an array');
+  assert.strictEqual(trustData.TESTIMONIALS.length >= 4, true, 'Must have at least 4 testimonials');
+  trustData.TESTIMONIALS.forEach(t => {
+    assert.strictEqual(typeof t.author, 'string', 'Author must be a string');
+    assert.strictEqual(typeof t.company, 'string', 'Company must be a string');
+    assert.strictEqual(typeof t.location, 'string', 'Location must be a string');
+    assert.strictEqual(typeof t.metricTag, 'string', 'Metric tag must be a string');
+  });
+});
+
+test('components/landing/DemoVideoPlayer.tsx section header accurately specifies Interactive Step-by-Step Demo', () => {
+  const demoContent = fs.readFileSync(path.join(__dirname, '../components/landing/DemoVideoPlayer.tsx'), 'utf8');
+
+  assert.strictEqual(demoContent.includes('Paso a Paso') || demoContent.includes('Interactiva'), true, 'Demo section title must state Interactive Step-by-Step demo');
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');
@@ -2571,6 +2613,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 

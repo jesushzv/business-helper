@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { DEMO_WALKTHROUGH_STEPS, DemoStep } from '@/lib/trustData';
-import { Play, Pause, ChevronRight, Check, MessageSquare, ShieldCheck, TrendingUp, Sparkles, Smartphone, ArrowRight } from 'lucide-react';
+import { Play, Pause, MessageSquare, ShieldCheck, TrendingUp, Sparkles, Smartphone, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export function DemoVideoPlayer() {
@@ -28,7 +28,7 @@ export function DemoVideoPlayer() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Demostración Interactiva (60s)</span>
+            <span>Demostración Interactiva Paso a Paso (Sin Instalación)</span>
           </div>
           <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             El flujo completo de Cotización a Cobro SPEI
