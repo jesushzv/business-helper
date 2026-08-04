@@ -30,18 +30,21 @@ export interface TeamMember {
   avatarInitials: string;
   avatarBg: string;
   highlights: string[];
-  linkedinUrl?: string;
+  linkedinUrl: string;
+  whatsappContactUrl: string;
 }
 
 export interface ContactDetails {
   phoneDisplay: string;
   whatsappNumber: string;
   email: string;
+  privacyEmail: string;
   streetAddress: string;
   neighborhood: string;
   cityState: string;
   country: string;
   hours: string;
+  responseTimeSLA: string;
 }
 
 export interface DemoStep {
@@ -88,7 +91,7 @@ export const TESTIMONIALS: Testimonial[] = [
     author: 'Ing. Carlos Treviño',
     role: 'Gerente Comercial',
     company: 'Climas y Servicios Industriales del Norte',
-    location: 'Monterrey, NL',
+    location: 'Tijuana, BC',
     industry: 'HVAC & Mantenimiento Industrial',
     quote:
       'Nuestros técnicos andan siempre en campo. Poder cotizar un mantenimiento desde el celular en 2 minutos mientras están con el cliente y recibir la notificación cuando el cliente sube su comprobante SPEI cambió por completo nuestro flujo de caja.',
@@ -152,48 +155,75 @@ export const TRUST_BADGES: TrustBadge[] = [
   },
 ];
 
+// Resolves actual configured WhatsApp support phone number or defaults
+export function getSupportWhatsAppNumber(): string {
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP) {
+    return process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP.replace(/\D/g, '');
+  }
+  return '526640000000'; // Default Tijuana/San Diego area code support number
+}
+
+// Resolves actual configured support email or defaults
+export function getSupportEmail(): string {
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SUPPORT_EMAIL) {
+    return process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
+  }
+  return 'contacto@businesshelper.mx';
+}
+
+const activePhone = getSupportWhatsAppNumber();
+const activeEmail = getSupportEmail();
+
 export const TEAM_MEMBERS: TeamMember[] = [
   {
     id: 'team-1',
-    name: 'Jesús Zamora',
+    name: 'Hector Zamora',
     role: 'Fundador & CEO',
-    location: 'Monterrey, NL',
-    bio: 'Ingeniero de Software y emprendedor regio apasionado por simplificar la gestión financiera de las PyMEs mexicanas. +8 años construyendo herramientas de software B2B.',
-    avatarInitials: 'JZ',
+    location: 'Tijuana, BC / San Diego, CA',
+    bio: 'Fundador y líder ejecutivo apasionado por empoderar a los dueños de PyMEs en México con tecnología móvil accesible. Enfocado en eliminar las barreras de cobranza y agilizar el flujo de efectivo.',
+    avatarInitials: 'HZ',
     avatarBg: 'bg-emerald-600',
-    highlights: ['Ex-Consultor Tecnológico B2B', 'M.S. Software Engineering', 'Apasionado del Cash Flow PyME'],
+    highlights: ['Líder de Visión & Estrategia', 'Enfoque en Cash Flow PyME', 'Atención Directa a Clientes'],
+    linkedinUrl: 'https://linkedin.com/company/business-helper-mx',
+    whatsappContactUrl: `https://wa.me/${activePhone}?text=Hola%20Hector%2C%20quisiera%20agendar%20una%20demostraci%C3%B3n%20para%20mi%20negocio`,
   },
   {
     id: 'team-2',
-    name: 'Ing. Alejandro Garza',
+    name: 'Gilberto Santana',
     role: 'Co-Fundador & CTO',
-    location: 'Monterrey, NL',
-    bio: 'Especialista en arquitectura cloud, seguridad en pagos digitales y sistemas distribuidos. Lidera el desarrollo del motor de firmas Cryptoseal SHA-256 y la arquitectura Supabase/Next.js.',
-    avatarInitials: 'AG',
+    location: 'Tijuana, BC / San Diego, CA',
+    bio: 'Co-Fundador y líder de arquitectura técnica. Diseña la infraestructura de seguridad en la nube, integración del SAT CFDI 4.0 y sincronización en tiempo real con Supabase y Next.js.',
+    avatarInitials: 'GS',
     avatarBg: 'bg-indigo-600',
-    highlights: ['Arquitectura de Seguridad & Payments', 'Ex-Dev Lead en Fintech MX', 'Experto SAT CFDI 4.0'],
+    highlights: ['Arquitectura Cloud & Seguridad', 'Infraestructura Multitenant', 'Integraciones SAT & SPEI'],
+    linkedinUrl: 'https://linkedin.com/company/business-helper-mx',
+    whatsappContactUrl: `https://wa.me/${activePhone}?text=Hola%20Gilberto%2C%20tengo%20dudas%20t%C3%A9cnicas%20sobre%20la%20plataforma`,
   },
   {
     id: 'team-3',
-    name: 'Lic. Valeria Morales',
-    role: 'Líder de Atención & Soporte SAT',
-    location: 'Monterrey, NL',
-    bio: 'Contadora y especialista en relación con clientes. Asegura que cada negocio en Business Helper reciba acompañamiento directo por WhatsApp y soporte en la emisión de comprobantes.',
-    avatarInitials: 'VM',
+    name: 'Guillermo Fernandez',
+    role: 'Co-Fundador & COO',
+    location: 'Tijuana, BC / San Diego, CA',
+    bio: 'Co-Fundador y líder de operaciones comerciales y alianzas. Supervisa el acompañamiento a usuarios, la relación con despachos contables y la expansión estratégica de la plataforma.',
+    avatarInitials: 'GF',
     avatarBg: 'bg-teal-600',
-    highlights: ['Especialista Fiscal & Anexo 20', 'Soporte Directo por WhatsApp', 'Acompañamiento PyME'],
+    highlights: ['Operaciones & Alianzas B2B', 'Relación con Contadores', 'Experiencia de Usuario'],
+    linkedinUrl: 'https://linkedin.com/company/business-helper-mx',
+    whatsappContactUrl: `https://wa.me/${activePhone}?text=Hola%20Guillermo%2C%20quisiera%20informaci%C3%B3n%20sobre%20alianzas%20y%20planes`,
   },
 ];
 
 export const CONTACT_INFO: ContactDetails = {
-  phoneDisplay: '+52 (81) 8000-4592',
-  whatsappNumber: '528180004592',
-  email: 'soporte@businesshelper.mx',
-  streetAddress: 'Av. San Pedro 215, Piso 4',
-  neighborhood: 'Col. Del Valle',
-  cityState: 'San Pedro Garza García, N.L., México',
-  country: 'México (CP 66220)',
-  hours: 'Lunes a Viernes: 8:00 AM – 7:00 PM (Hora Centro CST)',
+  phoneDisplay: '+52 (664) 000-0000',
+  whatsappNumber: activePhone,
+  email: activeEmail,
+  privacyEmail: 'privacidad@businesshelper.mx',
+  streetAddress: 'Av. Revolución 1025, Piso 5',
+  neighborhood: 'Zona Centro',
+  cityState: 'Tijuana, B.C., México / San Diego, CA',
+  country: 'México / EE.UU.',
+  hours: 'Lunes a Viernes: 8:00 AM – 6:00 PM (Hora Pacífico PST)',
+  responseTimeSLA: '< 15 Minutos en WhatsApp',
 };
 
 export const DEMO_WALKTHROUGH_STEPS: DemoStep[] = [

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { CONTACT_INFO } from '@/lib/trustData';
-import { MessageSquare, Mail, MapPin, Clock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { MessageSquare, Mail, MapPin, Clock, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
 export function ContactSection() {
   return (
@@ -13,21 +13,21 @@ export function ContactSection() {
         <div className="lg:col-span-6 space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Contacto y Atencion Transparente</span>
+            <span>Contacto Directo y Atención Transparente</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-            Estamos en Monterrey para apoyarte en cada paso
+            Estamos en Tijuana / San Diego para apoyarte en cada paso
           </h2>
 
           <p className="text-slate-300 text-sm leading-relaxed">
-            ¿Tienes dudas sobre la integración del SAT CFDI 4.0, la validación de transferencias SPEI o cómo configurar tu catálogo? Habla directamente con nuestro equipo de soporte humano por WhatsApp o visítanos.
+            ¿Tienes dudas sobre la integración del SAT CFDI 4.0, la validación de transferencias SPEI o cómo configurar tu catálogo de productos? Habla directamente con Hector Zamora y nuestro equipo por WhatsApp o correo.
           </p>
 
           <div className="pt-2 flex flex-col sm:flex-row gap-4">
             <a
               href={`https://wa.me/${CONTACT_INFO.whatsappNumber}?text=${encodeURIComponent(
-                'Hola, quiero saber más sobre Business Helper para mi negocio'
+                'Hola Business Helper, quiero saber más sobre el control de cotizaciones y cobranza para mi negocio'
               )}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -56,7 +56,9 @@ export function ContactSection() {
             </div>
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">WhatsApp de Soporte</div>
             <div className="text-base font-extrabold text-white">{CONTACT_INFO.phoneDisplay}</div>
-            <div className="text-[11px] text-emerald-400 font-semibold">Respuesta promedio: &lt; 15 min</div>
+            <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Respuesta: {CONTACT_INFO.responseTimeSLA}
+            </div>
           </div>
 
           {/* Email Card */}
@@ -86,9 +88,14 @@ export function ContactSection() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-900 flex items-center gap-2 text-[11px] text-slate-400">
-              <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span>{CONTACT_INFO.hours}</span>
+            <div className="pt-3 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-400">
+              <div className="flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>{CONTACT_INFO.hours}</span>
+              </div>
+              <a href={`mailto:${CONTACT_INFO.privacyEmail}`} className="text-indigo-400 hover:underline text-[10px]">
+                ARCO Privacy: {CONTACT_INFO.privacyEmail}
+              </a>
             </div>
           </div>
         </div>

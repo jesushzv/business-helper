@@ -691,7 +691,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-emerald-400" />
-              <span>© 2026 Business Helper S.A.P.I. de C.V. Todos los derechos reservados. San Pedro Garza García, N.L.</span>
+              <span>© 2026 Business Helper S.A.P.I. de C.V. Todos los derechos reservados. Tijuana, B.C. / San Diego, CA.</span>
             </div>
             <div className="flex items-center gap-6">
               <Link href="/privacy" className="hover:text-slate-300 transition-colors py-2">

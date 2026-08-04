@@ -2409,11 +2409,27 @@ test('Trust badges feature SAT CFDI 4.0, SSL 256-bit, Banxico SPEI, and PAC part
   assert.strictEqual(pacBadge !== undefined, true, 'PAC partner badge must exist');
 });
 
-test('Contact info includes Monterrey NL address, WhatsApp support number, and support email', () => {
+test('Contact info includes Tijuana / San Diego location, dynamic WhatsApp support number, support email, and privacy email', () => {
   const trustData = require('../lib/trustData.ts');
-  assert.strictEqual(trustData.CONTACT_INFO.whatsappNumber.includes('81'), true, 'WhatsApp number must be Monterrey area code (81)');
-  assert.strictEqual(trustData.CONTACT_INFO.email, 'soporte@businesshelper.mx', 'Support email must match');
-  assert.strictEqual(trustData.CONTACT_INFO.cityState, 'San Pedro Garza García, N.L., México', 'City/State must match Monterrey area');
+  assert.strictEqual(typeof trustData.CONTACT_INFO.whatsappNumber, 'string', 'WhatsApp number must exist');
+  assert.strictEqual(trustData.CONTACT_INFO.privacyEmail, 'privacidad@businesshelper.mx', 'Privacy email must match privacidad@businesshelper.mx');
+  assert.strictEqual(trustData.CONTACT_INFO.cityState.includes('Tijuana'), true, 'City/State must include Tijuana');
+});
+
+test('Team section features founder profiles for Hector Zamora (CEO), Gilberto Santana, and Guillermo Fernandez based in Tijuana / San Diego', () => {
+  const trustData = require('../lib/trustData.ts');
+  const founder = trustData.TEAM_MEMBERS.find(m => m.name === 'Hector Zamora');
+  assert.strictEqual(founder !== undefined, true, 'Founder Hector Zamora profile must exist');
+  assert.strictEqual(founder.role.includes('CEO'), true, 'Founder role must be Fundador & CEO');
+  assert.strictEqual(founder.location.includes('Tijuana'), true, 'Founder location must include Tijuana');
+
+  const cto = trustData.TEAM_MEMBERS.find(m => m.name === 'Gilberto Santana');
+  assert.strictEqual(cto !== undefined, true, 'Gilberto Santana profile must exist');
+  assert.strictEqual(cto.role.includes('CTO'), true, 'CTO role');
+
+  const coo = trustData.TEAM_MEMBERS.find(m => m.name === 'Guillermo Fernandez');
+  assert.strictEqual(coo !== undefined, true, 'Guillermo Fernandez profile must exist');
+  assert.strictEqual(coo.role.includes('COO'), true, 'COO role');
 });
 
 test('Demo video walkthrough steps match full quote-to-payment CUJ flow', () => {
