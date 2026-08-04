@@ -61,22 +61,6 @@ export interface DemoStep {
 
 export const TESTIMONIALS: Testimonial[] = [
   {
-    id: 'test-1',
-    author: 'Roberto Elizondo',
-    role: 'Director General',
-    company: 'Distribuidora de Materiales del Norte S.A. de C.V.',
-    location: 'Monterrey, NL',
-    industry: 'Construcción y Materiales',
-    quote:
-      'Antes me pasaba todos los viernes revisando hojas de Excel y pidiendo a recepción que llamaran a los clientes para cobrar anticipos. Con Business Helper mandamos la cotización y el recordatorio con 1 toque. Redujimos nuestra cartera vencida un 40% en solo 60 días.',
-    rating: 5,
-    metricTag: '-40% Cartera Vencida',
-    avatarInitials: 'RE',
-    avatarBg: 'bg-emerald-600',
-    avatarIcon: 'Building2',
-    avatarUrl: '/avatars/roberto_elizondo.png',
-  },
-  {
     id: 'test-2',
     author: 'Lic. Mariana Fuentes',
     role: 'Directora de Operaciones',
@@ -107,22 +91,6 @@ export const TESTIMONIALS: Testimonial[] = [
     avatarBg: 'bg-teal-600',
     avatarIcon: 'Wrench',
     avatarUrl: '/avatars/carlos_trevino.png',
-  },
-  {
-    id: 'test-4',
-    author: 'Dra. Sofía Morales',
-    role: 'Administradora General',
-    company: 'Servicios de Salud & Equipamiento Médico',
-    location: 'Guadalajara, JAL',
-    industry: 'Insumos Médicos & Salud',
-    quote:
-      'Tener el Score de Salud del Cliente y el panel visual de cobranza nos permite saber exactamente a quién otorgar crédito comercial y quién tiene facturas pendientes sin tener que implementar un ERP pesado de cientos de miles de pesos.',
-    rating: 5,
-    metricTag: 'Score de Salud Activo',
-    avatarInitials: 'SM',
-    avatarBg: 'bg-amber-600',
-    avatarIcon: 'Stethoscope',
-    avatarUrl: '/avatars/sofia_morales.png',
   },
 ];
 

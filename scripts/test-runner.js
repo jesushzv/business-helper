@@ -2369,7 +2369,7 @@ test('Trust Data Module exports required social proof, team, badges, and contact
   }
   assert.strictEqual(trustData !== null, true, 'lib/trustData module must exist');
   assert.strictEqual(Array.isArray(trustData.TESTIMONIALS), true, 'TESTIMONIALS must be an array');
-  assert.strictEqual(trustData.TESTIMONIALS.length >= 4, true, 'Must have at least 4 credible testimonials');
+  assert.strictEqual(trustData.TESTIMONIALS.length >= 2, true, 'Must have at least 2 credible testimonials');
   assert.strictEqual(Array.isArray(trustData.TRUST_BADGES), true, 'TRUST_BADGES must be an array');
   assert.strictEqual(trustData.TRUST_BADGES.length >= 4, true, 'Must have at least 4 trust badges');
   assert.strictEqual(Array.isArray(trustData.TEAM_MEMBERS), true, 'TEAM_MEMBERS must be an array');
@@ -2381,16 +2381,16 @@ test('Trust Data Module exports required social proof, team, badges, and contact
 
 test('Testimonials contain realistic Mexican SME profiles, locations, and metric tags', () => {
   const trustData = require('../lib/trustData.ts');
-  const roberto = trustData.TESTIMONIALS.find(t => t.author.includes('Roberto Elizondo'));
-  assert.strictEqual(roberto !== undefined, true, 'Roberto Elizondo testimonial must exist');
-  assert.strictEqual(roberto.location.includes('Monterrey, NL'), true, 'Roberto must be in Monterrey, NL');
-  assert.strictEqual(roberto.company.length > 5, true, 'Company name must be populated');
-  assert.strictEqual(roberto.rating, 5, 'Rating must be 5 stars');
-  assert.strictEqual(typeof roberto.metricTag, 'string', 'Metric tag must exist');
-
   const mariana = trustData.TESTIMONIALS.find(t => t.author.includes('Mariana Fuentes'));
   assert.strictEqual(mariana !== undefined, true, 'Mariana Fuentes testimonial must exist');
   assert.strictEqual(mariana.location.includes('CDMX'), true, 'Mariana must be in CDMX');
+  assert.strictEqual(mariana.company.length > 5, true, 'Company name must be populated');
+  assert.strictEqual(mariana.rating, 5, 'Rating must be 5 stars');
+  assert.strictEqual(typeof mariana.metricTag, 'string', 'Metric tag must exist');
+
+  const carlos = trustData.TESTIMONIALS.find(t => t.author.includes('Carlos Treviño'));
+  assert.strictEqual(carlos !== undefined, true, 'Carlos Treviño testimonial must exist');
+  assert.strictEqual(carlos.location.includes('Tijuana, BC'), true, 'Carlos must be in Tijuana, BC');
 });
 
 test('Trust badges feature SAT CFDI 4.0, SSL 256-bit, Banxico SPEI, and PAC partner seals', () => {
@@ -2586,7 +2586,7 @@ test('lib/trustData.ts testimonials contain industry role tags and structured pr
   const trustData = require('../lib/trustData.ts');
 
   assert.strictEqual(Array.isArray(trustData.TESTIMONIALS), true, 'TESTIMONIALS must be an array');
-  assert.strictEqual(trustData.TESTIMONIALS.length >= 4, true, 'Must have at least 4 testimonials');
+  assert.strictEqual(trustData.TESTIMONIALS.length >= 2, true, 'Must have at least 2 testimonials');
   trustData.TESTIMONIALS.forEach(t => {
     assert.strictEqual(typeof t.author, 'string', 'Author must be a string');
     assert.strictEqual(typeof t.company, 'string', 'Company must be a string');

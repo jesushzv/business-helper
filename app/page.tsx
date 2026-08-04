@@ -154,10 +154,8 @@ export default function LandingPage() {
               {/* Micro Social Proof Banner */}
               <div className="pt-4 border-t border-slate-900 flex items-center justify-center lg:justify-start gap-3">
                 <div className="flex -space-x-2 overflow-hidden">
-                  <img src="/avatars/roberto_elizondo.png" alt="Roberto Elizondo" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
                   <img src="/avatars/mariana_fuentes.png" alt="Mariana Fuentes" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
                   <img src="/avatars/carlos_trevino.png" alt="Carlos Treviño" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
-                  <img src="/avatars/sofia_morales.png" alt="Sofía Morales" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
                 </div>
                 <div className="text-xs text-slate-400 text-left">
                   <div className="flex items-center text-amber-400 gap-0.5">
