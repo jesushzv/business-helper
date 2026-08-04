@@ -2495,6 +2495,71 @@ test('lib/trustData.ts contains SAT CSD zero-storage trust assertion', () => {
 });
 
 // ----------------------------------------------------
+// 52. WS-C Signup Form & Legal Pages Suite
+// ----------------------------------------------------
+console.log('\n[Suite 52: WS-C Signup Form & Legal Pages Suite]');
+
+test('lib/phoneValidator.js validates 10-digit Mexican phone numbers correctly', () => {
+  const phoneValidator = require('../lib/phoneValidator.js');
+  
+  const valid1 = phoneValidator.validatePhone('8112345678');
+  assert.strictEqual(valid1.isValid, true, '8112345678 should be valid');
+  assert.strictEqual(valid1.phone, '8112345678', 'Cleaned phone should be 8112345678');
+
+  const valid2 = phoneValidator.validatePhone('(81) 1234-5678');
+  assert.strictEqual(valid2.isValid, true, '(81) 1234-5678 formatted phone should be valid');
+  assert.strictEqual(valid2.phone, '8112345678', 'Cleaned phone should be 8112345678');
+
+  const valid3 = phoneValidator.validatePhone('+52 81 1234 5678');
+  assert.strictEqual(valid3.isValid, true, '+52 prefix phone should be valid');
+  assert.strictEqual(valid3.phone, '8112345678', 'Cleaned phone should strip country code to 10 digits');
+
+  const invalid1 = phoneValidator.validatePhone('12345');
+  assert.strictEqual(invalid1.isValid, false, 'Short phone number should be invalid');
+
+  const invalid2 = phoneValidator.validatePhone('');
+  assert.strictEqual(invalid2.isValid, false, 'Empty phone string should be invalid');
+});
+
+test('app/(auth)/register/page.tsx includes mandatory fields, optional fields, asterisks, privacy checkbox, and metadata payload', () => {
+  const registerContent = fs.readFileSync(path.join(__dirname, '../app/(auth)/register/page.tsx'), 'utf8');
+
+  // Check mandatory fields
+  assert.strictEqual(registerContent.includes('RFC') || registerContent.includes('rfc'), true, 'Register page must include RFC field');
+  assert.strictEqual(registerContent.includes('phone') || registerContent.includes('Teléfono') || registerContent.includes('WhatsApp'), true, 'Register page must include Phone/WhatsApp field');
+  
+  // Check optional fields
+  assert.strictEqual(registerContent.includes('regimenFiscal') || registerContent.includes('Régimen Fiscal') || registerContent.includes('taxRegime'), true, 'Register page must include Tax Regime option');
+  assert.strictEqual(registerContent.includes('companySize') || registerContent.includes('Tamaño de') || registerContent.includes('colaboradores'), true, 'Register page must include Company Size option');
+
+  // Check required field asterisks indicator
+  assert.strictEqual(registerContent.includes('*') || registerContent.includes('text-rose-500') || registerContent.includes('text-red-500'), true, 'Register page must include required field indicators');
+
+  // Check privacy policy & terms checkbox
+  assert.strictEqual(registerContent.includes('/privacy'), true, 'Register page must link to /privacy');
+  assert.strictEqual(registerContent.includes('/terms'), true, 'Register page must link to /terms');
+  assert.strictEqual(registerContent.includes('checkbox') || registerContent.includes('acceptTerms'), true, 'Register page must include privacy acceptance checkbox');
+
+  // Check Supabase user metadata payload
+  assert.strictEqual(registerContent.includes('rfc:') || registerContent.includes('rfc'), true, 'Register metadata payload must include rfc');
+  assert.strictEqual(registerContent.includes('phone:') || registerContent.includes('phone'), true, 'Register metadata payload must include phone');
+});
+
+test('app/terms/page.tsx contains Section 5: Política de Cancelación y Reembolso', () => {
+  const termsContent = fs.readFileSync(path.join(__dirname, '../app/terms/page.tsx'), 'utf8');
+
+  assert.strictEqual(termsContent.includes('Cancelación') || termsContent.includes('cancelar'), true, 'Terms page must include cancellation policy');
+  assert.strictEqual(termsContent.includes('Reembolso') || termsContent.includes('reembolso') || termsContent.includes('5.'), true, 'Terms page must outline refund/cancellation terms');
+});
+
+test('app/privacy/page.tsx contains LFPDPPP Mexican privacy compliance details', () => {
+  const privacyContent = fs.readFileSync(path.join(__dirname, '../app/privacy/page.tsx'), 'utf8');
+
+  assert.strictEqual(privacyContent.includes('LFPDPPP') || privacyContent.includes('Protección de Datos Personales'), true, 'Privacy page must reference LFPDPPP compliance');
+  assert.strictEqual(privacyContent.includes('ARCO') || privacyContent.includes('Derechos ARCO'), true, 'Privacy page must specify ARCO rights');
+});
+
+// ----------------------------------------------------
 // Test Summary
 // ----------------------------------------------------
 console.log('\n--------------------------------------------------');

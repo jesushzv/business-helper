@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Shield, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Shield, FileText, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
 export const metadata = {
   title: 'Términos y Condiciones — Business Helper',
@@ -80,6 +80,19 @@ export default function TermsPage() {
             </h2>
             <p>
               Business Helper calcula estimaciones de IVA y retenciones fiscales conforme a las reglas del SAT vigentes al momento de la cotización. El usuario es responsable de verificar la precisión de sus datos fiscales y la idoneidad legal de sus contratos comerciales.
+            </p>
+          </div>
+
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-indigo-400" />
+              5. Política de Cancelación y Reembolso
+            </h2>
+            <p>
+              El usuario puede cancelar su suscripción a <strong>Business Helper</strong> en cualquier momento y sin penalizaciones desde su panel de configuración o enviando una solicitud a <a href="mailto:soporte@businesshelper.mx" className="text-indigo-400 underline">soporte@businesshelper.mx</a>.
+            </p>
+            <p>
+              Al solicitar la cancelación, el acceso a las funciones de su plan se mantendrá activo hasta el final del periodo mensual ya pagado. No se realizan reembolsos proporcionales por días no utilizados dentro del ciclo de facturación activo.
             </p>
           </div>
         </section>

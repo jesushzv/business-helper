@@ -4,19 +4,62 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Building2, Lock, Mail, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { Building2, Lock, Mail, ArrowRight, AlertCircle, Sparkles, FileText, Phone, Users, ShieldCheck } from 'lucide-react';
+import { validateRFC } from '@/lib/rfcValidator';
+import { validatePhone } from '@/lib/phoneValidator';
+
+const REGIMENES_FISCALES = [
+  { code: '601', label: '601 - General de Ley Personas Morales' },
+  { code: '626', label: '626 - Régimen Simplificado de Confianza (RESICO)' },
+  { code: '612', label: '612 - Personas Físicas con Actividades Empresariales y Profesionales' },
+  { code: '606', label: '606 - Arrendamiento' },
+  { code: '621', label: '621 - Incorporación Fiscal (RIF)' },
+  { code: '603', label: '603 - Personas Morales con Fines no Lucrativos' },
+];
+
+const COMPANY_SIZES = [
+  { value: '1-5', label: '1 - 5 colaboradores (Micro)' },
+  { value: '6-20', label: '6 - 20 colaboradores (Pequeña)' },
+  { value: '21-50', label: '21 - 50 colaboradores (Mediana)' },
+  { value: '50+', label: '50+ colaboradores (Grande)' },
+];
 
 export default function RegisterPage() {
   const router = useRouter();
   const [businessName, setBusinessName] = useState('');
+  const [rfc, setRfc] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [taxRegime, setTaxRegime] = useState('601');
+  const [companySize, setCompanySize] = useState('1-5');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const rfcResult = rfc ? validateRFC(rfc) : { isValid: false, type: null };
+  const phoneResult = phone ? validatePhone(phone) : { isValid: false, phone: '' };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!acceptTerms) {
+      setError('Debes aceptar el Aviso de Privacidad y los Términos y Condiciones.');
+      return;
+    }
+
+    if (!rfcResult.isValid) {
+      setError('Por favor ingresa un RFC válido (12 o 13 caracteres).');
+      return;
+    }
+
+    if (!phoneResult.isValid) {
+      setError('Por favor ingresa un número telefónico válido de 10 dígitos.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -27,6 +70,10 @@ export default function RegisterPage() {
         options: {
           data: {
             business_name: businessName,
+            rfc: rfc.trim().toUpperCase(),
+            phone: phoneResult.phone,
+            tax_regime: taxRegime,
+            company_size: companySize,
           },
         },
       });
@@ -53,7 +100,7 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-950 to-slate-950 pointer-events-none" />
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md z-10 text-center px-4">
+      <div className="sm:mx-auto sm:w-full sm:max-w-xl z-10 text-center px-4">
         <div className="inline-flex items-center gap-2 bg-indigo-500/10 text-indigo-400 px-3.5 py-1.5 rounded-full border border-indigo-500/20 text-xs font-semibold uppercase tracking-wider mb-4">
           <Sparkles className="w-3.5 h-3.5" />
           Business Helper MX
@@ -66,7 +113,7 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md z-10 px-4">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl z-10 px-4">
         <div className="bg-slate-900/90 backdrop-blur-xl py-8 px-6 shadow-2xl rounded-3xl border border-slate-800 sm:px-10">
           {error && (
             <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3 text-rose-400 text-sm">
@@ -76,9 +123,10 @@ export default function RegisterPage() {
           )}
 
           <form className="space-y-5" onSubmit={handleRegister}>
+            {/* Business Name */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                Nombre de tu Empresa / Negocio
+                Nombre de tu Empresa / Negocio <span className="text-rose-500 font-bold ml-0.5">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -95,9 +143,68 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {/* Grid 2 Columns for RFC & Phone */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* RFC */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    RFC de la Empresa <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </label>
+                  {rfc && (
+                    <span className={`text-[10px] font-bold ${rfcResult.isValid ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {rfcResult.isValid ? `✓ ${rfcResult.type === 'moral' ? 'Moral (12)' : 'Física (13)'}` : 'Inválido'}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    maxLength={13}
+                    value={rfc}
+                    onChange={(e) => setRfc(e.target.value.toUpperCase())}
+                    placeholder="ABC120315HD9"
+                    className="block w-full pl-11 pr-4 py-3 min-h-[48px] uppercase font-mono bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Phone / WhatsApp */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Teléfono Móvil / WhatsApp <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </label>
+                  {phone && (
+                    <span className={`text-[10px] font-bold ${phoneResult.isValid ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {phoneResult.isValid ? '✓ 10 dígitos' : 'Inválido'}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <Phone className="w-5 h-5" />
+                  </div>
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="8112345678"
+                    className="block w-full pl-11 pr-4 py-3 min-h-[48px] bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Email */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                Correo Electrónico del Dueño / Admin
+                Correo Electrónico del Dueño / Admin <span className="text-rose-500 font-bold ml-0.5">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -114,9 +221,10 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {/* Password */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                Contraseña
+                Contraseña <span className="text-rose-500 font-bold ml-0.5">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -134,15 +242,86 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {/* Optional Grid: Tax Regime & Company Size */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-1">
+              {/* Tax Regime */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                  Régimen Fiscal SAT <span className="text-slate-500 font-normal normal-case ml-1">(Opcional)</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={taxRegime}
+                    onChange={(e) => setTaxRegime(e.target.value)}
+                    className="block w-full px-4 py-3 min-h-[48px] bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-xs"
+                  >
+                    {REGIMENES_FISCALES.map((r) => (
+                      <option key={r.code} value={r.code}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Company Size */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                  Tamaño de Empresa <span className="text-slate-500 font-normal normal-case ml-1">(Opcional)</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <select
+                    value={companySize}
+                    onChange={(e) => setCompanySize(e.target.value)}
+                    className="block w-full pl-10 pr-4 py-3 min-h-[48px] bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-xs"
+                  >
+                    {COMPANY_SIZES.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Privacy & Terms Checkbox */}
+            <div className="pt-2">
+              <label className="flex items-start gap-3 cursor-pointer text-xs text-slate-300 leading-relaxed">
+                <input
+                  type="checkbox"
+                  required
+                  checked={acceptTerms}
+                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900"
+                />
+                <span>
+                  Acepto el{' '}
+                  <Link href="/privacy" className="text-indigo-400 underline hover:text-indigo-300 font-medium">
+                    Aviso de Privacidad
+                  </Link>{' '}
+                  y los{' '}
+                  <Link href="/terms" className="text-indigo-400 underline hover:text-indigo-300 font-medium">
+                    Términos y Condiciones
+                  </Link>{' '}
+                  de Business Helper México. <span className="text-rose-500 font-bold">*</span>
+                </span>
+              </label>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center items-center gap-2 min-h-[48px] py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+              className="w-full flex justify-center items-center gap-2 min-h-[48px] py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
             >
               {loading ? (
                 'Creando tu cuenta...'
               ) : (
                 <>
+                  <ShieldCheck className="w-5 h-5" />
                   Comenzar Prueba Gratis
                   <ArrowRight className="w-4 h-4" />
                 </>
