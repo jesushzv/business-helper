@@ -64,8 +64,8 @@ export default function DemoPage() {
           </div>
 
           <SmartVideoPlayer
-            src="/assets/demo/cuj_02_dashboard_mobile.mp4"
-            poster="/assets/demo/dashboard_preview.png"
+            src="/assets/demo/cuj_02_dashboard_mobile.webm"
+            poster="/assets/demo/cuj_02_dashboard_kpis.png"
             alt="Business Helper Demo en Vivo — Demostración interactiva del flujo de cotización"
           />
         </div>
