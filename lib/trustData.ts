@@ -65,6 +65,7 @@ export interface TrustBadge {
   description: string;
   iconName: string;
   badgeTag: string;
+  externalSealLabel: string;
 }
 
 export interface TeamMember {
@@ -113,6 +114,7 @@ export const TRUST_BADGES: TrustBadge[] = [
       'Cumple con los requerimientos vigentes del Anexo 20 del SAT para Facturación CFDI 4.0. Garantía de Seguridad: Nunca almacenamos tus certificados SAT (.cer/.key); mantienes el control total de tus llaves con tu PAC de confianza.',
     iconName: 'Building2',
     badgeTag: 'SAT Anexo 20',
+    externalSealLabel: 'PAC SAT Certificado — Facturapi Partner',
   },
   {
     id: 'ssl-encryption',
@@ -122,6 +124,7 @@ export const TRUST_BADGES: TrustBadge[] = [
       'Toda tu información contable, firmas OTP y comprobantes se transmiten encriptados bajo estándares de nivel bancario.',
     iconName: 'ShieldCheck',
     badgeTag: 'SSL 256-bit',
+    externalSealLabel: 'Encriptación TLS 1.3 / SSL 256-Bit (Stripe Security)',
   },
   {
     id: 'banxico-spei',
@@ -131,6 +134,7 @@ export const TRUST_BADGES: TrustBadge[] = [
       'Verificación transparente de Clave de Rastreo SPEI y comprobantes bancarios directamente desde tu portal de pagos.',
     iconName: 'CheckCircle2',
     badgeTag: 'Banxico Validated',
+    externalSealLabel: 'Verificación CEP Banxico por Clave de Rastreo',
   },
   {
     id: 'pac-partner',
@@ -140,6 +144,7 @@ export const TRUST_BADGES: TrustBadge[] = [
       'Infraestructura conectada a PACs certificados por el SAT (Facturapi) para timbrado directo sin intermediarios riesgosos.',
     iconName: 'Zap',
     badgeTag: 'PAC Certificado',
+    externalSealLabel: 'Sellos SAT CSD 100% Protegidos en tu PAC',
   },
 ];
 

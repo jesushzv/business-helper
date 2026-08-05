@@ -52,13 +52,29 @@ export function TrustBadges() {
                 </div>
               </div>
 
-              <div className="pt-4 mt-4 border-t border-slate-800/60 flex items-center gap-1.5 text-[11px] font-bold text-slate-300">
+              <div className="pt-4 mt-4 border-t border-slate-800/60 flex items-center gap-1.5 text-[11px] font-bold text-emerald-400">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Verificado en Producción</span>
+                <span>{badge.externalSealLabel}</span>
               </div>
             </div>
           );
         })}
+      </div>
+
+      {/* External Partner Seals Trust Banner */}
+      <div className="mt-10 p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-wrap items-center justify-around gap-6 text-xs text-slate-400">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <span><strong>Facturapi:</strong> PAC Partner Autorizado SAT</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-indigo-400" />
+          <span><strong>Stripe:</strong> Procesamiento Encriptado TLS 1.3</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-teal-400" />
+          <span><strong>Banxico SPEI:</strong> Validación de Clave de Rastreo</span>
+        </div>
       </div>
     </div>
   );
