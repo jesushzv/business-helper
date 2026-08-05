@@ -48,11 +48,10 @@ export function BottomConversionForm() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1">
           <label className="text-xs font-bold text-slate-300">
-            RFC de la Empresa <span className="text-rose-500 font-bold ml-0.5">*</span>
+            RFC de la Empresa <span className="text-slate-400 font-normal text-[10px] ml-1">(Opcional)</span>
           </label>
           <input
             type="text"
-            required
             maxLength={13}
             value={rfc}
             onChange={(e) => setRfc(e.target.value.toUpperCase())}

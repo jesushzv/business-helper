@@ -28,6 +28,7 @@ import { BrowserFrameMockup } from '@/components/landing/BrowserFrameMockup';
 import { SmartVideoPlayer } from '@/components/landing/SmartVideoPlayer';
 import { LiveDemoButton } from '@/components/landing/LiveDemoButton';
 import { BottomConversionForm } from '@/components/landing/BottomConversionForm';
+import { DifferentiatorTimeline } from '@/components/landing/DifferentiatorTimeline';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { getAssetUrl } from '@/lib/url';
 import { TESTIMONIALS, CONTACT_INFO } from '@/lib/trustData';
@@ -198,6 +199,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* 5-Step Unique Workflow Timeline */}
+      <DifferentiatorTimeline />
 
       {/* Value Propositions Grid */}
       <section id="caracteristicas" className="py-20 border-t border-slate-900 bg-slate-950/50">
@@ -492,23 +496,23 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Emprendedor Tier */}
+            {/* Inicial Tier */}
             <div className="p-8 rounded-3xl bg-slate-900/40 border border-slate-800 space-y-6 flex flex-col justify-between">
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-bold text-white">Emprendedor</h3>
-                  <p className="text-xs text-slate-400 mt-1">Ideal para personas físicas y pequeños negocios.</p>
+                  <h3 className="text-lg font-bold text-white">Plan Inicial</h3>
+                  <p className="text-xs text-slate-400 mt-1">Ideal para microempresas, freelancers y servicios profesionales.</p>
                 </div>
                 <div className="text-3xl font-black text-white">$299 <span className="text-sm font-semibold text-slate-400">MXN / mes</span></div>
                 <ul className="space-y-3 text-xs text-slate-300">
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Hasta 50 cotizaciones / mes</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Enlaces directos a WhatsApp</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Portal de comprobantes SPEI</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Notas de Venta PDF ilimitadas</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Firma de cotizaciones vía OTP</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Facturación CFDI 4.0 disponible ($5 MXN/folio)</li>
                 </ul>
               </div>
-              <Link href="/onboarding?plan=emprendedor" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
+              <Link href="/register?plan=starter" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
                 Probar 14 Días Gratis
               </Link>
             </div>
@@ -520,19 +524,19 @@ export default function LandingPage() {
               </div>
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-bold text-white">Negocio</h3>
-                  <p className="text-xs text-slate-300 mt-1">Para empresas en crecimiento que buscan acelerar cobros.</p>
+                  <h3 className="text-lg font-bold text-white">Plan Negocio</h3>
+                  <p className="text-xs text-slate-300 mt-1">Para PyMEs en crecimiento que buscan acelerar cobros.</p>
                 </div>
                 <div className="text-3xl font-black text-white">$599 <span className="text-sm font-semibold text-slate-400">MXN / mes</span></div>
                 <ul className="space-y-3 text-xs text-slate-200">
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Cotizaciones ilimitadas</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> 10 folios CFDI 4.0/mes incluidos ($3 MXN/adic.)</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Firma digital OTP con sello de validez legal</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Firma digital OTP con evidencia legal</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Panel de Cobranza Kanban + Recordatorios</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Score de Salud del Cliente</li>
                 </ul>
               </div>
-              <Link href="/onboarding?plan=negocio" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-md active:scale-95">
+              <Link href="/register?plan=pro" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-md active:scale-95">
                 Probar 14 Días Gratis
               </Link>
             </div>
@@ -541,8 +545,8 @@ export default function LandingPage() {
             <div className="p-8 rounded-3xl bg-slate-900/40 border border-slate-800 space-y-6 flex flex-col justify-between">
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-bold text-white">Empresa</h3>
-                  <p className="text-xs text-slate-400 mt-1">Para agencias y distribuidoras corporativas.</p>
+                  <h3 className="text-lg font-bold text-white">Plan Empresa</h3>
+                  <p className="text-xs text-slate-400 mt-1">Para empresas consolidadas, corporativos y multi-sucursal.</p>
                 </div>
                 <div className="text-3xl font-black text-white">$999 <span className="text-sm font-semibold text-slate-400">MXN / mes</span></div>
                 <ul className="space-y-3 text-xs text-slate-300">
@@ -552,7 +556,7 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Roles de equipo y Multi-sucursal</li>
                 </ul>
               </div>
-              <Link href="/onboarding?plan=empresa" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
+              <Link href="/register?plan=business" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
                 Probar 14 Días Gratis
               </Link>
             </div>

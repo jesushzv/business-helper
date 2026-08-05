@@ -21,9 +21,9 @@ describe('Task E8 & Landing Remediation Suite', () => {
   it('renders /pricing page with pricing plans and H1 title cleanly', () => {
     render(<PricingPage />);
     expect(screen.getByRole('heading', { level: 1, name: /Elige el plan ideal/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /Plan Emprendedor/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /Plan PyME Pro/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /Plan Empresarial/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /Plan Inicial/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /Plan Negocio/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /Plan Empresa/i })).toBeInTheDocument();
   });
 
   it('renders /demo page with interactive video player and H1 title cleanly', () => {

@@ -16,7 +16,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://businesshelper.mx'),
+  metadataBase: new URL('https://businesshelper.app'),
   title: 'Business Helper | Cotizaciones, Cobranza y CFDI 4.0',
   description: 'La plataforma operativa para PyMEs en México: cotizaciones en 2 min, cobro por WhatsApp y facturación CFDI 4.0.',
   icons: {
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Business Helper | Cotizaciones, Cobranza y CFDI 4.0',
     description: 'La plataforma todo-en-uno para PyMEs en México: cotizaciones rápidas, cobro por WhatsApp y CFDI 4.0.',
-    url: 'https://businesshelper.mx',
+    url: 'https://businesshelper.app',
     siteName: 'Business Helper México',
     images: [
       {

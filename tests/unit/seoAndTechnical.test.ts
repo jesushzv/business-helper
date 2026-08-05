@@ -50,4 +50,12 @@ describe('WS-E SEO & Technical Polish Test Suite', () => {
 
     expect(content).toContain('loading="lazy"');
   });
+
+  it('verifies app/sitemap.ts and app/robots.ts exist for SEO indexing', () => {
+    const sitemapPath = path.join(process.cwd(), 'app', 'sitemap.ts');
+    const robotsPath = path.join(process.cwd(), 'app', 'robots.ts');
+
+    expect(fs.existsSync(sitemapPath)).toBe(true);
+    expect(fs.existsSync(robotsPath)).toBe(true);
+  });
 });
