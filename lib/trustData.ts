@@ -255,8 +255,8 @@ export const DEMO_WALKTHROUGH_STEPS: DemoStep[] = [
     title: 'Firma Digital OTP del Cliente',
     durationSeconds: 20,
     description:
-      'Tu cliente revisa la cotización en su celular sin instalar nada, autoriza ingresando un código OTP y se genera un Sello Digital Cryptoseal SHA-256.',
-    actionText: '3. Aprobación con Sello Criptográfico SHA-256',
+      'Tu cliente revisa la cotización en su celular sin instalar nada, autoriza ingresando un código OTP a su celular y se genera evidencia legal certificada.',
+    actionText: '3. Aprobación Digital y Evidencia Certificada',
     screenMockupType: 'otp',
   },
   {

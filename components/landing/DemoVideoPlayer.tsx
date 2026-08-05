@@ -111,7 +111,7 @@ export function DemoVideoPlayer() {
             <div className="text-xs text-slate-300 font-medium">
               {currentStep.stepNumber === 1 && 'Cálculo exacto de impuestos SAT sin errores manuales ni hojas de Excel.'}
               {currentStep.stepNumber === 2 && 'Cero costos de API de terceros. Tu cliente recibe el enlace directamente en WhatsApp.'}
-              {currentStep.stepNumber === 3 && 'Validez legal con Sello Digital Cryptoseal SHA-256 sin requerir instalación de apps.'}
+              {currentStep.stepNumber === 3 && 'Aprobación con validez legal por OTP SMS/WhatsApp sin requerir instalación de apps.'}
               {currentStep.stepNumber === 4 && 'Confirmación inmediata de Clave de Rastreo Banxico SPEI para caja limpia.'}
             </div>
           </div>

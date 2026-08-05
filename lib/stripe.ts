@@ -82,7 +82,7 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
     features: [
       'Cotizaciones ilimitadas',
       '10 folios CFDI 4.0/mes incluidos ($3 MXN/folio adicional)',
-      'Firma digital OTP + Cryptoseal SHA-256',
+      'Aprobación digital OTP con Evidencia Legal',
       'Recordatorios automáticos de WhatsApp',
       'Centro de Control y Proyección de Flujo 90 días',
       'Soporte prioritario WhatsApp',
