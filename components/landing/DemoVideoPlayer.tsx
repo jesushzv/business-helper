@@ -1,38 +1,26 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { DEMO_WALKTHROUGH_STEPS, DemoStep } from '@/lib/trustData';
-import { Play, Pause, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
-import { PhoneFrameMockup } from '@/components/landing/PhoneFrameMockup';
 import { BrowserFrameMockup } from '@/components/landing/BrowserFrameMockup';
 import { SmartVideoPlayer } from '@/components/landing/SmartVideoPlayer';
 
 export function DemoVideoPlayer() {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
-
-  useEffect(() => {
-    if (!isPlaying) return;
-
-    const timer = setInterval(() => {
-      setActiveStepIndex((prev) => (prev + 1) % DEMO_WALKTHROUGH_STEPS.length);
-    }, 4000);
-
-    return () => clearInterval(timer);
-  }, [isPlaying]);
 
   const currentStep: DemoStep = DEMO_WALKTHROUGH_STEPS[activeStepIndex];
 
   return (
-    <div className="w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl space-y-8">
-      {/* Header & Controls */}
+    <div className="w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl space-y-8" id="demo-walkthrough">
+      {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Demostración Interactiva Paso a Paso (Sin Instalación)</span>
+            <span>Recorrido Interactivo de Pantallas</span>
           </div>
           <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             El flujo completo de Cotización a Cobro SPEI
@@ -41,27 +29,9 @@ export function DemoVideoPlayer() {
             Mira cómo funciona el proceso en 4 sencillos pasos paso a paso.
           </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="min-h-[48px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            {isPlaying ? (
-              <>
-                <Pause className="w-4 h-4 text-amber-400" /> Pausar Simulación
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 text-emerald-400 fill-current" /> Reproducción Automática
-              </>
-            )}
-          </button>
-        </div>
       </div>
 
-      {/* Interactive Tabs */}
+      {/* Interactive Step Tabs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {DEMO_WALKTHROUGH_STEPS.map((step, idx) => {
           const isActive = idx === activeStepIndex;
@@ -69,10 +39,7 @@ export function DemoVideoPlayer() {
             <button
               key={step.id}
               type="button"
-              onClick={() => {
-                setActiveStepIndex(idx);
-                setIsPlaying(false);
-              }}
+              onClick={() => setActiveStepIndex(idx)}
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer min-h-[64px] flex flex-col justify-center ${
                 isActive
                   ? 'border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-950/40 text-white'
@@ -128,12 +95,11 @@ export function DemoVideoPlayer() {
           </div>
         </div>
 
-        {/* Right Device Visual Mockup (Browser for Desktop, Phone for Mobile) */}
+        {/* Right Widescreen Browser Mockup (Used for ALL steps) */}
         <div className="lg:col-span-6 flex justify-center">
           {currentStep.screenMockupType === 'quote' && (
             <BrowserFrameMockup url="app.businesshelper.mx/quotes/new">
               <SmartVideoPlayer
-                src="/assets/demo/cuj_04_quotes_wizard_desktop.webm"
                 poster="/assets/demo/cuj_04_quote_wizard_modal.png"
                 objectFit="cover"
                 objectPosition="object-top"
@@ -142,44 +108,37 @@ export function DemoVideoPlayer() {
             </BrowserFrameMockup>
           )}
 
+          {currentStep.screenMockupType === 'whatsapp' && (
+            <BrowserFrameMockup url="app.businesshelper.mx/proposal/view">
+              <SmartVideoPlayer
+                poster="/assets/demo/cuj_05_public_proposal.png"
+                objectFit="cover"
+                objectPosition="object-top"
+                alt="Propuesta interactiva enviada por enlace WhatsApp"
+              />
+            </BrowserFrameMockup>
+          )}
+
+          {currentStep.screenMockupType === 'otp' && (
+            <BrowserFrameMockup url="app.businesshelper.mx/proposal/sign-otp">
+              <SmartVideoPlayer
+                poster="/assets/demo/cuj_05_signing_otp_modal.png"
+                objectFit="cover"
+                objectPosition="object-top"
+                alt="Firma legal de propuesta por OTP SMS"
+              />
+            </BrowserFrameMockup>
+          )}
+
           {currentStep.screenMockupType === 'spei' && (
             <BrowserFrameMockup url="app.businesshelper.mx/pay/spei-receipt">
               <SmartVideoPlayer
-                src="/assets/demo/cuj_07_spei_portal_desktop.webm"
                 poster="/assets/demo/cuj_07_spei_portal.png"
                 objectFit="cover"
                 objectPosition="object-top"
                 alt="Comprobante Banxico SPEI"
               />
             </BrowserFrameMockup>
-          )}
-
-          {currentStep.screenMockupType === 'whatsapp' && (
-            <PhoneFrameMockup>
-              <div className="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
-                <SmartVideoPlayer
-                  src="/assets/demo/cuj_08_whatsapp_ai_assistant_mobile.webm"
-                  poster="/assets/demo/cuj_05_public_proposal.png"
-                  objectFit="cover"
-                  objectPosition="object-top"
-                  alt="Propuesta interactiva enviada en WhatsApp"
-                />
-              </div>
-            </PhoneFrameMockup>
-          )}
-
-          {currentStep.screenMockupType === 'otp' && (
-            <PhoneFrameMockup>
-              <div className="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
-                <SmartVideoPlayer
-                  src="/assets/demo/cuj_05_proposal_signing_mobile.webm"
-                  poster="/assets/demo/cuj_05_signing_otp_modal.png"
-                  objectFit="cover"
-                  objectPosition="object-top"
-                  alt="Firma legal de propuesta por OTP SMS"
-                />
-              </div>
-            </PhoneFrameMockup>
           )}
         </div>
       </div>

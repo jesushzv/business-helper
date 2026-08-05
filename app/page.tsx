@@ -25,6 +25,7 @@ import { StickyMobileCta } from '@/components/landing/StickyMobileCta';
 import { ComparisonSection } from '@/components/landing/ComparisonSection';
 import { HealthScoreExplainer } from '@/components/landing/HealthScoreExplainer';
 import { PhoneFrameMockup } from '@/components/landing/PhoneFrameMockup';
+import { BrowserFrameMockup } from '@/components/landing/BrowserFrameMockup';
 import { SmartVideoPlayer } from '@/components/landing/SmartVideoPlayer';
 import { LiveDemoButton } from '@/components/landing/LiveDemoButton';
 import { BottomConversionForm } from '@/components/landing/BottomConversionForm';
@@ -180,21 +181,14 @@ export default function LandingPage() {
 
             {/* Hero Right Visual Mockup */}
             <div className="lg:col-span-5 flex justify-center">
-              <PhoneFrameMockup>
-                <div className="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
-                  <SmartVideoPlayer
-                    src="/assets/demo/cuj_02_dashboard_mobile.webm"
-                    poster="/assets/demo/cuj_02_dashboard_kpis.png"
-                    objectFit="cover"
-                    objectPosition="object-top"
-                    alt="Demostración de Dashboard Business Helper"
-                  />
-                  <div className="p-2.5 bg-slate-900/90 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-400 font-mono">
-                    <span>App Real en Producción</span>
-                    <span className="text-emerald-400 font-bold">● iOS / Android</span>
-                  </div>
-                </div>
-              </PhoneFrameMockup>
+              <BrowserFrameMockup url="app.businesshelper.mx/dashboard">
+                <SmartVideoPlayer
+                  poster="/assets/demo/cuj_02_dashboard_kpis.png"
+                  objectFit="cover"
+                  objectPosition="object-top"
+                  alt="Demostración de Dashboard Business Helper"
+                />
+              </BrowserFrameMockup>
             </div>
           </div>
         </div>
