@@ -2593,10 +2593,9 @@ test('lib/trustData.ts testimonials contain industry role tags and structured pr
   });
 });
 
-test('components/landing/DemoVideoPlayer.tsx section header accurately specifies Interactive Step-by-Step Demo', () => {
-  const demoContent = fs.readFileSync(path.join(__dirname, '../components/landing/DemoVideoPlayer.tsx'), 'utf8');
-
-  assert.strictEqual(demoContent.includes('Paso a Paso') || demoContent.includes('Interactiva'), true, 'Demo section title must state Interactive Step-by-Step demo');
+test('app/page.tsx and LiveDemoButton link directly to interactive sandbox demo app', () => {
+  const pageContent = fs.readFileSync(path.join(__dirname, '../app/page.tsx'), 'utf8');
+  assert.strictEqual(pageContent.includes('/dashboard?demo=true'), true, 'Landing page must include interactive demo link to /dashboard?demo=true');
 });
 
 // ----------------------------------------------------
@@ -2699,11 +2698,11 @@ test('components/landing/PhoneFrameMockup.tsx exists and renders mobile phone ch
   assert.strictEqual(mockupContent.includes('9:41'), true, 'PhoneFrameMockup must include status bar time');
 });
 
-test('components/landing/DemoSchedulerModal.tsx exists and exports video case study request modal', () => {
-  const schedulerContent = fs.readFileSync(path.join(__dirname, '../components/landing/DemoSchedulerModal.tsx'), 'utf8');
+test('components/landing/LiveDemoButton.tsx exists and renders interactive demo CTA', () => {
+  const buttonContent = fs.readFileSync(path.join(__dirname, '../components/landing/LiveDemoButton.tsx'), 'utf8');
 
-  assert.strictEqual(schedulerContent.includes('Ver Video de Caso de Estudio PyME'), true, 'DemoSchedulerModal must include video case study title');
-  assert.strictEqual(schedulerContent.includes('min-h-[48px]'), true, 'DemoSchedulerModal touch targets must be >= 48px');
+  assert.strictEqual(buttonContent.includes('Explorar Demo Interactiva') || buttonContent.includes('Demo Interactiva'), true, 'LiveDemoButton must render interactive demo title');
+  assert.strictEqual(buttonContent.includes('min-h-[54px]'), true, 'LiveDemoButton touch targets must be >= 48px');
 });
 
 test('components/landing/ComparisonSection.tsx exists and renders side-by-side competitor matrix', () => {

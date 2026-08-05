@@ -20,7 +20,6 @@ import { FaqAccordion } from '@/components/landing/FaqAccordion';
 import { TrustBadges } from '@/components/landing/TrustBadges';
 import { TeamSection } from '@/components/landing/TeamSection';
 import { ContactSection } from '@/components/landing/ContactSection';
-import { DemoVideoPlayer } from '@/components/landing/DemoVideoPlayer';
 import { StickyMobileCta } from '@/components/landing/StickyMobileCta';
 import { ComparisonSection } from '@/components/landing/ComparisonSection';
 import { HealthScoreExplainer } from '@/components/landing/HealthScoreExplainer';
@@ -69,9 +68,9 @@ export default function LandingPage() {
             <a href="#caracteristicas" className="hover:text-emerald-400 transition-colors py-2">
               Características
             </a>
-            <a href="#demostracion" className="hover:text-emerald-400 transition-colors py-2">
+            <Link href="/dashboard?demo=true" className="hover:text-emerald-400 transition-colors py-2">
               Demo Interactiva
-            </a>
+            </Link>
             <a href="#garantia" className="hover:text-emerald-400 transition-colors py-2">
               Seguridad SAT
             </a>
@@ -396,13 +395,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-        </div>
-      </section>
-
-      {/* Demo Video Section (Task A3) */}
-      <section id="demostracion" className="py-20 border-t border-slate-900 bg-slate-950/40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <DemoVideoPlayer />
         </div>
       </section>
 
