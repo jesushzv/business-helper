@@ -42,7 +42,8 @@ export function getStripeWebhookUrl(): string {
 
 /**
  * Returns the CDN or base URL origin for media assets (videos, screenshots, posters).
- * Supports NEXT_PUBLIC_CDN_URL (Supabase Storage / Cloudflare R2 / Vercel Blob) for production deployment.
+ * Returns relative path by default to serve bundled static assets reliably, or
+ * prefixes with NEXT_PUBLIC_CDN_URL / NEXT_PUBLIC_VERCEL_BLOB_BASE_URL when explicitly set.
  */
 export function getAssetUrl(path: string): string {
   if (!path) return '';
@@ -51,19 +52,14 @@ export function getAssetUrl(path: string): string {
   }
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
-  let blobCdnFallback = '';
-  const blobStoreId =
-    process.env.NEXT_PUBLIC_BLOB_STORE_ID || process.env.BLOB_STORE_ID;
-  if (blobStoreId) {
-    const rawId = blobStoreId.replace(/^store_/, '').toLowerCase();
-    blobCdnFallback = `https://${rawId}.public.blob.vercel-storage.com`;
-  }
-
   const cdnUrl =
     process.env.NEXT_PUBLIC_CDN_URL ||
-    process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL ||
-    blobCdnFallback;
+    process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
 
-  const sanitizedCdnUrl = cdnUrl ? cdnUrl.replace(/\/+$/, '') : '';
-  return sanitizedCdnUrl ? `${sanitizedCdnUrl}${cleanPath}` : cleanPath;
+  if (cdnUrl) {
+    const sanitizedCdnUrl = cdnUrl.replace(/\/+$/, '');
+    return `${sanitizedCdnUrl}${cleanPath}`;
+  }
+
+  return cleanPath;
 }

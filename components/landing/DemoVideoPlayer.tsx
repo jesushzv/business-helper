@@ -136,7 +136,7 @@ export function DemoVideoPlayer() {
                 <SmartVideoPlayer
                   src="/assets/demo/cuj_04_quotes_wizard_mobile.webm"
                   poster="/assets/demo/cuj_04_quote_wizard_modal.png"
-                  objectFit="contain"
+                  objectFit="cover"
                   objectPosition="object-top"
                   alt="Demostración de Cotización"
                 />
@@ -146,7 +146,7 @@ export function DemoVideoPlayer() {
                 <SmartVideoPlayer
                   src="/assets/demo/cuj_08_whatsapp_ai_assistant_mobile.webm"
                   poster="/assets/demo/cuj_05_public_proposal.png"
-                  objectFit="contain"
+                  objectFit="cover"
                   objectPosition="object-top"
                   alt="Demostración de propuesta en WhatsApp"
                 />
@@ -156,7 +156,7 @@ export function DemoVideoPlayer() {
                 <SmartVideoPlayer
                   src="/assets/demo/cuj_05_proposal_signing_mobile.webm"
                   poster="/assets/demo/cuj_05_signing_otp_modal.png"
-                  objectFit="contain"
+                  objectFit="cover"
                   objectPosition="object-top"
                   alt="Demostración de firma OTP"
                 />
@@ -166,7 +166,7 @@ export function DemoVideoPlayer() {
                 <SmartVideoPlayer
                   src="/assets/demo/cuj_07_spei_portal_mobile.webm"
                   poster="/assets/demo/cuj_07_spei_portal.png"
-                  objectFit="contain"
+                  objectFit="cover"
                   objectPosition="object-top"
                   alt="Demostración de pago SPEI"
                 />

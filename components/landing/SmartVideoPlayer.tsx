@@ -19,7 +19,7 @@ export function SmartVideoPlayer({
   poster,
   alt = 'Demostración de pantalla de la aplicación',
   className = '',
-  objectFit = 'contain',
+  objectFit = 'cover',
   objectPosition = 'object-top',
   screenshotOnly = false,
 }: SmartVideoPlayerProps) {
@@ -34,7 +34,7 @@ export function SmartVideoPlayer({
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    setCurrentSrc(getAssetUrl(src));
+    setCurrentSrc(src ? getAssetUrl(src) : '');
     setCurrentPoster(getAssetUrl(poster));
     setHasError(false);
     setIsLoaded(false);
@@ -46,7 +46,6 @@ export function SmartVideoPlayer({
     const video = videoRef.current;
     if (!video) return;
 
-    // Explicitly enforce muted, defaultMuted, and playsInline for browser autoplay policies
     video.muted = true;
     video.defaultMuted = true;
     video.playsInline = true;
@@ -60,7 +59,7 @@ export function SmartVideoPlayer({
             setIsLoaded(true);
           })
           .catch((err) => {
-            console.warn('Autoplay waiting/paused notice:', err);
+            console.warn('Autoplay notice:', err);
             if (src && currentSrc !== src) {
               setCurrentSrc(src);
             }
@@ -77,7 +76,7 @@ export function SmartVideoPlayer({
   return (
     <div className={`relative w-full h-full min-h-[460px] bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center ${className}`}>
       {/* Loading Overlay with Spinning Emerald Icon */}
-      {!isLoaded && !hasError && !screenshotOnly && (
+      {!isLoaded && !hasError && !screenshotOnly && !!currentSrc && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs z-20 transition-opacity duration-300">
           <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/90 border border-slate-800 text-slate-300 text-xs font-bold shadow-xl">
             <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
@@ -107,7 +106,7 @@ export function SmartVideoPlayer({
         decoding="async"
       />
 
-      {/* HTML5 Video Element (Only rendered when not screenshotOnly) */}
+      {/* HTML5 Video Element */}
       {!screenshotOnly && !!currentSrc && !hasError && (
         <video
           ref={videoRef}

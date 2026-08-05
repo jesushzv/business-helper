@@ -185,7 +185,7 @@ export default function LandingPage() {
                   <SmartVideoPlayer
                     src="/assets/demo/cuj_02_dashboard_mobile.webm"
                     poster="/assets/demo/cuj_02_dashboard_kpis.png"
-                    objectFit="contain"
+                    objectFit="cover"
                     objectPosition="object-top"
                     alt="Demostración de Dashboard Business Helper"
                   />
