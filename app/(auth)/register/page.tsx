@@ -52,7 +52,7 @@ function RegisterFormContent() {
       return;
     }
 
-    if (!rfcResult.isValid) {
+    if (rfc && !rfcResult.isValid) {
       setError('Por favor ingresa un RFC válido (12 o 13 caracteres).');
       return;
     }
@@ -72,7 +72,7 @@ function RegisterFormContent() {
         options: {
           data: {
             business_name: businessName,
-            rfc: rfc.trim().toUpperCase(),
+            rfc: rfc ? rfc.trim().toUpperCase() : null,
             phone: phoneResult.phone,
             tax_regime: taxRegime,
             company_size: companySize,
@@ -151,7 +151,7 @@ function RegisterFormContent() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    RFC de la Empresa <span className="text-rose-500 font-bold ml-0.5">*</span>
+                    RFC de la Empresa <span className="text-slate-400 font-normal text-[11px] normal-case ml-1">(Opcional al registrarte — lo pediremos al facturar)</span>
                   </label>
                   {rfc && (
                     <span className={`text-[10px] font-bold ${rfcResult.isValid ? 'text-emerald-400' : 'text-amber-400'}`}>
@@ -165,11 +165,10 @@ function RegisterFormContent() {
                   </div>
                   <input
                     type="text"
-                    required
                     maxLength={13}
                     value={rfc}
                     onChange={(e) => setRfc(e.target.value.toUpperCase())}
-                    placeholder="ABC120315HD9"
+                    placeholder="ABC120315HD9 (Opcional)"
                     className="block w-full pl-11 pr-4 py-3 min-h-[48px] uppercase font-mono bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                   />
                 </div>
