@@ -96,13 +96,13 @@ export function DemoVideoPlayer() {
         </div>
 
         {/* Right Widescreen Browser Mockup (Used for ALL steps) */}
-        <div className="lg:col-span-6 flex justify-center">
+        <div className="lg:col-span-6 flex justify-center w-full">
           {currentStep.screenMockupType === 'quote' && (
             <BrowserFrameMockup url="app.businesshelper.mx/quotes/new">
               <SmartVideoPlayer
                 poster="/assets/demo/cuj_04_quote_wizard_modal.png"
-                objectFit="cover"
-                objectPosition="object-top"
+                objectFit="contain"
+                objectPosition="object-center"
                 alt="Cotizador de Productos e Impuestos SAT"
               />
             </BrowserFrameMockup>
@@ -123,8 +123,8 @@ export function DemoVideoPlayer() {
             <BrowserFrameMockup url="app.businesshelper.mx/proposal/sign-otp">
               <SmartVideoPlayer
                 poster="/assets/demo/cuj_05_signing_otp_modal.png"
-                objectFit="cover"
-                objectPosition="object-top"
+                objectFit="contain"
+                objectPosition="object-center"
                 alt="Firma legal de propuesta por OTP SMS"
               />
             </BrowserFrameMockup>

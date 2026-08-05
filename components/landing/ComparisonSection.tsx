@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, X, Sparkles } from 'lucide-react';
+import { Check, X, Sparkles, ShieldAlert } from 'lucide-react';
 
 export function ComparisonSection() {
   const comparisonRows = [
@@ -9,7 +9,7 @@ export function ComparisonSection() {
       feature: 'Tiempo por Cotización',
       bh: '2 minutos (Cálculo automático de IVA 16% e ISR)',
       manual: '15–30 min (Edición manual en Excel)',
-      traditional: '20+ min (Módulo complejo en PC de escritorio)',
+      traditional: '20+ min (Módulos de escritorio complejos)',
     },
     {
       feature: 'Envíos y Seguimiento WhatsApp',
@@ -39,19 +39,19 @@ export function ComparisonSection() {
       feature: 'Timbrado CFDI 4.0 PAC',
       bh: 'Sí (Integración PAC Facturapi, $2–$5 MXN/folio)',
       manual: 'No (sitio SAT lento o sin PAC)',
-      traditional: 'Licencias costosas ($15,000+ MXN/año o sin CFDI)',
+      traditional: 'Licencias costosas o módulos opcionales',
     },
     {
       feature: 'Precio & Modelo de Licencia',
       bh: '$299–$999 MXN/mes (Por empresa, usuarios ilimitados)',
-      manual: 'Gratis (pero cuesta 20 hrs/mes en horas trabajo)',
-      traditional: 'Prayser/Flexio ($1,199–$3,000+ MXN) u Odoo ($20-$50 USD/user)',
+      manual: 'Gratis (pero cuesta 20 hrs/mes en trabajo manual)',
+      traditional: '$1,200–$3,500+ MXN/mes o cobro por usuario',
     },
     {
       feature: 'Implementación & Curva de Aprendizaje',
       bh: '< 10 minutos (Self-Serve 100% Celular)',
       manual: 'Caótico (archivos duplicados o desactualizados)',
-      traditional: '3–6 semanas (Requiere consultor o técnico)',
+      traditional: '3–6 semanas (Requiere consultores o técnicos)',
     },
   ];
 
@@ -66,11 +66,12 @@ export function ComparisonSection() {
           ¿Por qué las PyMEs eligen Business Helper?
         </h2>
         <p className="text-slate-400 text-xs sm:text-sm">
-          Compara cómo nos diferenciamos frente a Excel, sistemas tradicionales de escritorio (CONTPAQi/Aspel) y ERPs complejos (Odoo/Prayser/Flexio).
+          Compara cómo nos diferenciamos frente al trabajo manual en hojas de cálculo y sistemas contables tradicionales.
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900/80 shadow-2xl backdrop-blur-xl">
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900/80 shadow-2xl backdrop-blur-xl">
         <table className="w-full text-left border-collapse text-xs sm:text-sm">
           <thead>
             <tr className="border-b border-slate-800 bg-slate-950/80">
@@ -82,14 +83,14 @@ export function ComparisonSection() {
                 Excel / WhatsApp Manual
               </th>
               <th className="p-4 sm:p-6 font-bold text-slate-300 w-1/4 text-center">
-                Sistemas Tradicionales (Prayser / CONTPAQi / Odoo)
+                Sistemas Tradicionales de Escritorio
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60 text-slate-300">
             {comparisonRows.map((row, index) => (
               <tr key={index} className="hover:bg-slate-900/40 transition-colors">
-                <td className="p-4 sm:p-5 font-bold text-white flex items-center gap-2">
+                <td className="p-4 sm:p-5 font-bold text-white">
                   <span>{row.feature}</span>
                 </td>
                 <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-emerald-500/5 border-x border-emerald-500/20 text-center">
@@ -114,6 +115,37 @@ export function ComparisonSection() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card Stack View */}
+      <div className="md:hidden space-y-4">
+        {comparisonRows.map((row, index) => (
+          <div key={index} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <h4 className="text-sm font-bold text-white border-b border-slate-800 pb-2">{row.feature}</h4>
+            <div className="space-y-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-semibold flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block text-emerald-400 text-[10px] uppercase">Business Helper</strong>
+                  <span>{row.bh}</span>
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 flex items-start gap-2">
+                <X className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block text-slate-400 text-[10px] uppercase">Sistemas Tradicionales / Excel</strong>
+                  <span>{row.traditional}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* PROFECO Legal Disclaimer */}
+      <div className="text-[11px] text-slate-500 flex items-center gap-2 pt-2">
+        <ShieldAlert className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <span>*Comparativa basada en características promedio publicadas de software contable tradicional y hojas de cálculo al Q3 2026.</span>
       </div>
     </div>
   );

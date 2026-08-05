@@ -115,8 +115,8 @@ export default function LandingPage() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-            {/* Hero Left Content */}
-            <div className="lg:col-span-7 space-y-8 text-center lg:text-left">
+            {/* Left Copy */}
+            <div className="lg:col-span-6 text-center lg:text-left space-y-6">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold tracking-wide uppercase">
                 <Zap className="w-3.5 h-3.5" />
                 <span>Control Operativo y Financiero para PyMEs</span>
@@ -158,6 +158,12 @@ export default function LandingPage() {
                 </span>
               </div>
 
+              {/* SAT Certificate Security Guarantee Callout (Task A9) */}
+              <div className="p-3 px-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-xs text-emerald-300 flex items-start gap-2.5 shadow-sm text-left">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span><strong>Garantía de Seguridad SAT:</strong> Tus certificados (.cer/.key) se mantienen 100% protegidos en tu PAC (Facturapi). Nunca almacenamos ni leemos tus llaves privadas.</span>
+              </div>
+
               {/* Micro Social Proof Banner */}
               <div className="pt-4 border-t border-slate-900 flex items-center justify-center lg:justify-start gap-3">
                 <div className="flex -space-x-2 overflow-hidden">
@@ -180,7 +186,7 @@ export default function LandingPage() {
             </div>
 
             {/* Hero Right Visual Mockup */}
-            <div className="lg:col-span-5 flex justify-center">
+            <div className="lg:col-span-6 flex justify-center w-full">
               <BrowserFrameMockup url="app.businesshelper.mx/dashboard">
                 <SmartVideoPlayer
                   poster="/assets/demo/cuj_02_dashboard_kpis.png"
@@ -510,8 +516,8 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Facturación CFDI 4.0 disponible ($5 MXN/folio)</li>
                 </ul>
               </div>
-              <Link href="/onboarding" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
-                Seleccionar Emprendedor
+              <Link href="/onboarding?plan=emprendedor" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
+                Probar 14 Días Gratis
               </Link>
             </div>
 
@@ -529,12 +535,12 @@ export default function LandingPage() {
                 <ul className="space-y-3 text-xs text-slate-200">
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Cotizaciones ilimitadas</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> 10 folios CFDI 4.0/mes incluidos ($3 MXN/adic.)</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Firma digital OTP con sello SHA-256</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Firma digital OTP con sello de validez legal</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Panel de Cobranza Kanban + Recordatorios</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Score de Salud del Cliente</li>
                 </ul>
               </div>
-              <Link href="/onboarding" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-md active:scale-95">
+              <Link href="/onboarding?plan=negocio" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-md active:scale-95">
                 Probar 14 Días Gratis
               </Link>
             </div>
@@ -554,8 +560,8 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Roles de equipo y Multi-sucursal</li>
                 </ul>
               </div>
-              <Link href="/onboarding" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
-                Contactar Ventas
+              <Link href="/onboarding?plan=empresa" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
+                Probar 14 Días Gratis
               </Link>
             </div>
           </div>
