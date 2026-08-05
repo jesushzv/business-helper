@@ -17,21 +17,21 @@ export default function GlobalError({
 
   return (
     <html lang="es">
-      <body className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans text-gray-900">
-        <div className="max-w-md w-full rounded-3xl border border-gray-200 bg-white p-6 sm:p-8 shadow-xl text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100 text-red-600 mb-4">
+      <body className="min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans text-white">
+        <div className="max-w-md w-full rounded-3xl border border-slate-800 bg-slate-900/90 p-6 sm:p-8 shadow-2xl backdrop-blur-xl text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 mb-4">
             <AlertTriangle className="h-8 w-8" />
           </div>
 
-          <h1 className="text-xl font-black text-gray-900 tracking-tight sm:text-2xl">
+          <h1 className="text-xl font-black text-white tracking-tight sm:text-2xl">
             ¡Ocurrió un problema inesperado!
           </h1>
-          <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+          <p className="mt-2 text-sm text-slate-400 leading-relaxed">
             Se ha producido un error del sistema. Nuestro equipo ha sido notificado automáticamente para resolverlo.
           </p>
 
           {error.digest && (
-            <p className="mt-3 rounded-xl bg-gray-100 py-1.5 px-3 font-mono text-[11px] text-gray-500">
+            <p className="mt-3 rounded-xl bg-slate-950 border border-slate-800 py-1.5 px-3 font-mono text-[11px] text-slate-400">
               Código de error: {error.digest}
             </p>
           )}
@@ -39,7 +39,7 @@ export default function GlobalError({
           <div className="mt-6 flex flex-col gap-3">
             <button
               onClick={() => reset()}
-              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 active:scale-98"
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition-all active:scale-98 cursor-pointer"
             >
               <RefreshCw className="h-4 w-4" />
               <span>Reintentar Cargar</span>
@@ -47,7 +47,7 @@ export default function GlobalError({
 
             <a
               href="/dashboard"
-              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 active:scale-98"
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm font-bold text-slate-300 hover:bg-slate-800 hover:text-white active:scale-98"
             >
               <Home className="h-4 w-4" />
               <span>Volver al Control</span>

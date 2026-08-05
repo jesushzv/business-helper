@@ -6,15 +6,19 @@
 
 @layer base {
   * {
-    border-color: var(--color-slate-200, #e2e8f0);
+    border-color: var(--color-slate-800, #1e293b);
   }
   html {
     font-family: var(--font-sans);
     -webkit-tap-highlight-color: transparent;
+    background-color: #090d16;
+    color: #f8fafc;
   }
   body {
-    @apply antialiased bg-gray-50 text-gray-900;
+    @apply antialiased bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-slate-950;
     font-family: var(--font-sans);
+    background-color: #090d16;
+    color: #f8fafc;
   }
   /* Don Roberto Constraint: Prevent iOS Safari forced auto-zoom on input focus */
   input, select, textarea {
@@ -31,5 +35,3 @@
     scroll-behavior: auto !important;
   }
 }
-
-
