@@ -23,6 +23,7 @@ import {
 import { DemoBanner } from '@/components/demo/DemoBanner';
 import { FeatureTierComparisonModal } from '@/components/features/FeatureTierComparisonModal';
 import { isDemoModeActive } from '@/lib/demoUtils';
+import { getAssetUrl } from '@/lib/url';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -72,7 +73,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         {/* Sidebar Header */}
         <div className="flex h-16 items-center justify-between border-b border-slate-800/80 px-6">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <img src="/logo-icon.svg" alt="Business Helper" className="h-9 w-9 object-contain" />
+            <img src={getAssetUrl('/logo-icon.svg')} alt="Business Helper" className="h-9 w-9 object-contain" />
             <div>
               <span className="text-lg font-black tracking-tight text-white">
                 Business<span className="text-emerald-400">Helper</span>

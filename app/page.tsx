@@ -29,6 +29,7 @@ import { SmartVideoPlayer } from '@/components/landing/SmartVideoPlayer';
 import { LiveDemoButton } from '@/components/landing/LiveDemoButton';
 import { BottomConversionForm } from '@/components/landing/BottomConversionForm';
 import { JsonLd } from '@/components/seo/JsonLd';
+import { getAssetUrl } from '@/lib/url';
 import { TESTIMONIALS, CONTACT_INFO } from '@/lib/trustData';
 
 export const metadata = {
@@ -51,7 +52,7 @@ export default function LandingPage() {
       <header className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo-icon.svg" alt="Business Helper" className="h-10 w-10 object-contain" />
+            <img src={getAssetUrl('/logo-icon.svg')} alt="Business Helper" className="h-10 w-10 object-contain" />
             <div>
               <span className="text-xl font-black tracking-tight text-white">
                 Business<span className="text-emerald-400">Helper</span>
@@ -159,10 +160,10 @@ export default function LandingPage() {
               {/* Micro Social Proof Banner */}
               <div className="pt-4 border-t border-slate-900 flex items-center justify-center lg:justify-start gap-3">
                 <div className="flex -space-x-2 overflow-hidden">
-                  <img src="/avatars/roberto_elizondo.png" alt="Don Roberto Elizondo" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
-                  <img src="/avatars/sofia_morales.png" alt="Lic. Sofía Morales" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
-                  <img src="/avatars/mariana_fuentes.png" alt="Mariana Fuentes" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
-                  <img src="/avatars/carlos_trevino.png" alt="Carlos Treviño" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                  <img src={getAssetUrl('/avatars/roberto_elizondo.png')} alt="Don Roberto Elizondo" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                  <img src={getAssetUrl('/avatars/sofia_morales.png')} alt="Lic. Sofía Morales" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                  <img src={getAssetUrl('/avatars/mariana_fuentes.png')} alt="Mariana Fuentes" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                  <img src={getAssetUrl('/avatars/carlos_trevino.png')} alt="Carlos Treviño" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
                 </div>
                 <div className="text-xs text-slate-400 text-left">
                   <div className="flex items-center text-amber-400 gap-0.5">
@@ -447,7 +448,7 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between pt-4 border-t border-slate-800/80 mt-4">
                   <div className="flex items-center gap-3">
                     <img
-                      src={t.avatarUrl}
+                      src={getAssetUrl(t.avatarUrl)}
                       alt={t.personaLabel || t.author}
                       className="w-11 h-11 rounded-full object-cover shadow-md border-2 border-emerald-500/40 shrink-0"
                       loading="lazy"
@@ -631,7 +632,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-xs text-slate-400 border-b border-slate-900 pb-8">
             <div className="flex items-center gap-3">
-              <img src="/logo-icon.svg" alt="Business Helper" className="h-8 w-8 object-contain" />
+              <img src={getAssetUrl('/logo-icon.svg')} alt="Business Helper" className="h-8 w-8 object-contain" />
               <div>
                 <div className="font-extrabold text-white text-sm">Business Helper S.A.P.I. de C.V.</div>
                 <div className="text-slate-400 text-[11px]">{CONTACT_INFO.streetAddress}, {CONTACT_INFO.cityState}</div>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Plus, Bell, Zap, Layers } from 'lucide-react';
 import { isDemoModeActive } from '@/lib/demoUtils';
 import { FeatureTierComparisonModal } from '@/components/features/FeatureTierComparisonModal';
+import { getAssetUrl } from '@/lib/url';
 
 interface HeaderProps {
   onNewClient?: () => void;
@@ -26,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton
         {/* Left Branding / View Title */}
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="flex items-center gap-2 transition-transform active:scale-95">
-            <img src="/logo-icon.svg" alt="Business Helper" className="h-9 w-9 object-contain" />
+            <img src={getAssetUrl('/logo-icon.svg')} alt="Business Helper" className="h-9 w-9 object-contain" />
             <span className="hidden text-xl font-black tracking-tight text-white sm:inline-block">
               Business<span className="text-emerald-400">Helper</span>
             </span>
