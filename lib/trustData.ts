@@ -75,6 +75,7 @@ export interface TeamMember {
   bio: string;
   avatarInitials: string;
   avatarBg: string;
+  avatarUrl?: string;
   highlights: string[];
   linkedinUrl: string;
   contactEmail: string;
