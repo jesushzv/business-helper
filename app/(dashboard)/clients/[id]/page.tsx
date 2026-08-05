@@ -126,14 +126,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsEditOpen(true)}
-              className="flex min-h-[48px] items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-xs hover:bg-gray-50 active:scale-95"
+              className="flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 shadow-xs hover:bg-slate-800 hover:text-white active:scale-95 cursor-pointer"
             >
               <Edit className="h-4 w-4" />
               <span>Editar</span>
             </button>
             <button
               onClick={handleDelete}
-              className="flex min-h-[48px] items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-100 active:scale-95"
+              className="flex min-h-[48px] items-center gap-2 rounded-xl border border-rose-900/50 bg-rose-950/40 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-900/60 active:scale-95 cursor-pointer"
             >
               <Trash2 className="h-4 w-4" />
               <span className="hidden sm:inline">Eliminar</span>
@@ -142,22 +142,22 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Profile Card Header */}
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-xs sm:p-8">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl sm:p-8 backdrop-blur-xl text-white">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-4">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 font-black text-white shadow-md text-xl">
                 <Building2 className="h-8 w-8" />
               </div>
               <div>
-                <h1 className="text-2xl font-black text-gray-900">{client.name}</h1>
+                <h1 className="text-2xl font-black text-white">{client.name}</h1>
                 {client.contact_name && (
-                  <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-gray-600">
-                    <User className="h-4 w-4 text-gray-400" />
+                  <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                    <User className="h-4 w-4 text-indigo-400" />
                     <span>Contacto: {client.contact_name}</span>
                   </p>
                 )}
                 {client.notes && (
-                  <p className="mt-2 text-xs font-medium text-gray-500">{client.notes}</p>
+                  <p className="mt-2 text-xs font-medium text-slate-400">{client.notes}</p>
                 )}
               </div>
             </div>
@@ -168,7 +168,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-emerald-700 active:scale-95"
+                className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-6 py-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
               >
                 <MessageSquare className="h-5 w-5" />
                 <span>Contactar por WhatsApp</span>
@@ -177,26 +177,26 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           </div>
 
           {/* Quick Contact & Tax Pills */}
-          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-6">
+          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-slate-800/80 pt-6">
             {client.phone && (
-              <div className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-800">
-                <Phone className="h-4 w-4 text-gray-400" />
+              <div className="flex items-center gap-2 rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-300">
+                <Phone className="h-4 w-4 text-emerald-400" />
                 <span>{client.phone}</span>
               </div>
             )}
             {client.email && (
-              <div className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-800">
-                <Mail className="h-4 w-4 text-gray-400" />
+              <div className="flex items-center gap-2 rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-300">
+                <Mail className="h-4 w-4 text-indigo-400" />
                 <span>{client.email}</span>
               </div>
             )}
-            <div className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700">
-              <FileText className="h-4 w-4 text-indigo-500" />
+            <div className="flex items-center gap-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 px-3 py-2 text-xs font-bold text-indigo-300">
+              <FileText className="h-4 w-4 text-indigo-400" />
               <span>RFC: {client.rfc || 'Sin RFC registrado'}</span>
             </div>
             {client.codigo_postal && (
-              <div className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-800">
-                <MapPin className="h-4 w-4 text-gray-400" />
+              <div className="flex items-center gap-2 rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-300">
+                <MapPin className="h-4 w-4 text-slate-400" />
                 <span>CP: {client.codigo_postal}</span>
               </div>
             )}
@@ -293,13 +293,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
           {/* Right Column: Chronological Activity Timeline */}
           <div className="lg:col-span-2">
-            <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-xs sm:p-8">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl sm:p-8 backdrop-blur-xl text-white">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                 <div>
-                  <h3 className="text-lg font-extrabold text-gray-900">Historial de Actividad</h3>
-                  <p className="text-xs text-gray-500">Cotizaciones, contratos y cobranza del cliente</p>
+                  <h3 className="text-lg font-extrabold text-white">Historial de Actividad</h3>
+                  <p className="text-xs text-slate-400">Cotizaciones, contratos y cobranza del cliente</p>
                 </div>
-                <span className="flex items-center gap-1 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700">
+                <span className="flex items-center gap-1 rounded-xl bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 text-xs font-bold text-indigo-400">
                   <Clock className="h-3.5 w-3.5" />
                   <span>{activityFeed.length} Eventos</span>
                 </span>

@@ -26,7 +26,7 @@ export function TrustBadges() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
         {TRUST_BADGES.map((badge) => {
           const Icon = ICON_MAP[badge.iconName] || ShieldCheck;
 
@@ -62,7 +62,7 @@ export function TrustBadges() {
       </div>
 
       {/* External Partner Seals Trust Banner */}
-      <div className="mt-10 p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-wrap items-center justify-around gap-6 text-xs text-slate-400">
+      <div className="mt-10 max-w-6xl mx-auto p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-wrap items-center justify-center sm:justify-around gap-6 text-xs text-slate-400">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
           <span><strong>Facturapi:</strong> PAC Partner Autorizado SAT</span>
