@@ -310,17 +310,17 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-6 lg:order-2 space-y-6">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
-                02. Portal SPEI & Firma Digital Cryptoseal
+                02. Portal SPEI & Aprobación Digital con WhatsApp
               </span>
               <h3 className="text-3xl font-black text-white tracking-tight">
                 Tu cliente autoriza con OTP y sube su comprobante SPEI sin crear cuentas
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Al recibir tu mensaje en WhatsApp, tu cliente hace clic en el enlace, firma electrónicamente mediante un código OTP a su celular con sello criptográfico SHA-256 y adjunta su comprobante de transferencia Banxico SPEI.
+                Al recibir tu mensaje en WhatsApp, tu cliente abre su cotización en 1 clic, aprueba mediante un código a su celular y adjunta su comprobante de transferencia Banxico SPEI — sin trámites ni claves complejas.
               </p>
               <ul className="space-y-3 text-xs text-slate-300">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Firma con código OTP enviado al celular del cliente
+                  <Check className="w-4 h-4 text-emerald-400" /> Aprobación instantánea con código OTP al celular del cliente
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-400" /> Registro de Clave de Rastreo Banxico para validación
@@ -334,11 +334,11 @@ export default function LandingPage() {
               <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
                   <div className="text-xs font-bold text-white flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> Sello Digital Cryptoseal SHA-256
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> Evidencia Legal Certificada
                   </div>
-                  <div className="text-[11px] font-mono text-emerald-400/90 break-all bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-slate-400 font-sans font-medium block mb-1 text-[10px]">Ejemplo Sello Digital SHA-256:</span>
-                    sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+                  <div className="text-[11px] font-mono text-emerald-400/90 break-all bg-slate-900 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300 font-sans font-medium text-xs">Aprobación OTP WhatsApp</span>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Verificado ✓</span>
                   </div>
                 </div>
                 <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center text-xs">
