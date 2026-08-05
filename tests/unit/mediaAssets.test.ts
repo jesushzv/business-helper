@@ -7,6 +7,8 @@ describe('Media Assets Integrity Suite', () => {
 
   const requiredAssets = [
     '/assets/demo/cuj_02_dashboard_kpis.png',
+    '/assets/demo/cuj_02_dashboard_activity.png',
+    '/assets/demo/cuj_02_dashboard_desktop.webm',
     '/assets/demo/cuj_02_dashboard_mobile.webm',
     '/assets/demo/cuj_04_quote_wizard_modal.png',
     '/assets/demo/cuj_04_quotes_wizard_mobile.webm',

@@ -64,11 +64,15 @@ export default function DemoPage() {
             <h2 className="text-xl sm:text-2xl font-bold text-white">Flujo Completo de Operaciones PyME</h2>
           </div>
 
-          <SmartVideoPlayer
-            src="/assets/demo/cuj_02_dashboard_mobile.webm"
-            poster="/assets/demo/cuj_02_dashboard_kpis.png"
-            alt="Business Helper Demo en Vivo — Demostración interactiva del flujo de cotización"
-          />
+          <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 aspect-video shadow-2xl">
+            <SmartVideoPlayer
+              src="/assets/demo/cuj_02_dashboard_desktop.webm"
+              poster="/assets/demo/cuj_02_dashboard_kpis.png"
+              objectFit="cover"
+              objectPosition="object-top"
+              alt="Business Helper Demo en Vivo — Demostración interactiva del flujo de cotización"
+            />
+          </div>
         </div>
 
         {/* Feature Highlights Grid */}
