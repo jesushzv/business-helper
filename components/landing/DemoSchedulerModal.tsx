@@ -73,8 +73,8 @@ export function DemoSchedulerModal({ isOpen, onClose }: DemoSchedulerModalProps)
 
             <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 aspect-video">
               <SmartVideoPlayer
-                src="/assets/demo/cuj_02_dashboard_mobile.mp4"
-                poster="/assets/demo/cuj_02_dashboard_mobile_poster.jpg"
+                src="/assets/demo/cuj_02_dashboard_mobile.webm"
+                poster="/assets/demo/cuj_02_dashboard_activity.png"
                 alt="Demostración en video de Business Helper"
               />
             </div>
