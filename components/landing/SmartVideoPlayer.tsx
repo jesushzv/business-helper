@@ -1,27 +1,29 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { getAssetUrl } from '@/lib/url';
 
 interface SmartVideoPlayerProps {
-  src: string;
+  src?: string;
   poster: string;
   alt?: string;
   className?: string;
   objectFit?: 'cover' | 'contain' | 'fill';
   objectPosition?: 'object-top' | 'object-center' | 'object-bottom';
+  screenshotOnly?: boolean;
 }
 
 export function SmartVideoPlayer({
-  src,
+  src = '',
   poster,
   alt = 'Demostración de pantalla de la aplicación',
   className = '',
-  objectFit = 'cover',
+  objectFit = 'contain',
   objectPosition = 'object-top',
+  screenshotOnly = false,
 }: SmartVideoPlayerProps) {
-  const primarySrc = getAssetUrl(src);
+  const primarySrc = src ? getAssetUrl(src) : '';
   const primaryPoster = getAssetUrl(poster);
 
   const [currentSrc, setCurrentSrc] = useState(primarySrc);
@@ -39,6 +41,8 @@ export function SmartVideoPlayer({
   }, [src, poster]);
 
   useEffect(() => {
+    if (screenshotOnly || !currentSrc) return;
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -56,25 +60,24 @@ export function SmartVideoPlayer({
             setIsLoaded(true);
           })
           .catch((err) => {
-            console.warn('Video playback notice:', err);
-            // If primary CDN src failed, fallback to local path before setting hasError
-            if (currentSrc !== src) {
+            console.warn('Autoplay waiting/paused notice:', err);
+            if (src && currentSrc !== src) {
               setCurrentSrc(src);
-            } else {
-              setHasError(true);
             }
           });
       }
     } catch (e) {
-      console.warn('Video init error:', e);
-      setHasError(true);
+      console.warn('Video init notice:', e);
+      if (src && currentSrc !== src) {
+        setCurrentSrc(src);
+      }
     }
-  }, [currentSrc]);
+  }, [currentSrc, screenshotOnly, src]);
 
   return (
-    <div className={`relative w-full h-full min-h-[460px] bg-slate-950 rounded-2xl overflow-hidden ${className}`}>
+    <div className={`relative w-full h-full min-h-[460px] bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center ${className}`}>
       {/* Loading Overlay with Spinning Emerald Icon */}
-      {!isLoaded && !hasError && (
+      {!isLoaded && !hasError && !screenshotOnly && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs z-20 transition-opacity duration-300">
           <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/90 border border-slate-800 text-slate-300 text-xs font-bold shadow-xl">
             <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
@@ -83,33 +86,29 @@ export function SmartVideoPlayer({
         </div>
       )}
 
-      {/* Warning Badge when Video Playback is Unavailable (Using Static Poster Fallback) */}
-      {hasError && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/95 border border-amber-500/30 text-amber-300 text-[11px] font-semibold shadow-lg backdrop-blur-md">
-          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span>Vista estática por política del navegador</span>
-        </div>
-      )}
-
-      {/* Background / Fallback Screenshot Image with Automatic Fallback */}
+      {/* Screenshot Image View */}
       <img
         src={currentPoster}
         alt={alt}
+        onLoad={() => setIsLoaded(true)}
         onError={() => {
-          // If CDN poster failed (403/404), fall back to local relative path
           if (currentPoster !== poster) {
             setCurrentPoster(poster);
+          } else {
+            setHasError(true);
           }
         }}
-        className={`absolute inset-0 w-full h-full object-${objectFit} ${objectPosition} rounded-2xl z-0 transition-opacity duration-300 ${
-          isLoaded && !hasError ? 'opacity-0' : 'opacity-100'
+        className={`w-full h-full object-${objectFit} ${objectPosition} rounded-2xl transition-opacity duration-300 ${
+          screenshotOnly || !currentSrc || !isLoaded || hasError
+            ? 'opacity-100 relative z-10'
+            : 'opacity-0 absolute inset-0'
         }`}
         loading="eager"
         decoding="async"
       />
 
-      {/* HTML5 Video Element with Multi-Tier Fallback */}
-      {!hasError && (
+      {/* HTML5 Video Element (Only rendered when not screenshotOnly) */}
+      {!screenshotOnly && !!currentSrc && !hasError && (
         <video
           ref={videoRef}
           poster={currentPoster}
@@ -120,14 +119,14 @@ export function SmartVideoPlayer({
           onLoadedData={() => setIsLoaded(true)}
           onCanPlay={() => setIsLoaded(true)}
           onError={() => {
-            if (currentSrc !== src) {
+            if (src && currentSrc !== src) {
               setCurrentSrc(src);
             } else {
               setHasError(true);
             }
           }}
           className={`w-full h-full object-${objectFit} ${objectPosition} rounded-2xl relative z-10 transition-opacity duration-300 ${
-            isLoaded ? 'opacity-100' : 'opacity-0'
+            isLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0'
           }`}
         >
           {currentSrc.endsWith('.webm') && (
