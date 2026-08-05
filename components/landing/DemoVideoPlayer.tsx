@@ -166,8 +166,8 @@ export function DemoVideoPlayer() {
 
               {/* Bottom Status Overlay */}
               <div className="p-2.5 bg-slate-900/90 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-400 font-mono">
-                <span>Demostración Interactiva</span>
-                <span className="text-emerald-400 font-bold">● Simulación Operativa</span>
+                <span>Grabación Real de Celular</span>
+                <span className="text-emerald-400 font-bold">● Simulación en Vivo</span>
               </div>
             </div>
           </PhoneFrameMockup>
