@@ -50,6 +50,20 @@ export function getAssetUrl(path: string): string {
     return path;
   }
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const cdnUrl = process.env.NEXT_PUBLIC_CDN_URL ? process.env.NEXT_PUBLIC_CDN_URL.replace(/\/+$/, '') : '';
-  return cdnUrl ? `${cdnUrl}${cleanPath}` : cleanPath;
+
+  let blobCdnFallback = '';
+  const blobStoreId =
+    process.env.NEXT_PUBLIC_BLOB_STORE_ID || process.env.BLOB_STORE_ID;
+  if (blobStoreId) {
+    const rawId = blobStoreId.replace(/^store_/, '').toLowerCase();
+    blobCdnFallback = `https://${rawId}.public.blob.vercel-storage.com`;
+  }
+
+  const cdnUrl =
+    process.env.NEXT_PUBLIC_CDN_URL ||
+    process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL ||
+    blobCdnFallback;
+
+  const sanitizedCdnUrl = cdnUrl ? cdnUrl.replace(/\/+$/, '') : '';
+  return sanitizedCdnUrl ? `${sanitizedCdnUrl}${cleanPath}` : cleanPath;
 }
