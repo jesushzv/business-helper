@@ -17,7 +17,7 @@ const PRICING_PLANS = [
     badge: 'Cobranza Básica',
     features: [
       'Hasta 50 cotizaciones al mes',
-      'Facturación CFDI 4.0 con Timbrado PAC',
+      'Timbrado CFDI 4.0 disponible ($5 MXN / folio)',
       'Envío interactivo por WhatsApp',
       'Validación de comprobantes SPEI',
       'Firma de cotizaciones vía OTP',
@@ -36,7 +36,7 @@ const PRICING_PLANS = [
     badge: 'Más Popular — Recomendado',
     features: [
       'Cotizaciones ILIMITADAS',
-      'Facturación CFDI 4.0 ilimitada',
+      '10 folios CFDI 4.0/mes incluidos ($3 MXN / folio adicional)',
       'Conciliación automática SPEI Banxico',
       'Firma digital OTP con evidencia legal',
       'Reportes de cobranza & score de clientes',
@@ -56,6 +56,7 @@ const PRICING_PLANS = [
     badge: 'Multi-sucursal',
     features: [
       'Todo lo del Plan Negocio',
+      '50 folios CFDI 4.0/mes incluidos ($2 MXN / folio adicional)',
       'Usuarios e integrantes ILIMITADOS',
       'Acceso multi-tenant y sucursales',
       'Exportación automática 1-Clic para Contador (ZIP)',

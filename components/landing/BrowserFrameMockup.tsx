@@ -11,7 +11,7 @@ interface BrowserFrameMockupProps {
 
 export function BrowserFrameMockup({
   children,
-  url = 'app.businesshelper.mx/dashboard',
+  url = 'app.businesshelper.app/dashboard',
   className = '',
 }: BrowserFrameMockupProps) {
   return (

@@ -26,11 +26,11 @@ describe('Task E8 & Landing Remediation Suite', () => {
     expect(screen.getByRole('heading', { level: 2, name: /Plan Empresa/i })).toBeInTheDocument();
   });
 
-  it('renders /demo page with interactive video player and H1 title cleanly', () => {
+  it('renders /demo page with interactive sandbox preview and H1 title cleanly', () => {
     render(<DemoPage />);
-    expect(screen.getByRole('heading', { level: 1, name: /Descubre cómo cotizar y cobrar/i })).toBeInTheDocument();
-    expect(screen.getByText(/Demostración en Vivo/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Explorar Panel Interactivo Demo/i })).toHaveAttribute(
+    expect(screen.getByRole('heading', { level: 1, name: /Prueba la plataforma en vivo/i })).toBeInTheDocument();
+    expect(screen.getByText(/Sandbox Interactivo en Vivo/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Explorar Sandbox Interactivo/i })[0]).toHaveAttribute(
       'href',
       '/dashboard?demo=true'
     );

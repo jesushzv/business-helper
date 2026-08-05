@@ -29,6 +29,7 @@ import { SmartVideoPlayer } from '@/components/landing/SmartVideoPlayer';
 import { LiveDemoButton } from '@/components/landing/LiveDemoButton';
 import { BottomConversionForm } from '@/components/landing/BottomConversionForm';
 import { DifferentiatorTimeline } from '@/components/landing/DifferentiatorTimeline';
+import { Footer } from '@/components/layout/Footer';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { getAssetUrl } from '@/lib/url';
 import { TESTIMONIALS, CONTACT_INFO } from '@/lib/trustData';
@@ -123,26 +124,26 @@ export default function LandingPage() {
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15]">
-                Controla tus cotizaciones, cobranza y facturación —{' '}
+                Cobra un 40% más rápido con cotizaciones por WhatsApp y{' '}
                 <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 via-teal-300 to-indigo-400">
-                  Cotiza y cobra desde tu celular
+                  CFDI 4.0 automatizado
                 </span>.
               </h1>
 
               <p className="text-slate-400 text-base sm:text-lg max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                Genera cotizaciones profesionales en 2 minutos, envíalas por WhatsApp y mantén el control de quién te debe dinero — todo sin implementar sistemas complejos de miles de pesos.
+                La plataforma todo-en-uno para PyMEs en México. Genera cotizaciones en 2 minutos, envíalas por WhatsApp y timbra facturas SAT sin complicaciones.
               </p>
 
               {/* CTAs */}
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
+                <LiveDemoButton href="/dashboard?demo=true">Explorar Sandbox Interactivo</LiveDemoButton>
                 <Link
-                  href="/onboarding"
+                  href="/register"
                   className="w-full sm:w-auto min-h-[54px] px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center gap-3 text-base active:scale-95"
                 >
                   <span>Probar 14 Días Gratis</span>
                   <ArrowRight className="w-5 h-5" />
                 </Link>
-                <LiveDemoButton />
               </div>
 
               {/* Trust Badges */}
@@ -161,38 +162,26 @@ export default function LandingPage() {
               {/* SAT Certificate Security Guarantee Callout (Task A9) */}
               <div className="p-3 px-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-xs text-emerald-300 flex items-start gap-2.5 shadow-sm text-left">
                 <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span><strong>Garantía de Seguridad SAT:</strong> Tus certificados (.cer/.key) se mantienen 100% protegidos en tu PAC (Facturapi). Nunca almacenamos ni leemos tus llaves privadas.</span>
+                <span><strong>Garantía de Seguridad SAT:</strong> Tus certificados (.cer/.key) se mantienen 100% protegidos en tu PAC. Nunca almacenamos ni leemos tus llaves privadas.</span>
               </div>
 
-              {/* Micro Social Proof Banner */}
-              <div className="pt-4 border-t border-slate-900 flex items-center justify-center lg:justify-start gap-3">
-                <div className="flex -space-x-2 overflow-hidden">
-                  <img src={getAssetUrl('/avatars/roberto_elizondo.png')} alt="Don Roberto Elizondo" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
-                  <img src={getAssetUrl('/avatars/sofia_morales.png')} alt="Lic. Sofía Morales" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
-                  <img src={getAssetUrl('/avatars/mariana_fuentes.png')} alt="Mariana Fuentes" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
-                  <img src={getAssetUrl('/avatars/carlos_trevino.png')} alt="Carlos Treviño" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
-                </div>
-                <div className="text-xs text-slate-400 text-left">
-                  <div className="flex items-center text-amber-400 gap-0.5">
-                    <Star className="w-3.5 h-3.5 fill-current" />
-                    <Star className="w-3.5 h-3.5 fill-current" />
-                    <Star className="w-3.5 h-3.5 fill-current" />
-                    <Star className="w-3.5 h-3.5 fill-current" />
-                    <Star className="w-3.5 h-3.5 fill-current" />
-                  </div>
-                  <span className="font-bold text-slate-200">+500 PyMEs en México</span> confían en Business Helper
-                </div>
+              {/* Micro Social Proof Banner (Industry & Roles) */}
+              <div className="pt-4 border-t border-slate-900 flex flex-wrap items-center justify-center lg:justify-start gap-3 text-xs text-slate-400">
+                <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-[11px]">
+                  Construcción • Servicios • Consultoría • Comercio
+                </span>
+                <span className="font-bold text-slate-200">+500 PyMEs en México</span>
               </div>
             </div>
 
-            {/* Hero Right Visual Mockup */}
+            {/* Hero Right Visual Mockup (ONLY BrowserFrameMockup) */}
             <div className="lg:col-span-6 flex justify-center w-full">
-              <BrowserFrameMockup url="app.businesshelper.mx/dashboard">
-                <SmartVideoPlayer
-                  poster="/assets/demo/cuj_02_dashboard_kpis.png"
-                  objectFit="cover"
-                  objectPosition="object-top"
-                  alt="Demostración de Dashboard Business Helper"
+              <BrowserFrameMockup url="app.businesshelper.app/dashboard">
+                <img
+                  src={getAssetUrl('/assets/demo/cuj_02_dashboard_kpis.png')}
+                  alt="Dashboard Business Helper — Control de Cotizaciones y Cobranza"
+                  className="w-full h-full object-cover object-top rounded-b-xl"
+                  loading="eager"
                 />
               </BrowserFrameMockup>
             </div>
@@ -445,16 +434,12 @@ export default function LandingPage() {
 
                 <div className="flex items-center justify-between pt-4 border-t border-slate-800/80 mt-4">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={getAssetUrl(t.avatarUrl)}
-                      alt={t.personaLabel || t.author}
-                      className="w-11 h-11 rounded-full object-cover shadow-md border-2 border-emerald-500/40 shrink-0"
-                      loading="lazy"
-                      decoding="async"
-                    />
+                    <div className={`w-10 h-10 rounded-xl ${t.avatarBg || 'bg-emerald-600'} text-white font-black text-xs flex items-center justify-center shadow-md shrink-0 border border-white/10`}>
+                      {t.avatarInitials}
+                    </div>
                     <div>
                       <div className="text-xs font-bold text-white">
-                        {t.personaLabel || t.author}
+                        {t.personaLabel}
                       </div>
                       <div className="text-[11px] text-slate-400">{t.industry}</div>
                     </div>
@@ -625,45 +610,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-xs text-slate-400 border-b border-slate-900 pb-8">
-            <div className="flex items-center gap-3">
-              <img src={getAssetUrl('/logo-icon.svg')} alt="Business Helper" className="h-8 w-8 object-contain" />
-              <div>
-                <div className="font-extrabold text-white text-sm">Business Helper S.A.P.I. de C.V.</div>
-                <div className="text-slate-400 text-[11px]">{CONTACT_INFO.streetAddress}, {CONTACT_INFO.cityState}</div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-6 text-xs font-semibold text-slate-300">
-              <a href={`mailto:${CONTACT_INFO.email}`} className="hover:text-indigo-400 transition-colors flex items-center gap-1.5">
-                <Mail className="w-4 h-4 text-indigo-400" />
-                <span>Atención & Soporte: {CONTACT_INFO.email}</span>
-              </a>
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
-            <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-emerald-400" />
-              <span>© 2026 Business Helper S.A.P.I. de C.V. Todos los derechos reservados. Tijuana, B.C. / San Diego, CA.</span>
-            </div>
-            <div className="flex items-center gap-6">
-              <Link href="/privacy" className="hover:text-slate-300 transition-colors py-2">
-                Aviso de Privacidad (LFPDPPP)
-              </Link>
-              <Link href="/terms" className="hover:text-slate-300 transition-colors py-2">
-                Términos del Servicio
-              </Link>
-              <Link href="/dashboard" className="hover:text-slate-300 transition-colors py-2">
-                Panel de Control
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Footer Component */}
+      <Footer />
 
       {/* Floating Mobile Sticky CTA */}
       <StickyMobileCta />

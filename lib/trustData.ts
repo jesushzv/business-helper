@@ -22,75 +22,75 @@ export type Testimonial = UseCaseScenario;
 export const TESTIMONIALS: UseCaseScenario[] = [
   {
     id: 'usecase-1',
-    useCaseTitle: 'Caso de Uso 01: Agencia Digital & Consultoría B2B',
-    personaLabel: 'Mariana Fuentes — Dirección de Operaciones',
-    author: 'Mariana Fuentes',
-    role: 'Dirección de Operaciones',
-    company: 'Agencia Digital B2B',
-    location: 'CDMX',
-    industry: 'Servicios Digitales & Consultoría B2B',
+    useCaseTitle: 'Construcción & Acabados Industriales',
+    personaLabel: 'Gerente General de Operaciones',
+    author: 'Gerente General',
+    role: 'Operaciones & Obras',
+    company: 'Contratistas & Obras México',
+    location: 'Monterrey, NL',
+    industry: 'Construcción & Arquitectura',
     quote:
-      'Manejamos más de 15 proyectos simultáneos con clientes corporativos. Las cotizaciones se ven impecables con nuestra marca, las autorizan con firma OTP al instante y al final del mes le envío todo a mi contador en un paquete ZIP ordenado. Ahorro estimado de 15 horas a la semana.',
+      'Aprobación de cotizaciones en 30 segundos por WhatsApp y anticipos SPEI inmediatos sin perder folios ni traspapelar notas de venta en papel.',
     rating: 5,
-    metricTag: '15 hrs/semana Ahorradas',
-    avatarInitials: 'MF',
-    avatarBg: 'bg-indigo-600',
-    avatarIcon: 'Briefcase',
-    avatarUrl: '/avatars/mariana_fuentes.png',
+    metricTag: 'Cobro 40% más rápido',
+    avatarInitials: 'CO',
+    avatarBg: 'bg-emerald-600',
+    avatarIcon: 'Building2',
+    avatarUrl: '/avatars/industry_construction.png',
   },
   {
     id: 'usecase-2',
-    useCaseTitle: 'Caso de Uso 02: Mantenimiento & Servicios Industriales',
-    personaLabel: 'Carlos Treviño — Gerencia Comercial & Campo',
-    author: 'Carlos Treviño',
-    role: 'Gerente Comercial',
-    company: 'Mantenimiento Industrial MTY/TJ',
+    useCaseTitle: 'Servicios Industriales & HVAC',
+    personaLabel: 'Gerencia Comercial de Campo',
+    author: 'Gerente Comercial',
+    role: 'Ventas en Campo & Mantenimiento',
+    company: 'Servicios Industriales MTY/TJ',
     location: 'Tijuana, BC',
-    industry: 'HVAC & Servicios Industriales',
+    industry: 'HVAC & Mantenimiento Industrial',
     quote:
-      'Nuestros técnicos andan siempre en campo. Poder cotizar un mantenimiento desde el celular en 2 minutos mientras están con el cliente y recibir la notificación cuando el cliente sube su comprobante SPEI cambió por completo nuestro flujo de caja.',
+      'Cotizaciones enviadas desde el celular en el lugar de la obra en menos de 2 minutos con notificación en tiempo real al recibirse la transferencia SPEI.',
     rating: 5,
-    metricTag: 'Cobros 5 días más rápidos',
-    avatarInitials: 'CT',
+    metricTag: '15 hrs/semana Ahorradas',
+    avatarInitials: 'SI',
     avatarBg: 'bg-teal-600',
     avatarIcon: 'Wrench',
-    avatarUrl: '/avatars/carlos_trevino.png',
+    avatarUrl: '/avatars/industry_hvac.png',
   },
   {
     id: 'usecase-3',
-    useCaseTitle: 'Caso de Uso 03: Distribuidora de Materiales de Construcción',
-    personaLabel: 'Don Roberto Elizondo — Director General',
-    author: 'Roberto Elizondo',
-    role: 'Director General',
-    company: 'Materiales & Acabados MTY',
-    location: 'Monterrey, NL',
-    industry: 'Distribución de Materiales & Comercio',
+    useCaseTitle: 'Agencias Digitales & Consultoría B2B',
+    personaLabel: 'Dirección de Operaciones',
+    author: 'Dirección de Operaciones',
+    role: 'Gestión de Proyectos B2B',
+    company: 'Consultoría & Servicios B2B',
+    location: 'CDMX',
+    industry: 'Servicios Digitales & Consultoría',
     quote:
-      'Antes perdía miles de pesos en facturas que se traspapelaban en WhatsApp. Con Business Helper sé exactamente quién me debe, recibo las alertas SPEI al instante y mis clientes autorizan cotizaciones desde su celular en 1 clic.',
+      'Gestión de más de 15 proyectos simultáneos con firma OTP legal y entrega mensual limpia en un solo paquete ZIP para el despacho contable.',
     rating: 5,
-    metricTag: 'Cero Cartera Vencida Perdida',
-    avatarInitials: 'RE',
-    avatarBg: 'bg-emerald-600',
-    avatarIcon: 'Building2',
-    avatarUrl: '/avatars/roberto_elizondo.png',
+    metricTag: 'Entrega ZIP 1-Clic',
+    avatarInitials: 'AD',
+    avatarBg: 'bg-indigo-600',
+    avatarIcon: 'Briefcase',
+    avatarUrl: '/avatars/industry_agency.png',
   },
   {
     id: 'usecase-4',
-    useCaseTitle: 'Caso de Uso 04: Despacho Contable & Asesoría Fiscal',
-    personaLabel: 'Lic. Sofía Morales — Socia de Despacho',
-    author: 'Sofía Morales',
-    role: 'Socia Fundadora',
-    company: 'Despacho Fiscal & Contable',
-    location: 'CDMX',
-    industry: 'Servicios Contables & Fiscales SAT',
+    useCaseTitle: 'Distribución & Comercio al Mayoreo',
+    personaLabel: 'Administración de Ventas',
+    author: 'Administración de Ventas',
+    role: 'Cobranza & Facturación SAT',
+    company: 'Distribuidora de Materiales',
+    location: 'Guadalajara, JAL',
+    industry: 'Distribución & Comercio',
     quote:
-      'Le recomendamos Business Helper a todos nuestros clientes PyME. Al cierre de mes nos entregan carpetas ordenadas con XML/PDF timbrados y conciliaciones SPEI exactas. Redujo 80% los errores en declaraciones fiscales.',
+      'Control total de la cartera vencida con alertas de pago SPEI Banxico y timbrado CFDI 4.0 automático sin complicaciones fiscales ante el SAT.',
     rating: 5,
-    metricTag: '80% Menos Errores SAT',
-    avatarInitials: 'SM',
-    avatarBg: 'bg-indigo-700',
+    metricTag: '80% Menos Cartera Vencida',
+    avatarInitials: 'DM',
+    avatarBg: 'bg-amber-600',
     avatarIcon: 'ShieldCheck',
-    avatarUrl: '/avatars/sofia_morales.png',
+    avatarUrl: '/avatars/industry_distribution.png',
   },
 ];
 
@@ -144,12 +144,12 @@ export interface DemoStep {
 export const TRUST_BADGES: TrustBadge[] = [
   {
     id: 'sat-cfdi',
-    title: 'SAT CFDI 4.0 Compliant',
-    subtitle: 'Timbrado Fiscal Oficial',
+    title: 'Certificados SAT Protegidos',
+    subtitle: 'Seguridad CSD',
     description:
-      'Cumple con los requerimientos vigentes del Anexo 20 del SAT para Facturación CFDI 4.0. Garantía de Seguridad: Nunca almacenamos tus certificados SAT (.cer/.key); mantienes el control total de tus llaves con tu PAC de confianza.',
+      'Nunca almacenamos tus certificados SAT (.cer/.key). Tus sellos CSD se quedan protegidos en tu PAC autorizado de confianza.',
     iconName: 'Building2',
-    badgeTag: 'SAT Anexo 20',
+    badgeTag: 'Garantía CSD SAT',
     externalSealLabel: 'PAC SAT Certificado — Facturapi Partner',
   },
   {
@@ -165,22 +165,12 @@ export const TRUST_BADGES: TrustBadge[] = [
   {
     id: 'banxico-spei',
     title: 'Validación SPEI Banxico',
-    subtitle: 'Comprobación de Pagos',
+    subtitle: 'Conciliación Bancaria',
     description:
-      'Verificación transparente de Clave de Rastreo SPEI y comprobantes bancarios directamente desde tu portal de pagos.',
+      'Verificación transparente por Clave de Rastreo SPEI Banxico directamente desde tu portal de cobranza.',
     iconName: 'CheckCircle2',
     badgeTag: 'Banxico Validated',
     externalSealLabel: 'Verificación CEP Banxico por Clave de Rastreo',
-  },
-  {
-    id: 'pac-partner',
-    title: 'PAC Aliado Autorizado',
-    subtitle: 'Proveedores de Certificación',
-    description:
-      'Infraestructura conectada a PACs certificados por el SAT (Facturapi) para timbrado directo sin intermediarios riesgosos.',
-    iconName: 'Zap',
-    badgeTag: 'PAC Certificado',
-    externalSealLabel: 'Sellos SAT CSD 100% Protegidos en tu PAC',
   },
 ];
 
@@ -191,26 +181,26 @@ function sanitizeEmail(envValue: string | undefined, fallback: string): string {
   return envValue;
 }
 
-// Configurable support emails
+// Configurable support emails using @businesshelper.app domain
 export function getSupportEmail(): string {
   if (typeof process !== 'undefined') {
-    return sanitizeEmail(process.env.NEXT_PUBLIC_SUPPORT_EMAIL, 'contacto@businesshelper.mx');
+    return sanitizeEmail(process.env.NEXT_PUBLIC_SUPPORT_EMAIL, 'contacto@businesshelper.app');
   }
-  return 'contacto@businesshelper.mx';
+  return 'contacto@businesshelper.app';
 }
 
 export function getFounderEmail(): string {
   if (typeof process !== 'undefined') {
-    return sanitizeEmail(process.env.NEXT_PUBLIC_FOUNDER_EMAIL, 'hector@businesshelper.mx');
+    return sanitizeEmail(process.env.NEXT_PUBLIC_FOUNDER_EMAIL, 'hector@businesshelper.app');
   }
-  return 'hector@businesshelper.mx';
+  return 'hector@businesshelper.app';
 }
 
 export function getTechSupportEmail(): string {
   if (typeof process !== 'undefined') {
-    return sanitizeEmail(process.env.NEXT_PUBLIC_TECH_SUPPORT_EMAIL, 'soporte@businesshelper.mx');
+    return sanitizeEmail(process.env.NEXT_PUBLIC_TECH_SUPPORT_EMAIL, 'soporte@businesshelper.app');
   }
-  return 'soporte@businesshelper.mx';
+  return 'soporte@businesshelper.app';
 }
 
 const activeContactoEmail = getSupportEmail();
@@ -260,7 +250,7 @@ export const CONTACT_INFO: ContactDetails = {
   email: activeContactoEmail,
   founderEmail: activeHectorEmail,
   supportEmail: activeSoporteEmail,
-  privacyEmail: 'privacidad@businesshelper.mx',
+  privacyEmail: 'privacidad@businesshelper.app',
   streetAddress: 'Zona Urbana Río / San Diego Border',
   neighborhood: 'Zona Río',
   cityState: 'Tijuana, B.C., México / San Diego, CA',
