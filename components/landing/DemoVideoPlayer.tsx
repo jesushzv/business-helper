@@ -6,6 +6,7 @@ import { Play, Pause, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 import { PhoneFrameMockup } from '@/components/landing/PhoneFrameMockup';
+import { BrowserFrameMockup } from '@/components/landing/BrowserFrameMockup';
 import { SmartVideoPlayer } from '@/components/landing/SmartVideoPlayer';
 
 export function DemoVideoPlayer() {
@@ -127,58 +128,59 @@ export function DemoVideoPlayer() {
           </div>
         </div>
 
-        {/* Right Phone Mockup Visual */}
+        {/* Right Device Visual Mockup (Browser for Desktop, Phone for Mobile) */}
         <div className="lg:col-span-6 flex justify-center">
-          <PhoneFrameMockup>
-            {/* Dynamic Step Content with Real Assets */}
-            <div className="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
-              {currentStep.screenMockupType === 'quote' && (
-                <SmartVideoPlayer
-                  src="/assets/demo/cuj_04_quotes_wizard_mobile.webm"
-                  poster="/assets/demo/cuj_04_quote_wizard_modal.png"
-                  objectFit="cover"
-                  objectPosition="object-top"
-                  alt="Demostración de Cotización"
-                />
-              )}
+          {currentStep.screenMockupType === 'quote' && (
+            <BrowserFrameMockup url="app.businesshelper.mx/quotes/new">
+              <SmartVideoPlayer
+                src="/assets/demo/cuj_04_quotes_wizard_desktop.webm"
+                poster="/assets/demo/cuj_04_quote_wizard_modal.png"
+                objectFit="cover"
+                objectPosition="object-top"
+                alt="Cotizador de Productos e Impuestos SAT"
+              />
+            </BrowserFrameMockup>
+          )}
 
-              {currentStep.screenMockupType === 'whatsapp' && (
+          {currentStep.screenMockupType === 'spei' && (
+            <BrowserFrameMockup url="app.businesshelper.mx/pay/spei-receipt">
+              <SmartVideoPlayer
+                src="/assets/demo/cuj_07_spei_portal_desktop.webm"
+                poster="/assets/demo/cuj_07_spei_portal.png"
+                objectFit="cover"
+                objectPosition="object-top"
+                alt="Comprobante Banxico SPEI"
+              />
+            </BrowserFrameMockup>
+          )}
+
+          {currentStep.screenMockupType === 'whatsapp' && (
+            <PhoneFrameMockup>
+              <div className="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
                 <SmartVideoPlayer
                   src="/assets/demo/cuj_08_whatsapp_ai_assistant_mobile.webm"
                   poster="/assets/demo/cuj_05_public_proposal.png"
                   objectFit="cover"
                   objectPosition="object-top"
-                  alt="Demostración de propuesta en WhatsApp"
+                  alt="Propuesta interactiva enviada en WhatsApp"
                 />
-              )}
+              </div>
+            </PhoneFrameMockup>
+          )}
 
-              {currentStep.screenMockupType === 'otp' && (
+          {currentStep.screenMockupType === 'otp' && (
+            <PhoneFrameMockup>
+              <div className="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
                 <SmartVideoPlayer
                   src="/assets/demo/cuj_05_proposal_signing_mobile.webm"
                   poster="/assets/demo/cuj_05_signing_otp_modal.png"
                   objectFit="cover"
                   objectPosition="object-top"
-                  alt="Demostración de firma OTP"
+                  alt="Firma legal de propuesta por OTP SMS"
                 />
-              )}
-
-              {currentStep.screenMockupType === 'spei' && (
-                <SmartVideoPlayer
-                  src="/assets/demo/cuj_07_spei_portal_mobile.webm"
-                  poster="/assets/demo/cuj_07_spei_portal.png"
-                  objectFit="cover"
-                  objectPosition="object-top"
-                  alt="Demostración de pago SPEI"
-                />
-              )}
-
-              {/* Bottom Status Overlay */}
-              <div className="p-2.5 bg-slate-900/90 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-400 font-mono">
-                <span>Grabación Real de Celular</span>
-                <span className="text-emerald-400 font-bold">● Simulación en Vivo</span>
               </div>
-            </div>
-          </PhoneFrameMockup>
+            </PhoneFrameMockup>
+          )}
         </div>
       </div>
     </div>
