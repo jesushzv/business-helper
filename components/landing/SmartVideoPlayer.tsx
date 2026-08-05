@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
+import { getAssetUrl } from '@/lib/url';
 
 interface SmartVideoPlayerProps {
   src: string;
@@ -15,6 +16,9 @@ export function SmartVideoPlayer({
   alt = 'Demostración de pantalla de la aplicación',
   className = '',
 }: SmartVideoPlayerProps) {
+  const resolvedSrc = getAssetUrl(src);
+  const resolvedPoster = getAssetUrl(poster);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -55,7 +59,7 @@ export function SmartVideoPlayer({
     <div className={`relative w-full h-full min-h-[460px] bg-slate-950 rounded-2xl overflow-hidden ${className}`}>
       {/* Background / Fallback Screenshot Image (Ensures view is NEVER blank or black) */}
       <img
-        src={poster}
+        src={resolvedPoster}
         alt={alt}
         className={`absolute inset-0 w-full h-full object-cover rounded-2xl z-0 transition-opacity duration-300 ${
           isLoaded && !hasError ? 'opacity-0' : 'opacity-100'
@@ -68,7 +72,7 @@ export function SmartVideoPlayer({
       {!hasError && (
         <video
           ref={videoRef}
-          poster={poster}
+          poster={resolvedPoster}
           autoPlay
           loop
           muted
@@ -80,10 +84,10 @@ export function SmartVideoPlayer({
             isLoaded ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          {src.endsWith('.webm') && (
-            <source src={src.replace('.webm', '.mp4')} type="video/mp4" />
+          {resolvedSrc.endsWith('.webm') && (
+            <source src={resolvedSrc.replace('.webm', '.mp4')} type="video/mp4" />
           )}
-          <source src={src} type={src.endsWith('.webm') ? 'video/webm' : 'video/mp4'} />
+          <source src={resolvedSrc} type={resolvedSrc.endsWith('.webm') ? 'video/webm' : 'video/mp4'} />
         </video>
       )}
     </div>

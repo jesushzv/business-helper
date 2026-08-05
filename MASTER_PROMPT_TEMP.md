@@ -22,7 +22,8 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 * **Consolidated Audit Score**: **5.0 / 10** (Launch Readiness) | **4.75–5.0 / 10** (Mobile Responsiveness)
 * **Gate 1 Status**: **RE-OPENED / FAILED 🔴** (Target: ≥ 7.0 / 10 before paid acquisition)
 * **Target Audience**: Mexican PyMEs (Don Roberto & Lic. Mariana personas)
-* **Core Rule**: Zero tolerance for stock photo duplication, leaked raw asset paths, broken routes (`/login`, `/pricing`, `/demo`), or data-loss footer form buttons.
+* **Core Rule 1**: Production Deployment Target Standard — All features, media assets, authentication flows, API endpoints, and database models MUST be targeted and architected for Production Cloud Deployment (Vercel, Supabase, Cloudflare R2 / CDN, Stripe Live API) rather than local-only setups, unless explicitly stated otherwise.
+* **Core Rule 2**: Zero tolerance for stock photo duplication, leaked raw asset paths, broken routes (`/login`, `/pricing`, `/demo`), or data-loss footer form buttons.
 
 ---
 

@@ -39,3 +39,17 @@ export function getAuthCallbackUrl(): string {
 export function getStripeWebhookUrl(): string {
   return `${getAppBaseUrl()}/api/stripe/webhook`;
 }
+
+/**
+ * Returns the CDN or base URL origin for media assets (videos, screenshots, posters).
+ * Supports NEXT_PUBLIC_CDN_URL (Supabase Storage / Cloudflare R2 / Vercel Blob) for production deployment.
+ */
+export function getAssetUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const cdnUrl = process.env.NEXT_PUBLIC_CDN_URL ? process.env.NEXT_PUBLIC_CDN_URL.replace(/\/+$/, '') : '';
+  return cdnUrl ? `${cdnUrl}${cleanPath}` : cleanPath;
+}
