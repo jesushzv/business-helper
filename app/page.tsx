@@ -27,6 +27,7 @@ import { HealthScoreExplainer } from '@/components/landing/HealthScoreExplainer'
 import { PhoneFrameMockup } from '@/components/landing/PhoneFrameMockup';
 import { SmartVideoPlayer } from '@/components/landing/SmartVideoPlayer';
 import { LiveDemoButton } from '@/components/landing/LiveDemoButton';
+import { BottomConversionForm } from '@/components/landing/BottomConversionForm';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { TESTIMONIALS, CONTACT_INFO } from '@/lib/trustData';
 
@@ -120,8 +121,10 @@ export default function LandingPage() {
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15]">
-                <span className="hidden sm:inline">Controla tus cotizaciones, cobranza y facturación <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 via-teal-300 to-indigo-400">desde tu celular</span>.</span>
-                <span className="sm:hidden">Cotiza y cobra <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 via-teal-300 to-indigo-400">desde tu celular</span>.</span>
+                Controla tus cotizaciones, cobranza y facturación —{' '}
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 via-teal-300 to-indigo-400">
+                  Cotiza y cobra desde tu celular
+                </span>.
               </h1>
 
               <p className="text-slate-400 text-base sm:text-lg max-w-2xl mx-auto lg:mx-0 leading-relaxed">
@@ -156,6 +159,8 @@ export default function LandingPage() {
               {/* Micro Social Proof Banner */}
               <div className="pt-4 border-t border-slate-900 flex items-center justify-center lg:justify-start gap-3">
                 <div className="flex -space-x-2 overflow-hidden">
+                  <img src="/avatars/roberto_elizondo.png" alt="Don Roberto Elizondo" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                  <img src="/avatars/sofia_morales.png" alt="Lic. Sofía Morales" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
                   <img src="/avatars/mariana_fuentes.png" alt="Mariana Fuentes" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
                   <img src="/avatars/carlos_trevino.png" alt="Carlos Treviño" loading="lazy" decoding="async" className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
                 </div>
@@ -617,111 +622,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="max-w-xl mx-auto p-6 sm:p-8 rounded-3xl border border-slate-800 bg-slate-900/90 shadow-2xl backdrop-blur-xl space-y-5 text-left">
-            {/* Business Name */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-300">
-                Nombre de tu Negocio <span className="text-rose-500 font-bold ml-0.5">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="ej. Materiales Elizondo S.A. de C.V."
-                className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            {/* RFC & Phone Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">
-                  RFC de la Empresa <span className="text-rose-500 font-bold ml-0.5">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  maxLength={13}
-                  placeholder="ej. MEL120315HD9"
-                  className="w-full min-h-[48px] px-4 py-3 uppercase font-mono rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">
-                  Teléfono / WhatsApp <span className="text-rose-500 font-bold ml-0.5">*</span>
-                </label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="8112345678"
-                  className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-300">
-                Correo Electrónico <span className="text-rose-500 font-bold ml-0.5">*</span>
-              </label>
-              <input
-                type="email"
-                required
-                placeholder="contacto@tunegocio.mx"
-                className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            {/* Password */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-300">
-                Contraseña <span className="text-rose-500 font-bold ml-0.5">*</span>
-              </label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                placeholder="Mínimo 6 caracteres"
-                className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            {/* Terms & Privacy Consent Checkbox */}
-            <div className="pt-1">
-              <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-300 leading-relaxed">
-                <input
-                  type="checkbox"
-                  required
-                  defaultChecked
-                  className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500"
-                />
-                <span>
-                  Acepto el{' '}
-                  <Link href="/privacy" className="text-emerald-400 underline hover:text-emerald-300 font-medium">
-                    Aviso de Privacidad (LFPDPPP)
-                  </Link>{' '}
-                  y los{' '}
-                  <Link href="/terms" className="text-emerald-400 underline hover:text-emerald-300 font-medium">
-                    Términos y Condiciones
-                  </Link>{' '}
-                  de Business Helper México. <span className="text-rose-500 font-bold">*</span>
-                </span>
-              </label>
-            </div>
-
-            <Link
-              href="/register"
-              className="w-full min-h-[54px] py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl shadow-lg shadow-emerald-500/20 text-sm text-center flex items-center justify-center transition-all active:scale-95 mt-2"
-            >
-              Comenzar Prueba Gratis (14 Días)
-            </Link>
-
-            <div className="flex justify-between items-center text-[10px] text-slate-400 pt-2 border-t border-slate-800/60">
-              <span>✓ Sin tarjeta de crédito</span>
-              <span>✓ Cancela cuando quieras</span>
-              <span>✓ Soporte WhatsApp</span>
-            </div>
-          </div>
+          <BottomConversionForm />
         </div>
       </section>
 

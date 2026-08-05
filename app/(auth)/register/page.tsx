@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Building2, Lock, Mail, ArrowRight, AlertCircle, Sparkles, FileText, Phone, Users, ShieldCheck } from 'lucide-react';
 import { validateRFC } from '@/lib/rfcValidator';
@@ -24,12 +24,14 @@ const COMPANY_SIZES = [
   { value: '50+', label: '50+ colaboradores (Grande)' },
 ];
 
-export default function RegisterPage() {
+function RegisterFormContent() {
   const router = useRouter();
-  const [businessName, setBusinessName] = useState('');
-  const [rfc, setRfc] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const searchParams = useSearchParams();
+
+  const [businessName, setBusinessName] = useState(searchParams.get('businessName') || '');
+  const [rfc, setRfc] = useState(searchParams.get('rfc') || '');
+  const [phone, setPhone] = useState(searchParams.get('phone') || '');
+  const [email, setEmail] = useState(searchParams.get('email') || '');
   const [password, setPassword] = useState('');
   const [taxRegime, setTaxRegime] = useState('601');
   const [companySize, setCompanySize] = useState('1-5');
@@ -343,5 +345,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Cargando...</div>}>
+      <RegisterFormContent />
+    </Suspense>
   );
 }
