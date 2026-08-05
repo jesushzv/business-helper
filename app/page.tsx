@@ -288,7 +288,7 @@ export default function LandingPage() {
                 <img
                   src={getAssetUrl('/assets/demo/cuj_04_quote_wizard_step2.png')}
                   alt="Generador de Cotizaciones Business Helper — Cálculo de Impuestos SAT"
-                  className="w-full h-full object-contain object-top bg-slate-950 rounded-b-xl"
+                  className="w-full h-full object-cover object-top rounded-b-xl"
                   loading="lazy"
                 />
               </BrowserFrameMockup>
@@ -299,23 +299,23 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-6 lg:order-2 space-y-6">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
-                02. Portal SPEI & Aprobación Digital con WhatsApp
+                02. Aprobación Digital OTP por WhatsApp
               </span>
               <h3 className="text-3xl font-black text-white tracking-tight">
-                Tu cliente autoriza con OTP y sube su comprobante SPEI sin crear cuentas
+                Tu cliente autoriza con código OTP legal directo en su celular sin crear cuentas
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Al recibir tu mensaje en WhatsApp, tu cliente abre su cotización en 1 clic, aprueba mediante un código a su celular y adjunta su comprobante de transferencia Banxico SPEI — sin trámites ni claves complejas.
+                Al recibir tu mensaje en WhatsApp, tu cliente abre su propuesta en 1 clic y aprueba mediante un código a su celular con evidencia digital de aceptación y fecha certificada.
               </p>
               <ul className="space-y-3 text-xs text-slate-300">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Aprobación instantánea con código OTP al celular del cliente
+                  <Check className="w-4 h-4 text-emerald-400" /> Aprobación instantánea con código OTP SMS/WhatsApp
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Registro de Clave de Rastreo Banxico para validación
+                  <Check className="w-4 h-4 text-emerald-400" /> Evidencia digital legal respaldada con sello temporal
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Notificación instantánea en tu celular al recibir pago
+                  <Check className="w-4 h-4 text-emerald-400" /> Cero fricción: tu cliente no necesita descargar aplicaciones
                 </li>
               </ul>
             </div>
@@ -334,33 +334,105 @@ export default function LandingPage() {
           {/* Showcase Item 3 */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-6 space-y-6">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                03. Cobranza Visual & Timbrado CFDI 4.0 SAT
+              <span className="text-xs font-bold uppercase tracking-wider text-teal-400 bg-teal-500/10 px-3 py-1 rounded-full border border-teal-500/20">
+                03. Conciliación SPEI Banxico
               </span>
               <h3 className="text-3xl font-black text-white tracking-tight">
-                Controla quién te debe dinero y emite facturas timbradas ante el SAT
+                Validación de transferencias con Clave de Rastreo SPEI y comprobantes bancarios
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Visualiza el mapa de cobranza en tiempo real, envía recordatorios automáticos por WhatsApp y timbra facturas fiscales electrónicas CFDI 4.0 en un solo clic con exportación comprimida en ZIP para tu contador.
+                Tu cliente adjunta su comprobante SPEI y registra la Clave de Rastreo Banxico directamente desde el portal de la cotización, eliminando confusiones de quién transfirió qué pago.
               </p>
               <ul className="space-y-3 text-xs text-slate-300">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Paquete ZIP completo con PDFs, XMLs y resúmenes CSV
+                  <Check className="w-4 h-4 text-emerald-400" /> Carga directa de comprobantes de pago SPEI en PDF o imagen
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Timbrado de facturas electrónicas CFDI 4.0 certificado
+                  <Check className="w-4 h-4 text-emerald-400" /> Registro de Clave de Rastreo Banxico para consulta CEP
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Historial de clientes con RFC y régimen fiscal SAT
+                  <Check className="w-4 h-4 text-emerald-400" /> Notificación automática al recibir el depósito
                 </li>
               </ul>
             </div>
             <div className="lg:col-span-6">
+              <BrowserFrameMockup url="app.businesshelper.app/spei/portal">
+                <img
+                  src={getAssetUrl('/assets/demo/cuj_07_spei_portal.png')}
+                  alt="Portal de Validación SPEI Banxico — Business Helper"
+                  className="w-full h-full object-cover object-top rounded-b-xl"
+                  loading="lazy"
+                />
+              </BrowserFrameMockup>
+            </div>
+          </div>
+
+          {/* Showcase Item 4 */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            <div className="lg:col-span-6 lg:order-2 space-y-6">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                04. Cobranza Visual &ldquo;Quién Me Debe&rdquo;
+              </span>
+              <h3 className="text-3xl font-black text-white tracking-tight">
+                Mapa de cartera vencida en tiempo real y score de riesgo crediticio
+              </h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Visualiza exactamente qué clientes están al día, quiénes tienen pagos por vencer y cuáles presentan morosidad, con recordatorios automatizados listos para enviar por WhatsApp.
+              </p>
+              <ul className="space-y-3 text-xs text-slate-300">
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" /> Tablero visual organizado por estatus de cobro
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" /> Health Score de Cliente (0-100) para prevenir riesgo crediticio
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" /> Recordatorios de pago por WhatsApp en 1 clic
+                </li>
+              </ul>
+            </div>
+            <div className="lg:col-span-6 lg:order-1">
               <BrowserFrameMockup url="app.businesshelper.app/receivables">
                 <img
                   src={getAssetUrl('/assets/demo/cuj_06_accounts_receivable.png')}
                   alt="Panel de Cobranza Quién Me Debe — Business Helper"
-                  className="w-full h-full object-contain object-top bg-slate-950 rounded-b-xl"
+                  className="w-full h-full object-cover object-top rounded-b-xl"
+                  loading="lazy"
+                />
+              </BrowserFrameMockup>
+            </div>
+          </div>
+
+          {/* Showcase Item 5 */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            <div className="lg:col-span-6 space-y-6">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                05. Facturación SAT CFDI 4.0 & Exportación ZIP
+              </span>
+              <h3 className="text-3xl font-black text-white tracking-tight">
+                Emisión instantánea de facturas electrónicas y descarga 1-Clic para Contador
+              </h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Timbra facturas CFDI 4.0 ante el SAT en 1 toque. Al cierre de mes, descarga un paquete ZIP comprimido con tus facturas XML, notas de venta PDF y reportes CSV listo para tu despacho contable.
+              </p>
+              <ul className="space-y-3 text-xs text-slate-300">
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" /> Timbrado oficial CFDI 4.0 certificado (Facturapi PAC Partner)
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" /> Paquete ZIP completo listo para enviar por correo a tu contador
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" /> Resumen estructurado CSV con desglose automático de impuestos
+                </li>
+              </ul>
+            </div>
+            <div className="lg:col-span-6">
+              <BrowserFrameMockup url="app.businesshelper.app/invoices">
+                <img
+                  src={getAssetUrl('/assets/demo/cuj_10_invoices_sat.png')}
+                  alt="Timbrado Fiscal CFDI 4.0 SAT — Business Helper"
+                  className="w-full h-full object-cover object-top rounded-b-xl"
                   loading="lazy"
                 />
               </BrowserFrameMockup>
