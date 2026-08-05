@@ -12,7 +12,8 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:legacy": "node scripts/test-runner.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "sync-blob": "node scripts/upload-to-vercel-blob.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
