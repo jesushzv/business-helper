@@ -145,15 +145,15 @@ export default function LandingPage() {
               </div>
 
               {/* Trust Badges */}
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-xs text-slate-400 pt-2">
-                <span className="flex items-center gap-1.5 font-medium">
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 text-xs text-slate-400 pt-2">
+                <span className="flex items-center gap-1.5 font-semibold text-slate-300">
                   <Check className="w-4 h-4 text-emerald-400" /> Sin tarjeta de crédito
                 </span>
-                <span className="flex items-center gap-1.5 font-medium">
+                <span className="flex items-center gap-1.5 font-semibold text-slate-300">
                   <Check className="w-4 h-4 text-emerald-400" /> Configuración en 3 min
                 </span>
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Check className="w-4 h-4 text-emerald-400" /> SAT CFDI 4.0 & SPEI Banxico
+                <span className="flex items-center gap-1.5 font-semibold text-slate-300">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" /> Certificados SAT Protegidos (Sin guardar .cer/.key)
                 </span>
               </div>
 
