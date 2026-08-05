@@ -32,13 +32,13 @@ export function PhoneFrameMockup({ children, className = '' }: PhoneFrameMockupP
           </div>
         </div>
 
-        {/* Screen Viewport Wrapper */}
-        <div className="relative rounded-[36px] overflow-hidden bg-slate-950 border border-slate-800/60 min-h-[460px] sm:min-h-[520px]">
+        {/* Screen Viewport Wrapper (iPhone 9:19.5 Aspect Ratio) */}
+        <div className="relative rounded-[36px] overflow-hidden bg-slate-950 border border-slate-800/60 aspect-[9/19.5] w-full">
           {/* Subtle Ambient Screen Reflection */}
           <div className="absolute top-0 right-0 w-full h-full bg-linear-to-bl from-white/5 via-transparent to-transparent pointer-events-none z-10" />
 
           {/* Screen Content Container */}
-          <div className="relative z-0 text-left">
+          <div className="relative z-0 w-full h-full text-left">
             {children}
           </div>
         </div>

@@ -180,7 +180,7 @@ export default function LandingPage() {
                 <img
                   src={getAssetUrl('/assets/demo/cuj_02_dashboard_kpis.png')}
                   alt="Dashboard Business Helper — Control de Cotizaciones y Cobranza"
-                  className="w-full h-full object-cover object-top rounded-b-xl"
+                  className="w-full h-full object-contain object-top bg-slate-950 rounded-b-xl"
                   loading="eager"
                 />
               </BrowserFrameMockup>
@@ -284,20 +284,14 @@ export default function LandingPage() {
               </ul>
             </div>
             <div className="lg:col-span-6">
-              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-3 text-xs font-bold text-slate-300">
-                  <span>Suministro Material de Construcción</span>
-                  <span className="text-emerald-400">$97,440.00 MXN</span>
-                </div>
-                <div className="space-y-2 text-xs text-slate-400">
-                  <div className="flex justify-between"><span>Subtotal (20 Ton. Cemento)</span><span>$84,000.00</span></div>
-                  <div className="flex justify-between"><span>IVA (16%)</span><span>$13,440.00</span></div>
-                  <div className="flex justify-between font-bold text-white pt-2 border-t border-slate-800"><span>Total Final</span><span className="text-emerald-400">$97,440.00</span></div>
-                </div>
-                <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-bold text-center">
-                  ✓ Enlace listo para enviar por WhatsApp
-                </div>
-              </div>
+              <BrowserFrameMockup url="app.businesshelper.app/quotes/new">
+                <img
+                  src={getAssetUrl('/assets/demo/cuj_04_quote_wizard_step2.png')}
+                  alt="Generador de Cotizaciones Business Helper — Cálculo de Impuestos SAT"
+                  className="w-full h-full object-contain object-top bg-slate-950 rounded-b-xl"
+                  loading="lazy"
+                />
+              </BrowserFrameMockup>
             </div>
           </div>
 
@@ -326,21 +320,14 @@ export default function LandingPage() {
               </ul>
             </div>
             <div className="lg:col-span-6 lg:order-1">
-              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-                  <div className="text-xs font-bold text-white flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> Evidencia Legal Certificada
-                  </div>
-                  <div className="text-[11px] font-mono text-emerald-400/90 break-all bg-slate-900 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
-                    <span className="text-slate-300 font-sans font-medium text-xs">Aprobación OTP WhatsApp</span>
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Verificado ✓</span>
-                  </div>
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center text-xs">
-                  <span className="text-slate-300 font-medium">Comprobante SPEI PDF</span>
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">Subido</span>
-                </div>
-              </div>
+              <BrowserFrameMockup url="app.businesshelper.app/q/cotizacion-demo">
+                <img
+                  src={getAssetUrl('/assets/demo/cuj_05_signing_otp_modal.png')}
+                  alt="Aprobación de Cotización vía OTP y Portal SPEI"
+                  className="w-full h-full object-cover object-top rounded-b-xl"
+                  loading="lazy"
+                />
+              </BrowserFrameMockup>
             </div>
           </div>
 
@@ -348,20 +335,20 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-6 space-y-6">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                03. Exportación 1-Clic para Contador
+                03. Cobranza Visual & Timbrado CFDI 4.0 SAT
               </span>
               <h3 className="text-3xl font-black text-white tracking-tight">
-                Entrega mensual a tu despacho contable sin perder horas reconciliando
+                Controla quién te debe dinero y emite facturas timbradas ante el SAT
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Descarga en un solo clic un archivo ZIP comprimido con todas tus notas de venta en PDF, comprobantes de pago SPEI, resúmenes CSV de ingresos y facturas XML de forma ordenada.
+                Visualiza el mapa de cobranza en tiempo real, envía recordatorios automáticos por WhatsApp y timbra facturas fiscales electrónicas CFDI 4.0 en un solo clic con exportación comprimida en ZIP para tu contador.
               </p>
               <ul className="space-y-3 text-xs text-slate-300">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Paquete ZIP completo listo para enviar por correo o WhatsApp
+                  <Check className="w-4 h-4 text-emerald-400" /> Paquete ZIP completo con PDFs, XMLs y resúmenes CSV
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Resumen estructurado en formato CSV con desglose de impuestos
+                  <Check className="w-4 h-4 text-emerald-400" /> Timbrado de facturas electrónicas CFDI 4.0 certificado
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-400" /> Historial de clientes con RFC y régimen fiscal SAT
@@ -369,22 +356,14 @@ export default function LandingPage() {
               </ul>
             </div>
             <div className="lg:col-span-6">
-              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
-                      <Download className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white">Paquete_Contable_Agosto_2026.zip</div>
-                      <div className="text-[10px] text-slate-400">PDFs, XMLs, SPEI y CSV de ventas</div>
-                    </div>
-                  </div>
-                  <span className="min-h-[48px] px-4 py-2 bg-amber-500/20 text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 flex items-center justify-center">
-                    1-Click Export
-                  </span>
-                </div>
-              </div>
+              <BrowserFrameMockup url="app.businesshelper.app/receivables">
+                <img
+                  src={getAssetUrl('/assets/demo/cuj_06_accounts_receivable.png')}
+                  alt="Panel de Cobranza Quién Me Debe — Business Helper"
+                  className="w-full h-full object-contain object-top bg-slate-950 rounded-b-xl"
+                  loading="lazy"
+                />
+              </BrowserFrameMockup>
             </div>
           </div>
 

@@ -25,7 +25,7 @@ export function SmartVideoPlayer({
   const [currentPoster, setCurrentPoster] = useState(primaryPoster);
 
   return (
-    <div className={`relative w-full h-full min-h-[460px] bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center ${className}`}>
+    <div className={`relative w-full h-full bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center ${className}`}>
       {/* Static App Screenshot Display */}
       <img
         src={currentPoster}
