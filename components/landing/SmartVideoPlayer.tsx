@@ -64,11 +64,10 @@ export function SmartVideoPlayer({
         decoding="async"
       />
 
-      {/* HTML5 Video Element with Direct Src & Event Handlers */}
+      {/* HTML5 Video Element with Dual Format Sources & Poster Fallback */}
       {!hasError && (
         <video
           ref={videoRef}
-          src={src}
           poster={poster}
           autoPlay
           loop
@@ -80,7 +79,12 @@ export function SmartVideoPlayer({
           className={`w-full h-full object-cover rounded-2xl relative z-10 transition-opacity duration-300 ${
             isLoaded ? 'opacity-100' : 'opacity-0'
           }`}
-        />
+        >
+          {src.endsWith('.webm') && (
+            <source src={src.replace('.webm', '.mp4')} type="video/mp4" />
+          )}
+          <source src={src} type={src.endsWith('.webm') ? 'video/webm' : 'video/mp4'} />
+        </video>
       )}
     </div>
   );
