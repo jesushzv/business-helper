@@ -1,49 +1,78 @@
 import { NextResponse } from 'next/server';
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
-import { verifyOTP, generateDigitalSeal } from '@/lib/otpSeal';
+import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { verifyStoredOTP, generateDigitalSeal, OTP_MAX_ATTEMPTS } from '@/lib/otpSeal';
+
+/**
+ * Public quote surface — reached by the client over a shared link, with no
+ * session. Every query here runs through the service-role client and MUST be
+ * filtered by the exact public_token from the URL; see lib/supabase/service.ts.
+ */
+
+/** Columns safe to expose over the public link. `select('*')` previously leaked internals. */
+const PUBLIC_QUOTE_COLUMNS = [
+  'id',
+  'title',
+  'line_items',
+  'subtotal_amount',
+  'iva_amount',
+  'retencion_isr_amount',
+  'retencion_iva_amount',
+  'total_amount',
+  'currency',
+  'status',
+  'valid_until',
+  'notes',
+  'public_token',
+  'contract_hash',
+  'accepted_at',
+  'created_at',
+  'updated_at',
+].join(', ');
+
+function demoQuote(token: string) {
+  return {
+    id: 'quote-public-1',
+    title: 'Propuesta Comercial — Suministro de Materiales de Obra',
+    line_items: [
+      { description: 'Tonelada Cemento CPO 40', quantity: 5, unit_price: 3600, sat_code: '30111500', unit: 'TON' },
+      { description: 'Tonelada Varilla 3/8"', quantity: 3, unit_price: 22000, sat_code: '30101800', unit: 'TON' },
+    ],
+    subtotal_amount: 84000,
+    iva_amount: 13440,
+    retencion_isr_amount: 0,
+    retencion_iva_amount: 0,
+    total_amount: 97440,
+    currency: 'MXN',
+    status: 'sent',
+    valid_until: '2026-08-30',
+    notes: 'Entrega directa en obra en 48 horas hábiles tras recibir anticipo del 50%.',
+    public_token: token || 'demo-token',
+    contract_hash: null,
+    accepted_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
-  if (!isSupabaseConfigured()) {
-    const { token } = await params;
-    return NextResponse.json({
-      id: 'quote-public-1',
-      organization_id: 'org-demo-1',
-      client_id: 'client-demo-1',
-      created_by: 'user-demo-1',
-      title: 'Propuesta Comercial — Suministro de Materiales de Obra',
-      line_items: [
-        { description: 'Tonelada Cemento CPO 40', quantity: 5, unit_price: 3600, sat_code: '30111500', unit: 'TON' },
-        { description: 'Tonelada Varilla 3/8"', quantity: 3, unit_price: 22000, sat_code: '30101800', unit: 'TON' },
-      ],
-      subtotal_amount: 84000,
-      iva_amount: 13440,
-      retencion_isr_amount: 0,
-      retencion_iva_amount: 0,
-      total_amount: 97440,
-      currency: 'MXN',
-      status: 'sent',
-      valid_until: '2026-08-30',
-      notes: 'Entrega directa en obra en 48 horas hábiles tras recibir anticipo del 50%.',
-      public_token: token || 'demo-token',
-      converted_contract_id: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+  const { token } = await params;
+
+  if (!isServiceRoleConfigured()) {
+    return NextResponse.json(demoQuote(token));
   }
 
   try {
-    const { token } = await params;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: quote, error } = await (supabase as any)
       .from('quotes')
-      .select('*, clients(*), organizations(*)')
+      .select(`${PUBLIC_QUOTE_COLUMNS}, clients(name, contact_name), organizations(name, logo_url)`)
       .eq('public_token', token)
-      .single();
+      .maybeSingle();
 
     if (error || !quote) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
@@ -55,36 +84,134 @@ export async function GET(
   }
 }
 
+/**
+ * Signs a quote.
+ *
+ * The previous implementation read `serverOtp` from the request body and
+ * compared it against `otpCode` from the same body, so `curl -d '{"otpCode":
+ * "111111","serverOtp":"111111"}'` signed any quote. The submitted code is now
+ * checked against a digest the server issued and stored (see the sibling
+ * ./otp route), with expiry and a server-side attempt counter.
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
-  try {
-    const { token } = await params;
-    const body = await request.json();
-    const { otpCode, serverOtp, attempts } = body;
+  const { token } = await params;
 
-    const verification = verifyOTP(otpCode, serverOtp, attempts || 0);
+  if (!isServiceRoleConfigured()) {
+    return NextResponse.json(
+      { error: 'La firma digital no está disponible en modo demo' },
+      { status: 503 }
+    );
+  }
+
+  try {
+    const body = await request.json();
+    const otpCode = String(body?.otpCode || '');
+    // `attempts` and `serverOtp` are ignored if sent: both are server state.
+    const signerName = typeof body?.clientName === 'string' ? body.clientName.slice(0, 120) : null;
+
+    const supabase = createServiceClient();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: quote, error: fetchError } = await (supabase as any)
+      .from('quotes')
+      .select(
+        'id, status, total_amount, client_otp_hash, client_otp_expires_at, client_otp_attempts, client_otp_verified, contract_hash, accepted_at, clients(name)'
+      )
+      .eq('public_token', token)
+      .maybeSingle();
+
+    if (fetchError || !quote) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
+    // Already signed: return the existing seal instead of re-signing, so a
+    // replayed request cannot mint a second signature over the same quote.
+    if (quote.client_otp_verified) {
+      return NextResponse.json({
+        success: true,
+        status: 'accepted',
+        contract_hash: quote.contract_hash,
+        accepted_at: quote.accepted_at,
+      });
+    }
+
+    if (!['sent', 'accepted'].includes(quote.status)) {
+      return NextResponse.json(
+        { error: 'Esta cotización no está disponible para firma' },
+        { status: 409 }
+      );
+    }
+
+    const verification = verifyStoredOTP(otpCode, token, {
+      hash: quote.client_otp_hash,
+      expiresAt: quote.client_otp_expires_at,
+      attempts: quote.client_otp_attempts || 0,
+    });
 
     if (!verification.success) {
-      return NextResponse.json(verification, { status: 400 });
+      // Persist the attempt count server-side; a client that simply stops
+      // sending its own counter must not get a fresh budget.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('quotes')
+        .update({ client_otp_attempts: verification.attempts })
+        .eq('public_token', token);
+
+      return NextResponse.json(
+        {
+          success: false,
+          attempts: verification.attempts,
+          remaining: Math.max(0, OTP_MAX_ATTEMPTS - verification.attempts),
+          expired: verification.expired || false,
+          error: verification.error,
+        },
+        { status: 400 }
+      );
     }
 
     const timestamp = new Date().toISOString();
+    const clientName = signerName || quote.clients?.name || 'Cliente';
     const seal = generateDigitalSeal({
-      contractId: token,
-      clientName: body.clientName || 'Cliente',
-      totalAmount: body.totalAmount || 0,
+      contractId: quote.id,
+      clientName,
+      totalAmount: Number(quote.total_amount),
       timestamp,
       otpCode,
     });
 
-    const supabase = await createClient();
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    const acceptedIp = forwardedFor ? forwardedFor.split(',')[0].trim() : null;
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    const { error: updateError } = await (supabase as any)
       .from('quotes')
-      .update({ status: 'accepted', updated_at: timestamp })
+      .update({
+        status: 'accepted',
+        client_otp_verified: true,
+        client_otp_attempts: verification.attempts,
+        // Burn the code so the same one cannot be replayed.
+        client_otp_hash: null,
+        client_otp_expires_at: null,
+        contract_hash: seal,
+        accepted_at: timestamp,
+        accepted_by_name: clientName,
+        accepted_ip: acceptedIp,
+        updated_at: timestamp,
+      })
       .eq('public_token', token);
+
+    // The write is the signature. Reporting success on a failed write — as the
+    // previous version did by ignoring the result — records a signature that
+    // does not exist.
+    if (updateError) {
+      return NextResponse.json(
+        { error: 'No se pudo registrar la firma. Intente de nuevo.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

@@ -4,7 +4,29 @@ export type Organization = Database['public']['Tables']['organizations']['Row'];
 export type OrganizationMember = Database['public']['Tables']['organization_members']['Row'];
 export type Client = Database['public']['Tables']['clients']['Row'];
 export type Product = Database['public']['Tables']['products']['Row'];
-export type Quote = Database['public']['Tables']['quotes']['Row'];
+type QuoteRow = Database['public']['Tables']['quotes']['Row'];
+
+/**
+ * Columns that hold the server's OTP state and signer forensics. They exist on
+ * the row but must never reach a client: the hash is the signing secret's
+ * verifier, and the IP/name are collected as signature evidence. Omitting them
+ * from the app-facing type makes leaking one a compile error rather than a
+ * judgement call at each call site.
+ */
+type QuoteServerOnlyFields =
+  | 'client_otp_hash'
+  | 'client_otp_expires_at'
+  | 'client_otp_attempts'
+  | 'client_otp_sent_at'
+  | 'client_otp_verified'
+  | 'accepted_by_name'
+  | 'accepted_ip';
+
+/** Populated only once a quote has been signed. */
+type QuoteSignatureFields = 'contract_hash' | 'accepted_at';
+
+export type Quote = Omit<QuoteRow, QuoteServerOnlyFields | QuoteSignatureFields> &
+  Partial<Pick<QuoteRow, QuoteSignatureFields>>;
 export type Contract = Database['public']['Tables']['contracts']['Row'];
 export type Milestone = Database['public']['Tables']['milestones']['Row'];
 export type CSDCredential = Database['public']['Tables']['csd_credentials']['Row'];

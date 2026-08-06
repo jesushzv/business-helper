@@ -198,16 +198,38 @@ export function validateSubscriptionStatus(status: string = 'active'): Subscript
   }
 }
 
+/** Maps a Stripe price id to a tier, preferring exact matches on configured ids. */
+function resolveTierFromPriceId(priceId: string): string {
+  const configured: Array<[string, string | undefined]> = [
+    ['inicial', process.env.STRIPE_PRICE_INICIAL || process.env.STRIPE_PRICE_EMPRENDEDOR],
+    ['negocio', process.env.STRIPE_PRICE_NEGOCIO],
+    ['empresa', process.env.STRIPE_PRICE_EMPRESA],
+  ];
+
+  for (const [tier, envPriceId] of configured) {
+    if (envPriceId && envPriceId === priceId) return tier;
+  }
+
+  // Fallback for the seeded placeholder ids used in demo/tests. Safe only
+  // because the payload reaching this point has a verified Stripe signature.
+  if (priceId.includes('inicial') || priceId.includes('emprendedor')) return 'inicial';
+  if (priceId.includes('empresa')) return 'empresa';
+  return 'negocio';
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function handleStripeWebhookEvent(event: { type: string; data?: { object?: any } }) {
   const obj = event?.data?.object || {};
   const organizationId = obj?.metadata?.organization_id || 'org_demo';
-  const status = obj?.status || 'active';
   const priceId = obj?.items?.data?.[0]?.price?.id || 'price_negocio';
 
-  let tierId = 'negocio';
-  if (priceId.includes('inicial') || priceId.includes('emprendedor')) tierId = 'inicial';
-  if (priceId.includes('empresa')) tierId = 'empresa';
+  // A deletion means the subscription is gone regardless of the status on the
+  // object, which Stripe may still report as 'active' at the moment of send.
+  const status = event?.type === 'customer.subscription.deleted'
+    ? 'canceled'
+    : obj?.status || 'active';
+
+  const tierId = obj?.metadata?.tier_id || resolveTierFromPriceId(priceId);
 
   return {
     organizationId,

@@ -16,7 +16,8 @@ interface PublicMilestone {
   client_name?: string;
   org_name?: string;
   bank_name?: string;
-  clabe?: string;
+  /** Always present when the API returns a milestone; it 409s when the org has no account. */
+  clabe: string;
   beneficiary?: string;
   tracking_reference?: string;
   receipt_url?: string;
@@ -56,22 +57,10 @@ export default function PublicPayPortalPage() {
         // Fallback for demo mode
       }
 
-      // Demo fallback data
-      const demoData: PublicMilestone = {
-        id: 'milestone-demo-1',
-        label: 'Anticipo 50% — Suministro Cemento',
-        amount: 48720,
-        due_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        status: 'pending',
-        contract_title: 'Suministro de Cemento y Varilla',
-        client_name: 'Distribuidora del Norte S.A. de C.V.',
-        org_name: 'Business Helper Demo',
-        bank_name: 'BBVA México',
-        clabe: '012180001234567890',
-        beneficiary: 'Distribuidora del Norte S.A. de C.V.',
-      };
-      setMilestone(demoData);
-      setTransferredAmount(demoData.amount.toString());
+      // The API is the only source of bank details. A client-side fallback
+      // would put a CLABE on screen that no organization actually owns, so
+      // failure surfaces as an error instead of as payment instructions.
+      setMilestone(null);
       setLoading(false);
     }
 
@@ -236,7 +225,7 @@ export default function PublicPayPortalPage() {
             <div>
               <span className="text-xs text-slate-400 block font-medium">CLABE Interbancaria (18 dígitos)</span>
               <div className="flex items-center justify-between mt-1 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
-                <span className="font-mono text-lg font-bold tracking-wider text-white">{milestone.clabe || '012180001234567890'}</span>
+                <span className="font-mono text-lg font-bold tracking-wider text-white">{milestone.clabe}</span>
                 <button
                   type="button"
                   onClick={handleCopyClabe}

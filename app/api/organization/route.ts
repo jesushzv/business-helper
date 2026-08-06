@@ -67,6 +67,90 @@ export async function GET() {
   }
 }
 
+/**
+ * Updates the organization's SPEI settlement account.
+ *
+ * The public payment page reads these values per quote; until an org sets them
+ * it has no CLABE and that page refuses to render payment instructions rather
+ * than falling back to a shared account (the previous behaviour).
+ *
+ * Unlike GET/POST above, this handler does not fall back to demo data when
+ * unauthenticated — it is a write to a money-routing field, so an absent or
+ * non-owning caller is rejected outright.
+ */
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { bankName, bankClabe, bankAccountHolder } = body;
+
+    const clabe = typeof bankClabe === 'string' ? bankClabe.replace(/\s/g, '') : '';
+
+    if (!/^\d{18}$/.test(clabe)) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_CLABE', message: 'La CLABE debe tener exactamente 18 dígitos' } },
+        { status: 400 }
+      );
+    }
+
+    if (!bankName || typeof bankName !== 'string' || !bankName.trim()) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'El nombre del banco es obligatorio' } },
+        { status: 400 }
+      );
+    }
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: { code: 'UNAUTHENTICATED', message: 'Sesión requerida' } },
+        { status: 401 }
+      );
+    }
+
+    // Scope the write to an org this user owns. Without the owner_id filter the
+    // organization id would be caller-supplied and any tenant could redirect
+    // another tenant's incoming payments.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+      .from('organizations')
+      .update({
+        bank_name: bankName.trim(),
+        bank_clabe: clabe,
+        bank_account_holder:
+          typeof bankAccountHolder === 'string' && bankAccountHolder.trim()
+            ? bankAccountHolder.trim()
+            : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('owner_id', user.id)
+      .select('id, name, bank_name, bank_clabe, bank_account_holder')
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json(
+        { error: { code: 'SERVER_ERROR', message: 'No se pudo guardar la cuenta bancaria' } },
+        { status: 500 }
+      );
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'No se encontró una organización propia' } },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ organization: data });
+  } catch {
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'Error interno' } },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
