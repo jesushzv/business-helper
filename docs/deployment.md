@@ -85,10 +85,13 @@ graph TD
      - `STRIPE_PRICE_INICIAL`: Exact Stripe Price ID for Inicial tier
      - `STRIPE_PRICE_NEGOCIO`: Exact Stripe Price ID for Negocio tier
      - `STRIPE_PRICE_EMPRESA`: Exact Stripe Price ID for Empresa tier
+   - **OTP Delivery (Required for e-signature)**:
+     - `OTP_DELIVERY_CHANNEL`: `sms` or `whatsapp`. Unset fails closed in production — the signing flow returns 502.
+     - For `sms`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER`
+     - For `whatsapp` via Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`
+     - For `whatsapp` via Meta: `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID`
    - **Third-Party Integrations (Optional)**:
      - `FACTURAPI_SECRET_KEY` (Live PAC key `sk_live_...` & SAT CSD `.cer`/`.key` upload)
-     - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` (for OTP delivery via WhatsApp)
-     - `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` (alternative: Meta WhatsApp Cloud API for OTP delivery)
      - `GEMINI_API_KEY` (Google Cloud Gemini API Key)
 4. Click **Deploy**.
 

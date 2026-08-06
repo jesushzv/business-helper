@@ -94,7 +94,7 @@ renders no payment instructions — it never falls back to a default account.
 | `STRIPE_PRICE_INICIAL` | Recommended | Exact price id. Falls back to substring matching if unset. |
 | `STRIPE_PRICE_NEGOCIO` | Recommended | As above. |
 | `STRIPE_PRICE_EMPRESA` | Recommended | As above. |
-| `OTP_DELIVERY_CHANNEL` | Not yet usable | `sms` \| `whatsapp`. See §4 — no provider is implemented, so leave unset. |
+| `OTP_DELIVERY_CHANNEL` | Yes (production) | `sms` \| `whatsapp`. See §4 for the provider variables each channel needs. Unset fails closed in production. |
 
 Rotating `OTP_SECRET` invalidates outstanding OTP codes and makes previously
 stored seals unverifiable against a recomputation. Treat it as long-lived and
@@ -123,17 +123,25 @@ Existing tenants have no CLABE and their payment pages will 409 until they do.
 This is intentional — the alternative is continuing to route their customers'
 money to the wrong account — but it needs a comms plan before deploy.
 
-## 4. Known gap: OTP delivery
+## 4. OTP delivery
 
-`lib/otpDelivery.ts` has no SMS/WhatsApp provider wired up. Outside development
-it fails closed: `POST /api/quotes/public/[token]/otp` returns 502 rather than
-returning the code to the caller, because echoing it back would hand every
-signature to whoever asked for one.
+`lib/otpDelivery.ts` sends the code over one of three channels, selected by
+`OTP_DELIVERY_CHANNEL`:
 
-**The signing flow is therefore not usable in production until a provider is
-integrated** — implement `sendViaProvider` (Twilio Verify or the WhatsApp
-Business API) and set `OTP_DELIVERY_CHANNEL`. In development with the variable
-unset, codes are logged to the server console and returned as `dev_code`.
+| `OTP_DELIVERY_CHANNEL` | Provider | Required variables |
+|---|---|---|
+| `sms` | Twilio Messages API | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER` (or `TWILIO_PHONE_NUMBER`) |
+| `whatsapp` | Twilio, else Meta Cloud API | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` — or `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` |
+| unset | console (development only) | — |
+
+On `whatsapp`, Twilio is used when `TWILIO_WHATSAPP_NUMBER` is set; otherwise
+the Meta Cloud API is used. A provider that rejects the send, times out, or is
+missing credentials produces a failure — `POST /api/quotes/public/[token]/otp`
+then returns 502 rather than reporting a code that never arrived.
+
+With the variable unset outside production, codes are logged to the server
+console and returned as `dev_code`. In production an unset channel fails closed:
+echoing the code back would hand every signature to whoever asked for one.
 
 ## 5. Staging verification
 
