@@ -54,6 +54,25 @@ export function JsonLd() {
     ],
   };
 
+  const organizationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Business Helper S.A.P.I. de C.V.',
+    url: 'https://businesshelper.app',
+    logo: 'https://businesshelper.app/logo-icon.svg',
+    contactPoint: {
+      '@type': 'ContactPoint',
+      email: 'contacto@businesshelper.app',
+      contactType: 'customer service',
+    },
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Tijuana',
+      addressRegion: 'B.C.',
+      addressCountry: 'MX',
+    },
+  };
+
   return (
     <>
       <script
@@ -63,6 +82,10 @@ export function JsonLd() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
       />
     </>
   );

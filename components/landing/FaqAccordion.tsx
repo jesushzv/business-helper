@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronDown, FileCheck, MessageSquare, CreditCard, ShieldCheck, Download } from 'lucide-react';
+import { ChevronDown, FileCheck, MessageSquare, CreditCard, ShieldCheck, Download, FileText, Database, FileSpreadsheet, RefreshCcw } from 'lucide-react';
 
 interface FaqItem {
   id: string;
@@ -18,6 +18,12 @@ const FAQS: FaqItem[] = [
     icon: FileCheck,
   },
   {
+    id: 'otp-legal-validity',
+    question: '¿La firma digital OTP por WhatsApp tiene validez legal en México?',
+    answer: 'Sí. De acuerdo con el Artículo 89 del Código de Comercio de México y los lineamientos de la Norma Oficial Mexicana NOM-151 sobre conservación de mensajes de datos, la aprobación mediante código OTP al celular del cliente respaldado por sellado de tiempo criptográfico SHA-256 constituye un medio de prueba digital válido y atribuible para contratos comerciales.',
+    icon: FileText,
+  },
+  {
     id: 'whatsapp-integration',
     question: '¿Cómo funciona la integración con WhatsApp?',
     answer: 'Al generar una cotización o recordatorio de cobranza, Business Helper crea un enlace único de 1-Tap Click-to-Chat (wa.me). Al presionar el botón en tu celular, se abre WhatsApp con el mensaje pre-redactado y el enlace interactivo para tu cliente, sin pagar costos adicionales de API de terceros.',
@@ -30,10 +36,28 @@ const FAQS: FaqItem[] = [
     icon: ShieldCheck,
   },
   {
+    id: 'excel-migration',
+    question: '¿Puedo migrar mis clientes y productos desde Excel?',
+    answer: 'Totalmente. Puedes importar la lista de tus clientes y catálogo de productos en menos de 2 minutos mediante archivos CSV o tablas de Excel. Además, nuestro equipo de soporte te acompaña en el proceso para que no pierdas ningún dato.',
+    icon: FileSpreadsheet,
+  },
+  {
     id: 'accountant-export',
     question: '¿Cómo funciona la exportación para mi contador a fin de mes?',
     answer: 'Al final de cada mes, puedes descargar con 1 clic un paquete comprimido (.ZIP) y un resumen estructurado en CSV que contiene todos tus comprobantes SPEI, notas de venta en PDF, cotizaciones firmadas y facturas XML/PDF ordenados para entregárselos a tu despacho contable.',
     icon: Download,
+  },
+  {
+    id: 'data-ownership-cancellation',
+    question: '¿Qué pasa con mis datos y facturas si decido cancelar?',
+    answer: 'Tus datos son 100% tuyos. Puedes cancelar en cualquier momento desde tu panel de configuración sin penalizaciones. Antes de cancelar o al finalizar tu periodo pagado, puedes descargar la totalidad de tus facturas XML/PDF y directorio de clientes en un paquete ZIP organizado.',
+    icon: Database,
+  },
+  {
+    id: 'trial-end-behavior',
+    question: '¿Qué sucede cuando terminan los 14 días de prueba gratis?',
+    answer: 'Al terminar los 14 días, tu cuenta pasa automáticamente a modo consulta sin cobros sorpresivos, ya que no solicitamos tarjeta de crédito para iniciar. Podrás elegir el plan que mejor se adapte a tu volumen para reactivar la emisión de nuevas cotizaciones.',
+    icon: RefreshCcw,
   },
   {
     id: 'no-credit-card',

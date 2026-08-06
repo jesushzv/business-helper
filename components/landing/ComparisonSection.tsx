@@ -31,7 +31,7 @@ export function ComparisonSection() {
     },
     {
       feature: 'Score de Salud del Cliente (0–100)',
-      bh: 'Sí (Evaluación automática de riesgo crediticio PyME)',
+      bh: 'Sí (Evaluación automática de comportamiento de pago PyME)',
       manual: 'No (basado en memoria o corazonadas)',
       traditional: 'No (reportes estáticos de antigüedad de saldos)',
     },

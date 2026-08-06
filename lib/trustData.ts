@@ -114,7 +114,7 @@ export interface TeamMember {
   avatarBg: string;
   avatarUrl?: string;
   highlights: string[];
-  linkedinUrl: string;
+  linkedinUrl?: string;
   contactEmail: string;
 }
 
@@ -159,8 +159,8 @@ export const TRUST_BADGES: TrustBadge[] = [
     description:
       'Toda tu información contable, firmas OTP y comprobantes se transmiten encriptados bajo estándares de nivel bancario.',
     iconName: 'ShieldCheck',
-    badgeTag: 'SSL 256-bit',
-    externalSealLabel: 'Encriptación TLS 1.3 / SSL 256-Bit (Stripe Security)',
+    badgeTag: 'SSL / TLS 1.3',
+    externalSealLabel: 'Cifrado TLS 1.3 en tránsito y AES-256 en reposo — Pagos por Stripe (PCI DSS Nivel 1)',
   },
   {
     id: 'banxico-spei',
@@ -217,7 +217,6 @@ export const TEAM_MEMBERS: TeamMember[] = [
     avatarInitials: 'HZ',
     avatarBg: 'bg-emerald-600',
     highlights: ['Líder de Visión & Estrategia', 'Enfoque en Cash Flow PyME', 'Atención Directa a Clientes'],
-    linkedinUrl: 'https://linkedin.com/company/business-helper-mx',
     contactEmail: activeHectorEmail,
   },
   {
@@ -229,7 +228,6 @@ export const TEAM_MEMBERS: TeamMember[] = [
     avatarInitials: 'GS',
     avatarBg: 'bg-indigo-600',
     highlights: ['Arquitectura Cloud & Seguridad', 'Infraestructura Multitenant', 'Integraciones SAT & SPEI'],
-    linkedinUrl: 'https://linkedin.com/company/business-helper-mx',
     contactEmail: activeSoporteEmail,
   },
   {
@@ -241,7 +239,6 @@ export const TEAM_MEMBERS: TeamMember[] = [
     avatarInitials: 'GF',
     avatarBg: 'bg-teal-600',
     highlights: ['Operaciones & Alianzas B2B', 'Relación con Contadores', 'Experiencia de Usuario'],
-    linkedinUrl: 'https://linkedin.com/company/business-helper-mx',
     contactEmail: activeContactoEmail,
   },
 ];
