@@ -9,7 +9,7 @@
 import { getAppBaseUrl } from './url.js';
 
 export interface StripeTierConfig {
-  id: 'emprendedor' | 'negocio' | 'empresa';
+  id: 'inicial' | 'negocio' | 'empresa';
   name: string;
   price: number;
   currency: string;
@@ -51,9 +51,9 @@ export const STRIPE_FOLIO_PACKS: Record<string, FolioPackConfig> = {
 };
 
 export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
-  emprendedor: {
-    id: 'emprendedor',
-    name: 'Plan Emprendedor',
+  inicial: {
+    id: 'inicial',
+    name: 'Plan Inicial',
     price: 299,
     currency: 'MXN',
     interval: 'mes',
@@ -65,9 +65,9 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
       'Firma digital OTP por WhatsApp',
       'Portal público de carga SPEI',
       'Facturación CFDI 4.0 disponible ($5 MXN/folio o con tu PAC)',
-      'Soporte estándar por correo',
+      'Soporte por correo electrónico',
     ],
-    stripePriceId: process.env.STRIPE_PRICE_EMPRENDEDOR || 'price_emprendedor_299_mxn',
+    stripePriceId: process.env.STRIPE_PRICE_INICIAL || process.env.STRIPE_PRICE_EMPRENDEDOR || 'price_inicial_299_mxn',
   },
   negocio: {
     id: 'negocio',
@@ -85,7 +85,7 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
       'Aprobación digital OTP con Evidencia Legal',
       'Recordatorios automáticos de WhatsApp',
       'Centro de Control y Proyección de Flujo 90 días',
-      'Soporte prioritario WhatsApp',
+      'Soporte prioritario por correo',
     ],
     stripePriceId: process.env.STRIPE_PRICE_NEGOCIO || 'price_negocio_599_mxn',
   },
@@ -112,8 +112,11 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
 };
 
 export function getStripeTierConfig(tierKey: string): StripeTierConfig {
-  const normalized = (tierKey || 'emprendedor').toLowerCase();
-  return STRIPE_PLANS[normalized] || STRIPE_PLANS.emprendedor;
+  const normalized = (tierKey || 'inicial').toLowerCase();
+  if (normalized === 'starter' || normalized === 'emprendedor' || normalized === 'basico') {
+    return STRIPE_PLANS.inicial;
+  }
+  return STRIPE_PLANS[normalized] || STRIPE_PLANS.inicial;
 }
 
 export function createCheckoutPayload(tierKey: string, organizationId: string, returnUrl?: string) {
@@ -203,7 +206,7 @@ export function handleStripeWebhookEvent(event: { type: string; data?: { object?
   const priceId = obj?.items?.data?.[0]?.price?.id || 'price_negocio';
 
   let tierId = 'negocio';
-  if (priceId.includes('emprendedor')) tierId = 'emprendedor';
+  if (priceId.includes('inicial') || priceId.includes('emprendedor')) tierId = 'inicial';
   if (priceId.includes('empresa')) tierId = 'empresa';
 
   return {
@@ -220,7 +223,7 @@ export interface StripeEnvironmentAudit {
   isWebhookConfigured: boolean;
   hasSecretKey: boolean;
   priceIds: {
-    emprendedor: string;
+    inicial: string;
     negocio: string;
     empresa: string;
   };
@@ -240,7 +243,7 @@ export function auditStripeEnvironment(env: Record<string, string | undefined> =
 
   const isWebhookConfigured = webhookSecret.startsWith('whsec_');
   const priceIds = {
-    emprendedor: env.STRIPE_PRICE_EMPRENDEDOR || STRIPE_PLANS.emprendedor.stripePriceId || 'price_emprendedor_299_mxn',
+    inicial: env.STRIPE_PRICE_INICIAL || env.STRIPE_PRICE_EMPRENDEDOR || STRIPE_PLANS.inicial.stripePriceId || 'price_inicial_299_mxn',
     negocio: env.STRIPE_PRICE_NEGOCIO || STRIPE_PLANS.negocio.stripePriceId || 'price_negocio_599_mxn',
     empresa: env.STRIPE_PRICE_EMPRESA || STRIPE_PLANS.empresa.stripePriceId || 'price_empresa_999_mxn',
   };

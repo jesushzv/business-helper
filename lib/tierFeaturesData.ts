@@ -61,8 +61,8 @@ export const PAIN_POINTS_SOLUTIONS: PainPointSolution[] = [
 
 export const APP_TIERS: TierConfig[] = [
   {
-    id: 'basico',
-    name: 'Plan Básico (Emprendedor)',
+    id: 'inicial',
+    name: 'Plan Inicial',
     priceMonthly: 299,
     description: 'Ideal para pequeños negocios que buscan profesionalizar sus cotizaciones y cobranza.',
     targetAudience: '1 usuario • Hasta 15 clientes activos',
@@ -73,9 +73,9 @@ export const APP_TIERS: TierConfig[] = [
       'Gestión de hasta 15 clientes',
       'Facturación CFDI 4.0 disponible ($5 MXN/folio o con tu PAC)',
       'Reporte básico de cobranza',
-      'Soporte por correo y chat',
+      'Soporte por correo electrónico',
     ],
-    ctaText: 'Comenzar con Básico',
+    ctaText: 'Comenzar con Inicial',
   },
   {
     id: 'pro',

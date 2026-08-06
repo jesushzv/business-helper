@@ -255,7 +255,7 @@ export const CONTACT_INFO: ContactDetails = {
   neighborhood: 'Zona Río',
   cityState: 'Tijuana, B.C., México / San Diego, CA',
   country: 'México / EE.UU.',
-  hours: 'Lunes a Viernes: 8:00 AM – 6:00 PM (Hora Pacífico PST)',
+  hours: 'Lunes a Viernes: 8:00 AM – 6:00 PM (Hora del Pacífico - Tijuana)',
   responseTimeSLA: '< 2 Horas por Correo',
 };
 

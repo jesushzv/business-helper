@@ -69,7 +69,7 @@ export default function TermsPage() {
               3. Suscripciones y Pagos
             </h2>
             <p>
-              Los planes de suscripción ($299 MXN Emprendedor, $599 MXN Negocio, $999 MXN Empresa) se cobran de manera recurrente a través de la pasarela Stripe. Usted puede cancelar su suscripción en cualquier momento desde el panel de configuración.
+              Los planes de suscripción ($299 MXN Inicial, $599 MXN Negocio, $999 MXN Empresa) se cobran de manera recurrente a través de la pasarela Stripe. Usted puede cancelar su suscripción en cualquier momento desde el panel de configuración.
             </p>
           </div>
 
@@ -89,7 +89,7 @@ export default function TermsPage() {
               5. Política de Cancelación y Reembolso
             </h2>
             <p>
-              El usuario puede cancelar su suscripción a <strong>Business Helper</strong> en cualquier momento y sin penalizaciones desde su panel de configuración o enviando una solicitud a <a href="mailto:soporte@businesshelper.mx" className="text-indigo-400 underline">soporte@businesshelper.mx</a>.
+              El usuario puede cancelar su suscripción a <strong>Business Helper</strong> en cualquier momento y sin penalizaciones desde su panel de configuración o enviando una solicitud a <a href="mailto:soporte@businesshelper.app" className="text-indigo-400 underline">soporte@businesshelper.app</a>.
             </p>
             <p>
               Al solicitar la cancelación, el acceso a las funciones de su plan se mantendrá activo hasta el final del periodo mensual ya pagado. No se realizan reembolsos proporcionales por días no utilizados dentro del ciclo de facturación activo.

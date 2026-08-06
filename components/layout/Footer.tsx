@@ -38,7 +38,7 @@ export function Footer() {
             </div>
 
             <div className="text-[11px] text-slate-300 font-medium pt-1">
-              🏢 Business Helper S.A.P.I. de C.V. • Tijuana, B.C. / CDMX, México
+              🏢 Business Helper S.A.P.I. de C.V. • Tijuana, B.C., México / San Diego, CA
             </div>
           </div>
 
