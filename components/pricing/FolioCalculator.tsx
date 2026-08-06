@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calculator, CheckCircle2, Sparkles, ArrowRight } from 'lucide-react';
+import { Calculator, CheckCircle2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export function FolioCalculator() {

@@ -20,4 +20,6 @@
 - **Plain Legal & Financial Copy**: No developer jargon (`RLS`, `sha256:e3b0c442...`, `multitenant`); use clear PyME benefit claims (*"Evidencia Legal Certificada"*).
 
 ### 3. Execution-Centric Control (ECC) Protocol
-- Every change follows the 4-Phase loop: Planning & Audit Alignment $\rightarrow$ TDD (Red Phase) $\rightarrow$ Implementation & Polish $\rightarrow$ Quality Gate Verification (`npm run test`).
+- Every change follows the 4-Phase loop: Planning & Audit Alignment $\rightarrow$ TDD (Red Phase) $\rightarrow$ Implementation & Polish $\rightarrow$ Quality Gate Verification (`npm run typecheck`, `npm run build`, `npm run test`).
+- **Build & Type Validation**: Because Vitest strips TypeScript annotations for speed, `npm run typecheck` (`tsc --noEmit`) and `npm run build` MUST be run as standalone quality gates to catch full static interface mismatches before deployment.
+

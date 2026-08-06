@@ -11,7 +11,7 @@ export interface OrganizationSettings {
   codigo_postal: string;
   phone: string;
   logo_url: string | null;
-  subscription_tier: 'emprendedor' | 'negocio' | 'empresa';
+  subscription_tier: 'inicial' | 'negocio' | 'empresa';
   subscription_status: 'active' | 'past_due' | 'canceled';
 }
 

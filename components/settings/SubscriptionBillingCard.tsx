@@ -8,7 +8,7 @@ import { OrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 interface SubscriptionBillingCardProps {
   settings: OrganizationSettings;
   statusInfo: SubscriptionStatusResult;
-  onSelectTier: (tierId: 'emprendedor' | 'negocio' | 'empresa') => Promise<void>;
+  onSelectTier: (tierId: 'inicial' | 'negocio' | 'empresa') => Promise<void>;
 }
 
 export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = ({
@@ -18,7 +18,7 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
 }) => {
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
 
-  const handleUpgrade = async (tierId: 'emprendedor' | 'negocio' | 'empresa') => {
+  const handleUpgrade = async (tierId: 'inicial' | 'negocio' | 'empresa') => {
     try {
       setLoadingTier(tierId);
       await onSelectTier(tierId);

@@ -25,6 +25,7 @@ export interface AIQuotaResult {
 
 export const TIER_AI_QUOTAS: Record<string, number> = {
   demo: 20,
+  inicial: 50,
   emprendedor: 50,
   negocio: 300,
   empresa: 1500,

@@ -10,7 +10,7 @@ import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard
 export default function SettingsPage() {
   const { settings, subscriptionStatusInfo, updateSettings, loading, saving } = useOrganizationSettings();
 
-  const handleSelectTier = async (tierId: 'emprendedor' | 'negocio' | 'empresa') => {
+  const handleSelectTier = async (tierId: 'inicial' | 'negocio' | 'empresa') => {
     // Initiate Stripe checkout via API or update settings
     try {
       const res = await fetch('/api/stripe/checkout', {
