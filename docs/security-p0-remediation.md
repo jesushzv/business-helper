@@ -151,19 +151,37 @@ echoing the code back would hand every signature to whoever asked for one.
 
 ## 5. Staging verification
 
-Nothing below has been exercised against a live Supabase or Stripe instance;
-this branch was verified by typecheck, lint, build, and unit tests only.
+Everything here is a property of a running deployment rather than of the code,
+so unit tests cannot stand in for it. Run against staging, never production.
+
+### Webhook checks — scripted
+
+```
+WEBHOOK_URL=https://staging.example.com/api/stripe/webhook \
+STRIPE_WEBHOOK_SECRET=whsec_… \
+ORG_ID=<a real organization uuid> \
+npm run verify:webhook
+```
+
+Covers the four rejection cases and, with `ORG_ID` set, that a valid event is
+applied and its redelivery is deduplicated. Without `ORG_ID` the route stops at
+the organization check before reaching the ledger, so those two are skipped.
+
+- [ ] `npm run verify:webhook` passes all six checks against staging.
+
+### By hand
 
 - [ ] Migration applies cleanly against a copy of production data.
 - [ ] With the anon key, `select * from quotes` from a browser console returns
       zero rows (previously: every tenant's).
 - [ ] `POST /api/quotes/public/<token>` with `{"otpCode":"111111","serverOtp":"111111"}`
       returns 400, not a signature.
-- [ ] A code issued via `/otp` signs successfully; the same code replayed a
-      second time does not.
+- [ ] A code issued via `/otp` arrives on the configured channel (§4) and signs
+      successfully; the same code replayed a second time does not.
 - [ ] A code fails after 3 wrong attempts, and after 5 minutes.
-- [ ] `stripe trigger customer.subscription.updated` applies the tier change.
-- [ ] The same event id delivered twice applies once (`duplicate: true`).
-- [ ] An unsigned or tampered webhook POST returns 400.
+- [ ] With `OTP_DELIVERY_CHANNEL` unset in a production build, `/otp` returns
+      502 and the response contains no `dev_code`.
 - [ ] Two organizations with different CLABEs each see their own on `/pay/<token>`.
 - [ ] An organization with no CLABE gets 409, not a fallback account.
+- [ ] Saving a CLABE under **Ajustes → Cuenta Bancaria** makes that org's
+      payment page render instructions.
