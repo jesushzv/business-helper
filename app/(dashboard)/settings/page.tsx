@@ -4,6 +4,7 @@ import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { useOrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 import { OrgProfileCard } from '@/components/settings/OrgProfileCard';
+import { BankAccountCard } from '@/components/settings/BankAccountCard';
 import { SubscriptionBillingCard } from '@/components/settings/SubscriptionBillingCard';
 import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard';
 
@@ -46,6 +47,9 @@ export default function SettingsPage() {
           <>
             {/* Organization Profile Settings */}
             <OrgProfileCard settings={settings} onSave={updateSettings} saving={saving} />
+
+            {/* SPEI Settlement Account */}
+            <BankAccountCard />
 
             {/* White-Labeling & Branding Settings */}
             <BrandingSettingsCard settings={settings} onSave={updateSettings} saving={saving} />

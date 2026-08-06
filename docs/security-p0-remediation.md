@@ -112,7 +112,8 @@ first. Those values cannot be converted to digests, so any in-flight signature
 using one must be re-issued. Run when no signature is mid-flight.
 
 After migrating, each organization must set its bank details before its
-payment links work:
+payment links work. Tenants do this themselves under **Ajustes → Cuenta
+Bancaria para Cobros SPEI**, which writes through:
 
 ```
 PATCH /api/organization
@@ -121,7 +122,12 @@ PATCH /api/organization
 
 Existing tenants have no CLABE and their payment pages will 409 until they do.
 This is intentional — the alternative is continuing to route their customers'
-money to the wrong account — but it needs a comms plan before deploy.
+money to the wrong account — but it needs a comms plan before deploy. To find
+who still needs to act:
+
+```sql
+select id, name from organizations where bank_clabe is null;
+```
 
 ## 4. OTP delivery
 
