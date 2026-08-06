@@ -29,6 +29,8 @@ import { SmartVideoPlayer } from '@/components/landing/SmartVideoPlayer';
 import { LiveDemoButton } from '@/components/landing/LiveDemoButton';
 import { BottomConversionForm } from '@/components/landing/BottomConversionForm';
 import { DifferentiatorTimeline } from '@/components/landing/DifferentiatorTimeline';
+import { FolioCalculator } from '@/components/pricing/FolioCalculator';
+import { PricingComparisonTable } from '@/components/pricing/PricingComparisonTable';
 import { Footer } from '@/components/layout/Footer';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { getAssetUrl } from '@/lib/url';
@@ -596,6 +598,16 @@ export default function LandingPage() {
                 Probar 14 Días Gratis
               </Link>
             </div>
+          </div>
+
+          {/* Interactive Folio Cost Calculator */}
+          <div className="mt-16">
+            <FolioCalculator />
+          </div>
+
+          {/* Side-by-Side Feature Comparison Table */}
+          <div className="mt-16">
+            <PricingComparisonTable />
           </div>
 
           {/* CFDI Add-on & SAT CSD Trust Guarantee Callout */}

@@ -93,7 +93,7 @@ export default function PrivacyPage() {
               Usted tiene derecho a conocer qué datos personales tenemos de usted, para qué los utilizamos y las condiciones del uso que les damos (Acceso). Asimismo, es su derecho solicitar la corrección de su información personal (Rectificación); que la eliminemos de nuestros registros (Cancelación); así como oponerse al uso de sus datos para fines específicos (Oposición).
             </p>
             <p className="text-slate-400 text-sm">
-              Para ejercer cualquiera de los derechos ARCO, puede enviar una solicitud formal a nuestro Departamento de Privacidad al correo: <a href="mailto:privacidad@businesshelper.mx" className="text-indigo-400 underline">privacidad@businesshelper.mx</a>.
+              Para ejercer cualquiera de los derechos ARCO, puede enviar una solicitud formal a nuestro Departamento de Privacidad al correo: <a href="mailto:privacidad@businesshelper.app" className="text-indigo-400 underline">privacidad@businesshelper.app</a>.
             </p>
           </div>
         </section>

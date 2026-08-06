@@ -9,7 +9,7 @@ export function JsonLd() {
     applicationCategory: 'BusinessApplication',
     description:
       'La plataforma operativa para PyMEs en México: cotizaciones en 2 minutos, cobranza por WhatsApp y facturación CFDI 4.0 con SAT PAC.',
-    url: 'https://businesshelper.mx',
+    url: 'https://businesshelper.app',
     offers: {
       '@type': 'Offer',
       price: '299.00',

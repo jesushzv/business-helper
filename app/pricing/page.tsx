@@ -4,6 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { Check, Sparkles, Zap, ArrowRight, ShieldCheck, HelpCircle } from 'lucide-react';
 import { FaqAccordion } from '@/components/landing/FaqAccordion';
+import { FolioCalculator } from '@/components/pricing/FolioCalculator';
+import { PricingComparisonTable } from '@/components/pricing/PricingComparisonTable';
 import { getAssetUrl } from '@/lib/url';
 
 const PRICING_PLANS = [
@@ -167,6 +169,16 @@ export default function PricingPage() {
               </Link>
             </div>
           ))}
+        </div>
+
+        {/* Interactive Folio Cost Calculator */}
+        <div className="pt-8">
+          <FolioCalculator />
+        </div>
+
+        {/* Side-by-Side Feature Comparison Table */}
+        <div className="pt-8">
+          <PricingComparisonTable />
         </div>
 
         {/* SAT & Security Banner */}
