@@ -4,6 +4,7 @@ name: CI
 # compiles the app but never runs the test suite. That is how the register-page
 # error display regressed: the build stayed green while a failing test and an
 # ESLint warning both went unread.
+# Test run: verifying workflow is now dispatched after enabling GitHub Actions.
 on:
   pull_request:
   push:
