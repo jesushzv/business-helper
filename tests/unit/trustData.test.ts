@@ -21,12 +21,16 @@ describe('WS-A Credibility, Social Proof & Trust Architecture Data Engine', () =
     });
   });
 
-  it('should feature SAT CFDI 4.0, SSL 256-bit, Banxico SPEI, and PAC partner seals in trust badges', () => {
+  // The standalone 'pac-partner' badge was removed in 1e39e7c ("simplify trust
+  // badges"), alongside 1a9b532 ("trust badge accuracy"). Do not restore it:
+  // there is no PAC integration (see the CFDI issue), so the badge asserted a
+  // partnership the product does not have.
+  it('should feature SAT CFDI, SSL 256-bit, and Banxico SPEI seals in trust badges', () => {
     const badgeIds = TRUST_BADGES.map((b) => b.id);
     expect(badgeIds).toContain('sat-cfdi');
     expect(badgeIds).toContain('ssl-encryption');
     expect(badgeIds).toContain('banxico-spei');
-    expect(badgeIds).toContain('pac-partner');
+    expect(badgeIds).not.toContain('pac-partner');
 
     const satBadge = TRUST_BADGES.find((b) => b.id === 'sat-cfdi');
     expect(satBadge?.description).toContain('Nunca almacenamos tus certificados SAT');

@@ -7,7 +7,12 @@ describe('FaqAccordion Component Suite', () => {
   it('renders accordion questions and defaults first item open', () => {
     render(<FaqAccordion />);
     expect(screen.getByText('¿Genera Notas de Venta y Facturas SAT CFDI 4.0?')).toBeInTheDocument();
-    expect(screen.getByText(/Todos nuestros planes incluyen timbrado fiscal CFDI 4.0/i)).toBeInTheDocument();
+    // Wording was softened from "incluyen" to "tienen acceso al" in 1a9b532.
+    // Keep the weaker claim: CFDI stamping is not actually implemented yet, so
+    // asserting plans "include" it would restore a false statement.
+    expect(
+      screen.getByText(/Todos nuestros planes tienen acceso al timbrado fiscal CFDI 4\.0/i)
+    ).toBeInTheDocument();
   });
 
   it('toggles accordion answer visibility on button click', () => {

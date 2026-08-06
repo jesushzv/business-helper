@@ -24,11 +24,20 @@ describe('Mobile Responsiveness & System Audit Suite', () => {
     expect(globalsCss).toContain('prefers-reduced-motion: reduce');
   });
 
+  // Previously asserted the exact hero wording ("Cotiza y cobra" / "desde tu
+  // celular"). The headline was rewritten and the test failed without anything
+  // regressing — it pinned marketing copy rather than responsiveness. It now
+  // checks the property this suite exists for: the h1 scales across breakpoints.
   it('verifies page.tsx contains responsive mobile Hero title element', () => {
     const pagePath = path.join(process.cwd(), 'app', 'page.tsx');
     const pageContent = fs.readFileSync(pagePath, 'utf8');
 
-    expect(pageContent).toContain('Cotiza y cobra');
-    expect(pageContent).toContain('desde tu celular');
+    const h1Match = pageContent.match(/<h1[^>]*className="([^"]*)"/);
+    expect(h1Match, 'app/page.tsx should render an <h1> hero title').not.toBeNull();
+
+    const h1Classes = h1Match?.[1] || '';
+    // A mobile-first base size plus at least one breakpoint override.
+    expect(h1Classes).toMatch(/(^|\s)text-\d?xl|(^|\s)text-\dxl/);
+    expect(h1Classes).toMatch(/sm:text-|md:text-|lg:text-/);
   });
 });

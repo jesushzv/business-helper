@@ -11,8 +11,12 @@ import {
 } from '@/lib/stripe';
 
 describe('WS-B Stripe Production Billing & Folio Packs Engine', () => {
-  it('should define 3 core subscription plans (emprendedor, negocio, empresa)', () => {
-    expect(STRIPE_PLANS.emprendedor.price).toBe(299);
+  // The 'emprendedor' tier was renamed to 'inicial' in 4f3e260. This test kept
+  // asserting the old key; the same drift left the subscription_tier CHECK
+  // constraint requiring 'emprendedor' while the app wrote 'inicial', so every
+  // webhook tier write failed at the database behind a 200 response.
+  it('should define 3 core subscription plans (inicial, negocio, empresa)', () => {
+    expect(STRIPE_PLANS.inicial.price).toBe(299);
     expect(STRIPE_PLANS.negocio.price).toBe(599);
     expect(STRIPE_PLANS.empresa.price).toBe(999);
     expect(STRIPE_PLANS.negocio.includedFolios).toBe(10);
@@ -26,9 +30,15 @@ describe('WS-B Stripe Production Billing & Folio Packs Engine', () => {
     expect(STRIPE_FOLIO_PACKS.folio_pack_200.folios).toBe(200);
   });
 
-  it('should fallback to emprendedor config for invalid tier key', () => {
+  it('should fallback to inicial config for invalid tier key', () => {
     const config = getStripeTierConfig('invalid_plan');
-    expect(config.id).toBe('emprendedor');
+    expect(config.id).toBe('inicial');
+  });
+
+  it('should still accept the legacy emprendedor key as an alias', () => {
+    // getStripeTierConfig maps the old name forward, so existing links and
+    // stored values keep resolving after the rename.
+    expect(getStripeTierConfig('emprendedor').id).toBe('inicial');
   });
 
   it('should construct valid subscription checkout payload with organization_id metadata', () => {

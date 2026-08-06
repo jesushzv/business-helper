@@ -84,7 +84,9 @@ describe('LoginPage Component (Task C7 Remediation Suite)', () => {
 
   it('renders demo panel button pointing to /dashboard?demo=true', () => {
     render(<LoginPage />);
-    const demoLink = screen.getByRole('link', { name: /Ver Panel de Demostración/i });
+    // Relabelled "Ver Panel de Demostración" -> "Ver Demo" in 0bc5f8c. The link
+    // and its destination are unchanged, which is what this test is really for.
+    const demoLink = screen.getByRole('link', { name: /Ver Demo/i });
     expect(demoLink).toBeInTheDocument();
     expect(demoLink).toHaveAttribute('href', '/dashboard?demo=true');
   });
