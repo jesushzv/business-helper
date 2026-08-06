@@ -11,8 +11,6 @@
 
 ### Mode A — Sprint Execution (Feature Development)
 
-#### This is a comment
-
 ```
 Please execute Sprint [N] following the full ECC protocol below.
 ```
