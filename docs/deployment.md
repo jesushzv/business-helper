@@ -23,10 +23,17 @@ graph TD
 
 1. Log into [Supabase Dashboard](https://database.new) and create a new project.
 2. Under **Project Settings -> Database**, obtain the connection string and database password.
-3. Apply the PostgreSQL migrations in `supabase/migrations/`:
+3. **⚠️ CRITICAL: If this is the first deployment (includes security hardening), run the migration first:**
    ```bash
    export SUPABASE_DB_URL="postgres://postgres:[PASSWORD]@[HOST]:5432/postgres"
 
+   npm run db:migrate:dry   # list what would be applied
+   npm run db:migrate       # apply
+   ```
+   The `20260806120000_security_hardening.sql` migration **must run before deploying code** to close P0 RLS vulnerabilities. See `docs/security-p0-remediation.md` for details.
+
+4. Apply all PostgreSQL migrations in `supabase/migrations/`:
+   ```bash
    npm run db:migrate:dry   # list what would be applied
    npm run db:migrate       # apply
    ```
@@ -65,17 +72,23 @@ graph TD
    - **Build Command**: `npm run build`
    - **Output Directory**: `.next`
 3. Add Environment Variables (from [.env.production](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/.env.production) template):
-   - **Active Production Keys (Configured)**:
+   - **Core Infrastructure**:
      - `NEXT_PUBLIC_SUPABASE_URL`: `https://dfyoavffxzujvxvnsizi.supabase.co`
      - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: `sb_publishable_4w3ZlvFUwFtRTWI5s6QfVw_127miFZO`
-     - `SUPABASE_SERVICE_ROLE_KEY`: `<your-supabase-service-role-secret-key>`
+     - `SUPABASE_SERVICE_ROLE_KEY`: `<your-supabase-service-role-secret-key>` (required for public endpoints & webhooks)
      - `NODE_ENV`: `production`
      - `NEXT_PUBLIC_APP_URL`: `https://business-helper.vercel.app`
-   - **Pending Third-Party Production Keys (To be added post-launch)**:
+   - **Security & Billing (Required)**:
+     - `OTP_SECRET`: ≥32 random chars (e.g., `openssl rand -hex 32`). Keys OTP digests and e-signature seals. **Critical — do not rotate in production without invalidating outstanding OTP codes.**
+     - `STRIPE_SECRET_KEY`: Live Stripe Secret Key (`sk_live_...`)
+     - `STRIPE_WEBHOOK_SECRET`: Live Stripe Webhook Signing Secret (`whsec_...`) from Stripe Dashboard
+     - `STRIPE_PRICE_INICIAL`: Exact Stripe Price ID for Inicial tier
+     - `STRIPE_PRICE_NEGOCIO`: Exact Stripe Price ID for Negocio tier
+     - `STRIPE_PRICE_EMPRESA`: Exact Stripe Price ID for Empresa tier
+   - **Third-Party Integrations (Optional)**:
      - `FACTURAPI_SECRET_KEY` (Live PAC key `sk_live_...` & SAT CSD `.cer`/`.key` upload)
-     - `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET` (Live Stripe key & signing secret)
-     - `STRIPE_PRICE_EMPRENDEDOR`, `STRIPE_PRICE_NEGOCIO`, `STRIPE_PRICE_EMPRESA` (Live Price IDs)
-     - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` (Live WhatsApp Business API)
+     - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` (for OTP delivery via WhatsApp)
+     - `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` (alternative: Meta WhatsApp Cloud API for OTP delivery)
      - `GEMINI_API_KEY` (Google Cloud Gemini API Key)
 4. Click **Deploy**.
 
@@ -111,6 +124,23 @@ Expected HTTP 200 payload:
   }
 }
 ```
+
+---
+
+## 05b Step 4b: Security Verification (P0 Hardening)
+
+If this deployment includes the security hardening migration (`20260806120000_security_hardening.sql`), verify the fixes are active:
+
+**Required verification steps:**
+- [ ] With the Supabase anon key, `select * from quotes` from a browser console returns zero rows (previously: every tenant's quotes)
+- [ ] `POST /api/quotes/public/<token>` with `{"otpCode":"111111","serverOtp":"111111"}` returns 400, not a signature
+- [ ] A code issued via `POST /api/quotes/public/<token>/otp` signs successfully; the same code replayed a second time does not
+- [ ] A code fails after 3 wrong attempts or 5 minutes
+- [ ] `curl -X POST https://yourapi.com/api/stripe/webhook -d '{"unsignedEvent":true}'` returns 400 (rejects unsigned requests)
+- [ ] Two organizations with different CLABEs each see their own on the payment page
+- [ ] An organization with no CLABE configured gets 409, not a fallback account
+
+**See:** `docs/security-p0-remediation.md` §5 for the complete staging checklist.
 
 ---
 
