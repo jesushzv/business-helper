@@ -85,10 +85,13 @@ graph TD
      - `STRIPE_PRICE_INICIAL`: Exact Stripe Price ID for Inicial tier
      - `STRIPE_PRICE_NEGOCIO`: Exact Stripe Price ID for Negocio tier
      - `STRIPE_PRICE_EMPRESA`: Exact Stripe Price ID for Empresa tier
+   - **OTP Delivery (Required for e-signature)**:
+     - `OTP_DELIVERY_CHANNEL`: `sms` or `whatsapp`. Unset fails closed in production — the signing flow returns 502.
+     - For `sms`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER`
+     - For `whatsapp` via Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`
+     - For `whatsapp` via Meta: `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID`
    - **Third-Party Integrations (Optional)**:
      - `FACTURAPI_SECRET_KEY` (Live PAC key `sk_live_...` & SAT CSD `.cer`/`.key` upload)
-     - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` (for OTP delivery via WhatsApp)
-     - `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` (alternative: Meta WhatsApp Cloud API for OTP delivery)
      - `GEMINI_API_KEY` (Google Cloud Gemini API Key)
 4. Click **Deploy**.
 
@@ -131,12 +134,19 @@ Expected HTTP 200 payload:
 
 If this deployment includes the security hardening migration (`20260806120000_security_hardening.sql`), verify the fixes are active:
 
-**Required verification steps:**
+**Webhook checks are scripted** — run against staging, never production:
+```bash
+WEBHOOK_URL=https://staging.example.com/api/stripe/webhook \
+STRIPE_WEBHOOK_SECRET=whsec_… \
+ORG_ID=<a real organization uuid> \
+npm run verify:webhook
+```
+
+**Remaining checks by hand:**
 - [ ] With the Supabase anon key, `select * from quotes` from a browser console returns zero rows (previously: every tenant's quotes)
 - [ ] `POST /api/quotes/public/<token>` with `{"otpCode":"111111","serverOtp":"111111"}` returns 400, not a signature
-- [ ] A code issued via `POST /api/quotes/public/<token>/otp` signs successfully; the same code replayed a second time does not
+- [ ] A code issued via `POST /api/quotes/public/<token>/otp` arrives on the configured channel and signs successfully; the same code replayed a second time does not
 - [ ] A code fails after 3 wrong attempts or 5 minutes
-- [ ] `curl -X POST https://yourapi.com/api/stripe/webhook -d '{"unsignedEvent":true}'` returns 400 (rejects unsigned requests)
 - [ ] Two organizations with different CLABEs each see their own on the payment page
 - [ ] An organization with no CLABE configured gets 409, not a fallback account
 

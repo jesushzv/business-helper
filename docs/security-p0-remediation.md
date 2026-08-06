@@ -94,7 +94,7 @@ renders no payment instructions — it never falls back to a default account.
 | `STRIPE_PRICE_INICIAL` | Recommended | Exact price id. Falls back to substring matching if unset. |
 | `STRIPE_PRICE_NEGOCIO` | Recommended | As above. |
 | `STRIPE_PRICE_EMPRESA` | Recommended | As above. |
-| `OTP_DELIVERY_CHANNEL` | Not yet usable | `sms` \| `whatsapp`. See §4 — no provider is implemented, so leave unset. |
+| `OTP_DELIVERY_CHANNEL` | Yes (production) | `sms` \| `whatsapp`. See §4 for the provider variables each channel needs. Unset fails closed in production. |
 
 Rotating `OTP_SECRET` invalidates outstanding OTP codes and makes previously
 stored seals unverifiable against a recomputation. Treat it as long-lived and
@@ -112,7 +112,8 @@ first. Those values cannot be converted to digests, so any in-flight signature
 using one must be re-issued. Run when no signature is mid-flight.
 
 After migrating, each organization must set its bank details before its
-payment links work:
+payment links work. Tenants do this themselves under **Ajustes → Cuenta
+Bancaria para Cobros SPEI**, which writes through:
 
 ```
 PATCH /api/organization
@@ -121,35 +122,66 @@ PATCH /api/organization
 
 Existing tenants have no CLABE and their payment pages will 409 until they do.
 This is intentional — the alternative is continuing to route their customers'
-money to the wrong account — but it needs a comms plan before deploy.
+money to the wrong account — but it needs a comms plan before deploy. To find
+who still needs to act:
 
-## 4. Known gap: OTP delivery
+```sql
+select id, name from organizations where bank_clabe is null;
+```
 
-`lib/otpDelivery.ts` has no SMS/WhatsApp provider wired up. Outside development
-it fails closed: `POST /api/quotes/public/[token]/otp` returns 502 rather than
-returning the code to the caller, because echoing it back would hand every
-signature to whoever asked for one.
+## 4. OTP delivery
 
-**The signing flow is therefore not usable in production until a provider is
-integrated** — implement `sendViaProvider` (Twilio Verify or the WhatsApp
-Business API) and set `OTP_DELIVERY_CHANNEL`. In development with the variable
-unset, codes are logged to the server console and returned as `dev_code`.
+`lib/otpDelivery.ts` sends the code over one of three channels, selected by
+`OTP_DELIVERY_CHANNEL`:
+
+| `OTP_DELIVERY_CHANNEL` | Provider | Required variables |
+|---|---|---|
+| `sms` | Twilio Messages API | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER` (or `TWILIO_PHONE_NUMBER`) |
+| `whatsapp` | Twilio, else Meta Cloud API | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` — or `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` |
+| unset | console (development only) | — |
+
+On `whatsapp`, Twilio is used when `TWILIO_WHATSAPP_NUMBER` is set; otherwise
+the Meta Cloud API is used. A provider that rejects the send, times out, or is
+missing credentials produces a failure — `POST /api/quotes/public/[token]/otp`
+then returns 502 rather than reporting a code that never arrived.
+
+With the variable unset outside production, codes are logged to the server
+console and returned as `dev_code`. In production an unset channel fails closed:
+echoing the code back would hand every signature to whoever asked for one.
 
 ## 5. Staging verification
 
-Nothing below has been exercised against a live Supabase or Stripe instance;
-this branch was verified by typecheck, lint, build, and unit tests only.
+Everything here is a property of a running deployment rather than of the code,
+so unit tests cannot stand in for it. Run against staging, never production.
+
+### Webhook checks — scripted
+
+```
+WEBHOOK_URL=https://staging.example.com/api/stripe/webhook \
+STRIPE_WEBHOOK_SECRET=whsec_… \
+ORG_ID=<a real organization uuid> \
+npm run verify:webhook
+```
+
+Covers the four rejection cases and, with `ORG_ID` set, that a valid event is
+applied and its redelivery is deduplicated. Without `ORG_ID` the route stops at
+the organization check before reaching the ledger, so those two are skipped.
+
+- [ ] `npm run verify:webhook` passes all six checks against staging.
+
+### By hand
 
 - [ ] Migration applies cleanly against a copy of production data.
 - [ ] With the anon key, `select * from quotes` from a browser console returns
       zero rows (previously: every tenant's).
 - [ ] `POST /api/quotes/public/<token>` with `{"otpCode":"111111","serverOtp":"111111"}`
       returns 400, not a signature.
-- [ ] A code issued via `/otp` signs successfully; the same code replayed a
-      second time does not.
+- [ ] A code issued via `/otp` arrives on the configured channel (§4) and signs
+      successfully; the same code replayed a second time does not.
 - [ ] A code fails after 3 wrong attempts, and after 5 minutes.
-- [ ] `stripe trigger customer.subscription.updated` applies the tier change.
-- [ ] The same event id delivered twice applies once (`duplicate: true`).
-- [ ] An unsigned or tampered webhook POST returns 400.
+- [ ] With `OTP_DELIVERY_CHANNEL` unset in a production build, `/otp` returns
+      502 and the response contains no `dev_code`.
 - [ ] Two organizations with different CLABEs each see their own on `/pay/<token>`.
 - [ ] An organization with no CLABE gets 409, not a fallback account.
+- [ ] Saving a CLABE under **Ajustes → Cuenta Bancaria** makes that org's
+      payment page render instructions.
