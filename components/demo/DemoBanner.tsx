@@ -49,11 +49,11 @@ export const DemoBanner: React.FC<DemoBannerProps> = ({ onOpenTierModal }) => {
 
           {/* Sign Up CTA */}
           <Link
-            href="/onboarding"
+            href="/register"
             className="flex min-h-[38px] items-center gap-1.5 rounded-xl bg-linear-to-r from-emerald-500 to-teal-400 px-3.5 py-1.5 font-extrabold text-slate-950 shadow-md shadow-emerald-950/50 transition-all hover:from-emerald-400 hover:to-teal-300 active:scale-95"
           >
             <UserPlus className="h-3.5 w-3.5" />
-            <span className="text-xs">Probar 14 Días Gratis</span>
+            <span className="text-xs">Crear Mi Cuenta Gratis</span>
           </Link>
         </div>
       </div>

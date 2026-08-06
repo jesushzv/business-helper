@@ -124,16 +124,23 @@ export function ComparisonSection() {
             <h4 className="text-sm font-bold text-white border-b border-slate-800 pb-2">{row.feature}</h4>
             <div className="space-y-2 text-xs">
               <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-semibold flex items-start gap-2">
-                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
                   <strong className="block text-emerald-400 text-[10px] uppercase">Business Helper</strong>
                   <span>{row.bh}</span>
                 </div>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 flex items-start gap-2">
-                <X className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <X className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <strong className="block text-slate-400 text-[10px] uppercase">Sistemas Tradicionales / Excel</strong>
+                  <strong className="block text-slate-400 text-[10px] uppercase">Excel / WhatsApp Manual</strong>
+                  <span>{row.manual}</span>
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 flex items-start gap-2">
+                <X className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" aria-hidden="true" />
+                <div>
+                  <strong className="block text-slate-400 text-[10px] uppercase">Sistemas Tradicionales de Escritorio</strong>
                   <span>{row.traditional}</span>
                 </div>
               </div>

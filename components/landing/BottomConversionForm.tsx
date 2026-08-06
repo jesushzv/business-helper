@@ -7,17 +7,14 @@ import Link from 'next/link';
 export function BottomConversionForm() {
   const router = useRouter();
   const [businessName, setBusinessName] = useState('');
-  const [rfc, setRfc] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(true);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
     if (businessName) params.set('businessName', businessName);
-    if (rfc) params.set('rfc', rfc);
     if (phone) params.set('phone', phone);
     if (email) params.set('email', email);
 
@@ -44,22 +41,8 @@ export function BottomConversionForm() {
         />
       </div>
 
-      {/* RFC & Phone Grid */}
+      {/* Phone & Email Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-slate-300">
-            RFC de la Empresa <span className="text-slate-400 font-normal text-[10px] ml-1">(Opcional)</span>
-          </label>
-          <input
-            type="text"
-            maxLength={13}
-            value={rfc}
-            onChange={(e) => setRfc(e.target.value.toUpperCase())}
-            placeholder="ej. MEL120315HD9"
-            className="w-full min-h-[48px] px-4 py-3 uppercase font-mono rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
-          />
-        </div>
-
         <div className="space-y-1">
           <label className="text-xs font-bold text-slate-300">
             Teléfono / WhatsApp <span className="text-rose-500 font-bold ml-0.5">*</span>
@@ -73,37 +56,20 @@ export function BottomConversionForm() {
             className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
           />
         </div>
-      </div>
 
-      {/* Email */}
-      <div className="space-y-1">
-        <label className="text-xs font-bold text-slate-300">
-          Correo Electrónico <span className="text-rose-500 font-bold ml-0.5">*</span>
-        </label>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="contacto@tunegocio.mx"
-          className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
-        />
-      </div>
-
-      {/* Password */}
-      <div className="space-y-1">
-        <label className="text-xs font-bold text-slate-300">
-          Contraseña <span className="text-rose-500 font-bold ml-0.5">*</span>
-        </label>
-        <input
-          type="password"
-          required
-          minLength={6}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Mínimo 6 caracteres"
-          className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
-        />
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-slate-300">
+            Correo Electrónico <span className="text-rose-500 font-bold ml-0.5">*</span>
+          </label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="contacto@tunegocio.mx"
+            className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
+          />
+        </div>
       </div>
 
       {/* Terms & Privacy Consent Checkbox */}
@@ -134,13 +100,13 @@ export function BottomConversionForm() {
         type="submit"
         className="w-full min-h-[54px] py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl shadow-lg shadow-emerald-500/20 text-sm text-center flex items-center justify-center transition-all active:scale-95 mt-2 cursor-pointer"
       >
-        Comenzar Prueba Gratis (14 Días)
+        Crear Mi Cuenta Gratis (14 Días)
       </button>
 
       <div className="flex justify-between items-center text-[10px] text-slate-400 pt-2 border-t border-slate-800/60">
         <span>✓ Sin tarjeta de crédito</span>
         <span>✓ Cancela cuando quieras</span>
-        <span>✓ Soporte WhatsApp</span>
+        <span>✓ Soporte por Correo (&lt; 2h)</span>
       </div>
     </form>
   );

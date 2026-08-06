@@ -134,7 +134,8 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
                       <div className="my-6 space-y-2.5 border-t border-slate-800 pt-4">
                         {tier.features.map((feat, idx) => (
                           <div key={idx} className="flex items-start gap-2 text-xs text-slate-300">
-                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" aria-hidden="true" />
+                            <span className="sr-only">Incluido: </span>
                             <span>{feat}</span>
                           </div>
                         ))}
@@ -142,7 +143,7 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
                     </div>
 
                     <Link
-                      href="/onboarding"
+                      href="/register"
                       onClick={onClose}
                       className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl text-sm font-bold shadow-md transition-all active:scale-95 ${
                         tier.recommended
@@ -243,7 +244,7 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
                 </p>
                 <div className="mt-4 flex justify-center">
                   <Link
-                    href="/onboarding"
+                    href="/register"
                     onClick={onClose}
                     className="flex min-h-[48px] items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-extrabold text-slate-950 shadow-lg shadow-emerald-950/60 hover:bg-emerald-400 active:scale-95"
                   >

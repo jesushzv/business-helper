@@ -73,13 +73,13 @@ export default function LandingPage() {
               Características
             </a>
             <Link href="/dashboard?demo=true" className="hover:text-emerald-400 transition-colors py-2">
-              Demo Interactiva
+              Ver Demo
             </Link>
             <a href="#garantia" className="hover:text-emerald-400 transition-colors py-2">
               Seguridad SAT
             </a>
             <a href="#testimonios" className="hover:text-emerald-400 transition-colors py-2">
-              Casos de Éxito
+              Casos por Industria
             </a>
             <a href="#precios" className="hover:text-emerald-400 transition-colors py-2">
               Precios
@@ -100,7 +100,7 @@ export default function LandingPage() {
               Iniciar Sesión
             </Link>
             <Link
-              href="/onboarding"
+              href="/register"
               className="min-h-[48px] px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-black rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all flex items-center gap-2 active:scale-95"
             >
               <span>Probar Gratis</span>
@@ -138,7 +138,6 @@ export default function LandingPage() {
 
               {/* CTAs */}
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-                <LiveDemoButton href="/dashboard?demo=true">Explorar Sandbox Interactivo</LiveDemoButton>
                 <Link
                   href="/register"
                   className="w-full sm:w-auto min-h-[54px] px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center gap-3 text-base active:scale-95"
@@ -146,6 +145,7 @@ export default function LandingPage() {
                   <span>Probar 14 Días Gratis</span>
                   <ArrowRight className="w-5 h-5" />
                 </Link>
+                <LiveDemoButton href="/dashboard?demo=true">Ver Demo</LiveDemoButton>
               </div>
 
               {/* Trust Badges */}

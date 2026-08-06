@@ -162,7 +162,10 @@ export function RoiCalculator() {
               <div className="text-3xl font-black text-white">{hoursSaved} hrs</div>
               <div className="text-xs font-bold text-slate-300">Tiempo Ahorrado al Mes</div>
               <p className="text-[11px] text-slate-400 leading-snug">
-                Equivalente a {Math.max(1, Math.round(hoursSaved / 8))} días laborables completos dedicados a vender en vez de hacer trámites.
+                {(() => {
+                  const days = Math.max(1, Math.round(hoursSaved / 8));
+                  return `Equivalente a ${days} ${days === 1 ? 'día laborable completo' : 'días laborables completos'} dedicado${days === 1 ? '' : 's'} a vender en vez de hacer trámites.`;
+                })()}
               </p>
             </div>
 
@@ -174,7 +177,10 @@ export function RoiCalculator() {
               <div className="text-3xl font-black text-emerald-400">
                 ${acceleratedCashFlow.toLocaleString('es-MX')}
               </div>
-              <div className="text-xs font-bold text-slate-300">Cobranza Acelerada</div>
+              <div className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                <span>Cobranza Acelerada</span>
+                <span className="text-[10px] text-slate-400 font-normal underline cursor-help" title="Fórmula: 15% del volumen mensual cotizado cobrado antes de tiempo mediante seguimiento automatizado">¿Cómo se calcula?</span>
+              </div>
               <p className="text-[11px] text-slate-400 leading-snug">
                 Flujo de efectivo liberado antes de tiempo gracias a recordatorios automáticos de WhatsApp.
               </p>
@@ -193,9 +199,6 @@ export function RoiCalculator() {
               <div className="text-[11px] text-slate-300">
                 Basado en Plan Negocio ($599 MXN/mes). Cancela cuando quieras.
               </div>
-            </div>
-            <div className="hidden sm:flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
-              {roiMultiplier}x
             </div>
           </div>
         </div>
