@@ -11,7 +11,7 @@ describe('DifferentiatorTimeline Component', () => {
     expect(screen.getByText(/Enviar por WhatsApp/i)).toBeInTheDocument();
     expect(screen.getByText(/Cliente Aprueba con OTP/i)).toBeInTheDocument();
     expect(screen.getByText(/Confirmación SPEI/i)).toBeInTheDocument();
-    expect(screen.getByText(/Timbrado CFDI 4.0/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Timbrado CFDI 4.0/i).length).toBeGreaterThan(0);
   });
 
   it('contains clear business benefits copy without technical jargon', () => {

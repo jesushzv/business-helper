@@ -136,6 +136,16 @@ function RegisterFormContent() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl z-10 px-4">
         <div className="bg-slate-900/90 backdrop-blur-xl py-8 px-6 shadow-2xl rounded-3xl border border-slate-800 sm:px-10">
+          {error && (
+            <div
+              role="alert"
+              className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3 text-rose-400 text-sm"
+            >
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
           {/* Social Register Button */}
           <div className="mb-6">
             <button
