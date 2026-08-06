@@ -30,6 +30,15 @@ export async function POST(req: NextRequest) {
       isSandbox: isDemoMode,
     });
 
+    // dispatchWhatsAppReminder can now genuinely fail, so stop announcing a
+    // send that did not happen. 502: the provider, not this request, is at fault.
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || 'No se pudo enviar el recordatorio por WhatsApp', ...result },
+        { status: 502 }
+      );
+    }
+
     return NextResponse.json({
       message: result.mode === 'wa_me_link' ? 'Enlace WhatsApp generado exitosamente' : 'Recordatorio WhatsApp enviado vía API',
       ...result,
