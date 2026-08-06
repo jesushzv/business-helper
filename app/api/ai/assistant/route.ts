@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { parseNaturalLanguageQuery, checkRateLimit, validateAIQuota, sanitizeAIQuery } from '@/lib/whatsappAI';
+import { requireUser } from '@/lib/apiAuth';
 
 export async function POST(request: Request) {
+  // Was anonymous, with the rate limit keyed to x-forwarded-for — a header the
+  // caller controls, so the quota was trivially bypassed by rotating it.
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
   try {
-    // 1. Rate Limiter Guard (Max 5 req/min per IP/client)
-    const clientIp = request.headers.get('x-forwarded-for') || '127.0.0.1';
-    const rateLimit = checkRateLimit(clientIp, 5);
+    // Rate limit per authenticated user (max 5 req/min).
+    const rateLimit = checkRateLimit(auth.userId, 5);
 
     if (!rateLimit.allowed) {
       return NextResponse.json(

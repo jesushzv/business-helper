@@ -209,9 +209,8 @@ export default function PublicQuotePage() {
       <OtpSignatureModal
         isOpen={isOtpOpen}
         onClose={() => setIsOtpOpen(false)}
-        contractId={quote.id}
+        publicToken={quote.public_token}
         clientName="Construcciones Maya"
-        totalAmount={quote.total_amount}
         onSuccess={(seal) => {
           setSignedSeal(seal);
         }}

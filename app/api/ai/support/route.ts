@@ -5,6 +5,7 @@ import {
   validateAIQuota,
   sanitizeAIQuery,
 } from '@/lib/whatsappAI';
+import { requireUser } from '@/lib/apiAuth';
 
 /**
  * POST /api/ai/support
@@ -14,10 +15,14 @@ import {
  * branding, and RBAC permissions directly inside the web application.
  */
 export async function POST(request: Request) {
+  // Was anonymous, with the rate limit keyed to x-forwarded-for — a header the
+  // caller controls, so the quota was trivially bypassed by rotating it.
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
   try {
-    // 1. Rate Limiter Guard (Max 10 req/min per IP/client for in-app support)
-    const clientIp = request.headers.get('x-forwarded-for') || '127.0.0.1';
-    const rateLimit = checkRateLimit(clientIp, 10);
+    // Rate limit per authenticated user (max 10 req/min for in-app support).
+    const rateLimit = checkRateLimit(auth.userId, 10);
 
     if (!rateLimit.allowed) {
       return NextResponse.json(

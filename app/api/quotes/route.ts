@@ -1,64 +1,82 @@
 import { NextResponse } from 'next/server';
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
+import {
+  requireOrgAccess,
+  isDemoDeployment,
+  pickFields,
+  QUOTE_WRITABLE_FIELDS,
+} from '@/lib/apiAuth';
+
+/**
+ * Quote collection.
+ *
+ * GET listed every quote the query could reach and returned `{quotes: []}` on
+ * any error, so a failure was indistinguishable from an empty tenant. POST
+ * checked for a user but fell through to echoing the caller's body back with a
+ * 201 when there was none, and spread that body into the insert.
+ */
 
 export async function GET() {
-  if (!isSupabaseConfigured()) {
+  // With no backend there is no tenant data; an empty list is the honest answer.
+  if (isDemoDeployment()) {
     return NextResponse.json({ quotes: [] });
   }
 
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
   try {
-    const supabase = await createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: quotes, error } = await (supabase as any)
+    const { data: quotes, error } = await supabase
       .from('quotes')
       .select('*')
+      .eq('organization_id', organizationId)
       .order('created_at', { ascending: false });
 
-    if (!error && quotes) {
-      return NextResponse.json({ quotes });
+    if (error) {
+      return NextResponse.json({ error: 'Failed to fetch quotes' }, { status: 500 });
     }
-  } catch {
-    // Fallback
-  }
 
-  return NextResponse.json({ quotes: [] });
+    return NextResponse.json({ quotes: quotes || [] });
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch quotes' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, userId, organizationId } = auth.ctx;
+
   try {
     const body = await request.json();
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const fields = pickFields(body, QUOTE_WRITABLE_FIELDS);
 
-    if (user) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: orgs } = await (supabase as any)
-        .from('organizations')
-        .select('id')
-        .eq('owner_id', user.id)
-        .limit(1);
-
-      const orgId = orgs && orgs.length > 0 ? orgs[0].id : 'org-demo-1';
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: newQuote, error } = await (supabase as any)
-        .from('quotes')
-        .insert({
-          ...body,
-          organization_id: orgId,
-          created_by: user.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (!error && newQuote) {
-        return NextResponse.json(newQuote, { status: 201 });
-      }
+    if (!fields.title) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'El título es obligatorio' } },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json(body, { status: 201 });
+    // organization_id and created_by come from the session, never the body, so
+    // a caller cannot plant a quote in another tenant.
+    const { data: newQuote, error } = await supabase
+      .from('quotes')
+      .insert({
+        ...fields,
+        organization_id: organizationId,
+        created_by: userId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error || !newQuote) {
+      return NextResponse.json({ error: 'Failed to create quote' }, { status: 500 });
+    }
+
+    return NextResponse.json(newQuote, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'Failed to create quote' }, { status: 500 });
   }
