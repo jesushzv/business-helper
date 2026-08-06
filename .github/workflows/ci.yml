@@ -4,7 +4,6 @@ name: CI
 # compiles the app but never runs the test suite. That is how the register-page
 # error display regressed: the build stayed green while a failing test and an
 # ESLint warning both went unread.
-# Test run: verifying workflow is now dispatched after enabling GitHub Actions.
 on:
   pull_request:
   push:
@@ -29,8 +28,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Matches the Node major Vercel builds this project with.
-          node-version: 20
+          # jsdom 30 requires ^22.22.2 || ^24.15.0, and its undici 8 dependency
+          # calls webidl.util.markAsUncloneable, which does not exist before
+          # Node 22. On 20 the environment fails to construct and the whole
+          # suite reports "no tests" rather than a single failure.
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
