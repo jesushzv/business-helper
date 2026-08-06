@@ -1,24 +1,39 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { createCheckoutPayload, STRIPE_PLANS } from '@/lib/stripe';
+import { createCheckoutSession, isStripeConfigured } from '@/lib/stripeClient';
+import { hasCapability } from '@/lib/teamRBAC';
 
 /**
  * Creates a Stripe Checkout session for a subscription tier.
  *
- * NOTE: no Stripe API call happens here. The returned URL is a fabricated
- * `checkout.stripe.com/pay/cs_test_demo_<timestamp>` string that leads to a
- * Stripe error page, and the session id is equally invented. The endpoint also
- * fell back to `orgId = 'org-demo-1'` for unauthenticated callers, so the
- * payload it built was scoped to a tenant that does not exist.
+ * This route used to build the payload and then return a fabricated
+ * `checkout.stripe.com/pay/cs_test_demo_<timestamp>` URL — a Stripe error page —
+ * with an equally invented session id, flagged `simulated: true`. It now calls
+ * the Stripe API and returns the hosted URL Stripe issues, or an error. There
+ * is no third outcome: a deployment without `STRIPE_SECRET_KEY` gets a 503
+ * rather than a link that goes nowhere.
  *
- * Auth and tier validation are enforced now, and the response is marked
- * `simulated` so no caller mistakes this for a live checkout. Wiring the real
- * Stripe SDK is tracked separately.
+ * The tier itself is not granted here. Only the webhook, which verifies
+ * Stripe's signature, writes `subscription_tier` — this endpoint has no
+ * evidence anyone has paid.
  */
 export async function POST(request: Request) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { organizationId } = auth.ctx;
+  const { supabase, organizationId, role } = auth.ctx;
+
+  if (!hasCapability(role, 'billing_management')) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Solo el dueño de la cuenta puede gestionar la suscripción',
+        },
+      },
+      { status: 403 }
+    );
+  }
 
   try {
     const body = await request.json();
@@ -47,9 +62,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const payload = createCheckoutPayload(requestedTier, organizationId, safeReturnUrl);
-
-    if (process.env.NODE_ENV === 'production' && !process.env.STRIPE_SECRET_KEY) {
+    if (!isStripeConfigured()) {
       return NextResponse.json(
         {
           error: {
@@ -61,15 +74,45 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({
-      simulated: true,
-      url: `https://checkout.stripe.com/pay/cs_test_demo_${Date.now()}?plan=${requestedTier}`,
-      sessionId: `cs_test_demo_${Date.now()}`,
+    const payload: Record<string, unknown> = createCheckoutPayload(
+      requestedTier,
+      organizationId,
+      safeReturnUrl
+    );
+
+    // Reuse the organization's Stripe customer when it has one, so a second
+    // subscription does not create a duplicate customer record.
+    const { data: organization } = await supabase
+      .from('organizations')
+      .select('stripe_customer_id')
+      .eq('id', organizationId)
+      .maybeSingle();
+
+    if (organization?.stripe_customer_id) {
+      payload.customer = organization.stripe_customer_id;
+    }
+
+    const result = await createCheckoutSession(
       payload,
+      // Scoped to the tenant and tier so a double-click reuses one session,
+      // while a genuine later upgrade still creates its own.
+      `checkout:${organizationId}:${requestedTier}:${new Date().toISOString().slice(0, 13)}`
+    );
+
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: { code: result.code, message: result.message } },
+        { status: result.code === 'NOT_CONFIGURED' ? 503 : 502 }
+      );
+    }
+
+    return NextResponse.json({
+      url: result.session.url,
+      sessionId: result.session.id,
     });
   } catch {
     return NextResponse.json(
-      { error: 'Error al generar la sesión de pago de Stripe' },
+      { error: { code: 'SERVER_ERROR', message: 'Error al generar la sesión de pago de Stripe' } },
       { status: 500 }
     );
   }

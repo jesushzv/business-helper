@@ -1,16 +1,27 @@
 import { NextResponse } from 'next/server';
 import { parseNaturalLanguageQuery, checkRateLimit, validateAIQuota, sanitizeAIQuery } from '@/lib/whatsappAI';
-import { requireUser } from '@/lib/apiAuth';
+import { requireOrgAccess } from '@/lib/apiAuth';
+import { loadAIOrgContext } from '@/lib/aiOrgContext';
 
+/**
+ * Operations assistant.
+ *
+ * Two things were wrong with this endpoint beyond its auth, which #1 fixed:
+ * it answered from a hardcoded two-client ledger rather than the caller's
+ * records, and `parseNaturalLanguageQuery` is keyword matching, not a model.
+ * The data is now the tenant's own, and the response says which engine
+ * produced it instead of leaving "AI" to be inferred.
+ */
 export async function POST(request: Request) {
   // Was anonymous, with the rate limit keyed to x-forwarded-for — a header the
   // caller controls, so the quota was trivially bypassed by rotating it.
-  const auth = await requireUser();
+  const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
+  const { supabase, userId, organizationId } = auth.ctx;
 
   try {
     // Rate limit per authenticated user (max 5 req/min).
-    const rateLimit = checkRateLimit(auth.userId, 5);
+    const rateLimit = checkRateLimit(userId, 5);
 
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -47,20 +58,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const demoOrgData = {
-      clients: [
-        { id: 'c-1', name: 'Construcciones Maya', phone: '8115551234' },
-        { id: 'c-salinas', name: 'Grupo Salinas', phone: '8112223344' }
-      ],
-      receivables: [
-        { clientId: 'c-1', amount: 75000, status: 'overdue' },
-        { clientId: 'c-salinas', amount: 45000, status: 'overdue' }
-      ]
-    };
+    const orgData = await loadAIOrgContext(supabase, organizationId);
 
-    const response = parseNaturalLanguageQuery(sanitizedQuery, demoOrgData);
+    const response = parseNaturalLanguageQuery(sanitizedQuery, orgData);
     return NextResponse.json({
       ...response,
+      // Deterministic keyword matching over the organization's records. Named
+      // so a client cannot present the answer as a model's reasoning.
+      engine: 'rules',
       quota: quotaCheck
     });
   } catch {

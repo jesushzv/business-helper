@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
+import type { UserRole } from '@/lib/teamRBAC';
 
 /**
  * Shared authentication and tenant-scoping for API routes.
@@ -30,6 +31,8 @@ export interface AuthContext {
   supabase: SupabaseServerClient;
   userId: string;
   organizationId: string;
+  /** The caller's role in that organization, for capability checks. */
+  role: UserRole;
 }
 
 export type AuthResult =
@@ -79,19 +82,29 @@ export async function requireOrgAccess(): Promise<AuthResult> {
     .limit(1);
 
   if (owned && owned.length > 0) {
-    return { ok: true, ctx: { supabase, userId: user.id, organizationId: owned[0].id } };
+    return {
+      ok: true,
+      ctx: { supabase, userId: user.id, organizationId: owned[0].id, role: 'owner' },
+    };
   }
 
   const { data: membership } = await (supabase as SupabaseServerClient)
     .from('organization_members')
-    .select('organization_id')
+    .select('organization_id, role')
     .eq('user_id', user.id)
     .limit(1);
 
   if (membership && membership.length > 0) {
     return {
       ok: true,
-      ctx: { supabase, userId: user.id, organizationId: membership[0].organization_id },
+      ctx: {
+        supabase,
+        userId: user.id,
+        organizationId: membership[0].organization_id,
+        // A membership row without a readable role gets the least privileged one
+        // rather than a permissive default.
+        role: (membership[0].role as UserRole) || 'member',
+      },
     };
   }
 

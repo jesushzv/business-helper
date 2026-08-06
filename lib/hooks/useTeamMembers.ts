@@ -1,83 +1,174 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { validateInviteInput, UserRole } from '@/lib/teamRBAC';
+
+/**
+ * Team state.
+ *
+ * This hook used to hold three invented colleagues in `useState` and "invite"
+ * by pushing a row into that array — the API was never called, so nothing was
+ * stored and nobody was ever contacted. It now reads
+ * `/api/organization/members` and returns what the server actually recorded,
+ * including the invitation link the inviter has to deliver.
+ */
 
 export interface TeamMemberItem {
   id: string;
   user_id: string;
   name: string;
-  email: string;
+  email: string | null;
   role: UserRole;
   invitedAt: string;
+  isCurrentUser?: boolean;
 }
 
-const INITIAL_TEAM: TeamMemberItem[] = [
-  {
-    id: 'mem-1',
-    user_id: 'user-owner',
-    name: 'Don Roberto',
-    email: 'roberto@distribuidoradelnorte.com.mx',
-    role: 'owner',
-    invitedAt: '2026-08-03T10:00:00Z'
-  },
-  {
-    id: 'mem-2',
-    user_id: 'user-manager',
-    name: 'Lic. Mariana',
-    email: 'mariana@distribuidoradelnorte.com.mx',
-    role: 'manager',
-    invitedAt: '2026-08-10T14:30:00Z'
-  },
-  {
-    id: 'mem-3',
-    user_id: 'user-accountant',
-    name: 'Contador Carlos Ruiz',
-    email: 'cruiz@despachoruiz.com.mx',
-    role: 'accountant',
-    invitedAt: '2026-08-15T09:15:00Z'
-  }
-];
+export interface PendingInvitation {
+  id: string;
+  email: string;
+  role: UserRole;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface InviteResult {
+  success: boolean;
+  error?: string;
+  inviteUrl?: string;
+  emailSent?: boolean;
+}
 
 export function useTeamMembers() {
-  const [members, setMembers] = useState<TeamMemberItem[]>(INITIAL_TEAM);
+  const [members, setMembers] = useState<TeamMemberItem[]>([]);
+  const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [inviting, setInviting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const inviteMember = useCallback((email: string, role: string) => {
-    setError(null);
-    const validation = validateInviteInput(email, role);
-    if (!validation.isValid) {
-      setError(validation.error || 'Entrada inválida');
-      return { success: false, error: validation.error };
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/organization/members');
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setMembers([]);
+        setInvitations([]);
+        setError(data?.error?.message || 'No se pudo cargar el equipo');
+        return;
+      }
+
+      setMembers(data?.members || []);
+      setInvitations(data?.invitations || []);
+      setError(null);
+    } catch {
+      setMembers([]);
+      setInvitations([]);
+      setError('No se pudo cargar el equipo');
+    } finally {
+      setLoading(false);
     }
-
-    setInviting(true);
-    const newMember: TeamMemberItem = {
-      id: `mem-${Date.now()}`,
-      user_id: `user-${Date.now()}`,
-      name: email.split('@')[0],
-      email: email.trim(),
-      role: role.toLowerCase() as UserRole,
-      invitedAt: new Date().toISOString()
-    };
-
-    setMembers((prev) => [newMember, ...prev]);
-    setInviting(false);
-    return { success: true, member: newMember };
   }, []);
 
-  const updateRole = useCallback((memberId: string, newRole: UserRole) => {
-    setMembers((prev) =>
-      prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m))
-    );
-  }, []);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const inviteMember = useCallback(
+    async (email: string, role: string): Promise<InviteResult> => {
+      setError(null);
+
+      const validation = validateInviteInput(email, role);
+      if (!validation.isValid) {
+        setError(validation.error || 'Entrada inválida');
+        return { success: false, error: validation.error };
+      }
+
+      setInviting(true);
+      try {
+        const res = await fetch('/api/organization/members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, role }),
+        });
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          const message = data?.error?.message || 'No se pudo crear la invitación';
+          setError(message);
+          return { success: false, error: message };
+        }
+
+        if (data?.invitation) {
+          setInvitations((prev) => [
+            {
+              id: data.invitation.id,
+              email: data.invitation.email,
+              role: data.invitation.role,
+              status: data.invitation.status,
+              expiresAt: data.invitation.expiresAt,
+              createdAt: data.invitation.createdAt,
+            },
+            ...prev.filter((i) => i.email !== data.invitation.email),
+          ]);
+        }
+
+        return {
+          success: true,
+          inviteUrl: data?.inviteUrl,
+          emailSent: Boolean(data?.emailSent),
+        };
+      } catch {
+        const message = 'No se pudo crear la invitación';
+        setError(message);
+        return { success: false, error: message };
+      } finally {
+        setInviting(false);
+      }
+    },
+    []
+  );
+
+  const updateRole = useCallback(
+    async (memberId: string, newRole: UserRole): Promise<{ success: boolean; error?: string }> => {
+      // Optimistic, then reconciled against the server response.
+      const previous = members;
+      setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m)));
+
+      try {
+        const res = await fetch('/api/organization/members', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memberId, role: newRole }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setMembers(previous);
+          const message = data?.error?.message || 'No se pudo actualizar el rol';
+          setError(message);
+          return { success: false, error: message };
+        }
+
+        return { success: true };
+      } catch {
+        setMembers(previous);
+        setError('No se pudo actualizar el rol');
+        return { success: false, error: 'No se pudo actualizar el rol' };
+      }
+    },
+    [members]
+  );
 
   return {
     members,
+    invitations,
+    loading,
     inviting,
     error,
     inviteMember,
-    updateRole
+    updateRole,
+    refresh,
   };
 }

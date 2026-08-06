@@ -10,6 +10,7 @@ export function InvoiceManagerCard() {
   const { invoices, stamping, exporting, stampCFDI, downloadAccountantPackage } = useInvoices();
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-08');
   const [stampedMessage, setStampedMessage] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleStamp = (milestoneId: string) => {
     setStampedMessage(null);
@@ -20,8 +21,14 @@ export function InvoiceManagerCard() {
     }
   };
 
-  const handleExport = () => {
-    downloadAccountantPackage(selectedMonth);
+  const handleExport = async () => {
+    setExportError(null);
+    const res = await downloadAccountantPackage(selectedMonth);
+    if (!res.success) {
+      // The package is built from the tenant's real milestones now, so a
+      // failure has to be shown rather than resolved into an empty file.
+      setExportError(res.error || 'No se pudo generar el paquete para tu contador');
+    }
   };
 
   const handleWhatsAppBroadcast = (inv: (typeof invoices)[0]) => {
@@ -97,6 +104,13 @@ export function InvoiceManagerCard() {
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center gap-3 text-sm font-semibold shadow-sm">
           <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
           {stampedMessage}
+        </div>
+      )}
+
+      {exportError && (
+        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl flex items-center gap-3 text-sm font-semibold shadow-sm">
+          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+          {exportError}
         </div>
       )}
 

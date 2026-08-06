@@ -3,27 +3,47 @@
 import React, { useState } from 'react';
 import { useTeamMembers } from '@/lib/hooks/useTeamMembers';
 import { UserRole } from '@/lib/teamRBAC';
-import { Users, UserPlus, Shield, CheckCircle2, Mail } from 'lucide-react';
+import { Users, UserPlus, Shield, Mail, Link2, Clock, Copy, Check } from 'lucide-react';
 
+/**
+ * The invite modal used to close on a green "Invitación enviada exitosamente"
+ * banner. Nothing had been sent: no mail provider is configured, and the
+ * endpoint wrote nothing. It now shows the invitation link the server created
+ * and says plainly that the inviter has to deliver it.
+ */
 export function TeamMembersCard() {
-  const { members, inviting, error, inviteMember, updateRole } = useTeamMembers();
+  const { members, invitations, loading, inviting, error, inviteMember, updateRole } = useTeamMembers();
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [role, setRole] = useState<UserRole>('member');
-  const [successMsg, setSuccessMsg] = useState<boolean>(false);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
 
-  const handleInvite = (e: React.FormEvent) => {
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSuccessMsg(false);
+    setInviteUrl(null);
+    setCopied(false);
 
-    const res = inviteMember(email, role);
-    if (res.success) {
-      setSuccessMsg(true);
+    const res = await inviteMember(email, role);
+    if (res.success && res.inviteUrl) {
+      setInviteUrl(res.inviteUrl);
       setEmail('');
-      setTimeout(() => {
-        setShowInviteModal(false);
-        setSuccessMsg(false);
-      }, 1000);
+    }
+  };
+
+  const closeModal = () => {
+    setShowInviteModal(false);
+    setInviteUrl(null);
+    setCopied(false);
+  };
+
+  const copyInviteUrl = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+    } catch {
+      setCopied(false);
     }
   };
 
@@ -56,8 +76,24 @@ export function TeamMembersCard() {
         </button>
       </div>
 
+      {error && (
+        <div className="p-4 bg-rose-950/80 border border-rose-500/30 text-rose-300 rounded-2xl text-sm font-medium">
+          {error}
+        </div>
+      )}
+
       {/* Member List */}
       <div className="bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl overflow-hidden divide-y divide-slate-800/80">
+        {loading && (
+          <div className="p-6 text-sm text-slate-400">Cargando equipo…</div>
+        )}
+
+        {!loading && members.length === 0 && !error && (
+          <div className="p-6 text-sm text-slate-400">
+            Todavía no hay colaboradores en esta organización.
+          </div>
+        )}
+
         {members.map((mem) => {
           const badge = roleBadges[mem.role] || roleBadges.member;
           return (
@@ -70,10 +106,15 @@ export function TeamMembersCard() {
                   {mem.name.substring(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-base">{mem.name}</h3>
+                  <h3 className="font-bold text-white text-base">
+                    {mem.name}
+                    {mem.isCurrentUser && (
+                      <span className="ml-2 text-xs font-semibold text-slate-400">(tú)</span>
+                    )}
+                  </h3>
                   <p className="text-sm text-slate-400 flex items-center gap-1.5 mt-0.5">
                     <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    {mem.email}
+                    {mem.email || 'Correo no disponible'}
                   </p>
                 </div>
               </div>
@@ -101,6 +142,34 @@ export function TeamMembersCard() {
         })}
       </div>
 
+      {/* Pending invitations — real rows, not local state */}
+      {invitations.length > 0 && (
+        <div className="bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-800 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-400" />
+            <h3 className="font-bold text-white text-sm">
+              Invitaciones pendientes ({invitations.length})
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-800/80">
+            {invitations.map((invite) => (
+              <div key={invite.id} className="px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">{invite.email}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {roleBadges[invite.role]?.label || invite.role} · vence el{' '}
+                    {new Date(invite.expiresAt).toLocaleDateString('es-MX')}
+                  </p>
+                </div>
+                <span className="text-xs font-bold px-3 py-1 rounded-full border bg-amber-950/60 text-amber-300 border-amber-500/30">
+                  Sin aceptar
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Invite Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -111,7 +180,7 @@ export function TeamMembersCard() {
                 Invitar Colaborador
               </h3>
               <button
-                onClick={() => setShowInviteModal(false)}
+                onClick={closeModal}
                 className="text-slate-400 hover:text-white p-2 rounded-lg"
               >
                 ✕
@@ -124,56 +193,93 @@ export function TeamMembersCard() {
               </div>
             )}
 
-            {successMsg && (
-              <div className="mb-4 p-3 bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 rounded-xl text-sm font-medium flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                Invitación enviada exitosamente
+            {inviteUrl ? (
+              <div className="space-y-4">
+                <div className="p-3 bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 rounded-xl text-sm font-medium flex items-start gap-2">
+                  <Link2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    Invitación creada. Todavía no se envía ningún correo automáticamente:
+                    comparte este enlace por WhatsApp o correo para que tu colaborador
+                    entre al equipo.
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={inviteUrl}
+                    className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white text-sm font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={copyInviteUrl}
+                    className="min-h-[48px] px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl flex items-center gap-2 shrink-0"
+                  >
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {copied ? 'Copiado' : 'Copiar'}
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-400">
+                  El enlace vence en 7 días y solo funciona para {' '}
+                  la dirección de correo invitada.
+                </p>
+
+                <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="min-h-[48px] px-5 text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 font-medium rounded-xl transition-colors text-base"
+                  >
+                    Listo
+                  </button>
+                </div>
               </div>
+            ) : (
+              <form onSubmit={handleInvite} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="colaborador@empresa.com.mx"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-base"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Rol de Acceso *</label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as UserRole)}
+                    className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-emerald-500 text-base"
+                  >
+                    <option value="manager" className="bg-slate-900 text-white">Gerente (Crear cotizaciones, cobranza, invitar miembros)</option>
+                    <option value="member" className="bg-slate-900 text-white">Miembro (Crear y enviar cotizaciones)</option>
+                    <option value="accountant" className="bg-slate-900 text-white">Contador (Ver finanzas, confirmar pagos, CFDI)</option>
+                  </select>
+                </div>
+
+                <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="min-h-[48px] px-5 text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 font-medium rounded-xl transition-colors text-base"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={inviting}
+                    className="min-h-[48px] px-6 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl active:scale-95 transition-all text-base shadow-md disabled:opacity-50"
+                  >
+                    {inviting ? 'Creando…' : 'Crear Invitación'}
+                  </button>
+                </div>
+              </form>
             )}
-
-            <form onSubmit={handleInvite} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico *</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="colaborador@empresa.com.mx"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-base"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Rol de Acceso *</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as UserRole)}
-                  className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-emerald-500 text-base"
-                >
-                  <option value="manager" className="bg-slate-900 text-white">Gerente (Crear cotizaciones, cobranza, invitar miembros)</option>
-                  <option value="member" className="bg-slate-900 text-white">Miembro (Crear y enviar cotizaciones)</option>
-                  <option value="accountant" className="bg-slate-900 text-white">Contador (Ver finanzas, confirmar pagos, CFDI)</option>
-                </select>
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowInviteModal(false)}
-                  className="min-h-[48px] px-5 text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 font-medium rounded-xl transition-colors text-base"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={inviting}
-                  className="min-h-[48px] px-6 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl active:scale-95 transition-all text-base shadow-md disabled:opacity-50"
-                >
-                  {inviting ? 'Enviando...' : 'Enviar Invitación'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

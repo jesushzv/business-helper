@@ -199,22 +199,30 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData = {}
     };
   }
 
-  // 3. Match client name for overdue balance
-  let matchedClient = clients.find((c) => c.name && cleanQuery.includes(c.name.toLowerCase()));
-  if (!matchedClient && cleanQuery.includes('salinas')) {
-    matchedClient = { id: 'c-salinas', name: 'Grupo Salinas', phone: '8112223344' };
-  }
+  // 3. Match client name for overdue balance.
+  //
+  // A query naming "salinas" used to synthesize a "Grupo Salinas" client with a
+  // fixed phone number when no client matched, so an owner asking about a
+  // company they had never entered got a balance and a WhatsApp link for it.
+  // Only the organization's own clients are matched now.
+  const matchedClient = clients.find((c) => c.name && cleanQuery.includes(c.name.toLowerCase()));
 
   if (matchedClient) {
     const clientReceivables = receivables.filter(
       (r) => r.clientId === matchedClient?.id || (r.clientName && r.clientName.toLowerCase().includes(matchedClient?.name.toLowerCase() || ''))
     );
     const totalOverdue = clientReceivables.reduce((acc, r) => acc + (r.amount || 0), 0);
-    const clientPhone = matchedClient.phone || '8112223344';
-    const rawPhone = clientPhone.startsWith('52') ? clientPhone : `52${clientPhone.replace(/\D/g, '')}`;
 
     const answerText = `El cliente ${matchedClient.name} tiene un saldo pendiente de $${totalOverdue.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN.`;
     const messagePayload = encodeURIComponent(`Hola ${matchedClient.name}, le compartimos su estado de cuenta actualizado con saldo pendiente de $${totalOverdue.toLocaleString()} MXN.`);
+
+    // A client with no phone on file used to fall back to a fixed number
+    // (8112223344), so the reminder button opened a chat with a stranger. The
+    // link now opens the WhatsApp share sheet with no recipient instead.
+    const clientPhone = matchedClient.phone;
+    const rawPhone = clientPhone
+      ? (clientPhone.startsWith('52') ? clientPhone : `52${clientPhone.replace(/\D/g, '')}`)
+      : '';
     const whatsappUrl = `https://wa.me/${rawPhone}?text=${messagePayload}`;
 
     return {

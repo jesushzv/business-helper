@@ -154,6 +154,40 @@ npm run verify:webhook
 
 ---
 
+## 05c Step 4c: Live Billing, Team Invitations & Accountant Export
+
+These three features returned fabricated success until the remediation of issue
+#4 (`Simulated features presented as real`). They now depend on real
+configuration, and each fails loudly rather than pretending:
+
+**Migration required.** `20260806160000_team_invitations.sql` creates
+`organization_invitations`. Without it, `POST /api/organization/members`
+returns a 500 instead of writing an invitation — apply migrations before
+deploying the code, per §03.
+
+**Stripe must be configured for checkout to work at all.** `/api/stripe/checkout`
+calls the Stripe API and returns the hosted session URL Stripe issues. With no
+`STRIPE_SECRET_KEY` it answers `503 STRIPE_NOT_CONFIGURED`; there is no longer a
+placeholder URL for the "upgrade" button to open. Required variables:
+
+| Variable | Purpose |
+|---|---|
+| `STRIPE_SECRET_KEY` | Creates the Checkout Session (`sk_test_…` or `sk_live_…`) |
+| `STRIPE_WEBHOOK_SECRET` | Verifies the event that actually grants the tier |
+| `STRIPE_PRICE_INICIAL` / `STRIPE_PRICE_NEGOCIO` / `STRIPE_PRICE_EMPRESA` | Price ids the session bills against |
+
+The subscription tier is written **only** by the signature-verified webhook. The
+settings screen no longer sets it locally, so a deployment with a secret key but
+no webhook secret will take payments without upgrading the account.
+
+**Checklist:**
+- [ ] Selecting a plan in `/settings` opens a `checkout.stripe.com` session and, after a test card, the tier changes via the webhook — not before
+- [ ] Inviting a colleague returns an `/invitacion/<token>` link; opening it while signed in as the invited address joins the organization, and a second use is refused
+- [ ] An invitation link opened by a different account is rejected (`EMAIL_MISMATCH`)
+- [ ] `/api/accountant/export?month=YYYY-MM` returns the tenant's own milestones; a month with no records exports an empty CSV rather than sample rows
+
+---
+
 ## 06 Step 5: Custom Domain Provisioning Protocol
 
 When ready to transition from `.vercel.app` to a production custom domain (e.g., `businesshelper.mx`):
