@@ -87,13 +87,140 @@ export function formatOutboundReminderPayload(options: WhatsAppReminderOptions):
   };
 }
 
+export interface WhatsAppDispatchResult {
+  success: boolean;
+  mode: string;
+  dispatchId?: string;
+  waMeUrl?: string;
+  error?: string;
+}
+
+/** Abandon a provider call rather than hanging a request behind it. */
+const DISPATCH_TIMEOUT_MS = 10_000;
+
 /**
- * Dispatches outbound WhatsApp reminder via configured API or generates fallback wa.me URL
+ * Sends a message through the Twilio Messages API.
+ *
+ * Twilio expects form-encoded parameters, HTTP Basic auth of
+ * `accountSid:authToken`, and both numbers prefixed with `whatsapp:`.
+ */
+async function dispatchViaTwilio(
+  recipient: string,
+  message: string,
+  env: Record<string, string | undefined>
+): Promise<WhatsAppDispatchResult> {
+  const accountSid = env.TWILIO_ACCOUNT_SID as string;
+  const authToken = env.TWILIO_AUTH_TOKEN as string;
+  // The deployment guide names this TWILIO_PHONE_NUMBER; the original code read
+  // TWILIO_WHATSAPP_NUMBER. Accept either rather than silently not sending.
+  const from = (env.TWILIO_WHATSAPP_NUMBER || env.TWILIO_PHONE_NUMBER) as string;
+
+  const body = new URLSearchParams({
+    From: `whatsapp:${from}`,
+    To: `whatsapp:${recipient}`,
+    Body: message,
+  });
+
+  try {
+    const response = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+        signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
+      }
+    );
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      // Twilio returns { code, message } on failure. Never echo the payload,
+      // which would carry the recipient's phone number into logs.
+      return {
+        success: false,
+        mode: 'twilio_api',
+        error: `Twilio rechazó el envío (${response.status}${data?.code ? ` / ${data.code}` : ''})`,
+      };
+    }
+
+    return { success: true, mode: 'twilio_api', dispatchId: data?.sid };
+  } catch (err) {
+    const reason = err instanceof Error && err.name === 'TimeoutError' ? 'tiempo agotado' : 'error de red';
+    return { success: false, mode: 'twilio_api', error: `No se pudo contactar a Twilio (${reason})` };
+  }
+}
+
+/**
+ * Sends a message through the Meta WhatsApp Cloud API.
+ */
+async function dispatchViaMeta(
+  recipient: string,
+  message: string,
+  env: Record<string, string | undefined>
+): Promise<WhatsAppDispatchResult> {
+  const token = env.META_WHATSAPP_TOKEN as string;
+  const phoneNumberId = env.META_PHONE_NUMBER_ID as string;
+  const version = env.META_GRAPH_API_VERSION || 'v21.0';
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${version}/${encodeURIComponent(phoneNumberId)}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: recipient,
+          type: 'text',
+          text: { preview_url: false, body: message },
+        }),
+        signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
+      }
+    );
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return {
+        success: false,
+        mode: 'meta_cloud_api',
+        error: `Meta rechazó el envío (${response.status}${data?.error?.code ? ` / ${data.error.code}` : ''})`,
+      };
+    }
+
+    return {
+      success: true,
+      mode: 'meta_cloud_api',
+      dispatchId: data?.messages?.[0]?.id,
+    };
+  } catch (err) {
+    const reason = err instanceof Error && err.name === 'TimeoutError' ? 'tiempo agotado' : 'error de red';
+    return { success: false, mode: 'meta_cloud_api', error: `No se pudo contactar a Meta (${reason})` };
+  }
+}
+
+/**
+ * Dispatches an outbound WhatsApp reminder via the configured API, or returns a
+ * click-to-chat wa.me URL when no provider is configured.
+ *
+ * This previously contacted nothing. Whenever credentials were present it
+ * skipped the wa.me fallback, fabricated `wsp_out_<timestamp>_<random>` as a
+ * dispatch id, and returned `success: true` — so configuring Twilio was the
+ * change that made reminders stop being delivered, silently and with a
+ * success response. The two providers are now actually called, and a failure
+ * is reported as a failure.
  */
 export async function dispatchWhatsAppReminder(
   options: WhatsAppReminderOptions,
   env: Record<string, string | undefined> = process.env
-): Promise<{ success: boolean; mode: string; dispatchId?: string; waMeUrl?: string }> {
+): Promise<WhatsAppDispatchResult> {
   const mode = getWhatsAppDispatchMode(env, options.isSandbox);
   const payload = formatOutboundReminderPayload(options);
 
@@ -108,11 +235,13 @@ export async function dispatchWhatsAppReminder(
     };
   }
 
-  // Live Twilio or Meta API dispatch simulation/connector
-  const dispatchId = `wsp_out_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  return {
-    success: true,
-    mode: mode.type,
-    dispatchId,
-  };
+  if (!payload.recipient) {
+    return { success: false, mode: mode.type, error: 'Número de teléfono inválido' };
+  }
+
+  if (mode.type === 'twilio_api') {
+    return dispatchViaTwilio(payload.recipient, payload.message, env);
+  }
+
+  return dispatchViaMeta(payload.recipient, payload.message, env);
 }
