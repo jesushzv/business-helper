@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { requireUser, isDemoDeployment } from '@/lib/apiAuth';
 import { dispatchWhatsAppReminder, WhatsAppReminderOptions } from '@/lib/whatsappOutbound';
 
 export async function POST(req: NextRequest) {
+  // The previous guard could be switched off entirely by
+  // NEXT_PUBLIC_DEMO_MODE=true. That is a client-visible build-time variable,
+  // so shipping it set — in a preview deploy, say — silently made this endpoint
+  // anonymous. Whether a backend is configured is the only thing that may
+  // relax the check now, and it is read from server state.
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
+  const isSandbox = isDemoDeployment();
+
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    // In demo mode or mock fallback, allow authenticated / demo session
-    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || !process.env.NEXT_PUBLIC_SUPABASE_URL;
-    
-    if (authError || (!user && !isDemoMode)) {
-      return NextResponse.json({ error: 'No autorizado. Inicie sesión para enviar notificaciones.' }, { status: 401 });
-    }
-
     const body = await req.json();
     const { clientName, phone, amountDue, dueDate, token } = body as WhatsAppReminderOptions;
 
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       amountDue: Number(amountDue),
       dueDate: dueDate || new Date().toISOString().split('T')[0],
       token,
-      isSandbox: isDemoMode,
+      isSandbox,
     });
 
     return NextResponse.json({

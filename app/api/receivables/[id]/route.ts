@@ -1,74 +1,113 @@
 import { NextResponse } from 'next/server';
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
+import { requireOrgAccess, pickFields, MILESTONE_WRITABLE_FIELDS } from '@/lib/apiAuth';
+
+/**
+ * Single-milestone operations.
+ *
+ * All three handlers were unauthenticated and looked the milestone up by id
+ * alone. PUT passed the raw body to `.update()` and DELETE ignored its result;
+ * both returned `{success: true}` when the write failed or matched no rows.
+ */
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
-  }
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
 
   try {
     const { id } = await params;
-    const supabase = await createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: milestone, error } = await (supabase as any)
+    const { data: milestone, error } = await supabase
       .from('milestones')
       .select('*, contracts(*, clients(*))')
       .eq('id', id)
-      .single();
+      .eq('organization_id', organizationId)
+      .maybeSingle();
 
-    if (!error && milestone) {
-      return NextResponse.json(milestone);
+    if (error || !milestone) {
+      return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
     }
-  } catch {
-    // Fallback
-  }
 
-  return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
+    return NextResponse.json(milestone);
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch milestone' }, { status: 500 });
+  }
 }
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
   try {
     const { id } = await params;
     const body = await request.json();
-    const supabase = await createClient();
+    const updates = pickFields(body, MILESTONE_WRITABLE_FIELDS);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updated, error } = await (supabase as any)
-      .from('milestones')
-      .update(body)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (!error && updated) {
-      return NextResponse.json(updated);
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        { error: { code: 'NO_WRITABLE_FIELDS', message: 'No hay campos válidos para actualizar' } },
+        { status: 400 }
+      );
     }
-  } catch {
-    // Fallback
-  }
 
-  return NextResponse.json({ success: true });
+    const { data: updated, error } = await supabase
+      .from('milestones')
+      .update(updates)
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ error: 'Failed to update milestone' }, { status: 500 });
+    }
+
+    if (!updated) {
+      return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(updated);
+  } catch {
+    return NextResponse.json({ error: 'Failed to update milestone' }, { status: 500 });
+  }
 }
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
   try {
     const { id } = await params;
-    const supabase = await createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('milestones').delete().eq('id', id);
+    const { data: deleted, error } = await supabase
+      .from('milestones')
+      .delete()
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ error: 'Failed to delete milestone' }, { status: 500 });
+    }
+
+    if (!deleted) {
+      return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
+    }
+
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ error: 'Failed to delete milestone' }, { status: 500 });
   }
 }

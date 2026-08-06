@@ -1,62 +1,95 @@
 import { NextResponse } from 'next/server';
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
+import {
+  requireOrgAccess,
+  isDemoDeployment,
+  pickFields,
+  MILESTONE_WRITABLE_FIELDS,
+} from '@/lib/apiAuth';
+
+/**
+ * Milestone (receivables) collection.
+ *
+ * GET returned `{receivables: []}` on error, hiding failures as empty results.
+ * POST fell through to echoing the caller's body back with a 201 when there was
+ * no session, and spread that body into the insert.
+ */
 
 export async function GET() {
-  if (!isSupabaseConfigured()) {
+  if (isDemoDeployment()) {
     return NextResponse.json({ receivables: [] });
   }
 
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
   try {
-    const supabase = await createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: receivables, error } = await (supabase as any)
+    const { data: receivables, error } = await supabase
       .from('milestones')
       .select('*, contracts(*, clients(*))')
+      .eq('organization_id', organizationId)
       .order('due_date', { ascending: true });
 
-    if (!error && receivables) {
-      return NextResponse.json({ receivables });
+    if (error) {
+      return NextResponse.json({ error: 'Failed to fetch receivables' }, { status: 500 });
     }
-  } catch {
-    // Fallback
-  }
 
-  return NextResponse.json({ receivables: [] });
+    return NextResponse.json({ receivables: receivables || [] });
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch receivables' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
   try {
     const body = await request.json();
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const fields = pickFields(body, MILESTONE_WRITABLE_FIELDS);
 
-    if (user) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: orgs } = await (supabase as any)
-        .from('organizations')
-        .select('id')
-        .eq('owner_id', user.id)
-        .limit(1);
+    // contract_id is a relationship, not a free-form field, so it is validated
+    // against the caller's own contracts rather than trusted from the body.
+    const contractId = typeof body?.contract_id === 'string' ? body.contract_id : null;
 
-      const orgId = orgs && orgs.length > 0 ? orgs[0].id : 'org-demo-1';
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: newMilestone, error } = await (supabase as any)
-        .from('milestones')
-        .insert({
-          ...body,
-          organization_id: orgId,
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (!error && newMilestone) {
-        return NextResponse.json(newMilestone, { status: 201 });
-      }
+    if (!contractId) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'contract_id es obligatorio' } },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json(body, { status: 201 });
+    const { data: contract } = await supabase
+      .from('contracts')
+      .select('id')
+      .eq('id', contractId)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (!contract) {
+      return NextResponse.json(
+        { error: { code: 'CONTRACT_NOT_FOUND', message: 'Contrato no encontrado' } },
+        { status: 404 }
+      );
+    }
+
+    const { data: newMilestone, error } = await supabase
+      .from('milestones')
+      .insert({
+        ...fields,
+        contract_id: contractId,
+        organization_id: organizationId,
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error || !newMilestone) {
+      return NextResponse.json({ error: 'Failed to create milestone' }, { status: 500 });
+    }
+
+    return NextResponse.json(newMilestone, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'Failed to create milestone' }, { status: 500 });
   }

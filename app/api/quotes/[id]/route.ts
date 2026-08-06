@@ -1,24 +1,37 @@
 import { NextResponse } from 'next/server';
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
+import { requireOrgAccess, pickFields, QUOTE_WRITABLE_FIELDS } from '@/lib/apiAuth';
+
+/**
+ * Single-quote operations.
+ *
+ * Previously unauthenticated and unscoped: every handler looked the quote up by
+ * the caller-supplied id alone. PUT additionally spread the request body
+ * straight into the update, letting a caller set `organization_id`,
+ * `total_amount`, `status`, or `public_token` on any row — and when the write
+ * failed it echoed the body back as though it had succeeded.
+ *
+ * Every handler now requires a session and filters by the caller's
+ * organization, so an id belonging to another tenant is indistinguishable from
+ * one that does not exist.
+ */
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
-  }
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
 
   try {
     const { id } = await params;
-    const supabase = await createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: quote, error } = await (supabase as any)
+    const { data: quote, error } = await supabase
       .from('quotes')
       .select('*')
       .eq('id', id)
-      .single();
+      .eq('organization_id', organizationId)
+      .maybeSingle();
 
     if (error || !quote) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
@@ -34,21 +47,41 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
   try {
     const { id } = await params;
     const body = await request.json();
-    const supabase = await createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updated, error } = await (supabase as any)
+    // Explicit whitelist. Anything not named here — organization_id,
+    // created_by, public_token, contract_hash, the OTP columns — is dropped.
+    const updates = pickFields(body, QUOTE_WRITABLE_FIELDS);
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        { error: { code: 'NO_WRITABLE_FIELDS', message: 'No hay campos válidos para actualizar' } },
+        { status: 400 }
+      );
+    }
+
+    const { data: updated, error } = await supabase
       .from('quotes')
-      .update({ ...body, updated_at: new Date().toISOString() })
+      .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
+      .eq('organization_id', organizationId)
       .select()
-      .single();
+      .maybeSingle();
 
+    // A failed or zero-row write is reported as such rather than echoing the
+    // caller's own body back as a fake success.
     if (error) {
-      return NextResponse.json({ id, ...body, updated_at: new Date().toISOString() });
+      return NextResponse.json({ error: 'Failed to update quote' }, { status: 500 });
+    }
+
+    if (!updated) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     return NextResponse.json(updated);
@@ -61,20 +94,33 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
   try {
     const { id } = await params;
-    const supabase = await createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { data: deleted, error } = await supabase
       .from('quotes')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select('id')
+      .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ error: 'Failed to delete quote' }, { status: 500 });
+    }
+
+    if (!deleted) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ success: true, demo: true });
+    // Previously returned {success: true, demo: true} on any failure, so a
+    // caller could not tell a deletion from an error.
+    return NextResponse.json({ error: 'Failed to delete quote' }, { status: 500 });
   }
 }

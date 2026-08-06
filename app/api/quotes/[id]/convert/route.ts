@@ -1,60 +1,89 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { requireOrgAccess } from '@/lib/apiAuth';
 import { convertQuoteToContract } from '@/lib/quoteToContract';
 
+/**
+ * Converts an accepted quote into a contract with its milestones.
+ *
+ * Ran unauthenticated and unscoped. When the quote lookup found nothing it
+ * invented a 50,000 MXN "Cotización Demo", converted that, and returned the
+ * result with a 201 — so a caller received a contract and payment schedule that
+ * existed nowhere in the database.
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
   try {
     const { id } = await params;
-    const supabase = await createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: quote } = await (supabase as any)
+    const { data: quote } = await supabase
       .from('quotes')
       .select('*')
       .eq('id', id)
-      .single();
+      .eq('organization_id', organizationId)
+      .maybeSingle();
 
     if (!quote) {
-      const mockQuote = {
-        id,
-        organization_id: 'org-demo-1',
-        client_id: 'client-demo-1',
-        title: 'Cotización Demo',
-        total_amount: 50000,
-        currency: 'MXN',
-        status: 'accepted',
-      };
-      const result = convertQuoteToContract(mockQuote);
-      return NextResponse.json(result, { status: 201 });
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
+    if (quote.converted_contract_id) {
+      return NextResponse.json(
+        { error: { code: 'ALREADY_CONVERTED', message: 'Esta cotización ya fue convertida' } },
+        { status: 409 }
+      );
     }
 
     const conversion = convertQuoteToContract(quote);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: newContract, error: contractErr } = await (supabase as any)
+    const { data: newContract, error: contractErr } = await supabase
       .from('contracts')
-      .insert(conversion.contract)
+      // Pin the tenant from the session rather than whatever the conversion
+      // helper derived from the row.
+      .insert({ ...conversion.contract, organization_id: organizationId })
       .select()
       .single();
 
-    if (contractErr) throw contractErr;
+    if (contractErr || !newContract) {
+      return NextResponse.json({ error: 'Failed to convert quote' }, { status: 500 });
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: newMilestones, error: milestoneErr } = await (supabase as any)
+    const { data: newMilestones, error: milestoneErr } = await supabase
       .from('milestones')
-      .insert(conversion.milestones)
+      .insert(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        conversion.milestones.map((m: any) => ({
+          ...m,
+          contract_id: newContract.id,
+          organization_id: organizationId,
+        }))
+      )
       .select();
 
-    if (milestoneErr) throw milestoneErr;
+    if (milestoneErr) {
+      // A contract with no payment schedule is worse than no contract, and
+      // there is no transaction spanning these inserts — roll back by hand.
+      await supabase.from('contracts').delete().eq('id', newContract.id);
+      return NextResponse.json({ error: 'Failed to convert quote' }, { status: 500 });
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    const { error: quoteErr } = await supabase
       .from('quotes')
       .update({ status: 'converted', converted_contract_id: newContract.id })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('organization_id', organizationId);
+
+    if (quoteErr) {
+      return NextResponse.json(
+        { error: 'Contract created but quote status could not be updated' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ contract: newContract, milestones: newMilestones }, { status: 201 });
   } catch {

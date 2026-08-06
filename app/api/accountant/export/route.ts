@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server';
 import { generateMonthlySummaryCSV, buildAccountantZipManifest } from '@/lib/accountantExport';
+import { requireOrgAccess } from '@/lib/apiAuth';
 
+/**
+ * Accountant export package.
+ *
+ * NOTE: the milestone data below is still hardcoded demo content — this
+ * endpoint does not yet read the tenant's real records. It is guarded and
+ * scoped here so it cannot be called anonymously or pointed at another
+ * tenant, but it must not be presented to users as a real export until it
+ * queries the database. See the CFDI/AI simulation issue.
+ */
 export async function GET(request: Request) {
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+
   const { searchParams } = new URL(request.url);
-  const orgId = searchParams.get('orgId') || 'org-demo-1';
+  // The organization comes from the session. It was previously read from the
+  // query string with an 'org-demo-1' default, so a caller could name any
+  // tenant they liked in the exported package.
+  const orgId = auth.ctx.organizationId;
   const month = searchParams.get('month') || '2026-08';
   const format = searchParams.get('format') || 'manifest';
 

@@ -1,46 +1,58 @@
 import { NextResponse } from 'next/server';
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
+import { requireOrgAccess } from '@/lib/apiAuth';
 import { validateRFC } from '@/lib/rfcValidator';
+
+/**
+ * Single-client operations.
+ *
+ * GET returned a client with all of its quotes, contracts and milestones to any
+ * caller who knew an id. PUT and DELETE were likewise unauthenticated, and both
+ * fabricated a success response when the write failed — PUT echoing back the
+ * caller's own input as though it had been persisted.
+ */
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json(
-      { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
-      { status: 404 }
-    );
-  }
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
 
   try {
     const { id } = await params;
-    const supabase = await createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: client, error } = await (supabase as any)
+    const { data: client, error } = await supabase
       .from('clients')
       .select('*, quotes(*), contracts(*, milestones(*))')
       .eq('id', id)
-      .single();
+      .eq('organization_id', organizationId)
+      .maybeSingle();
 
-    if (!error && client) {
-      return NextResponse.json({ client });
+    if (error || !client) {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
+        { status: 404 }
+      );
     }
-  } catch {
-    // Fall through
-  }
 
-  return NextResponse.json(
-    { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
-    { status: 404 }
-  );
+    return NextResponse.json({ client });
+  } catch {
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'Error al obtener el cliente' } },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -49,50 +61,52 @@ export async function PUT(
     if (rfc && typeof rfc === 'string' && rfc.trim()) {
       const v = validateRFC(rfc.trim());
       if (!v.isValid) {
-        return NextResponse.json({ error: { code: 'INVALID_RFC', message: 'El RFC no tiene un formato SAT válido' } }, { status: 400 });
+        return NextResponse.json(
+          { error: { code: 'INVALID_RFC', message: 'El RFC no tiene un formato SAT válido' } },
+          { status: 400 }
+        );
       }
     }
 
-    const supabase = await createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updated, error } = await (supabase as any)
-      .from('clients')
-      .update({
-        ...(name ? { name: name.trim() } : {}),
-        contact_name: contactName !== undefined ? contactName : undefined,
-        email: email !== undefined ? email : undefined,
-        phone: phone !== undefined ? phone : undefined,
-        rfc: rfc !== undefined ? (rfc ? String(rfc).toUpperCase().trim() : null) : undefined,
-        regimen_fiscal: regimenFiscal !== undefined ? regimenFiscal : undefined,
-        codigo_postal: codigoPostal !== undefined ? codigoPostal : undefined,
-        cfdi_use: cfdiUse !== undefined ? cfdiUse : undefined,
-        notes: notes !== undefined ? notes : undefined,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (name !== undefined && String(name).trim()) updates.name = String(name).trim();
+    if (contactName !== undefined) updates.contact_name = contactName;
+    if (email !== undefined) updates.email = email;
+    if (phone !== undefined) updates.phone = phone;
+    if (rfc !== undefined) updates.rfc = rfc ? String(rfc).toUpperCase().trim() : null;
+    if (regimenFiscal !== undefined) updates.regimen_fiscal = regimenFiscal;
+    if (codigoPostal !== undefined) updates.codigo_postal = codigoPostal;
+    if (cfdiUse !== undefined) updates.cfdi_use = cfdiUse;
+    if (notes !== undefined) updates.notes = notes;
 
-    if (!error && updated) {
-      return NextResponse.json(updated);
+    const { data: updated, error } = await supabase
+      .from('clients')
+      .update(updates)
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json(
+        { error: { code: 'SERVER_ERROR', message: 'Error al actualizar el cliente' } },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      id,
-      name: name || 'Cliente Actualizado',
-      contact_name: contactName,
-      email,
-      phone,
-      rfc: rfc ? String(rfc).toUpperCase().trim() : null,
-      regimen_fiscal: regimenFiscal || '601',
-      codigo_postal: codigoPostal,
-      cfdi_use: cfdiUse || 'G03',
-      notes,
-      updated_at: new Date().toISOString(),
-    });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Error al actualizar';
-    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: msg } }, { status: 500 });
+    if (!updated) {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(updated);
+  } catch {
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'Error al actualizar el cliente' } },
+      { status: 500 }
+    );
   }
 }
 
@@ -100,19 +114,40 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
   try {
     const { id } = await params;
-    const supabase = await createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any).from('clients').delete().eq('id', id);
+    const { data: deleted, error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select('id')
+      .maybeSingle();
 
-    if (!error) {
-      return NextResponse.json({ success: true });
+    if (error) {
+      return NextResponse.json(
+        { error: { code: 'SERVER_ERROR', message: 'Error al eliminar el cliente' } },
+        { status: 500 }
+      );
     }
-  } catch {
-    // Fall through
-  }
 
-  return NextResponse.json({ success: true });
+    if (!deleted) {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'Error al eliminar el cliente' } },
+      { status: 500 }
+    );
+  }
 }

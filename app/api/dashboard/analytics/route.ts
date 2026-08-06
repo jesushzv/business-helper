@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
+import { isSupabaseConfigured } from '@/lib/supabase/server';
+import { requireOrgAccess } from '@/lib/apiAuth';
 import {
   calculateBusinessMetrics,
   getTopClientsByRevenue,
@@ -70,32 +71,36 @@ function getDemoAnalytics() {
 }
 
 export async function GET() {
+  // With no backend there is no tenant data, so demo analytics are honest.
   if (!isSupabaseConfigured()) {
     return NextResponse.json(getDemoAnalytics());
   }
 
-  try {
-    const supabase = await createClient();
+  // Previously unauthenticated: an anonymous caller got a tenant's revenue
+  // metrics, top clients and cash-flow forecast, or demo figures presented
+  // identically when the query failed.
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
 
-    // Query organization data with RLS scoping
+  try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: milestones } = await (supabase as any)
       .from('milestones')
-      .select('id, contract_id, client_id, label, amount, due_date, status, confirmed_at');
+      .select('id, contract_id, client_id, label, amount, due_date, status, confirmed_at')
+      .eq('organization_id', organizationId);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: quotes } = await (supabase as any)
       .from('quotes')
-      .select('id, client_id, status, total_amount');
+      .select('id, client_id, status, total_amount')
+      .eq('organization_id', organizationId);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: clients } = await (supabase as any)
       .from('clients')
-      .select('id, name, contact_name, phone, health_score, rfc');
-
-    if (!milestones || milestones.length === 0) {
-      return NextResponse.json(getDemoAnalytics());
-    }
+      .select('id, name, contact_name, phone, health_score, rfc')
+      .eq('organization_id', organizationId);
 
     const milestoneList = milestones || [];
     const quoteList = quotes || [];
@@ -111,7 +116,9 @@ export async function GET() {
       cashFlowForecast,
     });
   } catch {
-    return NextResponse.json(getDemoAnalytics());
+    // An authenticated tenant must not be shown demo figures on failure —
+    // they are indistinguishable from real ones in the UI.
+    return NextResponse.json({ error: 'Failed to compute analytics' }, { status: 500 });
   }
 }
 
