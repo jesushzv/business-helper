@@ -23,10 +23,25 @@ graph TD
 
 1. Log into [Supabase Dashboard](https://database.new) and create a new project.
 2. Under **Project Settings -> Database**, obtain the connection string and database password.
-3. Apply standard PostgreSQL migrations in `supabase/migrations/`:
+3. Apply the PostgreSQL migrations in `supabase/migrations/`:
    ```bash
-   npx supabase db push --db-url "postgres://postgres:[PASSWORD]@[HOST]:5432/postgres"
+   export SUPABASE_DB_URL="postgres://postgres:[PASSWORD]@[HOST]:5432/postgres"
+
+   npm run db:migrate:dry   # list what would be applied
+   npm run db:migrate       # apply
    ```
+
+   > **Ordering matters.** Migrations are applied by hand; Vercel auto-deploys
+   > `main` on merge and never touches the database. Merging a schema change
+   > without running this first ships code against the old schema — new columns
+   > missing, and any policy the migration drops still live.
+   >
+   > For a release that carries a migration:
+   > 1. Set any new environment variables (inert until the code lands).
+   > 2. `npm run db:migrate`.
+   > 3. Merge.
+   >
+   > CI flags any pull request touching `supabase/migrations/` as a reminder.
 4. Verify all 9 multi-tenant RLS tables are active:
    - `organizations`
    - `organization_members`

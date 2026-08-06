@@ -1,0 +1,100 @@
+name: CI
+
+# Until this existed, a pull request's only check was Vercel's build — which
+# compiles the app but never runs the test suite. That is how the register-page
+# error display regressed: the build stayed green while a failing test and an
+# ESLint warning both went unread.
+# Test run: verifying workflow is now dispatched after enabling GitHub Actions.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch makes the in-flight run redundant.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck, lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the Node major Vercel builds this project with.
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Kept as separate steps rather than `npm test` (which chains
+      # lint && typecheck && vitest) so a failure names the stage that broke.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npx vitest run
+
+      - name: Build
+        run: npm run build
+        env:
+          # The build must not depend on real credentials. These are obvious
+          # placeholders; isSupabaseConfigured() rejects them at runtime, so the
+          # app builds in its demo posture rather than reaching a live project.
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder-url.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+
+  migration-guard:
+    name: Migration ordering reminder
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Migrations are applied by hand and Vercel auto-deploys main, so nothing
+      # otherwise connects the two. A PR carrying a migration needs it applied
+      # before (or with) the merge; shipping the code first leaves the new
+      # columns missing and any dropped policy still live.
+      - name: Warn when a PR carries a schema migration
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          # checkout used fetch-depth: 0, so the base ref is already local.
+          git rev-parse --verify "$BASE" >/dev/null 2>&1 || \
+            git fetch --no-tags origin "${{ github.base_ref }}:$BASE"
+
+          CHANGED=$(git diff --name-only "$BASE"...HEAD -- supabase/migrations/ || true)
+
+          if [ -n "$CHANGED" ]; then
+            echo "::warning title=Schema migration in this PR::This PR changes supabase/migrations/. Apply the migration BEFORE or WITH the merge — Vercel auto-deploys main and migrations are manual. See docs/deployment.md."
+            echo "### :warning: This PR contains a schema migration" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Migrations are **not** applied automatically. Vercel deploys \`main\` on merge, so merging alone ships code against the old schema." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Required order:" >> "$GITHUB_STEP_SUMMARY"
+            echo "1. Set any new environment variables (inert until the code lands)." >> "$GITHUB_STEP_SUMMARY"
+            echo "2. Run \`npm run db:migrate\` against production." >> "$GITHUB_STEP_SUMMARY"
+            echo "3. Merge." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Files:" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "$CHANGED" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No migration files touched."
+          fi
