@@ -63,7 +63,7 @@ const PRICING_PLANS = [
       'Acceso multi-tenant y sucursales',
       'Exportación automática 1-Clic para Contador (ZIP)',
       'Capacitación personal por videollamada',
-      'Gerente de cuenta dedicado',
+      'Soporte prioritario VIP por WhatsApp',
     ],
     ctaText: 'Solicitar Plan Empresa',
     ctaHref: '/register?plan=business',

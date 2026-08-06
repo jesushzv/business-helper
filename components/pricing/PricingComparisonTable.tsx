@@ -99,7 +99,14 @@ export function PricingComparisonTable() {
             </tr>
             {/* Row 9 */}
             <tr className="hover:bg-slate-800/30 transition-colors">
-              <td className="p-4 sm:p-5 font-bold text-white">Multi-sucursal & Gerente Dedicado</td>
+              <td className="p-4 sm:p-5 font-bold text-white">Acceso Multi-sucursal & Roles de Equipo</td>
+              <td className="p-4 sm:p-5 text-center"><X className="w-4 h-4 text-slate-600 mx-auto" /></td>
+              <td className="p-4 sm:p-5 text-center bg-emerald-950/20 border-x border-emerald-500/20"><X className="w-4 h-4 text-slate-600 mx-auto" /></td>
+              <td className="p-4 sm:p-5 text-center"><Check className="w-4 h-4 text-indigo-400 mx-auto" /></td>
+            </tr>
+            {/* Row 10 */}
+            <tr className="hover:bg-slate-800/30 transition-colors">
+              <td className="p-4 sm:p-5 font-bold text-white">Soporte Prioritario VIP & Capacitación de Equipo</td>
               <td className="p-4 sm:p-5 text-center"><X className="w-4 h-4 text-slate-600 mx-auto" /></td>
               <td className="p-4 sm:p-5 text-center bg-emerald-950/20 border-x border-emerald-500/20"><X className="w-4 h-4 text-slate-600 mx-auto" /></td>
               <td className="p-4 sm:p-5 text-center"><Check className="w-4 h-4 text-indigo-400 mx-auto" /></td>
