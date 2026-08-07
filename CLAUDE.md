@@ -161,6 +161,16 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 - Docs drift is a known failure mode here (the roadmap once claimed 100% complete while core
   integrations were simulated). Where a doc contradicts the code, the code wins — fix the doc in
   the same PR when cheap.
+- **Demo-mode detection differs by side.** Collection GET routes answer the demo deployment with
+  200 + empty lists, so a client hook can NOT use `503 BACKEND_NOT_CONFIGURED` to decide when demo
+  fixtures are legitimate — that code only appears on authenticated/mutating paths. Hooks must gate
+  on the build-time signal instead (`isClientDemoMode()` in `lib/hooks/useQuotes.ts` is the
+  reference). Getting this wrong either blanks the marketing demo or shows fixtures to real tenants.
+- **Optimistic-fallback hooks are this repo's most repeated defect** (#33 receivables, #50 quote
+  creation, #58 the public signing page, #59 still open). When touching `lib/hooks/*` or a public
+  page: every mutation applies the server row on success and throws/surfaces on failure; demo
+  fixtures only behind `isClientDemoMode()`. Pin it with an `*Honesty.test.ts` suite —
+  `tests/unit/useReceivablesHonesty.test.ts` is the template.
 
 ## GitHub conventions
 

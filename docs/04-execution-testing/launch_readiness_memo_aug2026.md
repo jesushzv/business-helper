@@ -83,6 +83,30 @@ that were blocking. What remains is configuration and one real transaction, not 
 | ~~Complemento de Pago~~ | ✅ Merged (#29) — filed when a PPD milestone is confirmed. Was P2. | Cleared |
 | **#22** — OTP escalating backoff + daily cap | Not started. Hardening on top of #17. | No — can trail launch |
 
+### Update 2026-08-07 ~20:30 UTC — PR #57 (drafted, pending merge)
+
+Six fail-loud fixes verified by `typecheck` + 569 vitest tests (76 files; suite grew from 494/64 with
+this PR's coverage). **Verified by tests against mocked services, not by live round-trips:**
+
+- **#58 (new finding, worst of the batch):** `/q/[token]` — the page a client opens to review and
+  sign — never called the public API. It rendered one hardcoded demo quote for **any** token while
+  the OTP flow signed the real row underneath. Now renders the real quote, real branding, real
+  client name, and the stored seal when already signed.
+- **#48:** `/auth/callback` now exists, so "Continuar con Google" can complete. *Still requires the
+  Google provider + redirect URL configured in Supabase Auth before the issue can close — the
+  deployed flow has not been exercised.*
+- **#49:** onboarding no longer reports success (and strands the user on a 403 dashboard) when
+  organization creation failed.
+- **#50:** `createQuote` no longer falls back to a locally minted quote (browser-minted
+  `public_token`, dead `/q/` link) on failure or a 1.5 s timeout; `fetchQuotes` no longer shows demo
+  fixtures to a real tenant. `updateQuoteStatus` / `convertToContract` keep the old fire-and-forget
+  shape — filed as **#59**, still open.
+- **#39:** a failed OTP resend no longer invalidates the code already on the signer's handset.
+- **#43:** `verify:webhook` refuses non-staging targets via allowlist; the stale `.mx` denylist is gone.
+- **#44 (partial):** no more `8115551234` fallback on payment reminders; the hardcoded number on the
+  public quote page is removed. The org-phone-backed "Solicitar Cambios" replacement still needs a
+  migration — #44 stays open.
+
 ---
 
 ## 03 Priority Stack
