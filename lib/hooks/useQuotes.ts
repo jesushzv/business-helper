@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Quote } from '@/types';
 import { generatePublicToken } from '../quoteToken';
 import { calculateQuoteTotals, LineItem } from '../quoteCalculator';
-import { convertQuoteToContract } from '../quoteToContract';
+import { convertQuoteToContract, ContractResult } from '../quoteToContract';
 import { track } from '@/lib/analytics';
 
 const INITIAL_DEMO_QUOTES: Quote[] = [
@@ -229,59 +229,103 @@ export function useQuotes() {
     return saved;
   };
 
-  const updateQuoteStatus = async (id: string, status: string): Promise<Quote> => {
-    let updatedQuote: Quote | undefined;
-
+  /** Applies a status locally. Only legitimate once the server has confirmed it
+   *  (or in demo mode, where local state is the only state). */
+  const applyStatusLocally = (id: string, status: string): Quote | undefined => {
+    let updated: Quote | undefined;
     setQuotes((prev) => {
       const next = prev.map((q) => {
         if (q.id === id) {
-          updatedQuote = { ...q, status: status as Quote['status'], updated_at: new Date().toISOString() };
-          return updatedQuote;
+          updated = { ...q, status: status as Quote['status'], updated_at: new Date().toISOString() };
+          return updated;
         }
         return q;
       });
       syncLocalStorage(next);
       return next;
     });
+    return updated;
+  };
 
+  // The old version flipped status first and discarded the response, so a
+  // 401/403/500 left the UI — and localStorage — asserting a status the database
+  // does not hold (#59). The server row is now what the list shows.
+  const updateQuoteStatus = async (id: string, status: string): Promise<Quote> => {
+    if (isClientDemoMode()) {
+      const updated = applyStatusLocally(id, status);
+      if (!updated) throw new Error('Cotización no encontrada');
+      return updated;
+    }
+
+    let res: Response;
     try {
-      await fetch(`/api/quotes/${id}`, {
+      res = await fetch(`/api/quotes/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
     } catch {
-      // Ignore API error in demo mode
+      throw new Error('No se pudo conectar con el servidor. El estado no fue actualizado.');
     }
 
-    if (!updatedQuote) throw new Error('Cotización no encontrada');
-    return updatedQuote;
+    const saved = await res.json().catch(() => null);
+
+    if (!res.ok || !saved?.id) {
+      throw new Error(
+        (typeof saved?.error === 'string' && saved.error) ||
+          saved?.error?.message ||
+          'No se pudo actualizar el estado de la cotización.'
+      );
+    }
+
+    setQuotes((prev) => prev.map((q) => (q.id === id ? saved : q)));
+    return saved;
   };
 
-  const convertToContract = async (quoteId: string) => {
+  const convertToContract = async (quoteId: string): Promise<ContractResult> => {
     const targetQuote = quotes.find((q) => q.id === quoteId);
     if (!targetQuote) throw new Error('Cotización no encontrada');
 
-    const conversion = convertQuoteToContract({
-      id: targetQuote.id,
-      organization_id: targetQuote.organization_id,
-      client_id: targetQuote.client_id,
-      title: targetQuote.title,
-      total_amount: targetQuote.total_amount,
-      currency: targetQuote.currency,
-      status: targetQuote.status,
-    });
-
-    // Mark quote as converted
-    await updateQuoteStatus(quoteId, 'converted');
-
-    try {
-      await fetch(`/api/quotes/${quoteId}/convert`, { method: 'POST' });
-    } catch {
-      // Fallback demo sync
+    // Demo deployment: no backend to create a contract in, so the locally
+    // derived one is the honest representation of what exists.
+    if (isClientDemoMode()) {
+      const conversion = convertQuoteToContract({
+        id: targetQuote.id,
+        organization_id: targetQuote.organization_id,
+        client_id: targetQuote.client_id,
+        title: targetQuote.title,
+        total_amount: targetQuote.total_amount,
+        currency: targetQuote.currency,
+        status: targetQuote.status,
+      });
+      applyStatusLocally(quoteId, 'converted');
+      return conversion;
     }
 
-    return conversion;
+    // The route creates the contract AND its milestones AND flips the quote
+    // status, rolling back the contract if the milestones fail. Deriving a
+    // contract locally and flipping status first announced a payment schedule
+    // that a failed request never created (#59) — the #33 defect on the step
+    // that opens the receivable.
+    let res: Response;
+    try {
+      res = await fetch(`/api/quotes/${quoteId}/convert`, { method: 'POST' });
+    } catch {
+      throw new Error('No se pudo conectar con el servidor. La cotización no fue convertida.');
+    }
+
+    const saved = await res.json().catch(() => null);
+
+    if (!res.ok || !saved?.contract) {
+      throw new Error(
+        (typeof saved?.error === 'string' && saved.error) ||
+          saved?.error?.message ||
+          'No se pudo convertir la cotización a contrato.'
+      );
+    }
+
+    applyStatusLocally(quoteId, 'converted');
+    return { contract: saved.contract, milestones: saved.milestones || [] };
   };
 
   const filteredQuotes = useMemo(() => {

@@ -163,8 +163,24 @@ export default function QuotesPage() {
                 quote={q}
                 client={client}
                 onConvert={async (id) => {
-                  await convertToContract(id);
-                  alert('¡Cotización convertida a contrato con 2 hitos de cobranza!');
+                  // Announce what the server actually created, and only after
+                  // it confirms. The count was hardcoded at 2 and the message
+                  // fired even when the conversion failed (#59).
+                  try {
+                    const { milestones } = await convertToContract(id);
+                    const count = milestones.length;
+                    alert(
+                      `¡Cotización convertida a contrato con ${count} ${
+                        count === 1 ? 'hito' : 'hitos'
+                      } de cobranza!`
+                    );
+                  } catch (err) {
+                    alert(
+                      err instanceof Error
+                        ? err.message
+                        : 'No se pudo convertir la cotización a contrato.'
+                    );
+                  }
                 }}
               />
             );

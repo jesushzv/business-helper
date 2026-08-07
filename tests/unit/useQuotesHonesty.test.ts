@@ -149,6 +149,124 @@ describe('fetchQuotes honesty (configured deployment)', () => {
   });
 });
 
+/**
+ * #59 — the remaining fire-and-forget writes.
+ *
+ * updateQuoteStatus and convertToContract flipped local state first and
+ * discarded the response, so a rejected write still showed a converted quote
+ * and announced a payment schedule that was never created.
+ */
+describe('updateQuoteStatus honesty (configured deployment)', () => {
+  it('throws and leaves the status untouched when the API rejects the write', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(403, { error: { code: 'FORBIDDEN', message: 'No tienes permiso' } })
+    );
+
+    await act(async () => {
+      await expect(result.current.updateQuoteStatus('srv-quote-1', 'accepted')).rejects.toThrow(
+        'No tienes permiso'
+      );
+    });
+
+    expect(result.current.quotes[0].status).toBe('sent');
+    // A status the database rejected must not survive a reload either.
+    expect(localStorage.getItem('business_helper_quotes_v1')).toBeNull();
+  });
+
+  it('throws and leaves the status untouched when the network fails', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    await act(async () => {
+      await expect(result.current.updateQuoteStatus('srv-quote-1', 'accepted')).rejects.toThrow(
+        'El estado no fue actualizado'
+      );
+    });
+
+    expect(result.current.quotes[0].status).toBe('sent');
+  });
+
+  it('applies the server row on success', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { ...SERVER_QUOTE, status: 'accepted', updated_at: '2026-08-07T12:00:00Z' })
+    );
+
+    await act(async () => {
+      await result.current.updateQuoteStatus('srv-quote-1', 'accepted');
+    });
+
+    expect(result.current.quotes[0].status).toBe('accepted');
+    expect(result.current.quotes[0].updated_at).toBe('2026-08-07T12:00:00Z');
+  });
+});
+
+describe('convertToContract honesty (configured deployment)', () => {
+  it('throws and does not mark the quote converted when the route fails', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(500, {
+        error: { code: 'SERVER_ERROR', message: 'No se pudo convertir la cotización a contrato' },
+      })
+    );
+
+    await act(async () => {
+      await expect(result.current.convertToContract('srv-quote-1')).rejects.toThrow(
+        'No se pudo convertir la cotización a contrato'
+      );
+    });
+
+    // No contract, no milestones, no receivable — so no 'converted' either.
+    expect(result.current.quotes[0].status).toBe('sent');
+  });
+
+  it('does not flip the status when only the network failed', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    await act(async () => {
+      await expect(result.current.convertToContract('srv-quote-1')).rejects.toThrow(
+        'La cotización no fue convertida'
+      );
+    });
+
+    expect(result.current.quotes[0].status).toBe('sent');
+  });
+
+  it('makes exactly one request and returns the server contract and milestones', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    const serverContract = { id: 'srv-contract-1', title: 'Cotización real', total_amount: 1160 };
+    const serverMilestones = [
+      { id: 'ms-1', amount: 580, label: 'Anticipo' },
+      { id: 'ms-2', amount: 580, label: 'Liquidación' },
+    ];
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, { contract: serverContract, milestones: serverMilestones })
+    );
+
+    let conversion;
+    await act(async () => {
+      conversion = await result.current.convertToContract('srv-quote-1');
+    });
+
+    // The route creates contract + milestones + status in one call; the hook
+    // must not additionally PUT the status itself.
+    const convertCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes('/convert')
+    );
+    const putCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PUT');
+    expect(convertCalls).toHaveLength(1);
+    expect(putCalls).toHaveLength(0);
+
+    // The milestones announced to the user are the ones the server created,
+    // not a locally derived pair.
+    expect(conversion!.contract).toEqual(serverContract);
+    expect(conversion!.milestones).toEqual(serverMilestones);
+    expect(result.current.quotes[0].status).toBe('converted');
+  });
+});
+
 describe('demo mode (no backend in the bundle)', () => {
   it('creates a local quote without calling the API', async () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');

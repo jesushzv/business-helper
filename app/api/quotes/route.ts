@@ -33,12 +33,18 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to fetch quotes' }, { status: 500 });
+      return NextResponse.json(
+        { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus cotizaciones' } },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ quotes: quotes || [] });
   } catch {
-    return NextResponse.json({ error: 'Failed to fetch quotes' }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus cotizaciones' } },
+      { status: 500 }
+    );
   }
 }
 

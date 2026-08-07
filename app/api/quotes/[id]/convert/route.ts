@@ -29,7 +29,10 @@ export async function POST(
       .maybeSingle();
 
     if (!quote) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Cotización no encontrada' } },
+        { status: 404 }
+      );
     }
 
     if (quote.converted_contract_id) {
@@ -50,7 +53,10 @@ export async function POST(
       .single();
 
     if (contractErr || !newContract) {
-      return NextResponse.json({ error: 'Failed to convert quote' }, { status: 500 });
+      return NextResponse.json(
+        { error: { code: 'SERVER_ERROR', message: 'No se pudo convertir la cotización a contrato' } },
+        { status: 500 }
+      );
     }
 
     const { data: newMilestones, error: milestoneErr } = await supabase
@@ -69,7 +75,10 @@ export async function POST(
       // A contract with no payment schedule is worse than no contract, and
       // there is no transaction spanning these inserts — roll back by hand.
       await supabase.from('contracts').delete().eq('id', newContract.id);
-      return NextResponse.json({ error: 'Failed to convert quote' }, { status: 500 });
+      return NextResponse.json(
+        { error: { code: 'SERVER_ERROR', message: 'No se pudieron crear los hitos de cobranza' } },
+        { status: 500 }
+      );
     }
 
     const { error: quoteErr } = await supabase
@@ -80,13 +89,21 @@ export async function POST(
 
     if (quoteErr) {
       return NextResponse.json(
-        { error: 'Contract created but quote status could not be updated' },
+        {
+          error: {
+            code: 'QUOTE_STATUS_NOT_UPDATED',
+            message: 'Se creó el contrato pero no se pudo actualizar el estado de la cotización',
+          },
+        },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ contract: newContract, milestones: newMilestones }, { status: 201 });
   } catch {
-    return NextResponse.json({ error: 'Failed to convert quote' }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'No se pudo convertir la cotización a contrato' } },
+      { status: 500 }
+    );
   }
 }
