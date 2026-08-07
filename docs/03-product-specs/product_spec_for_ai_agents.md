@@ -1,5 +1,10 @@
 # Product Spec for AI Agents: [Spec Name]
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** The lifecycle states listed here are a **workflow vocabulary**, not claims about any specific feature.
+
 > **AI Agent Executable Specification & Evaluation Framework**
 >
 > A structured product spec format optimized for processing by autonomous AI coding agents (AGY, Claude Code, Cursor, Replit). Connects problem evidence, falsifiable bets, success signals, and build-readiness checks.

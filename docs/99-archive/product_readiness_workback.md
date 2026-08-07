@@ -1,5 +1,10 @@
 # Product Readiness Workback: Business Helper
 
+> [!CAUTION]
+> **ARCHIVED — do not read this for status, and do not update it.**
+> Superseded by [`docs/STATUS.md`](../STATUS.md), the single source of truth. Kept only as a record of what
+> was believed on the date it was written. Its gate scores (Gate 1 "passed at 7.5/10") predate the simulation findings and assessed the landing page and funnel, not whether the money path was real.
+
 > **Post-Expert-Review Workback Schedule & Launch Gate Framework**
 >
 > *Created: 2026-08-03 | Updated: 2026-08-04 (Integrated Dual Independent UX/UI Audits)*

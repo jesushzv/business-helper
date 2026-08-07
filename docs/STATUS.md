@@ -1,16 +1,36 @@
-# Launch Readiness Memo: Business Helper
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
 
-> **Ground-Truth Reconciliation, Priority Stack & Launch Gate**
+# STATUS — Business Helper
+
+> **The single source of truth for what is and is not done.**
 >
-> *Prepared: 2026-08-07 | Verified against `main` @ `c67f229` (post #20 / #23 / #29)*
-> *Method: repo docs reconciled against actual source, dependency manifest, test run, and the live issue tracker (PRs #1–#29; issues #2, #14, #22, #24, #26, #27, #30–#38).*
+> *Last verified: 2026-08-07 against `main` @ `f652956` (post #57 / #67).*
+> *Method in §06. Was `04-execution-testing/launch_readiness_memo_aug2026.md` until 2026-08-07 —
+> renamed because a date-stamped filename reads as a snapshot, and a snapshot is exactly what a
+> living status document must not be.*
 
-This document is the source of truth for launch status. It supersedes the completion claims in
-[`product-roadmap.md`](../03-product-specs/product-roadmap.md) wherever they conflict — where a doc says a
-feature is done and the code says otherwise, **the code wins.** (`product_readiness_snapshot.md` carried a
-competing status dashboard; it was collapsed to a module capabilities reference on 2026-08-07.)
+## The doc contract
 
-An HTML rendering of this memo is published at
+**This file owns status. No other document may assert it.**
+
+| Claim type | Where it may appear |
+|:---|:---|
+| Is a feature done / blocked / simulated | **Here only** |
+| Priority (P0/P1/P2) and the launch gate | **Here only** |
+| Test counts, coverage numbers, % complete | **Here only** |
+| How something works, why it was designed that way | Any reference doc |
+| Runbooks, env var inventories, schema, personas | Any reference doc |
+
+Every other document that mentions status must carry the marker
+`<!-- STATUS-AUTHORITY: docs/STATUS.md -->` and point here. **This is enforced by
+`tests/unit/docsStatusAuthority.test.ts`, which fails the build if a doc drifts** — the whole
+reason this file exists is that five documents once claimed completion for work that was
+simulated, and nothing checked them. A convention nobody executes is how that happened
+(the same lesson as #46 and #38).
+
+Where this file and the code disagree, **the code wins** — fix this file in the same PR.
+
+An HTML rendering is published at
 <https://claude.ai/code/artifact/bce71e34-9298-436f-8dda-9e432ea9763a> (private to the owner).
 
 ---
@@ -129,7 +149,7 @@ the checklist recorded PR #20 as unmerged, two migrations instead of three, Stri
 pointing at the now-split #14, 383/58 tests, and a "coverage exceeds 85%" claim resting on a
 threshold CI does not run (#51).
 
-**Code, verified by `typecheck` + `lint` (22 warnings, 0 errors) + 594 vitest tests / 78 files
+**Code, verified by `typecheck` + `lint` (22 warnings, 0 errors) + 640 vitest tests / 79 files
 + `next build`. Against mocked services — no deployment was exercised:**
 
 - **#59:** `updateQuoteStatus` and `convertToContract` now apply the server outcome. The
@@ -233,7 +253,7 @@ fixture quote for every token (PR #57) — never listed as a P0 and worse than s
   unverifiable ([#35](https://github.com/jesushzv/business-helper/issues/35)).
 - `parseNaturalLanguageQuery` is keyword matching rather than a model. It now reports `engine: 'rules'`
   instead of implying otherwise, so it is honest but not intelligent. Degrades gracefully; does not gate launch.
-- Animated demo video — storyboarded in [`demo_video_storyboard.md`](../03-product-specs/demo_video_storyboard.md), not produced.
+- Animated demo video — storyboarded in [`demo_video_storyboard.md`](03-product-specs/demo_video_storyboard.md), not produced.
 
 ---
 
@@ -259,14 +279,14 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 - [ ] Production Supabase migrations applied — **all three** from #20, #23 and #29 ([#62](https://github.com/jesushzv/business-helper/issues/62))
 - [ ] Error monitoring transmits and alerts reach the founder within minutes ([#52](https://github.com/jesushzv/business-helper/issues/52))
 - [x] The funnel is instrumented, so a weak result can be diagnosed (#37, PR #56) — wired, not yet read against real traffic
-- [x] Lint, typecheck, and **594** vitest tests / 78 files pass; CI runs on PRs (verified on #28 after ten hours of silent absence — see [#38](https://github.com/jesushzv/business-helper/issues/38))
+- [x] Lint, typecheck, and **640** vitest tests / 79 files pass; CI runs on PRs (verified on #28 after ten hours of silent absence — see [#38](https://github.com/jesushzv/business-helper/issues/38))
 
 ### Commercial gate (inherited)
-The [go-to-market plan](../01-strategy/go-to-market-plan.md) sets a Gate 0 before paid acquisition:
+The [go-to-market plan](01-strategy/go-to-market-plan.md) sets a Gate 0 before paid acquisition:
 Launch Readiness ≥ 7.0, Mobile ≥ 6.0, Credibility ≥ 7.0.
 
 > [!NOTE]
-> [`product_readiness_workback.md`](product_readiness_workback.md) records Gate 1 as **passed at 7.5/10**,
+> [`product_readiness_workback.md`](99-archive/product_readiness_workback.md) records Gate 1 as **passed at 7.5/10**,
 > while the go-to-market plan still cites the original **5.35/10** and blocks paid spend. Both scores predate
 > the simulation findings in §02 — they assessed the landing page and funnel, not whether the money path was
 > real. Treat every score as stale-optimistic and re-score after the P0 items land.
@@ -302,7 +322,7 @@ These require the founder and are not resolvable from the codebase.
    "1–2 focused weeks" is two calendar weeks or closer to a month.
 8. ~~**Merge posture on PRs #20 and #23** — review and merge, or founder reads them first?~~
    Moot — both merged to `main` on 2026-08-07 (see §02).
-9. **Preferred pivot path** if the kill criteria in [`okrs.md`](../01-strategy/okrs.md) trigger. Three
+9. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger. Three
    candidates: narrow to a single module; freeze development for a validation-only sprint; or wind down
    cleanly and redirect the time. Worth deciding while calm rather than mid-crisis.
 
@@ -314,8 +334,8 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 594 tests / 78 files as of the 2026-08-07 P0 reconciliation
-                               # (was 494/64 at the #20/#23/#29 merge, 569/76 after PR #57)
+npx vitest run                 # 640 tests / 79 files as of the 2026-08-07 doc consolidation
+                               # (494/64 at the #20/#23/#29 merge; 569/76 after #57; 594/78 after #67)
 npm run typecheck
 npm run lint
 node -e "console.log(Object.keys(require('./package.json').dependencies))"
@@ -331,4 +351,5 @@ at least once. Passing tests against a mocked `fetch` mean the code is correct, 
 
 ---
 
-*Document maintained under `docs/04-execution-testing/launch_readiness_memo_aug2026.md` per [AGENTS-DOCS-GUIDE.md](../AGENTS-DOCS-GUIDE.md).*
+*Single source of truth for status. Enforced by `tests/unit/docsStatusAuthority.test.ts`.
+Doc map: [AGENTS-DOCS-GUIDE.md](AGENTS-DOCS-GUIDE.md).*

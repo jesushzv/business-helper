@@ -1,5 +1,10 @@
 # Business Helper Documentation & Agent Navigation Guide
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](STATUS.md) — not here.** This is the **map of the doc set**. It describes where things live, never whether they are done.
+
 > **Central Documentation Index**
 >
 > This guide organizes the complete documentation suite for **Business Helper** into logical subdirectories and establishes exact protocols for when human developers and autonomous AI coding agents (AGY, Claude, Cursor) should read or update each document.
@@ -36,15 +41,20 @@ business-helper/docs/
 │   ├── feature_implementation_spec.md   # Single-session feature spec format
 │   └── demo_video_storyboard.md         # Animated demo video scene breakdown
 │
+├── STATUS.md                            # ★★ THE SINGLE SOURCE OF TRUTH for status, priority
+│                                        #    and the launch gate. No other doc may assert these.
+│                                        #    Enforced by tests/unit/docsStatusAuthority.test.ts
+│
 ├── 04-execution-testing/                # Launch & Quality Assurance
-│   ├── launch_readiness_memo_aug2026.md # ★ CURRENT SOURCE OF TRUTH for launch status
 │   ├── ecc-execution-playbook.md        # ECC Agent 4-phase sprint execution playbook
-│   ├── product_launch_checklist.md      # Go-live technical & operational checklist
-│   ├── product_readiness_snapshot.md    # Module capabilities reference — what each module does & where
-│   ├── product_readiness_workback.md    # Post-expert-review workback schedule & gate framework
-│   ├── product_expert_review_aug2026.md # Independent product expert review archive
-│   ├── ux_ui_audit_synthesis_aug2026.md # Dual UX/UI audit synthesis
+│   ├── product_launch_checklist.md      # Go-live runbook (steps to perform, not a status record)
+│   ├── ux_ui_audit_synthesis_aug2026.md # Dual UX/UI audit synthesis (WS-* workstreams)
 │   └── usability_test_plan.md           # Task testing with Don Roberto & Mariana
+│
+├── 99-archive/                          # Superseded. Read-only history — never update these.
+│   ├── product_readiness_snapshot.md    # Competing status dashboard; claimed 100% while simulated
+│   ├── product_readiness_workback.md    # Gate scores predating the simulation findings
+│   └── product_expert_review_aug2026.md # Point-in-time external review
 │
 ├── 05-templates/                        # Working Engineering Templates
 │   ├── bug_investigation_plan.md        # Bug triage & root cause analysis template
@@ -55,7 +65,7 @@ business-helper/docs/
 ```
 
 > [!IMPORTANT]
-> **Read [`launch_readiness_memo_aug2026.md`](04-execution-testing/launch_readiness_memo_aug2026.md) before
+> **Read [`docs/STATUS.md`](STATUS.md) before
 > trusting any completion claim in this documentation set.** A 2026-08-06 security review found that several
 > features recorded as complete were simulated — the UI and data model shipped while the third-party call
 > underneath was faked. The memo reconciles the docs against verified code state and supersedes the status
@@ -88,19 +98,19 @@ These were deleted as redundant or spent; git history retains them.
 
 | Task / Persona Goal | Primary Document to Read | Secondary Support |
 |:---|:---|:---|
-| **★ Asking "is this ready to launch?" or "what is actually done?"** | [`launch_readiness_memo_aug2026.md`](../docs/04-execution-testing/launch_readiness_memo_aug2026.md) | [`security-p0-remediation.md`](../docs/security-p0-remediation.md) |
+| **★ Asking "is this ready to launch?" or "what is actually done?"** | [`docs/STATUS.md`](../docs/STATUS.md) | [`security-p0-remediation.md`](../docs/security-p0-remediation.md) |
 | **Executing a sprint task or building a feature with ECC** | [`ecc-execution-playbook.md`](../docs/04-execution-testing/ecc-execution-playbook.md) | [`feature_implementation_spec.md`](../docs/03-product-specs/feature_implementation_spec.md) |
 | **Architecting a new feature or database table** | [`database-schema-design.md`](../docs/02-architecture/database-schema-design.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
 | **Implementing a single feature or UI component** | [`feature_implementation_spec.md`](../docs/03-product-specs/feature_implementation_spec.md) | [`user-personas.md`](../docs/01-strategy/user-personas.md) |
-| **Checking sprint schedule or launch gates** | [`product-roadmap.md`](../docs/03-product-specs/product-roadmap.md) | [`launch_readiness_memo_aug2026.md`](../docs/04-execution-testing/launch_readiness_memo_aug2026.md) |
+| **Checking sprint schedule or launch gates** | [`product-roadmap.md`](../docs/03-product-specs/product-roadmap.md) | [`docs/STATUS.md`](../docs/STATUS.md) |
 | **Fixing a production bug or regression** | [`bug_investigation_plan.md`](../docs/05-templates/bug_investigation_plan.md) | [`technical_design_document.md`](../docs/02-architecture/technical_design_document.md) |
 | **Refactoring existing code** | [`refactoring_plan.md`](../docs/05-templates/refactoring_plan.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
 | **Building marketing landing pages or ads** | [`landing-page-brief.md`](../docs/03-product-specs/landing-page-brief.md) | [`go-to-market-plan.md`](../docs/01-strategy/go-to-market-plan.md) |
-| **Preparing for Beta launch or deployment** | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) | [`launch_readiness_memo_aug2026.md`](../docs/04-execution-testing/launch_readiness_memo_aug2026.md) |
-| **Finding what a module does or where its code lives** | [`product_readiness_snapshot.md`](../docs/04-execution-testing/product_readiness_snapshot.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
+| **Preparing for Beta launch or deployment** | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) | [`docs/STATUS.md`](../docs/STATUS.md) |
+| **Finding what a module does or where its code lives** | [`product_readiness_snapshot.md`](99-archive/product_readiness_snapshot.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
 | **Working on CFDI / invoicing / PAC integration** | [`cfdi_integration_architecture.md`](../docs/02-architecture/cfdi_integration_architecture.md) | [`PRD-business-helper.md`](../docs/01-strategy/PRD-business-helper.md) (Module 5) |
-| **Responding to product expert reviews** | [`product_expert_review_aug2026.md`](../docs/04-execution-testing/product_expert_review_aug2026.md) | [`product_readiness_workback.md`](../docs/04-execution-testing/product_readiness_workback.md) |
-| **Tracking workback progress or gate status** | [`product_readiness_workback.md`](../docs/04-execution-testing/product_readiness_workback.md) | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) |
+| **Responding to product expert reviews** | [`product_expert_review_aug2026.md`](99-archive/product_expert_review_aug2026.md) | [`product_readiness_workback.md`](99-archive/product_readiness_workback.md) |
+| **Tracking workback progress or gate status** | [`product_readiness_workback.md`](99-archive/product_readiness_workback.md) | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) |
 
 ---
 

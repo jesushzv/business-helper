@@ -1,5 +1,10 @@
 # Product Launch Checklist: Business Helper
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** The `[x]` marks and `(P0)` headings here are a **go-live runbook**, not the launch-blocking priority stack. The `(P0)` headings are domain labels and are broader than the real P0 list.
+
 > **Exhaustive Go-Live, Code-Level Technical & Operational Readiness Checklist**
 >
 > Chronological task checklist for launching **Business Helper** in Mexico. Ensures technical engineering, database, auth, legal, marketing, and customer support domains are fully verified before public launch.
@@ -13,12 +18,12 @@
 >
 > **Standard applied here:** an item is `[x]` only when its outbound call has executed against the real
 > service, or when it requires no third party. Everything else is `[ ]` with the gap named.
-> See [`launch_readiness_memo_aug2026.md`](launch_readiness_memo_aug2026.md) for the full reconciliation.
+> See [`docs/STATUS.md`](../STATUS.md) for the full reconciliation.
 
 > [!IMPORTANT]
 > **The `(P0)` in the §01 section headings is a domain label, not the launch-blocking P0 stack.**
 > The authoritative P0 list is
-> [`launch_readiness_memo_aug2026.md`](launch_readiness_memo_aug2026.md) §03, and it is narrower —
+> [`docs/STATUS.md`](../STATUS.md) §03, and it is narrower —
 > a heading here marked `(P0)` contains items the memo ranks P1 or P2. Where the two disagree, the
 > memo wins. Every genuinely launch-blocking item below now names its issue inline and is marked
 > **P0** on that line. **This linking applies to §01–§03** (engineering, infrastructure and
@@ -27,8 +32,8 @@
 >
 > *Refreshed 2026-08-07 during the P0 reconciliation. Corrections made: PR #20 recorded as unmerged
 > when it had merged; two pending migrations when there are three; Stripe live mode pointed at #14
-> after #14 was split; test count 383/58 when it is 594/78; and a "coverage exceeds 85%" claim
-> resting on a threshold CI does not run (#51).*
+> after #14 was split; a stale test count; and a coverage claim resting on a threshold CI does
+> not run (#51). Counts and coverage now live in [`../STATUS.md`](../STATUS.md) alone.*
 
 ---
 
@@ -66,7 +71,7 @@
 - [x] **Migrations Authored**: `supabase/migrations/` covers the multi-tenant RLS tables, security hardening, and team invitations. `npm run db:migrate` (+ `--dry-run`) added in PR #11.
 - [ ] **Production Migrations Applied** ([#62](https://github.com/jesushzv/business-helper/issues/62), **P0**): **three** migrations are pending, and all three are on `main` already (this line previously said two, "from unmerged PRs") — `20260807000000_otp_send_rate_limit.sql` (#20), `20260807120000_cfdi_pac_integration.sql` (#23) and `20260807170000_cfdi_payment_complements.sql` (#29). **All must be applied before the code that depends on them deploys**, or the affected routes 500. Vercel auto-deploys `main`, so the window is already open.
 - [x] **Supabase Storage Bucket for SPEI Receipts**: `app/api/receivables/[id]/upload/route.ts` writes to the `spei-vouchers` bucket with magic-byte validation.
-- [x] **Quality Gate Compliance**: **594 tests / 78 files** passing via `npx vitest run`, `tsc --noEmit` clean. *(`scripts/test-runner.js` was retired in PR #21; any count of 138/144/175/182/383 is stale. Lint is 22 warnings / 0 errors — the `--max-warnings=0` gate is described in five documents and enforced nowhere, see [#46](https://github.com/jesushzv/business-helper/issues/46).)*
+- [x] **Quality Gate Compliance**: `npx vitest run` and `tsc --noEmit` pass. **Counts live in [`../STATUS.md`](../STATUS.md), not here** — this line has carried 138, 144, 175, 182 and 383, each stale within days. Lint is non-zero warnings with the `--max-warnings=0` gate described in five documents and enforced nowhere ([#46](https://github.com/jesushzv/business-helper/issues/46)).
 - [ ] **Playwright E2E Verification** ([#69](https://github.com/jesushzv/business-helper/issues/69)): `playwright.config.ts` and `tests/e2e/` exist and `npm run test:e2e` is wired, but the suite has never been executed in any recorded verification pass. The prior "14/14 passing" claim corresponds to no run.
 
 ### ☁️ Production Cloud QA & Edge Runtime Verification (P0)
@@ -81,7 +86,7 @@
 ### Product & Engineering Readiness
 - [x] **P0 Core Features Complete**: Quote Creation, Accounts Receivable Kanban, Client CRM, and SPEI Receipt Uploads fully built.
 - [x] **RLS Multi-Tenant Audit**: All 9 database tables verified with active RLS policies (`organization_id` scoping).
-- [x] **Test Gate Compliance**: **594 unit/component tests / 78 files** passing via `npx vitest run`. *(The 85% coverage gate is configured but is not run by CI and currently fails — see [#51](https://github.com/jesushzv/business-helper/issues/51). This line previously asserted coverage "exceeds 85%" on the strength of a threshold nobody executes.)*
+- [x] **Test Gate Compliance**: `npx vitest run` passes; the count is in [`../STATUS.md`](../STATUS.md). *(The 85% coverage gate is configured but is not run by CI and currently fails — see [#51](https://github.com/jesushzv/business-helper/issues/51). This line previously asserted coverage "exceeds 85%" on the strength of a threshold nobody executes.)*
 - [x] **Security Sanitization**: File upload magic byte validation active; brute-force OTP *verification* lockout tested (3 failed attempts). *(OTP **issuance** limiting is separate and still open — see §01.)*
 - [ ] **Stripe Subscription Billing** ([#68](https://github.com/jesushzv/business-helper/issues/68), **P0**): Products & Prices ($299, $599, $999 MXN) configured in sandbox. Live-mode mapping and a real charge remain unverified.
 

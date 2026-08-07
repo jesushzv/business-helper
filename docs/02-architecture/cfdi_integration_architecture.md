@@ -1,5 +1,10 @@
 # CFDI Integration Architecture: Business Helper
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** The ✅/🔴 marks describe **which capabilities the design covers**. Whether the PAC integration has been exercised against a live account is a status claim.
+
 > **PAC Integration Strategy & Trust-Forward Architecture**
 >
 > Grounded in the Independent Product Expert Review (August 2026) and aligned with `@docs/02-architecture/app-architecture-plan.md` and `@docs/01-strategy/PRD-business-helper.md`.

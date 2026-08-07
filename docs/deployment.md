@@ -1,5 +1,10 @@
 # Production Deployment & Go-to-Market Guide: Business Helper
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](STATUS.md) — not here.** The checkboxes here are **deployment steps to perform**, not a record that they were performed.
+
 > **Comprehensive Step-by-Step Guide for Cloud Deployment (Vercel / Supabase)**
 
 ---

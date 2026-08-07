@@ -1,5 +1,10 @@
 # Feature Implementation Spec: WS-F Demo & Trust Assets
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** The `Status: Completed` header and `AC-*` (P0) acceptance criteria describe **this spec's own scope**, not product launch readiness.
+
 > **Single-Session AI & Engineering Feature Implementation Spec**
 >
 > **Workstream**: WS-F (Demo & Trust Assets)

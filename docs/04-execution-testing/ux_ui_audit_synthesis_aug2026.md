@@ -1,5 +1,10 @@
 # Comprehensive UX/UI Audit Synthesis & Master Findings: Business Helper
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** The severity ratings and ✅/`☑` marks here are **audit findings** from a point-in-time review, tracked as `WS-*` workstreams. A 🔴 P0 here is an audit severity, not a launch blocker.
+
 > **Integrated Findings & Action Plan from Dual Independent Product Reviews**
 >
 > *Audit 1 Date: August 4, 2026 (Heuristic, Conversion & CRO Review)*  

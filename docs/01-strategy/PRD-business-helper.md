@@ -1,5 +1,10 @@
 # PRD: Business Helper — The B2B Pivot
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** Phase tables and priority markers here are the **product plan**. Nothing in this file is evidence that a feature works.
+
 > **Co-Founder Analysis & Product Strategy Document**
 > 
 > Pivoting from Mi Pacto (freelancer contract management) to a **lightweight, all-in-one business operations platform** for small/medium businesses in Mexico that can't afford or staff an Odoo/SAP/Dynamics deployment.

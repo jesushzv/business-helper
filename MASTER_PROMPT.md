@@ -48,7 +48,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 - **Target Market**: Mexican SMBs ($800K–$5M MXN monthly revenue) in Monterrey, CDMX, Tijuana, and Guadalajara
 - **Pricing**: $299 / $599 / $999 MXN/month + optional CFDI folio packs
 - **Tech Stack**: Next.js 15 (RSC + Server Actions), Supabase Auth + PostgreSQL + Storage, Stripe Billing, Facturapi PAC, Vercel Edge
-- **Current Status**: see @[docs/04-execution-testing/launch_readiness_memo_aug2026.md] — the source of truth for what is done and what blocks launch. (Test count, gate status and audit scores drift too fast to be trusted here; this line once claimed 175/175 while the suite had 494 tests.)
+- **Current Status**: see @[docs/STATUS.md] — the source of truth for what is done and what blocks launch. (Test count, gate status and audit scores drift too fast to be trusted here; this line once claimed 175/175 while the suite had 494 tests.)
 
 ---
 

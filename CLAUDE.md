@@ -2,8 +2,16 @@
 
 This file is the **single operating authority** for AI agents working in this repo. Where it
 conflicts with any other document, this file and the code win. Launch/completion **status** claims
-live in one place only: [`docs/04-execution-testing/launch_readiness_memo_aug2026.md`](docs/04-execution-testing/launch_readiness_memo_aug2026.md)
-— read it before trusting any "completed" claim anywhere in the doc set.
+live in one place only: [`docs/STATUS.md`](docs/STATUS.md) — read it before trusting any
+"completed" claim anywhere in the doc set.
+
+**The doc contract (enforced, not advisory).** `docs/STATUS.md` owns status: what is done, what is
+blocked, priority (P0/P1/P2), the launch gate, test counts and coverage. Every other document owns
+*mechanism* — how a thing works, what the env vars are, what the schema is — and must not assert
+state. Any doc that mentions status carries `<!-- STATUS-AUTHORITY: docs/STATUS.md -->` and points
+there. `tests/unit/docsStatusAuthority.test.ts` fails the build if that slips. Superseded status
+dashboards live in `docs/99-archive/` and are never to be updated. Do not restate a test count or a
+coverage figure outside `docs/STATUS.md` — those numbers have been wrong here five separate times.
 
 ## What this project is
 
@@ -136,7 +144,7 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 
 | Need | Read |
 |:---|:---|
-| Is X actually done? Launch status | `docs/04-execution-testing/launch_readiness_memo_aug2026.md` ★ |
+| Is X actually done? Launch status, P0 stack, launch gate | `docs/STATUS.md` ★ **the only status authority** |
 | Schema/column names before SQL | `docs/02-architecture/database-schema-design.md` |
 | CFDI / invoicing / PAC | `docs/02-architecture/cfdi_integration_architecture.md` |
 | System architecture, API patterns | `docs/02-architecture/app-architecture-plan.md` |
@@ -145,6 +153,7 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 | Security posture and history | `docs/security-p0-remediation.md` |
 | Sprint/workback execution templates | `MASTER_PROMPT.md` (subordinate to this file) |
 | Full doc index | `docs/AGENTS-DOCS-GUIDE.md` |
+| Superseded dashboards (read-only history) | `docs/99-archive/` — never update these |
 
 ## Known gotchas
 

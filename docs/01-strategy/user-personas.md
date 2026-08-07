@@ -1,5 +1,10 @@
 # User Personas: Business Helper
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** `P0` here means **most important feature for that persona** — product prioritisation, not the launch-blocking P0 stack.
+
 > **Research-Grounded Buyer & User Segment Profiles**
 >
 > Detailed, vivid profiles for **Business Helper** representing our core Mexican SMB user segments. Designed to build empathy and guide product decisions, UX flows, feature priorities, and messaging.

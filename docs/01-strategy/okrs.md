@@ -1,5 +1,10 @@
 # OKRs: Business Helper (Q3 – Q4 2026)
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** Initiative priorities here are **objective planning**. Whether an initiative has actually shipped is a status claim.
+
 > **Objectives and Key Results Framework**
 >
 > A structured performance and alignment framework for tracking product-market fit (PMF) validation, commercial revenue growth, user retention, and strategic execution for **Business Helper** during the Q3–Q4 2026 launch phase.
