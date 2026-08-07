@@ -368,6 +368,25 @@ describe('reserveOtpSend — the limit is the phone, not the quote', () => {
 });
 
 describe('ledger failures fail closed', () => {
+  it('refuses to rank against a window its own row is missing from', async () => {
+    const phoneE164 = '+528115559988';
+    const { client, state } = fakeLedger();
+
+    // Stands in for the database clock trailing this function's by more than
+    // the window: the row lands with a created_at that the window query then
+    // filters out. Ranking cannot be trusted, and neither can the budget.
+    const now = new Date(NOW.getTime() + OTP_PHONE_WINDOW_MS + 60_000);
+
+    await expect(
+      reserveOtpSend(client, { phoneE164, quoteId: 'q-1', now })
+    ).rejects.toThrow(/absent from its own window/);
+
+    // The row is still there — failing closed here means refusing to send, not
+    // quietly handing the slot back.
+    expect(state.rows).toHaveLength(1);
+  });
+
+
   it('throws rather than allowing when the window cannot be read', async () => {
     const { client } = fakeLedger([], 'select');
 

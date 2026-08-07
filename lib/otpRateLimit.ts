@@ -77,9 +77,13 @@ export function evaluatePhoneWindow(
   const nowMs = now.getTime();
   const windowStart = nowMs - OTP_PHONE_WINDOW_MS;
 
+  // `>=` rather than `>`, to match the `gte` the ledger query filters on: the
+  // ranking in reserveOtpSend is computed over SQL-filtered rows and the denial
+  // over these, so a row landing exactly on the boundary must not be counted by
+  // one and dropped by the other.
   const inWindow = sentAt
     .map((iso) => new Date(iso).getTime())
-    .filter((ms) => Number.isFinite(ms) && ms > windowStart)
+    .filter((ms) => Number.isFinite(ms) && ms >= windowStart)
     .sort((a, b) => a - b);
 
   if (inWindow.length < OTP_PHONE_WINDOW_MAX_SENDS) {
@@ -268,6 +272,18 @@ export async function reserveOtpSend(
 
   const window = await readPhoneWindow(client, context.phoneE164, now);
   const rank = window.findIndex((row) => row.id === claimed.id);
+
+  if (rank === -1) {
+    // The row we just wrote is not in the window we just read, so the ranking
+    // cannot be trusted — and neither can any budget derived from it. The
+    // plausible cause is clock skew between this function and the database
+    // wide enough to place `created_at` outside `windowStart`, which would
+    // quietly disable the limit for every caller rather than just this one.
+    // Fail closed and make it visible, in keeping with the rest of the module.
+    throw new Error(
+      `otp_send_log ranking failed: row ${claimed.id} absent from its own window`
+    );
+  }
 
   if (rank >= OTP_PHONE_WINDOW_MAX_SENDS) {
     await releaseOtpSend(client, claimed.id);
