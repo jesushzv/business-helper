@@ -71,4 +71,4 @@ business-helper/docs/
 2. **Verify Database Field Names First**: Consult `02-architecture/database-schema-design.md` before writing SQL or Supabase JS calls.
 3. **Respect Multi-Tenant Isolation**: Every database query MUST include RLS `organization_id` scoping.
 4. **Align UI with User Personas**: Mobile screens must accommodate Don Roberto (48px+ tap targets, big monetary totals, 1-tap WhatsApp sharing).
-5. **Preserve Coverage**: Every code modification MUST include corresponding unit tests in `scripts/test-runner.js` to maintain the **85% coverage gate**.
+5. **Preserve Coverage**: Every code modification MUST include corresponding Vitest unit tests in `tests/unit/` — importing the `.ts` source, never a hand-maintained copy of it — to maintain the **85% coverage gate**.

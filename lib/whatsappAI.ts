@@ -253,17 +253,3 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData = {}
     whatsappUrl,
   };
 }
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    TIER_AI_QUOTAS,
-    checkRateLimit,
-    sanitizeAIQuery,
-    validateAIQuota,
-    matchFAQSupportQuery,
-    buildAIPromptContext,
-    buildAISupportPromptContext,
-    verifyWebhookChallenge,
-    parseNaturalLanguageQuery,
-  };
-}

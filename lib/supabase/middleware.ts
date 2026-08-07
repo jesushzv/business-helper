@@ -64,12 +64,4 @@ export async function updateSession(request: NextRequest) {
   return supabaseResponse;
 }
 
-try {
-  if (typeof module !== 'undefined' && module && 'exports' in module) {
-    module.exports = { updateSession };
-  }
-} catch {
-  // Edge runtime fallback
-}
-
 

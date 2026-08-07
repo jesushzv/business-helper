@@ -107,8 +107,3 @@ export function calculateClientHealthScore(milestones: MilestonePaymentRecord[] 
     totalOverdue,
   };
 }
-
-// CommonJS export fallback
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { calculateClientHealthScore };
-}

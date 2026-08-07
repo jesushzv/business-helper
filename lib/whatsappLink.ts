@@ -34,8 +34,3 @@ export function generateWhatsAppLink(phone: string | null | undefined, text?: st
 
   return baseUrl;
 }
-
-// CommonJS export fallback for standalone Node test runner
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { generateWhatsAppLink };
-}

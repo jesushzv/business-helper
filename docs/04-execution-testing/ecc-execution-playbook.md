@@ -20,7 +20,7 @@ graph TD
 
     subgraph Phase 2: Test-Driven Development (TDD)
         FeatureSpec --> AgentTDD[@tdd-guide]
-        AgentTDD --> WriteTests[Write Unit Tests in scripts/test-runner.js]
+        AgentTDD --> WriteTests[Write Vitest Unit Tests in tests/unit/]
         WriteTests --> FailCheck[Verify Tests Fail (Red)]
     end
 

@@ -233,7 +233,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 | **Billing** | Stripe (MXN pricing) | `lib/stripe.ts` |
 | **Invoicing** | Facturapi PAC (SAT CFDI 4.0) | `lib/facturapi.ts` |
 | **Styling** | Tailwind CSS + Brand dark slate theme (#090D16) | `app/globals.css` |
-| **Testing** | Node.js native test runner + Playwright | `scripts/test-runner.js`, `tests/` |
+| **Testing** | Vitest (unit + component) + Playwright | `tests/unit/`, `tests/components/`, `tests/e2e/` |
 | **Deployment** | Vercel Edge (businesshelper.mx) | `vercel.json` |
 | **Monitoring** | Sentry error tracking | `lib/sentry.ts` |
 
@@ -245,7 +245,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 |:---|:---|:---|
 | `@planner` | Start of sprint or workstream | Decompose into single-session subtasks |
 | `@architect` | New data models or API endpoints | Verify against `database-schema-design.md` |
-| `@tdd-guide` | Before writing business logic | Target `scripts/test-runner.js` |
+| `@tdd-guide` | Before writing business logic | Target `tests/unit/` (Vitest, importing the `.ts` sources) |
 | `@database-reviewer` | SQL migrations or RLS changes | Enforce `organization_id` scoping |
 | `@security-reviewer` | Client-facing features | Audit file uploads, OTP, input sanitization |
 | `@typescript-reviewer` | Components and hooks | Next.js 16 RSC/Client split, type safety |
@@ -260,13 +260,13 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 Every feature, sprint, and workstream task MUST pass ALL gates:
 
 - [ ] **Spec**: `feature_implementation_spec.md` populated with P0 acceptance criteria and file map
-- [ ] **TDD**: Unit tests written in `scripts/test-runner.js` and verified failing before implementation
+- [ ] **TDD**: Unit tests written in `tests/unit/` and verified failing before implementation
 - [ ] **Security**: PostgreSQL RLS `organization_id` isolation active on all queries
 - [ ] **Mobile UX**: Touch targets `>= 48px`, WhatsApp links pre-filled, tested on mobile viewport
 - [ ] **Brand**: UI follows dark slate theme (#090D16 base, emerald accents) per `brand_guidelines_spec.md`
 - [ ] **TypeCheck**: `npm run typecheck` passes with 0 errors, 0 warnings
 - [ ] **Lint**: `npm run lint` passes with `--max-warnings=0`
-- [ ] **Coverage**: `node scripts/test-runner.js` achieves `>= 85%` coverage, 100% pass rate
+- [ ] **Coverage**: `npm run test:coverage` achieves `>= 85%` coverage, 100% pass rate
 - [ ] **E2E**: Playwright happy-path flows pass (when applicable)
 - [ ] **Docs**: Roadmap or workback schedule updated with completion status
 - [ ] **Git**: Committed with conventional commit message (`feat(...)`, `fix(...)`)
