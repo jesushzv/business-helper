@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { trackClientEvent } from '@/lib/analyticsClient';
 import { Building2, Lock, Mail, ArrowRight, AlertCircle, Sparkles, FileText, Phone, Users, ShieldCheck } from 'lucide-react';
 import { validateRFC } from '@/lib/rfcValidator';
 import { validatePhone } from '@/lib/phoneValidator';
@@ -42,6 +43,22 @@ function RegisterFormContent() {
 
   const rfcResult = rfc ? validateRFC(rfc) : { isValid: false, type: null };
   const phoneResult = phone ? validatePhone(phone) : { isValid: false, phone: '' };
+
+  // Top of the funnel. Reaching this form is the strongest signal the landing
+  // page produces, and comparing it against `signup_completed` is what tells a
+  // landing-page problem apart from a registration problem. The ref keeps
+  // React's development double-render from counting one visitor twice.
+  const signupStartTracked = useRef(false);
+  useEffect(() => {
+    if (signupStartTracked.current) return;
+    signupStartTracked.current = true;
+    trackClientEvent('signup_started', {
+      // Whether the landing page's conversion form handed off its fields, which
+      // is the difference between a warm arrival and a cold one.
+      prefilled: Boolean(searchParams.get('businessName') || searchParams.get('email')),
+      plan: searchParams.get('plan') || 'none',
+    });
+  }, [searchParams]);
 
   const handleGoogleRegister = async () => {
     setError(null);
@@ -106,6 +123,17 @@ function RegisterFormContent() {
       }
 
       if (data.user) {
+        // Recorded on the account existing, not on the form being submitted.
+        // `company_size` and `tax_regime` are business attributes, not personal
+        // data, and are the segments the activation question is asked in.
+        trackClientEvent('signup_completed', {
+          company_size: companySize,
+          tax_regime: taxRegime,
+          provided_rfc: Boolean(rfc),
+          // A signup awaiting email confirmation has no session yet, which is
+          // its own drop-off step and should not read as a completed one.
+          email_confirmation_pending: !data.session,
+        });
         router.push('/onboarding');
       } else {
         setError('Registro iniciado. Por favor revisa tu correo electrónico para confirmar.');

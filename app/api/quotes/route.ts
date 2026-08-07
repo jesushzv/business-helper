@@ -5,6 +5,7 @@ import {
   pickFields,
   QUOTE_WRITABLE_FIELDS,
 } from '@/lib/apiAuth';
+import { trackServerEvent } from '@/lib/analyticsServer';
 
 /**
  * Quote collection.
@@ -75,6 +76,19 @@ export async function POST(request: Request) {
     if (error || !newQuote) {
       return NextResponse.json({ error: 'Failed to create quote' }, { status: 500 });
     }
+
+    // Activation. The PRD calls the first quote the "aha" moment, so this is
+    // the event every acquisition number is ultimately judged against.
+    trackServerEvent('quote_created', {
+      distinctId: userId,
+      organizationId,
+      properties: {
+        quote_id: newQuote.id,
+        total_amount: Number(newQuote.total_amount) || 0,
+        currency: newQuote.currency || 'MXN',
+        line_item_count: Array.isArray(newQuote.line_items) ? newQuote.line_items.length : 0,
+      },
+    });
 
     return NextResponse.json(newQuote, { status: 201 });
   } catch {

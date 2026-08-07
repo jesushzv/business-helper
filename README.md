@@ -14,6 +14,7 @@ Business Helper es una plataforma SaaS web y móvil diseñada para simplificar l
 - **Cobranza & Suscripciones**: Stripe Billing API & Webhooks.
 - **Notificaciones**: Twilio WhatsApp Business API / Click-to-Chat deep links.
 - **Inteligencia Artificial**: Google Gemini API (`@google/genai`).
+- **Analítica de Producto**: PostHog (embudo de 7 eventos, capturado desde el servidor — ver [`docs/04-execution-testing/product-analytics.md`](docs/04-execution-testing/product-analytics.md)).
 
 ---
 

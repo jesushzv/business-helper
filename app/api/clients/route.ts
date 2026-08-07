@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess, isDemoDeployment } from '@/lib/apiAuth';
 import { validateRFC } from '@/lib/rfcValidator';
+import { trackServerEvent } from '@/lib/analyticsServer';
 
 /**
  * Client collection.
@@ -40,7 +41,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId } = auth.ctx;
+  const { supabase, organizationId, userId } = auth.ctx;
 
   try {
     const body = await request.json();
@@ -87,6 +88,21 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    // Getting past the empty state. A user who never reaches this step never
+    // reaches any of the later ones, so its absence explains a flat funnel.
+    trackServerEvent('client_created', {
+      distinctId: userId,
+      organizationId,
+      properties: {
+        client_id: newClient.id,
+        // Whether the client can be invoiced and reached — the two fields that
+        // decide if the rest of the loop is available to them. The values
+        // themselves are personal data and stay out.
+        has_rfc: Boolean(newClient.rfc),
+        has_phone: Boolean(newClient.phone),
+      },
+    });
 
     return NextResponse.json(newClient, { status: 201 });
   } catch {

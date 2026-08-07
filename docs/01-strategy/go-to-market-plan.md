@@ -182,6 +182,6 @@ Accountants act as our primary trusted distribution channel:
 
 ### Tracking & Escalation Triggers
 
-* **Analytics Stack**: Mixpanel / PostHog (In-app funnel tracking), Stripe Dashboard (MRR/Churn), Supabase Logs.
+* **Analytics Stack**: PostHog (in-app funnel tracking — seven events from `signup_started` to `payment_confirmed`, wired server-side; see [`product-analytics.md`](../04-execution-testing/product-analytics.md)), Stripe Dashboard (MRR/Churn), Supabase Logs. Mixpanel was named as an alternative and was not adopted.
 * **Weekly Review**: Founder & Growth Lead review Activation Rate every Monday.
 * **Pivot Trigger**: If 30-day Trial-to-Paid conversion is below 10%, we pause ad spend and conduct 15 qualitative exit interviews with trial drop-offs to adjust pricing or onboarding flows.

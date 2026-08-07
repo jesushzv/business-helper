@@ -39,6 +39,7 @@ business-helper/docs/
 │   ├── ecc-execution-playbook.md        # ECC Agent 4-phase sprint execution playbook
 │   ├── product_launch_checklist.md      # Go-live technical & operational checklist
 │   ├── product_readiness_snapshot.md    # Module capabilities reference — what each module does & where
+│   ├── product-analytics.md             # Seven-event quote-to-cash funnel: what fires where & how to read it
 │   ├── product_readiness_workback.md    # Post-expert-review workback schedule & gate framework
 │   ├── product_expert_review_aug2026.md # Independent product expert review archive
 │   ├── ux_ui_audit_synthesis_aug2026.md # Dual UX/UI audit synthesis

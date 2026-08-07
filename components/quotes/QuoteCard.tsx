@@ -4,6 +4,7 @@ import React from 'react';
 import { Quote, Client } from '@/types';
 import { QuoteStatusBadge } from './QuoteStatusBadge';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
+import { trackClientEvent } from '@/lib/analyticsClient';
 import { MessageSquare, ArrowRight, CheckCircle, FileText } from 'lucide-react';
 
 interface QuoteCardProps {
@@ -27,6 +28,24 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
 
   const messageText = `Hola ${clientName}, le comparto la cotización "${quote.title}" por un total de ${formattedTotal}.\n\nPuede ver el detalle y firmar en línea aquí:\n${publicUrl}`;
   const whatsappUrl = generateWhatsAppLink(clientPhone, messageText);
+
+  /**
+   * Sending is a `wa.me` hand-off, so the click is the only moment the product
+   * sees it — and it is the step that separates "made a quote to try the
+   * product" from "trusted it enough to put it in front of a paying client."
+   * Quotes are stored as `sent` from creation, so the stored status cannot
+   * answer that question.
+   */
+  const handleWhatsAppSend = () => {
+    trackClientEvent('quote_sent', {
+      quote_id: quote.id,
+      total_amount: quote.total_amount,
+      currency: quote.currency || 'MXN',
+      // A missing number means the link opens on a placeholder recipient
+      // (issue #44) — worth being able to see in the funnel.
+      client_has_phone: Boolean(client?.phone),
+    });
+  };
 
   return (
     <div className="bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl hover:border-slate-700 transition-all p-5 flex flex-col justify-between text-white">
@@ -61,6 +80,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={handleWhatsAppSend}
             className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
           >
             <MessageSquare className="w-4 h-4 shrink-0" />

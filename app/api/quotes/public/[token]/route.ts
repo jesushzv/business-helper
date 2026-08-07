@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { verifyStoredOTP, generateDigitalSeal, OTP_MAX_ATTEMPTS } from '@/lib/otpSeal';
+import { trackServerEvent } from '@/lib/analyticsServer';
 
 /**
  * Public quote surface — reached by the client over a shared link, with no
@@ -118,7 +119,10 @@ export async function POST(
     const { data: quote, error: fetchError } = await (supabase as any)
       .from('quotes')
       .select(
-        'id, status, total_amount, client_otp_hash, client_otp_expires_at, client_otp_attempts, client_otp_verified, contract_hash, accepted_at, clients(name)'
+        // organization_id and created_by are not exposed in the response; they
+        // attribute the signature to the tenant and the user whose funnel this
+        // step belongs to.
+        'id, organization_id, created_by, status, total_amount, client_otp_hash, client_otp_expires_at, client_otp_attempts, client_otp_verified, contract_hash, accepted_at, clients(name)'
       )
       .eq('public_token', token)
       .maybeSingle();
@@ -212,6 +216,23 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    // The step that answers whether the OTP flow works for someone else's
+    // clients, not just for the person who built the quote. The signer is the
+    // client and has no account, so it is attributed to the user who owns the
+    // quote — that keeps one funnel per user rather than an orphan step.
+    trackServerEvent('quote_signed', {
+      distinctId: quote.created_by || quote.organization_id,
+      organizationId: quote.organization_id,
+      timestamp,
+      properties: {
+        quote_id: quote.id,
+        total_amount: Number(quote.total_amount) || 0,
+        // How many codes the signer needed. A high number here is a usability
+        // problem in the signing flow, not a rejection of the product.
+        otp_attempts: verification.attempts,
+      },
+    });
 
     return NextResponse.json({
       success: true,

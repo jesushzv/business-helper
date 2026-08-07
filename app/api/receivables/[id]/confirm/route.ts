@@ -3,6 +3,7 @@ import { requireOrgAccess } from '@/lib/apiAuth';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { issuePaymentComplement } from '@/lib/complementoPago';
 import { getAppBaseUrl } from '@/lib/url';
+import { trackServerEvent } from '@/lib/analyticsServer';
 
 /**
  * Confirms that a milestone's payment was received.
@@ -91,6 +92,23 @@ export async function POST(
       amount: Number(updated.transferred_amount ?? updated.amount),
       paymentDate: confirmedAt,
       operationNumber: updated.tracking_reference || null,
+    });
+
+    // The loop closed. Recorded after the write returned a row, so it counts
+    // money the product actually recorded as received rather than a request
+    // that was made.
+    trackServerEvent('payment_confirmed', {
+      distinctId: userId,
+      organizationId,
+      timestamp: confirmedAt,
+      properties: {
+        milestone_id: id,
+        amount: Number(updated.transferred_amount ?? updated.amount) || 0,
+        // Whether closing the loop also discharged the SAT obligation, or left
+        // one to retry.
+        complement_filed: Boolean(complement.complement),
+        complement_failed: Boolean(complement.complementError),
+      },
     });
 
     return NextResponse.json({ ...updated, ...complement });
