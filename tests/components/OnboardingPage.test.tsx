@@ -8,6 +8,10 @@ import OnboardingPage from '@/app/onboarding/page';
  * created. The old handler ignored the response and pushed to /dashboard in a
  * finally block, so a 401/500/validation failure delivered the user to a
  * dashboard where every route answers 403 NO_ORGANIZATION, with no way back.
+ *
+ * #14 — onboarding also collects the SPEI settlement account. Without a CLABE
+ * the payment page answers 409 and the cash-flow loop dead-ends at its last
+ * step, so the account is collected up front rather than left in Ajustes.
  */
 
 const mockPush = vi.fn();
@@ -24,6 +28,9 @@ function jsonResponse(status: number, body: unknown): Response {
 
 const fetchMock = vi.fn<typeof fetch>();
 
+const VALID_CLABE = '0121 8000 1234 5678 99';
+const ORG_CREATED = { organization: { id: 'org-1', name: 'Ferretería La Silla' } };
+
 beforeEach(() => {
   vi.clearAllMocks();
   fetchMock.mockReset();
@@ -34,26 +41,41 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function completeBothSteps() {
+/** Steps 1 → 2, stopping at the organization-creation submit. */
+async function submitOrganization() {
   render(<OnboardingPage />);
 
   fireEvent.change(screen.getByPlaceholderText(/Distribuidora del Norte/i), {
     target: { value: 'Ferretería La Silla' },
   });
   fireEvent.click(screen.getByRole('button', { name: /Continuar a Datos Fiscales/i }));
-
-  fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
+  fireEvent.click(screen.getByRole('button', { name: /Continuar a Cuenta de Cobro/i }));
 }
 
-describe('OnboardingPage completion (#49)', () => {
-  it('navigates to the dashboard when the organization was actually created', async () => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { organization: { id: 'org-1', name: 'Ferretería La Silla' } })
+/** Steps 1 → 3, leaving the bank form filled and ready to submit. */
+async function reachBankStep(clabe: string = VALID_CLABE) {
+  fetchMock.mockResolvedValueOnce(jsonResponse(200, ORG_CREATED));
+  await submitOrganization();
+
+  await waitFor(() =>
+    expect(screen.getByLabelText(/CLABE Interbancaria/i)).toBeInTheDocument()
+  );
+
+  fireEvent.change(screen.getByLabelText(/^Banco/i), { target: { value: 'BBVA México' } });
+  fireEvent.change(screen.getByLabelText(/CLABE Interbancaria/i), { target: { value: clabe } });
+}
+
+describe('OnboardingPage — organization creation (#49)', () => {
+  it('advances to the bank step when the organization was actually created', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, ORG_CREATED));
+
+    await submitOrganization();
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/CLABE Interbancaria/i)).toBeInTheDocument()
     );
-
-    await completeBothSteps();
-
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'));
+    // Onboarding is not finished yet — nothing should have navigated.
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('stays on the form and shows the API error when creation fails', async () => {
@@ -61,20 +83,19 @@ describe('OnboardingPage completion (#49)', () => {
       jsonResponse(500, { error: { code: 'SERVER_ERROR', message: 'No se pudo crear la organización' } })
     );
 
-    await completeBothSteps();
+    await submitOrganization();
 
     await waitFor(() =>
       expect(screen.getByText('No se pudo crear la organización')).toBeInTheDocument()
     );
     expect(mockPush).not.toHaveBeenCalled();
-    // The form is still there for a retry.
-    expect(screen.getByRole('button', { name: /Comenzar en Business Helper/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/CLABE Interbancaria/i)).not.toBeInTheDocument();
   });
 
   it('stays on the form when the network fails', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-    await completeBothSteps();
+    await submitOrganization();
 
     await waitFor(() =>
       expect(screen.getByText(/No se pudo conectar con el servidor/i)).toBeInTheDocument()
@@ -89,8 +110,72 @@ describe('OnboardingPage completion (#49)', () => {
       })
     );
 
-    await completeBothSteps();
+    await submitOrganization();
+
+    // No backend to store a bank account in either, so the bank step is skipped.
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'));
+  });
+});
+
+describe('OnboardingPage — SPEI settlement account (#14)', () => {
+  it('saves the CLABE as digits only and then enters the app', async () => {
+    await reachBankStep();
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, ORG_CREATED));
+    fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'));
+
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(String(url)).toBe('/api/organization');
+    expect(init?.method).toBe('PATCH');
+    const sent = JSON.parse(String(init?.body));
+    expect(sent.bankClabe).toBe('012180001234567899');
+    expect(sent.bankName).toBe('BBVA México');
+  });
+
+  it('cannot be submitted until the CLABE is complete', async () => {
+    await reachBankStep('0121 8000');
+
+    expect(screen.getByRole('button', { name: /Comenzar en Business Helper/i })).toBeDisabled();
+    expect(screen.getByText('8 de 18 dígitos')).toBeInTheDocument();
+  });
+
+  it('does not enter the app when saving the account fails', async () => {
+    await reachBankStep();
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, { error: { code: 'INVALID_CLABE', message: 'La CLABE debe tener exactamente 18 dígitos' } })
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText('La CLABE debe tener exactamente 18 dígitos')).toBeInTheDocument()
+    );
+    // Reporting a saved account that does not exist is the defect class this
+    // whole cluster exists to remove.
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('does not enter the app when the network fails on the bank write', async () => {
+    await reachBankStep();
+
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/No se pudo conectar con el servidor/i)).toBeInTheDocument()
+    );
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('warns on a checksum-invalid CLABE without blocking submission', async () => {
+    // Same account with the last digit off by one — 18 digits, wrong checksum.
+    await reachBankStep('0121 8000 1234 5678 90');
+
+    expect(screen.getByText(/Revise la CLABE/i)).toBeInTheDocument();
+    // Advisory only: the server accepts any 18 digits, so the UI must not
+    // claim an authority it does not have.
+    expect(screen.getByRole('button', { name: /Comenzar en Business Helper/i })).toBeEnabled();
   });
 });
