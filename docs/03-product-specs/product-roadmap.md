@@ -203,15 +203,15 @@ The following matrix documents when optional or pending third-party API credenti
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase DB & Auth | 🟢 Active (`.env`) | **Sprint 1** (Core Database & Auth Infrastructure) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Client Key | 🟢 Active (`.env`) | **Sprint 1** (Core Database & Auth Infrastructure) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Service Role | 🟢 Active (`.env`) | **Sprint 1** (Backend RLS & Storage Bypass) |
-| `STRIPE_SECRET_KEY` | Stripe Billing API | 🟡 Sandbox Mode | **Launch Gate — P0.** Live key required to take payment. |
-| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook Listener | 🟡 Configured | **Launch Gate — P0.** Signature enforcement is live in code (PR #16); verify against staging with `npm run verify:webhook`. |
-| `STRIPE_PRICE_*` | Stripe Plan Price IDs | 🟡 Price ID Config | **Launch Gate — P0.** Map live IDs for each tier. |
-| `OTP_DELIVERY_CHANNEL` | OTP channel selector | 🔴 **Unset — flow inoperable** | **Launch Gate — P0.** Must be `sms` or `whatsapp`; unset means `POST /api/quotes/public/[token]/otp` returns 502 and no quote can be signed. |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | Twilio (OTP + outbound WhatsApp) | 🔴 **Unset — required** | **Launch Gate — P0.** *Correction: previously listed as "Fallback `wa.me/`". Click-to-Chat is owner-initiated only and cannot deliver an OTP to a signer.* One account covers both OTP delivery and reminder broadcasts. |
-| `TWILIO_SMS_NUMBER` / `TWILIO_WHATSAPP_NUMBER` | Twilio sender | 🔴 Unset | **Launch Gate — P0** (whichever channel is chosen). |
+| `STRIPE_SECRET_KEY` | Stripe Billing API | 🟡 Sandbox Mode | **Launch Gate — P0** → [#68](https://github.com/jesushzv/business-helper/issues/68). Live key required to take payment. |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook Listener | 🟡 Configured | **Launch Gate — P0** → [#63](https://github.com/jesushzv/business-helper/issues/63). Signature enforcement is live in code (PR #16); verify against staging with `npm run verify:webhook`. |
+| `STRIPE_PRICE_*` | Stripe Plan Price IDs | 🟡 Price ID Config | **Launch Gate — P0** → [#68](https://github.com/jesushzv/business-helper/issues/68). Map live IDs for each tier; a mismatched map charges the wrong amount. |
+| `OTP_DELIVERY_CHANNEL` | OTP channel selector | 🔴 **Unset — flow inoperable** | **Launch Gate — P0** → [#2](https://github.com/jesushzv/business-helper/issues/2). Must be `sms` or `whatsapp`; unset means `POST /api/quotes/public/[token]/otp` returns 502 and no quote can be signed. |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | Twilio (OTP + outbound WhatsApp) | 🔴 **Unset — required** | **Launch Gate — P0** → [#2](https://github.com/jesushzv/business-helper/issues/2). *Correction: previously listed as "Fallback `wa.me/`". Click-to-Chat is owner-initiated only and cannot deliver an OTP to a signer.* One account covers both OTP delivery and reminder broadcasts. |
+| `TWILIO_SMS_NUMBER` / `TWILIO_WHATSAPP_NUMBER` | Twilio sender | 🔴 Unset | **Launch Gate — P0** → [#2](https://github.com/jesushzv/business-helper/issues/2) (whichever channel is chosen). |
 | `META_WHATSAPP_TOKEN` / `META_PHONE_NUMBER_ID` | Meta Cloud API | 🔵 Alternative to Twilio | Alternative provider for the same P0 requirement. |
 | `PAC_ENCRYPTION_KEY` | PAC API key sealing (AES-256-GCM) | 🔴 Unset | **Required before any PAC can be connected** (PR #23). |
-| `FACTURAPI_SECRET_KEY` | Facturapi SAT PAC | 🟡 Test Mode (`sk_test_`) | **P0 only if CFDI ships at launch.** Optional if CFDI is deferred — Nota de Venta PDF covers MVP invoicing. |
+| `FACTURAPI_SECRET_KEY` | Facturapi SAT PAC | 🟡 Test Mode (`sk_test_`) | **Launch Gate — P0** → [#26](https://github.com/jesushzv/business-helper/issues/26). *CFDI shipping at launch was resolved by the founder on 2026-08-07, so this is no longer conditional — the "optional if CFDI is deferred" wording is obsolete.* |
 | `GEMINI_API_KEY` | Gemini AI Assistant | 🔵 Fallback Mock AI | P2 — assistant degrades gracefully without it. |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error Tracking | 🔴 **No transport exists** | **P1.** Setting the DSN alone does nothing: `lib/sentry.ts` only `console.error`s and there is no `@sentry/nextjs` dependency. A real transport must be added. |
 

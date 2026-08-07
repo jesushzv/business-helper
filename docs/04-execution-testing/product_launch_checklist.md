@@ -15,6 +15,21 @@
 > service, or when it requires no third party. Everything else is `[ ]` with the gap named.
 > See [`launch_readiness_memo_aug2026.md`](launch_readiness_memo_aug2026.md) for the full reconciliation.
 
+> [!IMPORTANT]
+> **The `(P0)` in the §01 section headings is a domain label, not the launch-blocking P0 stack.**
+> The authoritative P0 list is
+> [`launch_readiness_memo_aug2026.md`](launch_readiness_memo_aug2026.md) §03, and it is narrower —
+> a heading here marked `(P0)` contains items the memo ranks P1 or P2. Where the two disagree, the
+> memo wins. Every genuinely launch-blocking item below now names its issue inline and is marked
+> **P0** on that line. **This linking applies to §01–§03** (engineering, infrastructure and
+> go-live); the landing-page, UX, SEO and launch-week sections below carry their own `WS-*`
+> workstream IDs from the UX audit and are deliberately not one-issue-per-line.
+>
+> *Refreshed 2026-08-07 during the P0 reconciliation. Corrections made: PR #20 recorded as unmerged
+> when it had merged; two pending migrations when there are three; Stripe live mode pointed at #14
+> after #14 was split; test count 383/58 when it is 594/78; and a "coverage exceeds 85%" claim
+> resting on a threshold CI does not run (#51).*
+
 ---
 
 ## 01 Technical Code Implementation (Pre-Launch Engineering)
@@ -27,8 +42,8 @@
 ### ✍️ E-Signature OTP Delivery (P0 — blocks the core loop)
 - [x] **Provider Code Paths**: `lib/otpDelivery.ts` implements Twilio SMS, Twilio WhatsApp, and Meta Cloud API, selected by `OTP_DELIVERY_CHANNEL`. Fails closed outside development (PR #16).
 - [ ] **Provider Credentials Configured**: No credentials in the environment. Until set, `POST /api/quotes/public/[token]/otp` returns 502 and **no quote can be signed**. See issue #2.
-- [ ] **Per-Recipient Rate Limiting**: Sends are capped per *quote*, not per *phone* — one handset can be pumped across a client's several open quotes. Must land before any provider goes live. Issue #17 / **PR #20 unmerged**.
-- [ ] **Real Handset Verification**: A code arrives within ~10s on the configured channel and cannot be replayed.
+- [x] **Per-Recipient Rate Limiting**: Issuance is capped on the recipient phone across quotes. *(Issue #17 / PR #20 — merged 2026-08-07; this line previously read "PR #20 unmerged".)* Escalating backoff and a daily cap remain open as hardening ([#22](https://github.com/jesushzv/business-helper/issues/22), P1).
+- [ ] **Real Handset Verification** ([#2](https://github.com/jesushzv/business-helper/issues/2), **P0**): A code arrives within ~10s on the configured channel and cannot be replayed.
 
 ### 🤖 Real AI Integration (P1)
 - [x] **Live RAG & DB Context Ingestion**: `/api/ai/assistant` and `/api/ai/support` read the caller's own clients and open milestones via `lib/aiOrgContext.ts`. The hardcoded "Grupo Salinas" ledger and the fallback WhatsApp number are gone; the sample book of business survives only where no backend is configured, and is badged as an example in the UI.
@@ -38,26 +53,26 @@
 - [x] **Live Facturapi PAC Client**: `lib/pacClient.ts` stamps through the PAC — the organization's own account, or the platform's `FACTURAPI_SECRET_KEY`. The earlier `issueInvoiceClient()` "graceful fallback" was the defect: it resolved every failure into `simulateInvoiceStamping()`, so a fabricated folio was indistinguishable from a real one. Both are removed. *(Merged in PR #23.)*
 - [x] **XML & PDF Storage**: `app/api/invoices/issue/route.ts` downloads the XML and PDF from the PAC into the private `cfdi-documents` bucket and records the object paths on the milestone. The old columns held `storage.businesshelper.mx` URLs that resolved to nothing; the migration clears them.
 - [x] **Complemento de Pago**: filed when a PPD milestone is confirmed *(PR #29)*.
-- [ ] **One real stamp against a live PAC**: **still outstanding, and the item that matters.** PR #23's coverage runs against a mocked `fetch`, which proves the code is correct, not that the integration works. Obtain a Facturapi sandbox key and issue one invoice end to end, confirming a real SAT UUID comes back and the stored XML/PDF open.
-- [ ] **Migration Applied**: `20260807120000_cfdi_pac_integration.sql` must be applied to production before the deploy carrying it.
+- [ ] **One real stamp against a live PAC** ([#26](https://github.com/jesushzv/business-helper/issues/26), **P0**): **still outstanding, and the item that matters.** PR #23's coverage runs against a mocked `fetch`, which proves the code is correct, not that the integration works. Obtain a Facturapi sandbox key and issue one invoice end to end, confirming a real SAT UUID comes back and the stored XML/PDF open.
+- [ ] **Migration Applied** ([#62](https://github.com/jesushzv/business-helper/issues/62), **P0**): `20260807120000_cfdi_pac_integration.sql` must be applied to production before the deploy carrying it — one of **three** pending migrations, not one.
 
 ### 💳 Stripe Subscription Billing & Webhooks (P0)
 - [x] **Checkout Implementation**: `lib/stripeClient.ts` creates Checkout Sessions via raw REST against `api.stripe.com/v1`. *(There is no `stripe` SDK dependency — the earlier "Install `stripe` package" description does not match the implementation.)* Made real in PR #19.
 - [x] **Webhook Listener & Signature Verification**: `app/api/stripe/webhook/route.ts` + `lib/stripeWebhook.ts` handle subscription lifecycle events and enforce `STRIPE_WEBHOOK_SECRET` (PR #16).
-- [ ] **Live Mode Verified**: Live keys and price IDs mapped, a real card charged, and unsigned/duplicate webhook deliveries confirmed rejected/idempotent against staging (`npm run verify:webhook`). See issue #14.
-- [ ] **CFDI Folio Pack Purchase**: `createFolioPackCheckoutPayload` exists and the read path honours `cfdi_folios_purchased`, but no route creates the session and no webhook credits it.
+- [ ] **Live Mode Verified**: two separately tracked halves — live secret key and per-tier Price IDs mapped with a real card charged ([#68](https://github.com/jesushzv/business-helper/issues/68), **P0**), and unsigned/duplicate webhook deliveries confirmed rejected/idempotent against staging via `npm run verify:webhook` ([#63](https://github.com/jesushzv/business-helper/issues/63), **P0**). *(Previously pointed at #14, which has since been split.)*
+- [ ] **CFDI Folio Pack Purchase** ([#24](https://github.com/jesushzv/business-helper/issues/24) / [#27](https://github.com/jesushzv/business-helper/issues/27), P1): `createFolioPackCheckoutPayload` exists and the read path honours `cfdi_folios_purchased`, but no route creates the session and no webhook credits it. Depends on #68 — folios cannot be sold before the account can charge at all.
 
 ### 💾 Supabase Database & Storage Production Setup (P0)
 - [x] **Migrations Authored**: `supabase/migrations/` covers the multi-tenant RLS tables, security hardening, and team invitations. `npm run db:migrate` (+ `--dry-run`) added in PR #11.
-- [ ] **Production Migrations Applied**: Two migrations from unmerged PRs are pending — `20260807000000_otp_send_rate_limit.sql` (#20) and `20260807120000_cfdi_pac_integration.sql` (#23). **Both must be applied before the code that depends on them deploys**, or the affected routes 500.
+- [ ] **Production Migrations Applied** ([#62](https://github.com/jesushzv/business-helper/issues/62), **P0**): **three** migrations are pending, and all three are on `main` already (this line previously said two, "from unmerged PRs") — `20260807000000_otp_send_rate_limit.sql` (#20), `20260807120000_cfdi_pac_integration.sql` (#23) and `20260807170000_cfdi_payment_complements.sql` (#29). **All must be applied before the code that depends on them deploys**, or the affected routes 500. Vercel auto-deploys `main`, so the window is already open.
 - [x] **Supabase Storage Bucket for SPEI Receipts**: `app/api/receivables/[id]/upload/route.ts` writes to the `spei-vouchers` bucket with magic-byte validation.
-- [x] **Quality Gate Compliance**: **383 tests / 58 files** passing via `npx vitest run`, 0 TypeScript warnings. *(`scripts/test-runner.js` was retired in PR #21; any count of 138/144/175/182 is stale.)*
-- [ ] **Playwright E2E Verification**: `playwright.config.ts` and `tests/e2e/` exist and `npm run test:e2e` is wired, but the suite was not executed in the 2026-08-07 verification pass. The prior "14/14 passing" claim is unverified.
+- [x] **Quality Gate Compliance**: **594 tests / 78 files** passing via `npx vitest run`, `tsc --noEmit` clean. *(`scripts/test-runner.js` was retired in PR #21; any count of 138/144/175/182/383 is stale. Lint is 22 warnings / 0 errors — the `--max-warnings=0` gate is described in five documents and enforced nowhere, see [#46](https://github.com/jesushzv/business-helper/issues/46).)*
+- [ ] **Playwright E2E Verification** ([#69](https://github.com/jesushzv/business-helper/issues/69)): `playwright.config.ts` and `tests/e2e/` exist and `npm run test:e2e` is wired, but the suite has never been executed in any recorded verification pass. The prior "14/14 passing" claim corresponds to no run.
 
 ### ☁️ Production Cloud QA & Edge Runtime Verification (P0)
 - [x] **Edge Middleware Parity & API Route Bypass**: Root `middleware.ts` excludes `/api/*` from the Edge matcher and wraps session updates in exception fallbacks to prevent 500 `MIDDLEWARE_INVOCATION_FAILED`.
-- [ ] **Playwright Staging E2E Battery**: Suite exists (`tests/e2e/`, `npm run test:e2e`) but was **not executed** in the 2026-08-07 verification pass. Run it against a live staging URL before launch — note that the OTP and CFDI scenarios cannot pass meaningfully until their providers are configured.
-- [ ] **Live Health Endpoint Smoke Test**: Confirm `/api/health` returns HTTP 200 with `status: "healthy"` **against the deployed production URL**, not locally.
+- [ ] **Playwright Staging E2E Battery** ([#69](https://github.com/jesushzv/business-helper/issues/69)): Suite exists (`tests/e2e/`, `npm run test:e2e`) but was **not executed** in the 2026-08-07 verification pass. Run it against a live staging URL before launch — note that the OTP and CFDI scenarios cannot pass meaningfully until their providers are configured (#2, #26).
+- [ ] **Live Health Endpoint Smoke Test** ([#70](https://github.com/jesushzv/business-helper/issues/70)): Confirm `/api/health` returns HTTP 200 with `status: "healthy"` **against the deployed production URL**, not locally. #70 also covers the full-loop smoke test, which is the only check that walks the seams between steps each other item verifies in isolation.
 
 ---
 
@@ -66,9 +81,9 @@
 ### Product & Engineering Readiness
 - [x] **P0 Core Features Complete**: Quote Creation, Accounts Receivable Kanban, Client CRM, and SPEI Receipt Uploads fully built.
 - [x] **RLS Multi-Tenant Audit**: All 9 database tables verified with active RLS policies (`organization_id` scoping).
-- [x] **Test Gate Compliance**: Code coverage exceeds **85%**; **383 unit/integration tests** passing via `npx vitest run`.
+- [x] **Test Gate Compliance**: **594 unit/component tests / 78 files** passing via `npx vitest run`. *(The 85% coverage gate is configured but is not run by CI and currently fails — see [#51](https://github.com/jesushzv/business-helper/issues/51). This line previously asserted coverage "exceeds 85%" on the strength of a threshold nobody executes.)*
 - [x] **Security Sanitization**: File upload magic byte validation active; brute-force OTP *verification* lockout tested (3 failed attempts). *(OTP **issuance** limiting is separate and still open — see §01.)*
-- [ ] **Stripe Subscription Billing**: Products & Prices ($299, $599, $999 MXN) configured in sandbox. Live-mode mapping and a real charge remain unverified.
+- [ ] **Stripe Subscription Billing** ([#68](https://github.com/jesushzv/business-helper/issues/68), **P0**): Products & Prices ($299, $599, $999 MXN) configured in sandbox. Live-mode mapping and a real charge remain unverified.
 
 ### Marketing & Legal Content
 - [x] **Landing Page Finalized**: Landing page implemented per [landing-page-brief.md](../03-product-specs/landing-page-brief.md).
@@ -159,11 +174,11 @@
 ## 03 Pre-Launch (T-1 Week: Sep 12 – Sep 18, 2026)
 
 - [x] **Production Deployment Guide & Secrets Template**: `docs/deployment.md` and `.env.example` map the production keys.
-- [ ] **Production DB Migrations**: Confirm every migration in `supabase/migrations/` is applied to the production project, **including the two that landed with PRs #20 and #23** (`20260807000000_otp_send_rate_limit.sql`, `20260807120000_cfdi_pac_integration.sql`). Both are on `main` now, so a deploy without them returns 500s from the OTP and invoice routes. Verify with `npm run db:migrate:dry`.
+- [ ] **Production DB Migrations** ([#62](https://github.com/jesushzv/business-helper/issues/62), **P0**): Confirm every migration in `supabase/migrations/` is applied to the production project, **including the three that landed with PRs #20, #23 and #29** (`20260807000000_otp_send_rate_limit.sql`, `20260807120000_cfdi_pac_integration.sql`, `20260807170000_cfdi_payment_complements.sql`). All are on `main` now, so a deploy without them returns 500s from the OTP and invoice routes. Verify with `npm run db:migrate:dry`.
 - [ ] **Supabase Production Infrastructure**: Verify `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are set in the Vercel environment. *(Do not record project refs, keys, or `.env.production` contents in this repo.)*
 - [ ] **Production API Keys Configuration**:
   - [ ] `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`: Live key set and webhook endpoint registered (`/api/stripe/webhook`). Verify with `npm run verify:webhook`.
-  - [ ] `STRIPE_PRICE_*`: Live price IDs mapped for each tier (Inicial / Negocio / Empresa).
+  - [ ] `STRIPE_PRICE_*` ([#68](https://github.com/jesushzv/business-helper/issues/68)): Live price IDs mapped for each tier (Inicial / Negocio / Empresa).
   - [ ] `OTP_DELIVERY_CHANNEL` + `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / sender number — **required, not optional.** The earlier "Not Needed / Bypassed" note was wrong: `wa.me/` Click-to-Chat only covers *owner-initiated* messages. It cannot deliver an OTP to a signer, so without a provider the e-signature flow is inoperable and no quote can be signed. One Twilio account also covers the outbound reminders in `lib/whatsappOutbound.ts`. (Meta Cloud API is the alternative; Twilio SMS is the fastest to provision.)
   - [ ] `PAC_ENCRYPTION_KEY`: **Required before anyone can connect a PAC.** 32 bytes (base64 or hex) sealing tenant PAC API keys; `/api/organization/pac` answers 503 rather than storing a credential in plaintext without it.
   - [ ] `FACTURAPI_SECRET_KEY`: **Optional.** It is the platform's shared PAC account, used by tenants who have not connected their own; those stamps consume the folios their plan includes. Without it, an organization connects its own PAC in Ajustes and invoicing still works. The Nota de Venta PDF and Accountant ZIP Export (`lib/receiptGenerator.ts`) remain the zero-SAT default.
@@ -176,7 +191,7 @@
 
 ### Support & Operational Readiness
 - [ ] **WhatsApp Support Line**: Dedicated WhatsApp Business phone number configured for client inquiries.
-- [ ] **Per-Organization CLABE**: Every pilot org must have real bank details configured (`components/settings/BankAccountCard.tsx`). Payment confirmation against a placeholder account is meaningless. See issue #14.
+- [ ] **Per-Organization CLABE** ([#64](https://github.com/jesushzv/business-helper/issues/64), **P0**): Every pilot org must have real bank details configured. Onboarding now collects the account as a third step and the payment route refuses with 409 rather than defaulting, but an org created before that step — or abandoning it — still has no CLABE and is never asked again. *(Previously pointed at #14, since split.)*
 - [x] **Help Center FAQ**: In-app FAQ page updated with quote, SPEI, and SAT tax questions. (`/help`)
 
 ---
@@ -185,7 +200,7 @@
 
 ### Morning (Deploy & Announce)
 - [ ] **Deploy to Production**: Trigger production deployment on Vercel (`git push origin main`).
-- [ ] **Smoke Test**: Execute live test: Register account → Create test quote → Send WhatsApp link → Verify landing view.
+- [ ] **Smoke Test** ([#70](https://github.com/jesushzv/business-helper/issues/70)): Execute live test: Register account → onboarding incl. the CLABE step → Create test quote → Send WhatsApp link → open `/q/[token]` as the client → OTP sign → SPEI upload → confirm.
 - [ ] **Publish Landing Page**: Point main domain traffic to production Vercel app.
 - [ ] **LinkedIn & Social Release**: Publish founder announcement post: *"Lanzamos Business Helper: El control de tu negocio en tu celular."*
 

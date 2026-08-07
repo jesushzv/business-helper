@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess, requireUser, isDemoDeployment } from '@/lib/apiAuth';
+import { normalizeClabe, isValidClabeLength } from '@/lib/clabe';
 
 export async function GET() {
   // No backend means no tenant data; the demo organization is honest here.
@@ -67,9 +68,9 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { bankName, bankClabe, bankAccountHolder } = body;
 
-    const clabe = typeof bankClabe === 'string' ? bankClabe.replace(/\s/g, '') : '';
+    const clabe = typeof bankClabe === 'string' ? normalizeClabe(bankClabe) : '';
 
-    if (!/^\d{18}$/.test(clabe)) {
+    if (!isValidClabeLength(clabe)) {
       return NextResponse.json(
         { error: { code: 'INVALID_CLABE', message: 'La CLABE debe tener exactamente 18 dígitos' } },
         { status: 400 }

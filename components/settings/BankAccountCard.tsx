@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Landmark, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { formatClabe, normalizeClabe, isValidClabeLength } from '@/lib/clabe';
 
 /**
  * SPEI settlement account for the organization.
@@ -19,11 +20,6 @@ interface BankAccount {
 }
 
 const EMPTY: BankAccount = { bank_name: '', bank_clabe: '', bank_account_holder: '' };
-
-function formatClabe(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 18);
-  return digits.replace(/(.{4})/g, '$1 ').trim();
-}
 
 export const BankAccountCard: React.FC = () => {
   const [form, setForm] = useState<BankAccount>(EMPTY);
@@ -94,8 +90,8 @@ export const BankAccountCard: React.FC = () => {
     }
   };
 
-  const clabeDigits = form.bank_clabe.replace(/\D/g, '');
-  const isConfigured = clabeDigits.length === 18 && form.bank_name.trim().length > 0;
+  const clabeDigits = normalizeClabe(form.bank_clabe);
+  const isConfigured = isValidClabeLength(form.bank_clabe) && form.bank_name.trim().length > 0;
 
   return (
     <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl sm:p-8 text-white">

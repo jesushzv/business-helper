@@ -34,12 +34,18 @@ export async function GET(
       .maybeSingle();
 
     if (error || !quote) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Cotización no encontrada' } },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(quote);
   } catch {
-    return NextResponse.json({ error: 'Failed to fetch quote' }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'No se pudo cargar la cotización' } },
+      { status: 500 }
+    );
   }
 }
 
@@ -77,16 +83,25 @@ export async function PUT(
     // A failed or zero-row write is reported as such rather than echoing the
     // caller's own body back as a fake success.
     if (error) {
-      return NextResponse.json({ error: 'Failed to update quote' }, { status: 500 });
+      return NextResponse.json(
+        { error: { code: 'SERVER_ERROR', message: 'No se pudo actualizar la cotización' } },
+        { status: 500 }
+      );
     }
 
     if (!updated) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Cotización no encontrada' } },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(updated);
   } catch {
-    return NextResponse.json({ error: 'Failed to update quote' }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'No se pudo actualizar la cotización' } },
+      { status: 500 }
+    );
   }
 }
 
@@ -110,17 +125,26 @@ export async function DELETE(
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to delete quote' }, { status: 500 });
+      return NextResponse.json(
+        { error: { code: 'SERVER_ERROR', message: 'No se pudo eliminar la cotización' } },
+        { status: 500 }
+      );
     }
 
     if (!deleted) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Cotización no encontrada' } },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({ success: true });
   } catch {
     // Previously returned {success: true, demo: true} on any failure, so a
     // caller could not tell a deletion from an error.
-    return NextResponse.json({ error: 'Failed to delete quote' }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'No se pudo eliminar la cotización' } },
+      { status: 500 }
+    );
   }
 }
