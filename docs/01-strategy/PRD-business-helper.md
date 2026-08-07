@@ -20,7 +20,7 @@ After 15+ sprints, Mi Pacto is a **production-grade SaaS** with:
 
 | Asset | Details |
 |:------|:--------|
-| **Tech Stack** | Next.js 16 + React 19 + Supabase + Stripe + Tailwind v4 |
+| **Tech Stack** | Next.js 15 + React 19 + Supabase + Stripe + Tailwind v4 |
 | **Auth & Security** | Supabase Auth, RLS policies, OTP verification, brute-force protection, file upload sanitization |
 | **Contract Engine** | Multi-step wizard, legal clause templates, SHA-256 integrity seals, double-acceptance flow, state machine lifecycle |
 | **Payment Tracking** | SPEI/Banxico reconciliation, milestone state machine, receipt uploads with magic byte validation |

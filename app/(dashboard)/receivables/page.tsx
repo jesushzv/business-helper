@@ -117,9 +117,9 @@ export default function ReceivablesPage() {
           setIsConfirmModalOpen(false);
           setSelectedMilestone(null);
         }}
-        onConfirm={async (milestoneId, transferredAmount) => {
-          await confirmPayment(milestoneId, transferredAmount);
-        }}
+        onConfirm={(milestoneId, transferredAmount) =>
+          confirmPayment(milestoneId, transferredAmount)
+        }
       />
     </div>
     </>

@@ -1,7 +1,7 @@
 /**
  * Business Helper — Dynamic URL & Domain Resolution Helper Engine
  *
- * Provides origin resolution for custom domain deployment (e.g. businesshelper.mx),
+ * Provides origin resolution for custom domain deployment (businesshelper.app),
  * auth callbacks, and Stripe webhook listener endpoints.
  */
 
@@ -24,6 +24,23 @@ export function getAppBaseUrl(): string {
 
   // Strip trailing slash
   return url.replace(/\/+$/, '');
+}
+
+/**
+ * Returns the absolute public URL for a quote's signing portal (/q/[token]).
+ *
+ * In the browser the current origin wins, so preview deployments link to
+ * themselves. Server-side it falls back to getAppBaseUrl() — never a literal
+ * host: this URL is embedded in the WhatsApp message a client receives, and a
+ * hardcoded fallback once pointed every server-rendered link at
+ * businesshelper.mx, a domain nobody owns (#36).
+ */
+export function getQuotePublicUrl(publicToken: string): string {
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : getAppBaseUrl();
+  return `${origin}/q/${publicToken}`;
 }
 
 /**

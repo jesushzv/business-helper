@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MilestoneItem, calculateReceivablesSummary, ReceivablesSummary } from '../receivablesCalculator';
 
 export interface MilestoneWithClient extends MilestoneItem {
@@ -97,8 +97,49 @@ const INITIAL_DEMO_RECEIVABLES: MilestoneWithClient[] = [
 
 const LOCAL_STORAGE_KEY = 'business_helper_receivables_v1';
 
+/**
+ * What a mutation actually did, reported honestly.
+ *
+ * These used to fire the request and discard the outcome, so a 401/403/500
+ * still showed `confirmed`, persisted it to localStorage, and moved the
+ * "cobrado este mes" total — the same defect the CFDI work removed, one layer
+ * up (#33). Now the server writes first and local state follows its answer.
+ */
+export interface ReceivableMutationOutcome {
+  success: boolean;
+  milestone?: MilestoneWithClient;
+  error?: string;
+  /** Complemento de pago the confirm route filed for a PPD invoice, if any. */
+  complement?: Record<string, unknown>;
+  /** Set when the payment confirmed but the SAT complement could not be filed. */
+  complementError?: { code: string; message: string } | null;
+}
+
+/**
+ * The one case where a local-only write is legitimate: the deployment has no
+ * backend at all (the static marketing demo). requireOrgAccess() signals it
+ * with exactly this status and code; anything else is a real failure.
+ */
+function isDemoBackendResponse(status: number, data: unknown): boolean {
+  const err = (data as { error?: { code?: string } } | null)?.error;
+  return status === 503 && err?.code === 'BACKEND_NOT_CONFIGURED';
+}
+
+function errorMessage(data: unknown, fallback: string): string {
+  const err = (data as { error?: string | { message?: string } } | null)?.error;
+  if (typeof err === 'string') return err;
+  return err?.message || fallback;
+}
+
 export function useReceivables() {
   const [receivables, setReceivables] = useState<MilestoneWithClient[]>([]);
+  // Mirror of the list for the mutation helpers: a setState updater runs when
+  // React flushes, not when it is called, so the row a mutation just changed
+  // cannot be read back synchronously through state alone.
+  const receivablesRef = useRef<MilestoneWithClient[]>([]);
+  useEffect(() => {
+    receivablesRef.current = receivables;
+  }, [receivables]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -110,16 +151,28 @@ export function useReceivables() {
 
     try {
       const res = await fetch('/api/receivables');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.receivables && Array.isArray(data.receivables) && data.receivables.length > 0) {
-          setReceivables(data.receivables);
-          setLoading(false);
-          return;
-        }
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && Array.isArray(data?.receivables)) {
+        // The server's answer is the answer — including an empty list. A real
+        // tenant with zero receivables must see zero, not the demo fixtures
+        // (which previously claimed money owed by clients that do not exist).
+        setReceivables(data.receivables);
+        setLoading(false);
+        return;
       }
+
+      if (!isDemoBackendResponse(res.status, data)) {
+        // A configured backend answered with a failure. Falling back to demo
+        // data here would present fiction as fact; report it instead.
+        setError(errorMessage(data, 'No se pudieron cargar tus cobros'));
+        setLoading(false);
+        return;
+      }
+      // 503 BACKEND_NOT_CONFIGURED: static demo deployment, fall through.
     } catch {
-      // Fall through to localStorage / demo fallback
+      // Network failure — the local cache is the best truth available, and on
+      // the demo deployment it is the only persistence there is.
     }
 
     try {
@@ -155,81 +208,104 @@ export function useReceivables() {
     }
   };
 
-  const confirmPayment = async (id: string, transferredAmount?: number): Promise<MilestoneWithClient> => {
+  /** Applies field changes to one row and mirrors the list to localStorage. */
+  const applyRowUpdate = (
+    id: string,
+    changes: Partial<MilestoneWithClient>
+  ): MilestoneWithClient | undefined => {
     let updatedItem: MilestoneWithClient | undefined;
-
-    setReceivables((prev) => {
-      const next = prev.map((m) => {
-        if (m.id === id) {
-          updatedItem = {
-            ...m,
-            status: 'confirmed',
-            transferred_amount: transferredAmount ?? m.amount,
-            confirmed_at: new Date().toISOString(),
-          };
-          return updatedItem;
-        }
-        return m;
-      });
-      syncLocalStorage(next);
-      return next;
+    const next = receivablesRef.current.map((m) => {
+      if (m.id === id) {
+        updatedItem = { ...m, ...changes };
+        return updatedItem;
+      }
+      return m;
     });
+    if (!updatedItem) return undefined;
+    receivablesRef.current = next;
+    setReceivables(next);
+    syncLocalStorage(next);
+    return updatedItem;
+  };
 
+  const confirmPayment = async (
+    id: string,
+    transferredAmount?: number
+  ): Promise<ReceivableMutationOutcome> => {
+    let res: Response;
     try {
-      await fetch(`/api/receivables/${id}/confirm`, {
+      res = await fetch(`/api/receivables/${id}/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transferredAmount }),
       });
     } catch {
-      // Ignore API error in demo mode
+      // No answer from the server means the payment was NOT confirmed. Local
+      // state stays as it was.
+      return { success: false, error: 'Sin conexión. El pago no se confirmó.' };
     }
 
-    if (!updatedItem) throw new Error('Cuentas por cobrar no encontradas');
-    return updatedItem;
+    const data = await res.json().catch(() => null);
+
+    if (res.ok) {
+      // The server's row is the fact; local state follows it.
+      const updated = applyRowUpdate(id, {
+        status: 'confirmed',
+        transferred_amount: Number(data?.transferred_amount ?? transferredAmount ?? 0) || undefined,
+        confirmed_at: data?.confirmed_at || new Date().toISOString(),
+      });
+      return {
+        success: true,
+        milestone: updated,
+        complement: data?.complement,
+        complementError: data?.complementError || null,
+      };
+    }
+
+    if (isDemoBackendResponse(res.status, data)) {
+      const updated = applyRowUpdate(id, {
+        status: 'confirmed',
+        transferred_amount: transferredAmount,
+        confirmed_at: new Date().toISOString(),
+      });
+      if (!updated) return { success: false, error: 'Cobro no encontrado' };
+      return { success: true, milestone: updated };
+    }
+
+    return { success: false, error: errorMessage(data, 'No se pudo confirmar el pago') };
   };
 
   const uploadSpeiProof = async (
     id: string,
     data: { receipt_url: string; tracking_reference: string; transferred_amount?: number }
-  ): Promise<MilestoneWithClient> => {
-    let updatedItem: MilestoneWithClient | undefined;
+  ): Promise<ReceivableMutationOutcome> => {
+    const changes: Partial<MilestoneWithClient> = {
+      status: 'marked_paid',
+      receipt_url: data.receipt_url,
+      tracking_reference: data.tracking_reference,
+      transferred_amount: data.transferred_amount,
+    };
 
-    setReceivables((prev) => {
-      const next = prev.map((m) => {
-        if (m.id === id) {
-          updatedItem = {
-            ...m,
-            status: 'marked_paid',
-            receipt_url: data.receipt_url,
-            tracking_reference: data.tracking_reference,
-            transferred_amount: data.transferred_amount ?? m.amount,
-          };
-          return updatedItem;
-        }
-        return m;
-      });
-      syncLocalStorage(next);
-      return next;
-    });
-
+    let res: Response;
     try {
-      await fetch(`/api/receivables/${id}`, {
+      res = await fetch(`/api/receivables/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'marked_paid',
-          receipt_url: data.receipt_url,
-          tracking_reference: data.tracking_reference,
-          transferred_amount: data.transferred_amount,
-        }),
+        body: JSON.stringify(changes),
       });
     } catch {
-      // Ignore API error in demo mode
+      return { success: false, error: 'Sin conexión. El comprobante no se registró.' };
     }
 
-    if (!updatedItem) throw new Error('Hito de pago no encontrado');
-    return updatedItem;
+    const body = await res.json().catch(() => null);
+
+    if (res.ok || isDemoBackendResponse(res.status, body)) {
+      const updated = applyRowUpdate(id, changes);
+      if (!updated) return { success: false, error: 'Hito de pago no encontrado' };
+      return { success: true, milestone: updated };
+    }
+
+    return { success: false, error: errorMessage(body, 'No se pudo registrar el comprobante') };
   };
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);

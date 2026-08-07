@@ -80,7 +80,7 @@ graph TD
 > **Objective**: Build clean, multi-tenant UI components and API handlers, enforced by code and security reviewers.
 
 1. **Invoke Domain Reviewers**:
-   * Delegate to `@typescript-reviewer` for Next.js 16 RSC/Client components and custom hooks (`useQuotes.ts`, `useReceivables.ts`).
+   * Delegate to `@typescript-reviewer` for Next.js 15 RSC/Client components and custom hooks (`useQuotes.ts`, `useReceivables.ts`).
    * Delegate to `@database-reviewer` for SQL migrations and PostgreSQL RLS policies (`organization_id` scoping).
 2. **Mobile UX Rules (Don Roberto Constraint)**:
    * Ensure touch targets are `>= 48px`.
@@ -111,6 +111,15 @@ graph TD
 ---
 
 ## 03 Agent Command Quick Reference
+
+> [!WARNING]
+> **Most of these agent names are aspirational, not executable.** The ECC suite is a third-party
+> framework that was never installed here, so invoking `@planner` or `@security-reviewer` in
+> Claude Code does nothing and gives no error. **Two exceptions, defined for real in
+> `.claude/agents/` on 2026-08-07:** `database-reviewer` (the `@database-reviewer` role below)
+> and `money-path-reviewer` (no ECC counterpart — reviews payments/CFDI/Stripe diffs). The
+> 4-Phase loop itself requires no setup and should be run directly. For the full role-to-reality
+> mapping, see `CLAUDE.md` §"Process".
 
 | ECC Agent | Primary Command / Trigger | When to Use in Business Helper |
 |:---|:---|:---|

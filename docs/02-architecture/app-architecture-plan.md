@@ -2,7 +2,7 @@
 
 > **Technical Blueprint & Engineering Specification**
 >
-> A practical, opinionated architectural guide for scaffolding and extending **Business Helper** — an all-in-one business operations platform for Mexican SMBs. Grounded in Next.js 16 (App Router), React 19, Supabase, Tailwind CSS v4, and Stripe.
+> A practical, opinionated architectural guide for scaffolding and extending **Business Helper** — an all-in-one business operations platform for Mexican SMBs. Grounded in Next.js 15 (App Router), React 19, Supabase, Tailwind CSS v4, and Stripe.
 
 ---
 
@@ -14,7 +14,7 @@ Business Helper is an all-in-one, mobile-first business operations platform for 
 
 * **Type**: Modular Monolith on Serverless Edge Architecture (Next.js App Router + Supabase Backend-as-a-Service).
 * **Key Components**:
-  * **Frontend**: Next.js 16 React Server Components & Client Components with Tailwind CSS v4.
+  * **Frontend**: Next.js 15 React Server Components & Client Components with Tailwind CSS v4.
   * **Backend API**: Next.js Route Handlers + Supabase Database Functions & Webhooks.
   * **Database**: PostgreSQL (hosted on Supabase Cloud) with Row-Level Security (RLS).
   * **Background Jobs**: Vercel Cron Jobs + Supabase Database Triggers / Edge Functions.
@@ -352,7 +352,7 @@ USING (organization_id IN (SELECT auth.user_organization_ids()));
 
 ### Tech Choices
 
-* **Framework**: Next.js 16.2+ (App Router).
+* **Framework**: Next.js 15 (App Router).
 * **UI Components**: Custom primitives using Tailwind CSS v4 + Lucide React Icons.
 * **Styling**: Tailwind CSS v4 with CSS variables.
 * **State Management**: React 19 hooks (`useContext`, `useOptimistic`, `useActionState`) + Custom Domain Hooks (`useQuotes`, `useReceivables`, `useClients`).

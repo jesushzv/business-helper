@@ -13,7 +13,7 @@ Business Helper es una plataforma SaaS web y móvil diseñada para simplificar l
 - **Facturación SAT**: Facturapi PAC CFDI 4.0 API.
 - **Cobranza & Suscripciones**: Stripe Billing API & Webhooks.
 - **Notificaciones**: Twilio WhatsApp Business API / Click-to-Chat deep links.
-- **Inteligencia Artificial**: Google Gemini API (`@google/genai`).
+- **Inteligencia Artificial**: Google Gemini API (integración REST directa, sin SDK).
 
 ---
 
