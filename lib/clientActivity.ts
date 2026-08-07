@@ -89,8 +89,3 @@ export function formatClientActivity(
   // Sort descending by timestamp (newest first)
   return items.sort((a, b) => b.timestamp - a.timestamp);
 }
-
-// CommonJS export fallback
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { formatClientActivity };
-}

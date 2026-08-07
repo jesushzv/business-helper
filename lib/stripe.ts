@@ -6,7 +6,7 @@
  * Includes CFDI Folio Pack products per docs/02-architecture/cfdi_integration_architecture.md
  */
 
-import { getAppBaseUrl } from './url.js';
+import { getAppBaseUrl } from './url';
 
 export interface StripeTierConfig {
   id: 'inicial' | 'negocio' | 'empresa';

@@ -4,7 +4,28 @@
  * and environment secret verification for Cloud QA gates.
  */
 
-function getHealthStatus(customEnv = {}) {
+type EnvRecord = Record<string, string | undefined>;
+
+export interface HealthStatus {
+  status: 'healthy' | 'degraded';
+  version: string;
+  environment: string;
+  timestamp: string;
+  services: {
+    database: 'connected' | 'disconnected';
+    auth: 'active' | 'inactive';
+  };
+}
+
+export interface EnvironmentAudit {
+  isReadyForProduction: boolean;
+  missingRequired: string[];
+  configuredThirdPartyCount: number;
+  activeThirdPartyKeys: string[];
+  appUrl: string;
+}
+
+export function getHealthStatus(customEnv: EnvRecord = {}): HealthStatus {
   const timestamp = new Date().toISOString();
   const dbConfigured = Boolean(
     customEnv.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -20,16 +41,16 @@ function getHealthStatus(customEnv = {}) {
     timestamp,
     services: {
       database: dbConfigured ? 'connected' : 'disconnected',
-      auth: authConfigured ? 'active' : 'inactive'
-    }
+      auth: authConfigured ? 'active' : 'inactive',
+    },
   };
 }
 
-function auditEnvironmentSecrets(env = process.env) {
+export function auditEnvironmentSecrets(env: EnvRecord = process.env): EnvironmentAudit {
   const required = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-    'NEXT_PUBLIC_APP_URL'
+    'NEXT_PUBLIC_APP_URL',
   ];
 
   const optionalThirdParty = [
@@ -38,7 +59,7 @@ function auditEnvironmentSecrets(env = process.env) {
     'TWILIO_ACCOUNT_SID',
     'GEMINI_API_KEY',
     'SENTRY_DSN',
-    'NEXT_PUBLIC_SENTRY_DSN'
+    'NEXT_PUBLIC_SENTRY_DSN',
   ];
 
   const missingRequired = required.filter((key) => !env[key]);
@@ -49,11 +70,6 @@ function auditEnvironmentSecrets(env = process.env) {
     missingRequired,
     configuredThirdPartyCount: activeThirdParty.length,
     activeThirdPartyKeys: activeThirdParty,
-    appUrl: env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    appUrl: env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   };
 }
-
-module.exports = {
-  getHealthStatus,
-  auditEnvironmentSecrets
-};

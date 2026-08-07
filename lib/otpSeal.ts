@@ -165,42 +165,6 @@ export function otpExpiryDate(now: Date = new Date()): Date {
 }
 
 /**
- * Compares two codes directly.
- *
- * @deprecated Retained for the legacy suite in scripts/test-runner.js and for
- * offline verification of an already-issued code. It cannot be used to gate a
- * signature: any caller that has the correct code to pass as `correctCode`
- * already knows it. Server routes must call {@link verifyStoredOTP}.
- */
-export function verifyOTP(
-  inputCode: string,
-  correctCode: string,
-  currentAttempts: number = 0
-): VerifyOTPResult {
-  if (currentAttempts >= MAX_ATTEMPTS) {
-    return {
-      success: false,
-      attempts: currentAttempts,
-      error: `Número máximo de intentos excedido (máximo ${MAX_ATTEMPTS})`,
-    };
-  }
-
-  const newAttempts = currentAttempts + 1;
-  const a = String(inputCode || '').trim();
-  const b = String(correctCode || '').trim();
-
-  if (a && timingSafeEqual(a, b)) {
-    return { success: true, attempts: newAttempts };
-  }
-
-  return {
-    success: false,
-    attempts: newAttempts,
-    error: 'Código OTP incorrecto',
-  };
-}
-
-/**
  * Produces the tamper-evident seal recorded against a signed quote.
  *
  * Keyed (HMAC) rather than a bare SHA-256 digest: the inputs — contract id,

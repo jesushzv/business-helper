@@ -55,6 +55,6 @@
 * **Side-Effect Verification**: `[Verify RLS policies and multi-tenant scoping remain intact]`
 
 ### Automated Test Plan
-- [ ] Add regression unit test in `scripts/test-runner.js` verifying the fix.
+- [ ] Add regression unit test in `tests/unit/` verifying the fix.
 - [ ] Run Playwright E2E suite (`npm run test:e2e`) to ensure zero regressions.
 - [ ] Verify ESLint and TypeScript compile with `--max-warnings=0`.
