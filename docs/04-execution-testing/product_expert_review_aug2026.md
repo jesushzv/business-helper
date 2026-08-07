@@ -193,5 +193,5 @@ No SaaS stamps CFDI in-house directly with SAT. The standard model is PAC API in
 
 ---
 
-*Archived under `docs/04-execution-testing/product_expert_review_aug2026.md` per [AGENTS-DOCS-GUIDE.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/AGENTS-DOCS-GUIDE.md).*
+*Archived under `docs/04-execution-testing/product_expert_review_aug2026.md` per [AGENTS-DOCS-GUIDE.md](../../docs/AGENTS-DOCS-GUIDE.md).*
 

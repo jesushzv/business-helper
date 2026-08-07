@@ -4,6 +4,20 @@
 >
 > A structured execution document for **Business Helper** mapping the MVP functional scope, sprint-by-sprint release schedule, beta launch gates, and post-MVP expansion phases.
 
+> [!IMPORTANT]
+> **What "Completed" means in the sprint table below.** A 2026-08-06 security review established that
+> several sprints marked complete had shipped the UI and data model while the third-party call underneath
+> was simulated — CFDI stamping most seriously (issue #3). **Read every `[x]` in this document as
+> "scope built and unit-tested", not "integration verified against the real service."**
+>
+> For what is actually launch-safe, see
+> [`launch_readiness_memo_aug2026.md`](../04-execution-testing/launch_readiness_memo_aug2026.md),
+> which supersedes this document wherever the two conflict.
+>
+> Test counts cited per sprint (`73/73`, `152/152`, `182/182` …) refer to the retired
+> `scripts/test-runner.js`, deleted in PR #21. **Current baseline: 383 tests / 58 files via `npx vitest run`.**
+> The per-sprint counts are kept as a historical record only.
+
 ---
 
 ## 01 Roadmap Overview & Timeline
@@ -68,12 +82,12 @@ The MVP focuses exclusively on completing the core **Quote → Contract → Pay 
 | **Sprint 3** | Aug 19–28 | Quotes & Proposals Engine | Build 3-step quote wizard (`/dashboard/quotes`), line-item tax calculator, public quote view (`/q/[token]`), OTP signature verification. | [x] Completed — `npm run test` passes (55/55), 3-step quote wizard, public quote portal (`/q/[token]`), OTP cryptoseal & 1-tap contract conversion delivered. |
 | **Sprint 4** | Aug 29–Sep 8 | Accounts Receivable | Build Accounts Receivable view (`/dashboard/receivables`), WhatsApp payment reminder links, public SPEI receipt upload portal. | [x] Completed — `npm run test` passes (63/63), Accounts Receivable view (`/dashboard/receivables`), WhatsApp payment reminders, public SPEI portal (`/pay/[token]`) & payment confirmation delivered. |
 | **Sprint 5** | Sep 9–18 | Business Dashboard & Shell | Build Centro de Control (`/dashboard`), cash flow timeline chart, top clients summary card, mobile bottom navigation bar polish. | [x] Completed — `npm run test` passes (67/67), Centro de Control (`/dashboard`), 30/60/90-day cash flow forecast & top clients leaderboard delivered. |
-| **Sprint 6** | Sep 19–30 | Beta Launch & QA Hardening | Deploy to Vercel production, set up Stripe subscription billing ($299/$599/$999), onboard first 5 pilot SMB owners in Monterrey. | [x] Completed — `npm run test` passes (73/73), Settings & Stripe Billing (`/settings`), health check (`/api/health`) & all 6 release gates audited. |
-| **Sprint 7** | Oct 1–15 | SAT CFDI 4.0 Invoicing & Product Catalog | Deliver Facturapi PAC 1-click CFDI 4.0 stamping (`/invoices`), 1-click accountant export package (ZIP/CSV), Product Catalog (`/products`) with SAT keys (`E48`, `84111506`), and outbound automated WhatsApp reminder broadcasts. | [x] Completed — `npm run test` passes (86/86), Facturapi SAT CFDI 4.0 engine, 1-click accountant ZIP export, Product Catalog & WhatsApp broadcasts delivered. |
+| **Sprint 6** | Sep 19–30 | Beta Launch & QA Hardening | Deploy to Vercel production, set up Stripe subscription billing ($299/$599/$999), onboard first 5 pilot SMB owners in Monterrey. | [~] Scope built — Settings & Stripe Billing (`/settings`), health check (`/api/health`). **Correction:** checkout was simulated until PR #19; live-mode verification still outstanding (issue #14). Pilot onboarding not started. |
+| **Sprint 7** | Oct 1–15 | SAT CFDI 4.0 Invoicing & Product Catalog | Deliver Facturapi PAC 1-click CFDI 4.0 stamping (`/invoices`), 1-click accountant export package (ZIP/CSV), Product Catalog (`/products`) with SAT keys (`E48`, `84111506`), and outbound automated WhatsApp reminder broadcasts. | [~] Scope built — Product Catalog & accountant ZIP export delivered (export made real in PR #19). **Correction:** the "Facturapi SAT CFDI 4.0 engine" was `simulateInvoiceStamping()` — fabricated IDs and URLs written as `cfdi_status: 'issued'` (issue #3). Real PAC integration is **unmerged** in PR #23 and unverified against a live sandbox. |
 | **Sprint 8** | Oct 16–31 | Team Roles & Permissions (RBAC) | Multi-User Access & Role Permissions (`/team`), capabilities matrix (`owner`, `manager`, `member`, `accountant`), team invite portal. | [x] Completed — `npm run test` passes (88/88), Team Roles & RBAC engine delivered. |
 | **Sprint 9** | Nov 1–15 | Product Catalog & Inventory Stock | Inventory stock level tracking, low-stock threshold warning alerts (<= 5 units), stock deduction on contract creation. | [x] Completed — `npm run test` passes (91/91), Inventory stock tracking & low-stock alerts delivered. |
 | **Sprint 10** | Nov 16–30 | WhatsApp AI Operations Assistant | Natural language query handler (`/assistant`) parsing client overdue balances (*"¿Cuánto me debe Grupo Salinas?"*) with 1-tap WhatsApp action links. | [x] Completed — `npm run test` passes (107/107), WhatsApp AI Operations Assistant engine & SPEI upload route delivered. |
-| **Sprint 11** | Dec 1–15 | Phase 4 Post-Launch Expansion | Outbound Automated WhatsApp API Engine (Twilio/Meta), Multi-Currency Engine (USD/MXN), and White-Labeling & Organization Branding on public quote and payment portals. | [x] Completed — `npm run test` passes (117/117), Outbound WhatsApp dispatch, Multi-Currency (USD/MXN) & White-Labeling branding customizer delivered. |
+| **Sprint 11** | Dec 1–15 | Phase 4 Post-Launch Expansion | Outbound Automated WhatsApp API Engine (Twilio/Meta), Multi-Currency Engine (USD/MXN), and White-Labeling & Organization Branding on public quote and payment portals. | [~] Scope built — Multi-Currency & White-Labeling delivered. **Correction:** outbound WhatsApp reported fabricated success until PR #13 made the dispatch real; it remains inert until provider credentials are configured (issue #2). |
 | **Sprint 12** | Pre-Launch | Landing Page & Marketing Alignment | Mobile touch target enforcement (>= 48px), conversion copy alignment with landing page brief, zero-SAT-friction Nota de Venta PDF and 1-Click Accountant ZIP Export callouts. | [x] Completed — `npm run test` passes (144/144), 0 TypeScript warnings (`npm run typecheck`), mobile touch targets & landing page visual polish delivered. |
 | **Sprint 13** | Pre-Launch | Demo Fixes, Brand Dark Theme & Tier Comparison | Guarantee demo analytics load non-zero metrics ($145k MXN revenue, cash flow forecast, top clients), unify inner app with Brand Guidelines Dark Slate theme (#090D16 base, emerald accents), sticky Demo Banner with 1-tap landing return link, and interactive Tier Features & Value-Adds comparison matrix modal. | [x] Completed — `node scripts/test-runner.js` passes (152/152), 0 TypeScript warnings (`npm run typecheck`), demo data loading, brand dark theme & tier comparison modal delivered. |
 | **Sprint 14** | Pre-Launch | Demo Auth Persistence & Top Navbar Unification | Persist demo/sandbox mode cookies (`demo_mode=true`, `business_helper_sandbox=true`) during unauthenticated navigation, eliminate all login redirect interruptions, and unify top `<Header />` navbar layout across all 10 dashboard pages (`/dashboard`, `/quotes`, `/clients`, `/receivables`, `/products`, `/invoices`, `/team`, `/assistant`, `/help`, `/settings`). | [x] Completed — `node scripts/test-runner.js` passes (158/158), 0 TypeScript warnings (`npm run typecheck`), demo auth persistence & unified navbar layout delivered. |
@@ -93,12 +107,19 @@ The MVP focuses exclusively on completing the core **Quote → Contract → Pay 
 
 Before launching the Beta to pilot SMB owners, the product must pass all 6 hard gates:
 
-- [x] **Data Isolation Gate**: 100% of database queries verified against multi-tenant RLS policies (`organization_id` scoping).
+- [x] **Data Isolation Gate**: Database queries scoped to multi-tenant RLS policies (`organization_id`); API auth enforcement added in PR #1.
 - [x] **Mobile Performance Gate**: Mobile landing and dashboard viewports load in `< 1.8 seconds` on 4G connections.
 - [x] **Coverage Gate**: Unit test coverage across tax calculators, RFC validators, and storage dispatchers meets **>= 85%**.
-- [x] **Zero Warning Gate**: ESLint and TypeScript checks pass with `--max-warnings=0`.
-- [x] **OTP Security Gate**: Client signature OTP capped at 3 failed attempts; brute-force protection active.
+- [~] **Zero Warning Gate**: `npm run typecheck` passes clean and CI runs both on every PR. **But the warning gate is nominal, not enforced:** `npm run lint` is bare `next lint` with no `--max-warnings=0`, so it exits 0 while emitting warnings — there is a live one in `components/layout/Header.tsx` today. To make the gate real, change the script to `next lint --max-warnings=0` and clear the existing warnings first.
+- [~] **OTP Security Gate**: Verification is capped at 3 failed attempts, but **issuance is capped per quote rather than per recipient phone** — one handset can be pumped across a client's several open quotes (issue #17). PR #20 closes this and must merge before a provider goes live.
 - [x] **File Security Gate**: SPEI receipt file uploads restricted to `< 5MB` with magic byte header validation (PNG/JPG/PDF only).
+
+> [!CAUTION]
+> **These six gates are necessary but not sufficient.** They were all reported green while CFDI stamping
+> was simulated and OTP delivery had no provider — because none of them test whether a third-party
+> integration actually executes. The money-path and delivery gates in
+> [`launch_readiness_memo_aug2026.md`](../04-execution-testing/launch_readiness_memo_aug2026.md) §04
+> cover that gap and must pass as well.
 
 ---
 
@@ -107,10 +128,10 @@ Before launching the Beta to pilot SMB owners, the product must pass all 6 hard 
 The following strategic gaps have been identified and prioritized based on competitive benchmarks and customer friction analysis:
 
 ### ⚡ Immediate MVP Launch Gaps (Phase 1.5 / Pre-Launch Polish)
-1. * [x] **SAT CFDI 4.0 Electronic Invoicing (Facturapi PAC)**: B2B clients in Mexico frequently withhold payment until a valid CFDI invoice is issued. Accelerate Facturapi 1-click PAC stamping so accepted quotes/receivables can generate certified XML+PDF bundles.
-2. * [x] **1-Click Accountant Export Package (ZIP/CSV)**: External accountants (*contadores*) are key B2B influencers in Mexico. Provide a 1-click monthly export containing sales totals, XMLs, PDFs, client RFCs, and uploaded SPEI vouchers to turn accountants into resellers.
+1. * [ ] **SAT CFDI 4.0 Electronic Invoicing (PAC)**: B2B clients in Mexico frequently withhold payment until a valid CFDI invoice is issued. **Not delivered** — the original implementation simulated stamping (issue #3). Real PAC integration is unmerged in PR #23 and has never run against a live sandbox.
+2. * [x] **1-Click Accountant Export Package (ZIP/CSV)**: External accountants (*contadores*) are key B2B influencers in Mexico. Delivered; made to read real milestones rather than hardcoded fixtures in PR #19.
 3. * [x] **Pre-Saved Product & Service Catalog**: Allow saving standard products/services with SAT unit keys (`E48`) and product codes (`84111506`) to speed up quote creation from minutes to seconds.
-4. * [x] **Outbound Automated WhatsApp API (Twilio / Meta)**: Extend `wa.me/` Click-to-Chat deep links with automated outbound WhatsApp Business API broadcasts for scheduled payment reminders (e.g. 3 days before due date).
+4. * [~] **Outbound Automated WhatsApp API (Twilio / Meta)**: Dispatch code is real as of PR #13, but **inert until provider credentials are configured** (issue #2).
 
 ### 🚀 Post-MVP Expansion Gaps (Phase 2 & 3 Roadmap)
 1. * [x] **Multi-User Role-Based Access Control (RBAC)** (Phase 2): Grant `Owner`, `Manager`, `Member`, and `Accountant` permissions for multi-employee SMB teams.
@@ -158,7 +179,7 @@ The following strategic gaps have been identified and prioritized based on compe
 * **Brand Strategy & Naming**: Perform brand name positioning, trademark clearance, and Mexican B2B market messaging alignment prior to domain registration.
 * **Visual Identity System**: Design logo variants, typography guidelines, primary/secondary color palettes, and social media brand kit.
 * **Dynamic Landing Page Refresh**: Refresh `/app/page.tsx` marketing copy, hero sections, interactive ROI pricing calculators, and video demo placeholders based on finalized brand identity.
-* **Domain & Registrar Selection Gate**: Lock in custom apex domain (e.g. `businesshelper.mx`, `cotiza.mx`) only AFTER brand identity approval.
+* **Domain & Registrar Selection Gate**: Lock in custom apex domain (e.g. `businesshelper.app`, `cotiza.mx`) only AFTER brand identity approval.
 
 ---
 
@@ -182,15 +203,15 @@ The following matrix documents when optional or pending third-party API credenti
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase DB & Auth | 🟢 Active (`.env`) | **Sprint 1** (Core Database & Auth Infrastructure) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Client Key | 🟢 Active (`.env`) | **Sprint 1** (Core Database & Auth Infrastructure) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Service Role | 🟢 Active (`.env`) | **Sprint 1** (Backend RLS & Storage Bypass) |
-| `STRIPE_SECRET_KEY` | Stripe Billing API | 🟡 Sandbox Mode | **Sprint 15 / Launch Gate** (Live Stripe Key Enablement) |
-| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook Listener | 🟡 Configured | **Sprint 15 / Launch Gate** (Vercel Endpoint Listener) |
-| `STRIPE_PRICE_EMPRENDEDOR` | Stripe Plan Emprendedor | 🟡 Price ID Config | **Sprint 15 / Launch Gate** ($299 MXN Stripe Price ID) |
-| `STRIPE_PRICE_NEGOCIO` | Stripe Plan Negocio | 🟡 Price ID Config | **Sprint 15 / Launch Gate** ($599 MXN Stripe Price ID) |
-| `STRIPE_PRICE_EMPRESA` | Stripe Plan Empresa | 🟡 Price ID Config | **Sprint 15 / Launch Gate** ($999 MXN Stripe Price ID) |
-| `FACTURAPI_SECRET_KEY` | Facturapi SAT PAC | 🟡 Test Mode (`sk_test_`) | **Sprint 7 (Phase 2)** (Optional Self-Service SAT CFDI 4.0 Pro Addon) |
-| `TWILIO_ACCOUNT_SID` | Twilio WhatsApp API | 🔵 Fallback `wa.me/` | **Sprint 10 (Phase 3)** (Automated Outbound WhatsApp Broadcast API) |
-| `TWILIO_AUTH_TOKEN` | Twilio Auth Token | 🔵 Fallback `wa.me/` | **Sprint 10 (Phase 3)** (Automated Outbound WhatsApp Broadcast API) |
-| `TWILIO_PHONE_NUMBER` | Twilio Sender Number | 🔵 Fallback `wa.me/` | **Sprint 10 (Phase 3)** (Automated Outbound WhatsApp Broadcast API) |
-| `GEMINI_API_KEY` | Gemini AI Assistant | 🔵 Fallback Mock AI | **Sprint 10 (Phase 3)** (Natural Language Receivables Assistant) |
-| `NEXT_PUBLIC_SENTRY_DSN` | Sentry Error Tracking | 🔵 Fallback Console Log | **Sprint 14 / Monitoring Gate** (Production Exception Tracking) |
+| `STRIPE_SECRET_KEY` | Stripe Billing API | 🟡 Sandbox Mode | **Launch Gate — P0.** Live key required to take payment. |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook Listener | 🟡 Configured | **Launch Gate — P0.** Signature enforcement is live in code (PR #16); verify against staging with `npm run verify:webhook`. |
+| `STRIPE_PRICE_*` | Stripe Plan Price IDs | 🟡 Price ID Config | **Launch Gate — P0.** Map live IDs for each tier. |
+| `OTP_DELIVERY_CHANNEL` | OTP channel selector | 🔴 **Unset — flow inoperable** | **Launch Gate — P0.** Must be `sms` or `whatsapp`; unset means `POST /api/quotes/public/[token]/otp` returns 502 and no quote can be signed. |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | Twilio (OTP + outbound WhatsApp) | 🔴 **Unset — required** | **Launch Gate — P0.** *Correction: previously listed as "Fallback `wa.me/`". Click-to-Chat is owner-initiated only and cannot deliver an OTP to a signer.* One account covers both OTP delivery and reminder broadcasts. |
+| `TWILIO_SMS_NUMBER` / `TWILIO_WHATSAPP_NUMBER` | Twilio sender | 🔴 Unset | **Launch Gate — P0** (whichever channel is chosen). |
+| `META_WHATSAPP_TOKEN` / `META_PHONE_NUMBER_ID` | Meta Cloud API | 🔵 Alternative to Twilio | Alternative provider for the same P0 requirement. |
+| `PAC_ENCRYPTION_KEY` | PAC API key sealing (AES-256-GCM) | 🔴 Unset | **Required before any PAC can be connected** (PR #23). |
+| `FACTURAPI_SECRET_KEY` | Facturapi SAT PAC | 🟡 Test Mode (`sk_test_`) | **P0 only if CFDI ships at launch.** Optional if CFDI is deferred — Nota de Venta PDF covers MVP invoicing. |
+| `GEMINI_API_KEY` | Gemini AI Assistant | 🔵 Fallback Mock AI | P2 — assistant degrades gracefully without it. |
+| `NEXT_PUBLIC_SENTRY_DSN` | Error Tracking | 🔴 **No transport exists** | **P1.** Setting the DSN alone does nothing: `lib/sentry.ts` only `console.error`s and there is no `@sentry/nextjs` dependency. A real transport must be added. |
 

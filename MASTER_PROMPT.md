@@ -146,7 +146,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
    ```bash
    npm run typecheck && npm run lint
    ```
-   Must pass with `--max-warnings=0`. Zero errors, zero warnings.
+   Zero errors, zero warnings. **Read the lint output — do not trust its exit code.** `npm run lint` is bare `next lint`, which exits 0 even when it emits warnings; the `--max-warnings=0` gate is not wired into the script.
 
 2. **Unit Test & Coverage Gate**:
    ```bash
@@ -234,7 +234,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 | **Invoicing** | Facturapi PAC (SAT CFDI 4.0) | `lib/facturapi.ts` |
 | **Styling** | Tailwind CSS + Brand dark slate theme (#090D16) | `app/globals.css` |
 | **Testing** | Vitest (unit + component) + Playwright | `tests/unit/`, `tests/components/`, `tests/e2e/` |
-| **Deployment** | Vercel Edge (businesshelper.mx) | `vercel.json` |
+| **Deployment** | Vercel Edge (businesshelper.app) | `vercel.json` |
 | **Monitoring** | Sentry error tracking | `lib/sentry.ts` |
 
 ---
@@ -265,7 +265,7 @@ Every feature, sprint, and workstream task MUST pass ALL gates:
 - [ ] **Mobile UX**: Touch targets `>= 48px`, WhatsApp links pre-filled, tested on mobile viewport
 - [ ] **Brand**: UI follows dark slate theme (#090D16 base, emerald accents) per `brand_guidelines_spec.md`
 - [ ] **TypeCheck**: `npm run typecheck` passes with 0 errors, 0 warnings
-- [ ] **Lint**: `npm run lint` passes with `--max-warnings=0`
+- [ ] **Lint**: `npm run lint` emits zero warnings (check the output; the script does not enforce `--max-warnings=0`)
 - [ ] **Coverage**: `npm run test:coverage` achieves `>= 85%` coverage, 100% pass rate
 - [ ] **E2E**: Playwright happy-path flows pass (when applicable)
 - [ ] **Docs**: Roadmap or workback schedule updated with completion status

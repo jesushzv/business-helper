@@ -71,7 +71,7 @@ graph TD
    - **Root Directory**: `./`
    - **Build Command**: `npm run build`
    - **Output Directory**: `.next`
-3. Add Environment Variables (from [.env.production](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/.env.production) template):
+3. Add Environment Variables (see `.env.example` for the full list; never commit a populated `.env.production`):
    - **Core Infrastructure**:
      - `NEXT_PUBLIC_SUPABASE_URL`: `https://dfyoavffxzujvxvnsizi.supabase.co`
      - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: `sb_publishable_4w3ZlvFUwFtRTWI5s6QfVw_127miFZO`
@@ -105,7 +105,7 @@ graph TD
 
 ### Stripe Webhook Setup
 - In Stripe Dashboard, navigate to **Developers -> Webhooks**.
-- Add Endpoint: `https://businesshelper.mx/api/stripe/webhook`.
+- Add Endpoint: `https://businesshelper.app/api/stripe/webhook`.
 - Select events:
   - `customer.subscription.created`
   - `customer.subscription.updated`
@@ -118,7 +118,7 @@ graph TD
 
 Run health check verification against the live domain:
 ```bash
-curl -i https://businesshelper.mx/api/health
+curl -i https://businesshelper.app/api/health
 ```
 Expected HTTP 200 payload:
 ```json
@@ -231,23 +231,23 @@ on the lifetime cap, where waiting does not help.
 
 ## 06 Step 5: Custom Domain Provisioning Protocol
 
-When ready to transition from `.vercel.app` to a production custom domain (e.g., `businesshelper.mx`):
+When ready to transition from `.vercel.app` to a production custom domain (e.g., `businesshelper.app`):
 
 1. **Vercel Custom Domain Configuration**:
    - Go to Vercel Console -> **Project Settings -> Domains**.
-   - Add domain `businesshelper.mx` (and `www.businesshelper.mx`).
+   - Add domain `businesshelper.app` (and `www.businesshelper.app`).
    - Configure DNS Records with your domain registrar:
-     - **Apex Domain (`businesshelper.mx`)**: A Record pointing to `76.76.21.21`
+     - **Apex Domain (`businesshelper.app`)**: A Record pointing to `76.76.21.21`
      - **Subdomain (`www`)**: CNAME Record pointing to `cname.vercel-dns.com`
 
 2. **Environment Variable & Redirect URL Sync**:
-   - Update `NEXT_PUBLIC_APP_URL=https://businesshelper.mx` in Vercel.
+   - Update `NEXT_PUBLIC_APP_URL=https://businesshelper.app` in Vercel.
    - Go to [Supabase Auth URL Configuration](https://supabase.com/dashboard/project/dfyoavffxzujvxvnsizi/auth/url-configuration):
-     - Update **Site URL**: `https://businesshelper.mx`
-     - Update **Redirect URLs**: `https://businesshelper.mx/auth/callback`
+     - Update **Site URL**: `https://businesshelper.app`
+     - Update **Redirect URLs**: `https://businesshelper.app/auth/callback`
 
 3. **Webhook Endpoint Sync**:
-   - In Stripe Dashboard (**Developers -> Webhooks**), update the endpoint URL to `https://businesshelper.mx/api/stripe/webhook`.
+   - In Stripe Dashboard (**Developers -> Webhooks**), update the endpoint URL to `https://businesshelper.app/api/stripe/webhook`.
 
 ---
 

@@ -46,7 +46,7 @@ gantt
 ---
 
 ### Scene 3: Envío Directo por WhatsApp en 1 Tap (25s – 40s)
-* **Visual**: El usuario presiona el botón verde fosforescente *"Enviar por WhatsApp"*. Transición fluida a la app de WhatsApp con un mensaje pre-redactado cordial y un enlace interactivo seguro (`https://businesshelper.mx/q/cot-2026-088`).
+* **Visual**: El usuario presiona el botón verde fosforescente *"Enviar por WhatsApp"*. Transición fluida a la app de WhatsApp con un mensaje pre-redactado cordial y un enlace interactivo seguro (`https://businesshelper.app/q/cot-2026-088`).
 * **Voz en Off (Locución)**: *"Con un solo toque, envías el enlace directamente al WhatsApp de tu cliente. Sin pagar APIs costosas ni complicadas."*
 * **On-Screen Text**: *"Enlaces interactivos 1-Tap Click-to-Chat"*
 
@@ -62,7 +62,7 @@ gantt
 ### Scene 5: Notificación SPEI & Panel de Cobranza (58s – 75s)
 * **Visual**: El cliente adjunta su comprobante SPEI con Clave de Rastreo Banxico. En el celular del dueño llega una notificación push con sonido dinámico: *"¡Pago de $97,440.00 MXN Recibido!"*. La cotización pasa a estado *"Cobrada"* en el panel Kanban de cobranza. Finaliza con la pantalla de llamada a la acción.
 * **Voz en Off (Locución)**: *"Tu cliente sube su comprobante SPEI y tú recibes una alerta al instante en tu celular. Empieza hoy tu prueba de 14 días gratis sin tarjeta de crédito."*
-* **Call To Action On-Screen**: *"Prueba 14 Días Gratis — www.businesshelper.mx"*
+* **Call To Action On-Screen**: *"Prueba 14 Días Gratis — www.businesshelper.app"*
 
 ---
 

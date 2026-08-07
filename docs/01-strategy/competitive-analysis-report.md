@@ -85,7 +85,7 @@
 ### Deep Dives on Core Differentiators
 
 #### 1. Quote-to-Cash Workflow & Client Approval
-* **Business Helper**: Owner creates quote on phone → Clicks "Enviar por WhatsApp" → Client opens `businesshelper.mx/q/[token]` on mobile → Client taps "Aceptar" with 6-digit OTP code → Quote automatically converts to Contract & Receivable. Zero app installs for client.
+* **Business Helper**: Owner creates quote on phone → Clicks "Enviar por WhatsApp" → Client opens `businesshelper.app/q/[token]` on mobile → Client taps "Aceptar" with 6-digit OTP code → Quote automatically converts to Contract & Receivable. Zero app installs for client.
 * **Odoo**: Requires configuring Odoo Portal, inviting the customer via email, setting up customer portal credentials, and establishing backend invoice rules. Too complex for simple MX transactions.
 * **Prayser**: More polished templates with interactive Service Dock, but at $1,199/mo without CFDI or SPEI collection.
 * **User Impact**: Business Helper achieves a **90% higher mobile response rate** from Mexican clients who prefer WhatsApp over portal logins.
@@ -241,4 +241,4 @@ Friction                     │                   10-Min Setup
 
 ---
 
-*Document maintained under `docs/01-strategy/competitive-analysis-report.md` per [AGENTS-DOCS-GUIDE.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/AGENTS-DOCS-GUIDE.md).*
+*Document maintained under `docs/01-strategy/competitive-analysis-report.md` per [AGENTS-DOCS-GUIDE.md](../../docs/AGENTS-DOCS-GUIDE.md).*

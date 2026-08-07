@@ -270,8 +270,8 @@ Each FAQ entry in Section 08 should be wrapped in `FAQPage` JSON-LD for rich sni
 <meta property="og:title" content="Business Helper — Cotiza, Cobra y Factura desde tu Celular" />
 <meta property="og:description" content="Plataforma todo-en-uno para PyMEs mexicanas. Genera cotizaciones profesionales, cobra por WhatsApp y emite facturas CFDI 4.0." />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="https://businesshelper.mx" />
-<meta property="og:image" content="https://businesshelper.mx/og-image.png" />
+<meta property="og:url" content="https://businesshelper.app" />
+<meta property="og:image" content="https://businesshelper.app/og-image.png" />
 ```
 
 ### Twitter Card
@@ -279,7 +279,7 @@ Each FAQ entry in Section 08 should be wrapped in `FAQPage` JSON-LD for rich sni
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Business Helper — Cotiza, Cobra y Factura desde tu Celular" />
 <meta name="twitter:description" content="Plataforma todo-en-uno para PyMEs mexicanas. Prueba 14 días gratis." />
-<meta name="twitter:image" content="https://businesshelper.mx/twitter-card.png" />
+<meta name="twitter:image" content="https://businesshelper.app/twitter-card.png" />
 ```
 
 ---
@@ -314,9 +314,9 @@ Each FAQ entry in Section 08 should be wrapped in `FAQPage` JSON-LD for rich sni
 
 ### Contact & Support *(NEW — Expert Review)*
 * **Visible contact**: WhatsApp support number in footer and header.
-* **Email**: soporte@businesshelper.mx
+* **Email**: soporte@businesshelper.app
 * **Physical address**: Monterrey, Nuevo León, México (builds trust for Mexican audience).
 
 ---
 
-*Document maintained under `docs/03-product-specs/landing-page-brief.md` per [AGENTS-DOCS-GUIDE.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/AGENTS-DOCS-GUIDE.md).*
+*Document maintained under `docs/03-product-specs/landing-page-brief.md` per [AGENTS-DOCS-GUIDE.md](../../docs/AGENTS-DOCS-GUIDE.md).*

@@ -28,23 +28,57 @@ business-helper/docs/
 │   └── technical_design_document.md     # Engineering specs, algorithms & testing
 │
 ├── 03-product-specs/                    # Product Planning & Roadmaps
-│   ├── product-roadmap.md               # Sprints 1-10 execution schedule & gates
+│   ├── product-roadmap.md               # Sprint execution schedule & gates
 │   ├── landing-page-brief.md            # Landing page brief for AI design tools
 │   ├── product_spec_for_ai_agents.md    # Agent-executable problem & bet spec
-│   └── feature_implementation_spec.md   # Single-session feature spec format
+│   ├── feature_implementation_spec.md   # Single-session feature spec format
+│   └── demo_video_storyboard.md         # Animated demo video scene breakdown
 │
 ├── 04-execution-testing/                # Launch & Quality Assurance
+│   ├── launch_readiness_memo_aug2026.md # ★ CURRENT SOURCE OF TRUTH for launch status
 │   ├── ecc-execution-playbook.md        # ECC Agent 4-phase sprint execution playbook
-│   ├── product_launch_checklist.md      # T-4 weeks to Launch Day checklist
-│   ├── product_readiness_snapshot.md    # Executive snapshot & pre-launch execution plan
-│   ├── product_readiness_workback.md    # Post-expert-review workback schedule & gate framework (NEW)
-│   ├── product_expert_review_aug2026.md # Independent product expert review archive (NEW)
-│   ├── usability_test_plan.md           # Task testing with Don Roberto & Mariana
-│   └── refactoring_plan.md              # Engineering refactoring blueprint
+│   ├── product_launch_checklist.md      # Go-live technical & operational checklist
+│   ├── product_readiness_snapshot.md    # Module capabilities reference — what each module does & where
+│   ├── product_readiness_workback.md    # Post-expert-review workback schedule & gate framework
+│   ├── product_expert_review_aug2026.md # Independent product expert review archive
+│   ├── ux_ui_audit_synthesis_aug2026.md # Dual UX/UI audit synthesis
+│   └── usability_test_plan.md           # Task testing with Don Roberto & Mariana
 │
-└── 05-templates/                        # Working Engineering Templates
-    └── bug-investigation-plan.md        # Bug triage & root cause analysis template
+├── 05-templates/                        # Working Engineering Templates
+│   ├── bug_investigation_plan.md        # Bug triage & root cause analysis template
+│   └── refactoring_plan.md              # Engineering refactoring blueprint template
+│
+├── deployment.md                        # Production deployment & secrets guide
+└── security-p0-remediation.md           # P0 security findings & remediation record
 ```
+
+> [!IMPORTANT]
+> **Read [`launch_readiness_memo_aug2026.md`](04-execution-testing/launch_readiness_memo_aug2026.md) before
+> trusting any completion claim in this documentation set.** A 2026-08-06 security review found that several
+> features recorded as complete were simulated — the UI and data model shipped while the third-party call
+> underneath was faked. The memo reconciles the docs against verified code state and supersedes the status
+> dashboards elsewhere.
+
+### Removed 2026-08-07
+
+These were deleted as redundant or spent; git history retains them.
+
+| Removed | Reason |
+|:---|:---|
+| `03-product-specs/product_launch_checklist.md` | Orphan duplicate of the `04-execution-testing` copy, never indexed here, strictly older |
+| `04-execution-testing/session_pre_launch_readiness.md` | Strictly older duplicate of `product_readiness_snapshot.md` |
+| `03-product-specs/session_sprint12_landing_page.md` | Spent one-off session spec; referenced the deleted `scripts/test-runner.js` |
+| `03-product-specs/session_workstream2_custom_domain.md` | Spent one-off session spec; work landed in `lib/url.ts` |
+| `03-product-specs/session_workstream3_marketing_deliverables.md` | Spent one-off session spec for `lib/marketingCopy.ts`, which was never created |
+| `04-execution-testing/refactoring_plan.md` | Moved to `05-templates/` — it is a template with `[placeholder]` fields, not a plan |
+| `MASTER_PROMPT_TEMP.md` | Spent UX/UI remediation prompt. Its tasks (A7–A10, C1, C6–C7, E8–E12, F6–F8) are all ☑ in the workback; 6 of its 8 target component files no longer exist; it asserted "Gate 1 RE-OPENED / FAILED" against the workback's "Gate 1 PASSED"; and **Mode D already lives verbatim in `MASTER_PROMPT.md`** |
+| `04-execution-testing/sprint-execution-master-prompt.md` | Restated Modes A/B/C, which `MASTER_PROMPT.md` already carries verbatim. A second copy of an authoritative source is a drift vector, which is what happened to `MASTER_PROMPT_TEMP.md` |
+
+> [!NOTE]
+> **The rule applied: redundancy and spentness are grounds for deletion; inaccuracy is grounds for correction.**
+> Wrong-but-load-bearing documents (`product_readiness_snapshot.md`, `product_launch_checklist.md`,
+> `product-roadmap.md`, `MASTER_PROMPT.md`) were fixed in place rather than removed — deleting them would
+> erase the record of what was believed and when, and leave whoever relied on them with nothing to replace it.
 
 ---
 
@@ -52,16 +86,19 @@ business-helper/docs/
 
 | Task / Persona Goal | Primary Document to Read | Secondary Support |
 |:---|:---|:---|
-| **Executing a sprint task or building a feature with ECC** | [`ecc-execution-playbook.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/ecc-execution-playbook.md) | [`feature_implementation_spec.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/03-product-specs/feature_implementation_spec.md) |
-| **Architecting a new feature or database table** | [`database-schema-design.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/02-architecture/database-schema-design.md) | [`app-architecture-plan.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/02-architecture/app-architecture-plan.md) |
-| **Implementing a single feature or UI component** | [`feature_implementation_spec.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/03-product-specs/feature_implementation_spec.md) | [`user-personas.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/01-strategy/user-personas.md) |
-| **Checking sprint schedule or launch gates** | [`product-roadmap.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/03-product-specs/product-roadmap.md) | [`product_readiness_snapshot.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_readiness_snapshot.md) |
-| **Fixing a production bug or regression** | [`bug-investigation-plan.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/05-templates/bug-investigation-plan.md) | [`technical_design_document.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/02-architecture/technical_design_document.md) |
-| **Building marketing landing pages or ads** | [`landing-page-brief.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/03-product-specs/landing-page-brief.md) | [`go-to-market-plan.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/01-strategy/go-to-market-plan.md) |
-| **Preparing for Beta launch or deployment** | [`product_launch_checklist.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_launch_checklist.md) | [`product_readiness_snapshot.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_readiness_snapshot.md) |
-| **Working on CFDI / invoicing / PAC integration** | [`cfdi_integration_architecture.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/02-architecture/cfdi_integration_architecture.md) | [`PRD-business-helper.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/01-strategy/PRD-business-helper.md) (Module 5) |
-| **Responding to product expert reviews** | [`product_expert_review_aug2026.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_expert_review_aug2026.md) | [`product_readiness_workback.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_readiness_workback.md) |
-| **Tracking workback progress or gate status** | [`product_readiness_workback.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_readiness_workback.md) | [`product_launch_checklist.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_launch_checklist.md) |
+| **★ Asking "is this ready to launch?" or "what is actually done?"** | [`launch_readiness_memo_aug2026.md`](../docs/04-execution-testing/launch_readiness_memo_aug2026.md) | [`security-p0-remediation.md`](../docs/security-p0-remediation.md) |
+| **Executing a sprint task or building a feature with ECC** | [`ecc-execution-playbook.md`](../docs/04-execution-testing/ecc-execution-playbook.md) | [`feature_implementation_spec.md`](../docs/03-product-specs/feature_implementation_spec.md) |
+| **Architecting a new feature or database table** | [`database-schema-design.md`](../docs/02-architecture/database-schema-design.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
+| **Implementing a single feature or UI component** | [`feature_implementation_spec.md`](../docs/03-product-specs/feature_implementation_spec.md) | [`user-personas.md`](../docs/01-strategy/user-personas.md) |
+| **Checking sprint schedule or launch gates** | [`product-roadmap.md`](../docs/03-product-specs/product-roadmap.md) | [`launch_readiness_memo_aug2026.md`](../docs/04-execution-testing/launch_readiness_memo_aug2026.md) |
+| **Fixing a production bug or regression** | [`bug_investigation_plan.md`](../docs/05-templates/bug_investigation_plan.md) | [`technical_design_document.md`](../docs/02-architecture/technical_design_document.md) |
+| **Refactoring existing code** | [`refactoring_plan.md`](../docs/05-templates/refactoring_plan.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
+| **Building marketing landing pages or ads** | [`landing-page-brief.md`](../docs/03-product-specs/landing-page-brief.md) | [`go-to-market-plan.md`](../docs/01-strategy/go-to-market-plan.md) |
+| **Preparing for Beta launch or deployment** | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) | [`launch_readiness_memo_aug2026.md`](../docs/04-execution-testing/launch_readiness_memo_aug2026.md) |
+| **Finding what a module does or where its code lives** | [`product_readiness_snapshot.md`](../docs/04-execution-testing/product_readiness_snapshot.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
+| **Working on CFDI / invoicing / PAC integration** | [`cfdi_integration_architecture.md`](../docs/02-architecture/cfdi_integration_architecture.md) | [`PRD-business-helper.md`](../docs/01-strategy/PRD-business-helper.md) (Module 5) |
+| **Responding to product expert reviews** | [`product_expert_review_aug2026.md`](../docs/04-execution-testing/product_expert_review_aug2026.md) | [`product_readiness_workback.md`](../docs/04-execution-testing/product_readiness_workback.md) |
+| **Tracking workback progress or gate status** | [`product_readiness_workback.md`](../docs/04-execution-testing/product_readiness_workback.md) | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) |
 
 ---
 
@@ -72,3 +109,5 @@ business-helper/docs/
 3. **Respect Multi-Tenant Isolation**: Every database query MUST include RLS `organization_id` scoping.
 4. **Align UI with User Personas**: Mobile screens must accommodate Don Roberto (48px+ tap targets, big monetary totals, 1-tap WhatsApp sharing).
 5. **Preserve Coverage**: Every code modification MUST include corresponding Vitest unit tests in `tests/unit/` — importing the `.ts` source, never a hand-maintained copy of it — to maintain the **85% coverage gate**.
+6. **Never Simulate a Third Party Silently**: If an integration cannot be completed, it MUST fail loudly — return an error, refuse in production, and label any placeholder record as such in the database. **Never write a success state the external service has not confirmed.** A stub that fabricates an ID, a URL, or a status is the defect that produced the CFDI compliance issue in #3.
+7. **Report Status Honestly**: Mark a feature complete only when its outbound call has executed against the real service at least once. Tests passing against a mocked `fetch` mean the code is correct, not that the integration works — say which one you verified. When updating a status doc, state what you actually ran.
