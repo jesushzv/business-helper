@@ -178,3 +178,17 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 - Follow-ups discovered mid-task are filed as GitHub issues with `file:line` references, repro
   steps, and a fix sketch — see #36/#39/#40 for the house style. The tracker is the journal;
   write issues so a future session needs no other context.
+- **`Closes #N` claims the issue's *exit criteria* are met — not that you wrote the code.** When
+  those criteria name a deployed behaviour (a real OAuth round-trip, a live PAC stamp, a code on a
+  real handset), the issue stays open after merge: write `Refs #N` instead and say in the PR what
+  remains and who can do it. #48 was nearly auto-closed by a PR that could not satisfy it. This is
+  hard rule #2 applied to the tracker.
+- **Before a PR closes an issue, re-read that issue's body for residue.** Issues here routinely
+  park deferred work under "also worth fixing while in there" or "worth deciding alongside", and
+  that context dies the moment the issue closes. File each leftover as its own issue and link it
+  from the PR *before* merging — #60 and #61 were rescued out of #39 and #50 this way. Where the
+  leftover is a judgment call rather than a defect (loosening an abuse control, changing a
+  lifecycle), file it as a decision with options rather than fixing it in passing.
+- **Closing an issue only partially? Comment to re-scope it.** An issue whose body describes three
+  broken call sites, two now fixed, sends the next session to redo the fixed half. Say what landed,
+  in which PR, and what is left.
