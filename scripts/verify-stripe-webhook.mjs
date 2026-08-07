@@ -39,8 +39,22 @@ if (!secret) {
   fail('STRIPE_WEBHOOK_SECRET is not set. It must match the secret on the target deployment.');
 }
 
-if (/^https:\/\/(www\.)?businesshelper\.mx/.test(url)) {
-  fail('That looks like production. Run this against staging.');
+// Allowlist, not denylist: the old guard named businesshelper.mx and silently
+// stopped matching when the domain moved to businesshelper.app (#43). A safety
+// check that has to be updated on every rename fails open; this one fails
+// closed — anything that is not local, a Vercel preview, or an explicit
+// staging host is refused.
+const isSafeTarget =
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(url) ||
+  /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.vercel\.app\//.test(url) ||
+  /^https:\/\/staging\./.test(url);
+
+if (!isSafeTarget) {
+  fail(
+    'Refusing to run against a target that is not localhost, a *.vercel.app preview, or a staging.* host.\n' +
+      '  This script sends real subscription events; a passing run means one was applied.\n' +
+      '  Never point it at production.'
+  );
 }
 
 const { createHmac } = await import('node:crypto');

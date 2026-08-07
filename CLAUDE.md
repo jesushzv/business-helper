@@ -161,6 +161,16 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 - Docs drift is a known failure mode here (the roadmap once claimed 100% complete while core
   integrations were simulated). Where a doc contradicts the code, the code wins — fix the doc in
   the same PR when cheap.
+- **Demo-mode detection differs by side.** Collection GET routes answer the demo deployment with
+  200 + empty lists, so a client hook can NOT use `503 BACKEND_NOT_CONFIGURED` to decide when demo
+  fixtures are legitimate — that code only appears on authenticated/mutating paths. Hooks must gate
+  on the build-time signal instead (`isClientDemoMode()` in `lib/hooks/useQuotes.ts` is the
+  reference). Getting this wrong either blanks the marketing demo or shows fixtures to real tenants.
+- **Optimistic-fallback hooks are this repo's most repeated defect** (#33 receivables, #50 quote
+  creation, #58 the public signing page, #59 still open). When touching `lib/hooks/*` or a public
+  page: every mutation applies the server row on success and throws/surfaces on failure; demo
+  fixtures only behind `isClientDemoMode()`. Pin it with an `*Honesty.test.ts` suite —
+  `tests/unit/useReceivablesHonesty.test.ts` is the template.
 
 ## GitHub conventions
 
@@ -168,3 +178,17 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 - Follow-ups discovered mid-task are filed as GitHub issues with `file:line` references, repro
   steps, and a fix sketch — see #36/#39/#40 for the house style. The tracker is the journal;
   write issues so a future session needs no other context.
+- **`Closes #N` claims the issue's *exit criteria* are met — not that you wrote the code.** When
+  those criteria name a deployed behaviour (a real OAuth round-trip, a live PAC stamp, a code on a
+  real handset), the issue stays open after merge: write `Refs #N` instead and say in the PR what
+  remains and who can do it. #48 was nearly auto-closed by a PR that could not satisfy it. This is
+  hard rule #2 applied to the tracker.
+- **Before a PR closes an issue, re-read that issue's body for residue.** Issues here routinely
+  park deferred work under "also worth fixing while in there" or "worth deciding alongside", and
+  that context dies the moment the issue closes. File each leftover as its own issue and link it
+  from the PR *before* merging — #60 and #61 were rescued out of #39 and #50 this way. Where the
+  leftover is a judgment call rather than a defect (loosening an abuse control, changing a
+  lifecycle), file it as a decision with options rather than fixing it in passing.
+- **Closing an issue only partially? Comment to re-scope it.** An issue whose body describes three
+  broken call sites, two now fixed, sends the next session to redo the fixed half. Say what landed,
+  in which PR, and what is left.

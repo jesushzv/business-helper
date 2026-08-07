@@ -122,8 +122,21 @@ export async function POST(
     const now = new Date();
     const expiresAt = otpExpiryDate(now);
 
-    // Store the digest before attempting delivery, and reset the attempt
-    // counter so a fresh code comes with a fresh budget.
+    // Deliver before storing. A failed send must not rotate the stored digest
+    // — that would invalidate a code the signer already received — and must
+    // not restart the cooldown for a signer who got nothing (#39). Until the
+    // write below lands, the freshly minted code verifies against nothing,
+    // which is the safe direction.
+    const delivery = await deliverOtp(phone, code);
+
+    if (!delivery.delivered) {
+      return NextResponse.json(
+        { error: delivery.error || 'No se pudo enviar el código de verificación' },
+        { status: 502 }
+      );
+    }
+
+    // Reset the attempt counter so a fresh code comes with a fresh budget.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: updateError } = await (supabase as any)
       .from('quotes')
@@ -136,18 +149,11 @@ export async function POST(
       .eq('public_token', token);
 
     if (updateError) {
+      // The code is on the signer's handset but was never stored, so it will
+      // not verify. Say so honestly rather than reporting the send as done.
       return NextResponse.json(
-        { error: 'No se pudo generar el código de verificación' },
+        { error: 'No se pudo registrar el código enviado. Solicite uno nuevo.' },
         { status: 500 }
-      );
-    }
-
-    const delivery = await deliverOtp(phone, code);
-
-    if (!delivery.delivered) {
-      return NextResponse.json(
-        { error: delivery.error || 'No se pudo enviar el código de verificación' },
-        { status: 502 }
       );
     }
 

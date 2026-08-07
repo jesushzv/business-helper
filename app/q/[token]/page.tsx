@@ -2,58 +2,112 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Quote } from '@/types';
 import { OtpSignatureModal } from '@/components/quotes/OtpSignatureModal';
 import { getOrganizationBranding, generateThemeCssVariables } from '@/lib/branding';
-import { ShieldCheck, MessageSquare, CheckCircle, Calendar, Building, Sparkles } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Calendar, Building, Sparkles } from 'lucide-react';
+
+/**
+ * Public quote portal — what the client opens from the WhatsApp link.
+ *
+ * This page renders exactly what GET /api/quotes/public/[token] returns. The
+ * previous version never called that API: it displayed a hardcoded demo quote
+ * (title, line items, totals) for ANY token, so a real client reviewing —
+ * and signing — "their" quote was shown fabricated figures while the OTP flow
+ * signed the real row underneath. The API route already existed and already
+ * limits itself to publicly safe columns; the page just has to use it.
+ */
+
+interface PublicQuote {
+  id: string;
+  title: string;
+  line_items: Array<{ description: string; quantity: number; unit_price: number }>;
+  subtotal_amount: number;
+  iva_amount: number;
+  retencion_isr_amount: number;
+  retencion_iva_amount: number;
+  total_amount: number;
+  currency: string;
+  status: string;
+  valid_until: string | null;
+  notes: string | null;
+  public_token: string;
+  contract_hash: string | null;
+  accepted_at: string | null;
+  clients?: { name: string | null; contact_name: string | null } | null;
+  organizations?: { name: string | null; logo_url: string | null } | null;
+}
 
 export default function PublicQuotePage() {
   const params = useParams();
   const token = params?.token as string;
 
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quote, setQuote] = useState<PublicQuote | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isOtpOpen, setIsOtpOpen] = useState<boolean>(false);
   const [signedSeal, setSignedSeal] = useState<string | null>(null);
 
   useEffect(() => {
-    // Demo quote fallback by token
-    const demoQuote: Quote = {
-      id: 'quote-public-1',
-      organization_id: 'org-demo-1',
-      client_id: 'client-demo-1',
-      created_by: 'user-demo-1',
-      title: 'Propuesta Comercial — Suministro de Materiales de Obra',
-      line_items: [
-        { description: 'Tonelada Cemento CPO 40', quantity: 5, unit_price: 3600, sat_code: '30111500', unit: 'TON' },
-        { description: 'Tonelada Varilla 3/8"', quantity: 3, unit_price: 22000, sat_code: '30101800', unit: 'TON' },
-      ],
-      subtotal_amount: 84000,
-      iva_amount: 13440,
-      retencion_isr_amount: 0,
-      retencion_iva_amount: 0,
-      total_amount: 97440,
-      currency: 'MXN',
-      status: 'sent',
-      valid_until: '2026-08-30',
-      notes: 'Entrega directa en obra en 48 horas hábiles tras recibir anticipo del 50%.',
-      public_token: token || 'demo-token',
-      converted_contract_id: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
-    setQuote(demoQuote);
-    setLoading(false);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/quotes/public/${encodeURIComponent(token)}`);
+        if (cancelled) return;
+
+        if (!res.ok) {
+          // 404 falls through with quote === null → "no encontrada".
+          if (res.status !== 404) {
+            setLoadError('No se pudo cargar la cotización. Intente de nuevo más tarde.');
+          }
+          return;
+        }
+
+        const data: PublicQuote = await res.json();
+        if (cancelled) return;
+
+        setQuote(data);
+        // Already signed: show the seal instead of offering to sign again.
+        if (data.contract_hash) {
+          setSignedSeal(data.contract_hash);
+        }
+      } catch {
+        if (!cancelled) {
+          setLoadError('No se pudo cargar la cotización. Revise su conexión e intente de nuevo.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
-  const branding = getOrganizationBranding({ companyName: 'Distribuidora del Norte' });
+  const branding = getOrganizationBranding({
+    companyName: quote?.organizations?.name || undefined,
+    logoUrl: quote?.organizations?.logo_url || null,
+  });
   const cssVars = generateThemeCssVariables(branding);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <p className="text-slate-400 font-medium">Cargando propuesta comercial...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        <p className="text-slate-400 font-medium">{loadError}</p>
       </div>
     );
   }
@@ -66,7 +120,9 @@ export default function PublicQuotePage() {
     );
   }
 
-  const lineItems = (quote.line_items as unknown as Array<{ description: string; quantity: number; unit_price: number }>) || [];
+  const lineItems = quote.line_items || [];
+  const clientDisplayName = quote.clients?.name || 'Cliente';
+  const signerName = quote.clients?.contact_name || quote.clients?.name || 'Cliente';
 
   return (
     <div style={cssVars as React.CSSProperties} className="min-h-screen bg-slate-950 py-6 px-4 sm:px-6 text-white">
@@ -104,11 +160,13 @@ export default function PublicQuotePage() {
             <h1 className="text-2xl font-black text-white mt-1 leading-snug">{quote.title}</h1>
             <div className="flex items-center gap-4 text-xs font-medium text-slate-400 mt-3 pt-3 border-t border-slate-800">
               <span className="flex items-center gap-1 text-slate-300">
-                <Building className="w-4 h-4 text-slate-400" /> Construcciones Maya
+                <Building className="w-4 h-4 text-slate-400" /> {clientDisplayName}
               </span>
-              <span className="flex items-center gap-1 text-slate-300">
-                <Calendar className="w-4 h-4 text-slate-400" /> Válida hasta: {quote.valid_until}
-              </span>
+              {quote.valid_until && (
+                <span className="flex items-center gap-1 text-slate-300">
+                  <Calendar className="w-4 h-4 text-slate-400" /> Válida hasta: {quote.valid_until}
+                </span>
+              )}
             </div>
           </div>
 
@@ -142,6 +200,18 @@ export default function PublicQuotePage() {
               <div className="flex justify-between text-xs text-slate-400 font-mono">
                 <span>IVA (16%)</span>
                 <span>+${quote.iva_amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            {quote.retencion_isr_amount > 0 && (
+              <div className="flex justify-between text-xs text-slate-400 font-mono">
+                <span>Retención ISR</span>
+                <span>-${quote.retencion_isr_amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            {quote.retencion_iva_amount > 0 && (
+              <div className="flex justify-between text-xs text-slate-400 font-mono">
+                <span>Retención IVA</span>
+                <span>-${quote.retencion_iva_amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
               </div>
             )}
             <div className="flex justify-between items-baseline pt-3 border-t border-slate-800">
@@ -180,19 +250,12 @@ export default function PublicQuotePage() {
                 <ShieldCheck className="w-6 h-6" />
                 <span>Aceptar y Firmar Cotización</span>
               </button>
-
-              {/* Secondary WhatsApp Request Revisions Button */}
-              <a
-                href={`https://wa.me/528115551234?text=Hola,%20quisiera%20solicitar%20un%20cambio%20en%20la%20cotización%20"${encodeURIComponent(
-                  quote.title
-                )}"`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full min-h-[48px] px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-2xl flex items-center justify-center gap-2 transition-colors text-sm"
-              >
-                <MessageSquare className="w-5 h-5 text-emerald-400" />
-                <span>Solicitar Cambios por WhatsApp</span>
-              </a>
+              {/*
+                The "Solicitar Cambios por WhatsApp" button that used to render
+                here pointed every tenant's clients at one hardcoded number
+                (#44). It returns when organizations carry a contact phone the
+                API can expose.
+              */}
             </div>
           )}
         </div>
@@ -210,7 +273,7 @@ export default function PublicQuotePage() {
         isOpen={isOtpOpen}
         onClose={() => setIsOtpOpen(false)}
         publicToken={quote.public_token}
-        clientName="Construcciones Maya"
+        clientName={signerName}
         onSuccess={(seal) => {
           setSignedSeal(seal);
         }}

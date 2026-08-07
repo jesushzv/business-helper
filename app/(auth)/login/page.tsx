@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -32,6 +32,15 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const phoneResult = phone ? validatePhone(phone) : { isValid: false, phone: '' };
+
+  // /auth/callback bounces back here with ?error=oauth when the code exchange
+  // failed — without this, the user just sees the login form again with no
+  // explanation of why their Google sign-in did not stick.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('error') === 'oauth') {
+      setError('No se pudo completar el inicio de sesión con Google. Intenta de nuevo o usa tu correo y contraseña.');
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
