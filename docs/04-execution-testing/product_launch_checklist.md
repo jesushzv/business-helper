@@ -93,7 +93,7 @@
 ### Trust Signals & Badges
 - [ ] **Replace self-issued badges**: Swap defensive "Verificado en Producción" badges for PAC partner logo (Facturapi), SSL cert verification link, and Banxico SPEI validation badge.
 - [ ] **Elevate CSD trust message**: Highlight *"Nunca almacenamos tus certificados SAT. Tu PAC, tu control."* hero-adjacent.
-- [ ] **Add visible contact info**: WhatsApp support number, support email (soporte@businesshelper.mx), physical address (Tijuana, B.C. / San Diego, CA).
+- [ ] **Add visible contact info**: WhatsApp support number, support email (soporte@businesshelper.app), physical address (Tijuana, B.C. / San Diego, CA).
 - [ ] **Add team/founder section**: Photo and brief third-person bio for transparency.
 
 ### Pricing & Funnel Integrity
@@ -164,7 +164,7 @@
   - [ ] `STRIPE_PRICE_*`: Live price IDs mapped for each tier.
   - [ ] `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / channel number — **required, not optional.** The earlier "Not Needed / Bypassed" note was wrong: `wa.me/` Click-to-Chat only covers *owner-initiated* messages. It cannot deliver an OTP to a signer, so without a provider the e-signature flow is inoperable. One Twilio account also covers the outbound reminders in `lib/whatsappOutbound.ts`. (Meta Cloud API is the alternative.)
   - [ ] `PAC_ENCRYPTION_KEY` + `FACTURAPI_SECRET_KEY`: required only if CFDI ships at launch (PR #23). If CFDI is deferred, the Nota de Venta PDF and Accountant ZIP Export cover the MVP invoicing story without SAT CSD friction.
-- [ ] **Domain & SSL Setup**: **Decide `businesshelper.mx` vs `.app` first** — docs and commit history disagree. Then on Vercel:
+- [ ] **Domain & SSL Setup**: **Decide `businesshelper.app` vs `.app` first** — docs and commit history disagree. Then on Vercel:
   - Apex A Record: `76.76.21.21`
   - Subdomain CNAME: `cname.vercel-dns.com`
   - Sync Supabase Auth **Site URL** & **Redirect URL** (`/auth/callback`).

@@ -413,7 +413,7 @@ graph LR
 
 | Category | Variable Name | Public / Secret | Description |
 |:---|:---|:---:|:---|
-| **Core App** | `NEXT_PUBLIC_APP_URL` | Public | Base URL (e.g. `https://businesshelper.mx`) |
+| **Core App** | `NEXT_PUBLIC_APP_URL` | Public | Base URL (e.g. `https://businesshelper.app`) |
 | **Database & Auth**| `NEXT_PUBLIC_SUPABASE_URL` | Public | Supabase Endpoint URL |
 | **Database & Auth**| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public | Supabase Anonymous Client Key |
 | **Database & Auth**| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | Supabase Admin Bypass Key (Server API routes only) |

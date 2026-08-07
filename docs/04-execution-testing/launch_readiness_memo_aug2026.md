@@ -94,17 +94,39 @@ Deploying either branch without its migration returns 500s from the affected rou
 4. **Configure one OTP channel** — Twilio SMS is the pragmatic default — set `OTP_DELIVERY_CHANNEL`,
    and verify a real code arrives on a real handset and cannot be replayed.
 5. **Apply both pending migrations to production** before deploying the code that depends on them.
-6. **Configure a real CLABE for every pilot organization.** Payment confirmation against a
-   placeholder account is meaningless, and it is the core loop of the product.
-7. **Verify Stripe webhook signature enforcement** against a staging account — confirm unsigned
+6. **Make CLABE a hard gate in onboarding.** Each organization supplies its own CLABE — that is correct
+   and non-negotiable if they want to take payments, so this is an onboarding requirement rather than
+   something to provision for them. What needs verifying is that the product *enforces* it: an org
+   without a CLABE must not be able to send a payment link, and the 409 path must be exercised rather
+   than falling back to anything. Confirm `components/settings/BankAccountCard.tsx` is reachable early
+   in onboarding, not buried in settings.
+7. **Wire product analytics before the first user arrives.** There is none today — no PostHog, Mixpanel,
+   GA, or Vercel Analytics anywhere in the codebase, despite the GTM plan naming Mixpanel/PostHog.
+   Without funnel instrumentation, a disappointing launch is uninterpretable: you cannot tell whether
+   users did not want the product or could not finish signing up. Minimum viable set — signup started,
+   signup completed, first client created, first quote created, quote sent, quote signed, payment
+   confirmed. Roughly an hour of work with PostHog's free tier, and it is what makes every other number
+   in this document mean something.
+8. **Verify Stripe webhook signature enforcement** against a staging account — confirm unsigned
    requests are rejected and duplicate deliveries are idempotent. `npm run verify:webhook` exists for this.
+
+> [!IMPORTANT]
+> **The scope principle these items serve.** The founder's stated constraint is to launch fast without
+> mistaking an incomplete product for weak product-market fit. That gives a sharper rule than "ship the
+> MVP": **ship the minimum where a negative result is trustworthy.** Every P0 item above is one that,
+> left undone, produces a false negative — users who wanted the product but could not sign a quote,
+> could not be invoiced, or dropped out of a funnel nobody was measuring. Anything that cannot generate
+> a false negative belongs in P2, however visible it is.
 
 ### P1 — Makes launch week survivable
 
 - **Wire real error monitoring.** Add `@sentry/nextjs` (or an equivalent that actually transmits) and
   route alerts to your phone. Currently a console shim; you are solo and will not otherwise see a 500.
-- **Resolve the domain inconsistency.** Docs specify `businesshelper.mx`; recent commit history moved
-  to `.app`. Confirm which apex is registered, pointed at Vercel, and set as canonical.
+- **Apply the domain decision end to end.** `businesshelper.app` is the domain; `.mx` was never registered.
+  Docs are corrected. **Still outstanding in source:** `components/quotes/QuoteCard.tsx:26` falls back to a
+  hardcoded `https://businesshelper.mx/q/...` when rendered server-side, so a quote link can be sent to a
+  client pointing at a domain nobody owns; and `.env.example` needed the same fix. Confirm the apex is
+  pointed at Vercel with SSL, then sync the Supabase Auth Site/Redirect URLs and the Stripe webhook endpoint.
 - **OTP escalating backoff + daily cap** (#22) — without it, a pilot user legitimately signing several
   quotes in one sitting can lock themselves out against the flat 5/hour window.
 - **One real production smoke test:** register → quote → WhatsApp send → OTP sign → SPEI upload → confirm.
@@ -164,7 +186,7 @@ These require the founder and are not resolvable from the codebase.
 2. **Which OTP channel — Twilio SMS, Twilio WhatsApp, or Meta Cloud API?** All three are implemented.
    Is an account provisioned, and is WhatsApp Business API approval (which takes days) already in motion?
 3. **Are there real CLABE account numbers for the pilot organizations?**
-4. **`businesshelper.mx` or `businesshelper.app`?** Docs and commit history disagree.
+4. **`businesshelper.app` or `businesshelper.app`?** Docs and commit history disagree.
 5. **Does the September launch date hold?** The P0 list is roughly 1–2 focused weeks for one person —
    real work, not documentation cleanup. Hold the date by cutting CFDI, or slip and keep full scope?
 6. **Ad budget and platform for pilot recruiting**, given pilots are being recruited cold rather than

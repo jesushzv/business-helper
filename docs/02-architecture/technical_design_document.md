@@ -96,7 +96,7 @@ export function calculateContractHash(contractPayload: {
 ### Environment Pipeline
 1. **Development**: Local environment with Dockerized Supabase Postgres instance (`npx supabase start`).
 2. **Staging**: Vercel Preview Deployments connected to Supabase Staging Database project.
-3. **Production**: Vercel Edge Production (`businesshelper.mx`) connected to Supabase Production AWS cluster.
+3. **Production**: Vercel Edge Production (`businesshelper.app`) connected to Supabase Production AWS cluster.
 
 ### Deploy & Verification Steps
 ```bash

@@ -179,7 +179,7 @@ The following strategic gaps have been identified and prioritized based on compe
 * **Brand Strategy & Naming**: Perform brand name positioning, trademark clearance, and Mexican B2B market messaging alignment prior to domain registration.
 * **Visual Identity System**: Design logo variants, typography guidelines, primary/secondary color palettes, and social media brand kit.
 * **Dynamic Landing Page Refresh**: Refresh `/app/page.tsx` marketing copy, hero sections, interactive ROI pricing calculators, and video demo placeholders based on finalized brand identity.
-* **Domain & Registrar Selection Gate**: Lock in custom apex domain (e.g. `businesshelper.mx`, `cotiza.mx`) only AFTER brand identity approval.
+* **Domain & Registrar Selection Gate**: Lock in custom apex domain (e.g. `businesshelper.app`, `cotiza.mx`) only AFTER brand identity approval.
 
 ---
 

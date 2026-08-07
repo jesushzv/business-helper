@@ -234,7 +234,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 | **Invoicing** | Facturapi PAC (SAT CFDI 4.0) | `lib/facturapi.ts` |
 | **Styling** | Tailwind CSS + Brand dark slate theme (#090D16) | `app/globals.css` |
 | **Testing** | Vitest (unit + component) + Playwright | `tests/unit/`, `tests/components/`, `tests/e2e/` |
-| **Deployment** | Vercel Edge (businesshelper.mx) | `vercel.json` |
+| **Deployment** | Vercel Edge (businesshelper.app) | `vercel.json` |
 | **Monitoring** | Sentry error tracking | `lib/sentry.ts` |
 
 ---

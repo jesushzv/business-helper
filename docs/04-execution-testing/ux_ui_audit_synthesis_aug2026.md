@@ -113,7 +113,7 @@
 * **Prescribed Fix:** Replace specific competitor names with generic category descriptors (*"Sistemas tradicionales de escritorio"*, *"ERPs complejos"*) or rigorously source claims with explicit public pricing footnotes.
 
 #### 4.5 Domain Split & Meta Tags (`WS-E12`)
-* **Finding:** App lives at `businesshelper.app`, but social meta tags (`og:url`, `og:image`) and support emails reference `businesshelper.mx`.
+* **Finding:** App lives at `businesshelper.app`, but social meta tags (`og:url`, `og:image`) and support emails reference `businesshelper.app`.
 * **Prescribed Fix:** Standardize on one primary domain (preferably `.mx` for Mexico), add `<link rel="canonical">`, and configure 301 redirects.
 
 #### 4.6 Legal & Compliance Assets (`WS-E10`)

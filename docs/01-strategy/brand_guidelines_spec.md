@@ -51,7 +51,7 @@ We evaluated 4 naming territories against 5 critical criteria:
 
 ### Strategic Recommendation
 **Lock in "Business Helper"** (with localized descriptor: *"Business Helper — Control de Cotizaciones, Cobranza y Facturación"*).
-- **Primary Domain**: `businesshelper.mx` (with `cotiza.mx` / `cobro.mx` as short redirect links for 1-tap WhatsApp sharing).
+- **Primary Domain**: `businesshelper.app` (with `cotiza.mx` / `cobro.mx` as short redirect links for 1-tap WhatsApp sharing).
 - **Brand Sub-descriptor**: *"La plataforma todo-en-uno para PyMEs en México."*
 
 ---
@@ -115,8 +115,8 @@ Functional Status Colors:
 
 - **Visual Scene**: Split screen: Left side shows an overworked business owner searching through endless paper quotes and Excel sheets. Right side shows Don Roberto smiling on his smartphone sending a quote via WhatsApp in 2 taps.
 - **Voiceover / Caption**:
-  > *"¿Sigues perdiendo horas haciendo cotizaciones en Excel y persiguiendo pagos por WhatsApp? Con Business Helper, crea propuestas profesionales con tu logotipo en 2 minutos, envíalas por WhatsApp y controla exactamente quién te debe desde tu celular. Prueba 14 días gratis sin tarjeta de crédito en businesshelper.mx"*
-- **On-Screen CTA**: `Probar 14 Días Gratis` → `businesshelper.mx`
+  > *"¿Sigues perdiendo horas haciendo cotizaciones en Excel y persiguiendo pagos por WhatsApp? Con Business Helper, crea propuestas profesionales con tu logotipo en 2 minutos, envíalas por WhatsApp y controla exactamente quién te debe desde tu celular. Prueba 14 días gratis sin tarjeta de crédito en businesshelper.app"*
+- **On-Screen CTA**: `Probar 14 Días Gratis` → `businesshelper.app`
 
 ### 2. LinkedIn B2B Founder Campaign Post
 
@@ -126,7 +126,7 @@ Functional Status Colors:
 >
 > *Hoy lanzamos oficialmente **Business Helper**: la plataforma diseñada para que los empresarios mexicanos coticen en 2 minutos, sellen acuerdos con firma OTP y mantengan el control visual de su cobranza desde su celular.*
 >
-> *👉 Pruébalo 14 días sin costo en: https://businesshelper.mx"*
+> *👉 Pruébalo 14 días sin costo en: https://businesshelper.app"*
 
 ### 3. Accountant Partner Enablement Pitch Copy (Email / WhatsApp)
 
@@ -146,7 +146,7 @@ Functional Status Colors:
 
 ## 06 Brand Governance & Next Steps
 
-1. **Brand Spec Lock-in**: Maintain `businesshelper.mx` as the central identity.
+1. **Brand Spec Lock-in**: Maintain `businesshelper.app` as the central identity.
 2. **Landing Page Sync**: `app/page.tsx` strictly mirrors all messaging tokens from this specification.
 3. **Ad Creative Production**: Deploy Meta Ads video creative using the script in Section 05.
 4. **Accountant Network Outreach**: Dispatch the 30-firm partner enablement email sequence starting T-4 weeks before launch.

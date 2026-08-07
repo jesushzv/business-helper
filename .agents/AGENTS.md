@@ -12,7 +12,7 @@
 
 ### 1. Media & CDN Infrastructure
 - All media assets (videos, WebM, MP4, screenshots, posters, avatars) MUST use the `getAssetUrl(path)` helper from [`lib/url.ts`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/lib/url.ts).
-- `NEXT_PUBLIC_CDN_URL` controls production CDN asset routing (e.g. `https://cdn.businesshelper.mx`), gracefully falling back to root paths when unconfigured.
+- `NEXT_PUBLIC_CDN_URL` controls production CDN asset routing (e.g. `https://cdn.businesshelper.app`), gracefully falling back to root paths when unconfigured.
 
 ### 2. Mexican PyME UX Standards
 - **Dark Theme Palette**: Dark Slate (`#090D16`), Emerald (`emerald-500`), and Indigo (`indigo-600`) accents.
