@@ -69,17 +69,137 @@ describe('Facturapi SAT CFDI 4.0 payload construction', () => {
     expect(payload.customer.tax_id).toBe('');
   });
 
-  it('should construct Complemento de Recepción de Pagos (CPP) payload for confirmed PPD payment', () => {
-    const cpp = buildComplementoPagoPayload({
-      invoiceId: 'cfdi_12345',
-      amount: 5000,
-      paymentForm: '03',
-      operationNumber: 'SPEI-88992',
+  describe('Complemento de Recepción de Pagos', () => {
+    const receiver = {
+      name: 'Cliente Ejemplo',
+      rfc: 'gorm850101789',
+      regimen_fiscal: '612',
+      codigo_postal: '64000',
+    };
+
+    /** The single payment inside the `complements: [{type: 'pago', data: [...]}]` envelope. */
+    function paymentOf(payload: ReturnType<typeof buildComplementoPagoPayload>) {
+      return payload.complements[0].data[0];
+    }
+
+    it('builds a type P document that references the invoice by folio fiscal', () => {
+      const cpp = buildComplementoPagoPayload({
+        customer: receiver,
+        uuid: 'a1b2c3d4-0000-4444-8888-abcdefabcdef',
+        invoiceId: 'cfdi_12345',
+        amount: 5000,
+        lastBalance: 5000,
+        installment: 1,
+        paymentForm: '03',
+        operationNumber: 'SPEI-88992',
+      });
+
+      const payment = paymentOf(cpp);
+
+      expect(cpp.type).toBe('P');
+      expect(cpp.complements[0].type).toBe('pago');
+      expect(cpp.customer.tax_id).toBe('GORM850101789');
+      expect(payment.payment_form).toBe('03');
+      expect(payment.operation_number).toBe('SPEI-88992');
+      // The SAT matches on the folio fiscal; `invoice_id` is only a fallback.
+      expect(payment.related_documents[0].uuid).toBe('A1B2C3D4-0000-4444-8888-ABCDEFABCDEF');
+      expect(payment.related_documents[0].invoice_id).toBeUndefined();
+      expect(payment.related_documents[0].amount).toBe(5000);
+      expect(payment.related_documents[0].last_balance).toBe(5000);
+      expect(payment.related_documents[0].installment).toBe(1);
     });
-    expect(cpp.type).toBe('P');
-    expect(cpp.payments[0].amount).toBe(5000);
-    expect(cpp.payments[0].operation_number).toBe('SPEI-88992');
-    expect(cpp.payments[0].related_documents[0].invoice_id).toBe('cfdi_12345');
+
+    it('falls back to the PAC invoice id only when the folio fiscal is unknown', () => {
+      const cpp = buildComplementoPagoPayload({
+        customer: receiver,
+        invoiceId: 'cfdi_12345',
+        amount: 1000,
+        lastBalance: 1000,
+        installment: 1,
+      });
+
+      expect(paymentOf(cpp).related_documents[0].invoice_id).toBe('cfdi_12345');
+      expect(paymentOf(cpp).related_documents[0].uuid).toBeUndefined();
+    });
+
+    it('carries the parcialidad and the balances of a partial payment', () => {
+      // `installment` was hardcoded to 1, which is only correct while every PPD
+      // invoice is settled in a single transfer.
+      const cpp = buildComplementoPagoPayload({
+        customer: receiver,
+        uuid: 'a1b2c3d4-0000-4444-8888-abcdefabcdef',
+        amount: 2000,
+        lastBalance: 5000,
+        installment: 2,
+      });
+
+      const related = paymentOf(cpp).related_documents[0];
+      expect(related.installment).toBe(2);
+      expect(related.amount).toBe(2000);
+      expect(related.last_balance).toBe(5000);
+    });
+
+    it('applies the invoice tax treatment to the share of the amount paid', () => {
+      // Half of a 11,600 PPD invoice at 16% IVA: ImpuestosDR is computed on the
+      // pre-tax slice of what was received, not on the whole document.
+      const treatment = deriveCFDITaxTreatment({
+        subtotal_amount: 10000,
+        iva_amount: 1600,
+        total_amount: 11600,
+      });
+
+      const cpp = buildComplementoPagoPayload({
+        customer: receiver,
+        uuid: 'a1b2c3d4-0000-4444-8888-abcdefabcdef',
+        amount: 5800,
+        lastBalance: 11600,
+        installment: 1,
+        treatment,
+      });
+
+      const taxes = paymentOf(cpp).related_documents[0].taxes as Array<Record<string, unknown>>;
+      expect(taxes).toHaveLength(1);
+      expect(taxes[0].base).toBe(5000);
+      expect(taxes[0].rate).toBe(0.16);
+    });
+
+    it('reproduces retenciones rather than assuming a plain 16% IVA', () => {
+      const treatment = deriveCFDITaxTreatment({
+        subtotal_amount: 10000,
+        iva_amount: 1600,
+        retencion_isr_amount: 1000,
+        retencion_iva_amount: 1066.67,
+        total_amount: 9533.33,
+      });
+
+      const cpp = buildComplementoPagoPayload({
+        customer: receiver,
+        uuid: 'a1b2c3d4-0000-4444-8888-abcdefabcdef',
+        amount: 9533.33,
+        lastBalance: 9533.33,
+        installment: 1,
+        treatment,
+      });
+
+      const taxes = paymentOf(cpp).related_documents[0].taxes as Array<Record<string, unknown>>;
+      expect(taxes).toHaveLength(3);
+      expect(taxes.filter((t) => t.withholding === true)).toHaveLength(2);
+    });
+
+    it('omits the operation number rather than inventing a SPEI reference', () => {
+      // `SPEI-${Date.now()}` looked like a real trace and matched nothing at
+      // the bank.
+      const cpp = buildComplementoPagoPayload({
+        customer: receiver,
+        uuid: 'a1b2c3d4-0000-4444-8888-abcdefabcdef',
+        amount: 100,
+        lastBalance: 100,
+        installment: 1,
+      });
+
+      expect(paymentOf(cpp).operation_number).toBeUndefined();
+      expect(JSON.stringify(cpp)).not.toMatch(/SPEI-\d{6,}/);
+    });
   });
 
   it('should no longer expose a stamping simulation', async () => {

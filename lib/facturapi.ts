@@ -282,34 +282,127 @@ export function buildMilestoneLineItem(
   };
 }
 
-/**
- * Builds Facturapi API payload for SAT Complemento de Recepción de Pagos (CPP)
- * when a payment is confirmed for a PPD invoice.
- */
-export function buildComplementoPagoPayload(input: {
-  invoiceId: string;
+/** Money as the SAT reads it: two decimals, no floating-point tail. */
+function toMoney(value: number): number {
+  return Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
+}
+
+/** One line of ImpuestosDR — the tax breakdown a payment carries per related document. */
+export interface ComplementoPagoTaxLine {
+  base: number;
+  type: 'IVA' | 'ISR';
+  rate: number;
+  withholding?: boolean;
+}
+
+export interface ComplementoPagoInput {
+  /** The receiver of the payment complement — the same client the PPD invoice was issued to. */
+  customer: CFDIParty;
+  /** Folio fiscal of the PPD invoice this payment settles. Preferred over `invoiceId`. */
+  uuid?: string | null;
+  /** The PAC's own id for that invoice, used when the folio fiscal is not to hand. */
+  invoiceId?: string | null;
+  /** ImpPagado — what was actually received. */
   amount: number;
+  /** ImpSaldoAnt — what was outstanding on the invoice before this payment. */
+  lastBalance: number;
+  /** NumParcialidad — 1 for the first payment against the document, 2 for the next. */
+  installment: number;
+  /** SAT c_FormaPago; '03' is transferencia electrónica (SPEI). */
   paymentForm?: string;
-  operationNumber?: string;
+  /** NumOperacion — the SPEI tracking reference, when the payer captured one. */
+  operationNumber?: string | null;
+  /** FechaPago. Defaults to now. */
   date?: string;
-}) {
+  /** Tax treatment of the invoice, so ImpuestosDR reproduces its retenciones. */
+  treatment?: CFDITaxTreatment | null;
+}
+
+/**
+ * Builds the Facturapi body for a SAT Complemento de Recepción de Pagos.
+ *
+ * A CFDI stamped PPD does not record a payment — it records that one is owed.
+ * The payment itself is a second document, type `P`, due to the SAT in the
+ * first days of the month following each amount received. Issuing the PPD
+ * invoice and never filing the complement leaves the taxpayer non-compliant on
+ * an obligation this product created for them.
+ *
+ * Three things distinguish it from an ordinary invoice and are the reason the
+ * arguments look the way they do:
+ *
+ *   - It carries no priced concepts. The PAC generates the single mandatory
+ *     "Pago" line; what the caller supplies is the payment and the document it
+ *     applies to.
+ *   - The balances are part of the stamped record. `last_balance` (ImpSaldoAnt)
+ *     and the amount paid have to reconcile with the related CFDI and with the
+ *     complements already filed against it, or the SAT rejects the document.
+ *   - `installment` is the ordinal of this payment, not a constant. It used to
+ *     be hardcoded to `1` here, which is only correct while every PPD invoice
+ *     is settled in a single transfer.
+ *
+ * The shape follows Facturapi's `complements: [{ type: 'pago', data: [...] }]`
+ * envelope. The earlier draft of this function emitted a top-level `payments`
+ * array, which no PAC accepts; nothing ever sent it, so nothing depended on it.
+ */
+export function buildComplementoPagoPayload(input: ComplementoPagoInput) {
+  const amount = toMoney(input.amount);
+  const lastBalance = toMoney(input.lastBalance);
+
+  const related: Record<string, unknown> = {
+    installment: input.installment,
+    last_balance: lastBalance,
+    amount,
+    currency: 'MXN',
+  };
+
+  // The folio fiscal is what the SAT matches on. `invoice_id` is a Facturapi
+  // convenience for documents stamped through the same account, and is only
+  // used when the UUID is not on record.
+  if (input.uuid) {
+    related.uuid = String(input.uuid).toUpperCase();
+  } else if (input.invoiceId) {
+    related.invoice_id = input.invoiceId;
+  }
+
+  if (input.treatment && input.treatment.taxes.length > 0) {
+    // ImpuestosDR is computed on the pre-tax share of the amount paid, so a
+    // partial payment carries a proportional slice of the invoice's IVA and
+    // retenciones rather than the whole document's.
+    const base = toMoney(amount * input.treatment.baseRatio);
+    const taxes: ComplementoPagoTaxLine[] = input.treatment.taxes.map((tax) => ({
+      base,
+      type: tax.type,
+      rate: tax.rate,
+      ...(tax.withholding ? { withholding: true } : {}),
+    }));
+    related.taxes = taxes;
+  }
+
   return {
-    type: 'P',
-    payments: [
+    type: 'P' as const,
+    customer: {
+      legal_name: input.customer.name,
+      tax_id: input.customer.rfc ? String(input.customer.rfc).toUpperCase().trim() : '',
+      tax_system: input.customer.regimen_fiscal || '',
+      zip: input.customer.codigo_postal || '',
+    },
+    complements: [
       {
-        payment_form: input.paymentForm || '03',
-        currency: 'MXN',
-        amount: input.amount,
-        date: input.date || new Date().toISOString(),
-        operation_number: input.operationNumber || `SPEI-${Date.now()}`,
-        related_documents: [
+        type: 'pago' as const,
+        data: [
           {
-            invoice_id: input.invoiceId,
-            installment: 1,
-            currency: 'MXN'
-          }
-        ]
-      }
-    ]
+            payment_form: input.paymentForm || '03',
+            currency: 'MXN',
+            date: input.date || new Date().toISOString(),
+            // NumOperacion is optional for a SPEI transfer that has no
+            // reference; a fabricated `SPEI-<timestamp>` was worse than
+            // omitting it, since it looks like a real trace and matches
+            // nothing at the bank.
+            ...(input.operationNumber ? { operation_number: input.operationNumber } : {}),
+            related_documents: [related],
+          },
+        ],
+      },
+    ],
   };
 }

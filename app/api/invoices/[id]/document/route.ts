@@ -12,6 +12,11 @@ import { signCFDIDocumentUrl } from '@/lib/cfdiStorage';
  * object) or expire (signed URL), and a fiscal record pointing at nothing is
  * the failure this whole change exists to remove. The link is signed here, per
  * request, for the caller who proved they belong to the organization.
+ *
+ * `?complement=<id>` serves a complemento de pago instead of the invoice. A
+ * complement is a separate stamped document with its own folio fiscal, filed
+ * against the same milestone, and an accountant needs it as much as the invoice
+ * it settles.
  */
 export async function GET(
   request: Request,
@@ -38,30 +43,50 @@ export async function GET(
   }
 
   const { id } = await params;
-  const type = new URL(request.url).searchParams.get('type') === 'pdf' ? 'pdf' : 'xml';
+  const search = new URL(request.url).searchParams;
+  const type = search.get('type') === 'pdf' ? 'pdf' : 'xml';
+  const complementId = search.get('complement');
 
-  const { data: milestone } = await supabase
-    .from('milestones')
-    .select('id, cfdi_status, cfdi_xml_path, cfdi_pdf_path')
-    .eq('id', id)
-    .eq('organization_id', organizationId)
-    .maybeSingle();
+  // The complement is looked up by its own id *and* the milestone it belongs
+  // to, so a complement id from another cobro cannot be pulled through this
+  // route even inside the same organization.
+  const { data: document } = complementId
+    ? await supabase
+        .from('cfdi_payment_complements')
+        .select('id, cfdi_xml_path, cfdi_pdf_path')
+        .eq('id', complementId)
+        .eq('milestone_id', id)
+        .eq('organization_id', organizationId)
+        .maybeSingle()
+    : await supabase
+        .from('milestones')
+        .select('id, cfdi_status, cfdi_xml_path, cfdi_pdf_path')
+        .eq('id', id)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
 
-  if (!milestone) {
+  if (!document) {
     return NextResponse.json(
-      { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
+      {
+        error: {
+          code: 'NOT_FOUND',
+          message: complementId ? 'Complemento de pago no encontrado' : 'Cobro no encontrado',
+        },
+      },
       { status: 404 }
     );
   }
 
-  const path = type === 'pdf' ? milestone.cfdi_pdf_path : milestone.cfdi_xml_path;
+  const path = type === 'pdf' ? document.cfdi_pdf_path : document.cfdi_xml_path;
 
   if (!path) {
     return NextResponse.json(
       {
         error: {
           code: 'DOCUMENT_NOT_STORED',
-          message: 'Este cobro no tiene un documento CFDI guardado.',
+          message: complementId
+            ? 'Este complemento de pago no tiene un documento guardado.'
+            : 'Este cobro no tiene un documento CFDI guardado.',
         },
       },
       { status: 404 }

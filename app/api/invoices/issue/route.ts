@@ -354,6 +354,16 @@ export async function POST(request: Request) {
       cfdi_provider: credentials.provider,
       cfdi_environment: credentials.environment,
       cfdi_stamped_at: document.stampedAt,
+      // A PPD document declares the amount as still owed and obliges the
+      // taxpayer to file a payment complement for every payment received
+      // afterwards. Recording the method is what lets
+      // /api/receivables/[id]/confirm know that obligation exists — without it
+      // a PPD invoice is indistinguishable from a PUE one after stamping.
+      cfdi_payment_method: paymentMethod,
+      // The PAC's own total. A complement's balances must reconcile against the
+      // document, which can differ from the milestone amount by a rounding step
+      // once taxes are recomputed from the base.
+      cfdi_total: document.total ?? null,
       cfdi_error: storageWarning,
       cfdi_xml_path: xmlPath,
       cfdi_pdf_path: pdfPath,
@@ -398,6 +408,11 @@ export async function POST(request: Request) {
     xmlUrl: xmlPath ? documentUrl('xml') : null,
     pdfUrl: pdfPath ? documentUrl('pdf') : null,
     issuedAt: document.stampedAt,
+    paymentMethod,
+    // A PPD document is not the end of the paperwork: every payment against it
+    // owes the SAT a complement. Say so at the moment it is issued rather than
+    // letting the user find out from their accountant.
+    complementRequired: paymentMethod === 'PPD',
     warning: storageWarning,
   });
 }
