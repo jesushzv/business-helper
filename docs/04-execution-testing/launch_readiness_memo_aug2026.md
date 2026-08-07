@@ -190,7 +190,9 @@ These require the founder and are not resolvable from the codebase.
 2. **Which OTP channel — Twilio SMS, Twilio WhatsApp, or Meta Cloud API?** All three are implemented.
    Is an account provisioned, and is WhatsApp Business API approval (which takes days) already in motion?
 3. **Are there real CLABE account numbers for the pilot organizations?**
-4. **`businesshelper.app` or `businesshelper.app`?** Docs and commit history disagree.
+4. ~~**`businesshelper.app` or `businesshelper.mx`?** Docs and commit history disagree.~~
+   Resolved — the domain is `businesshelper.app`; `.mx` was never registered (see P1 §03 and #36).
+   *(This line originally read ".app or .app" — a typo that erased the question it was asking.)*
 5. **Does the September launch date hold?** The P0 list is roughly 1–2 focused weeks for one person —
    real work, not documentation cleanup. Hold the date by cutting CFDI, or slip and keep full scope?
 6. **Ad budget and platform for pilot recruiting**, given pilots are being recruited cold rather than

@@ -1,8 +1,10 @@
 # Business Helper Documentation & Agent Navigation Guide
 
-> **Central Documentation Index & Agent Operating System**
+> **Central Documentation Index**
 >
 > This guide organizes the complete documentation suite for **Business Helper** into logical subdirectories and establishes exact protocols for when human developers and autonomous AI coding agents (AGY, Claude, Cursor) should read or update each document.
+>
+> **The agent operating rules live in [`CLAUDE.md`](../CLAUDE.md) at the repository root** (consolidated 2026-08-07 from this file's §"Mandatory Operating Rules", `.agents/AGENTS.md`, and parts of `MASTER_PROMPT.md`). This guide remains the doc *index*; `CLAUDE.md` is the doc *authority*.
 
 ---
 
@@ -22,7 +24,7 @@ business-helper/docs/
 │   └── okrs.md                          # Q3/Q4 Objectives & Key Results
 │
 ├── 02-architecture/                     # Technical & Database Architecture
-│   ├── app-architecture-plan.md         # Next.js 16 + Supabase system architecture
+│   ├── app-architecture-plan.md         # Next.js 15 + Supabase system architecture
 │   ├── database-schema-design.md        # PostgreSQL tables, RLS & check constraints
 │   ├── cfdi_integration_architecture.md  # CFDI 4.0 PAC integration models & trust-forward strategy (NEW)
 │   └── technical_design_document.md     # Engineering specs, algorithms & testing
@@ -104,10 +106,7 @@ These were deleted as redundant or spent; git history retains them.
 
 ## ⚡ Mandatory Operating Rules for AI Agents
 
-1. **Follow the 4-Phase ECC Loop**: Execute via `ecc-execution-playbook.md` (Planning → TDD → Execution/Security Review → Verification/E2E).
-2. **Verify Database Field Names First**: Consult `02-architecture/database-schema-design.md` before writing SQL or Supabase JS calls.
-3. **Respect Multi-Tenant Isolation**: Every database query MUST include RLS `organization_id` scoping.
-4. **Align UI with User Personas**: Mobile screens must accommodate Don Roberto (48px+ tap targets, big monetary totals, 1-tap WhatsApp sharing).
-5. **Preserve Coverage**: Every code modification MUST include corresponding Vitest unit tests in `tests/unit/` — importing the `.ts` source, never a hand-maintained copy of it — to maintain the **85% coverage gate**.
-6. **Never Simulate a Third Party Silently**: If an integration cannot be completed, it MUST fail loudly — return an error, refuse in production, and label any placeholder record as such in the database. **Never write a success state the external service has not confirmed.** A stub that fabricates an ID, a URL, or a status is the defect that produced the CFDI compliance issue in #3.
-7. **Report Status Honestly**: Mark a feature complete only when its outbound call has executed against the real service at least once. Tests passing against a mocked `fetch` mean the code is correct, not that the integration works — say which one you verified. When updating a status doc, state what you actually ran.
+**Moved to [`CLAUDE.md`](../CLAUDE.md) §"Hard rules" and §"Process"** on 2026-08-07, so the rules
+have exactly one home. The consolidation preserved all seven rules that lived here (ECC loop,
+schema-first, multi-tenant isolation, persona alignment, coverage, never-simulate, honest status
+reporting) and added the operational knowledge from the 2026-08 launch reconciliation.

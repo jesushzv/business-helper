@@ -80,7 +80,7 @@ graph TD
 > **Objective**: Build clean, multi-tenant UI components and API handlers, enforced by code and security reviewers.
 
 1. **Invoke Domain Reviewers**:
-   * Delegate to `@typescript-reviewer` for Next.js 16 RSC/Client components and custom hooks (`useQuotes.ts`, `useReceivables.ts`).
+   * Delegate to `@typescript-reviewer` for Next.js 15 RSC/Client components and custom hooks (`useQuotes.ts`, `useReceivables.ts`).
    * Delegate to `@database-reviewer` for SQL migrations and PostgreSQL RLS policies (`organization_id` scoping).
 2. **Mobile UX Rules (Don Roberto Constraint)**:
    * Ensure touch targets are `>= 48px`.
