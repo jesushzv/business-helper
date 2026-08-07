@@ -93,19 +93,21 @@ engineering journal.
   and anything touching money, fiscal documents, auth, or OTP. Before writing SQL or Supabase
   calls, verify field names against `docs/02-architecture/database-schema-design.md`.
 
-  > **The `@agent` names in the playbook are not executable — the loop itself is.**
-  > `ecc-execution-playbook.md` §03 and `MASTER_PROMPT.md` §06 reference `@planner`, `@tdd-guide`,
-  > `@security-reviewer` and six others from the third-party "Everything Claude Code" suite.
-  > **Nothing in this repo defines them** — there is no `.claude/agents/` directory — so typing
-  > `@planner` does nothing, silently. Run the four phases directly; that needs no setup. Where a
-  > genuine second pass is wanted, these are the real equivalents in Claude Code:
+  > **Most `@agent` names in the playbook are not executable — the loop itself is.**
+  > `ecc-execution-playbook.md` §03 and `MASTER_PROMPT.md` §06 reference nine agents from the
+  > third-party "Everything Claude Code" suite, which was never installed. Two of those roles are
+  > now defined for real in `.claude/agents/` (2026-08-07) — chosen because they cover the two
+  > defect classes this repo has actually produced (#35 unverified migrations; the CFDI simulation
+  > incident and #33). The rest map to built-ins or to doing the step directly:
   >
   > | Playbook name | What actually exists |
   > |:---|:---|
+  > | `@database-reviewer` | ✅ **`database-reviewer` subagent** (`.claude/agents/database-reviewer.md`) — run it on any diff touching migrations, RLS, or query patterns |
+  > | *(no ECC name)* | ✅ **`money-path-reviewer` subagent** (`.claude/agents/money-path-reviewer.md`) — run it on any diff touching payments, CFDI, Stripe, folios, receivables |
   > | `@planner`, `@architect` | the `Plan` subagent |
   > | `@security-reviewer` | the `/security-review` skill |
   > | `@code-reviewer` | the `/code-review` skill |
-  > | `@tdd-guide`, `@database-reviewer`, `@build-error-resolver`, `@e2e-runner` | no equivalent — perform the step directly |
+  > | `@tdd-guide`, `@build-error-resolver`, `@e2e-runner` | no equivalent — perform the step directly |
 - **Light path** for small fixes, copy, and docs: make the change, add/update a test, run the
   quality gate. No spec-doc ceremony required.
 - The hard rules above and the quality gate are non-negotiable at every size.

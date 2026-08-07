@@ -247,10 +247,11 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 ## 06 ECC Agent Quick Reference
 
 > [!WARNING]
-> **Not executable in this repo.** The ECC agent suite is not installed — there is no
-> `.claude/agents/` directory, so `@planner`, `@security-reviewer` and the rest below do nothing
-> when invoked. The table records intended roles. See `CLAUDE.md` §"Process" for the real
-> Claude Code equivalents (`Plan` subagent, `/security-review`, `/code-review`). *(Verified 2026-08-07.)*
+> **Mostly not executable in this repo.** The ECC agent suite was never installed, so `@planner`,
+> `@security-reviewer` and most names below do nothing when invoked. **Exception:**
+> `@database-reviewer` is now real (`.claude/agents/database-reviewer.md`), joined by
+> `money-path-reviewer` for payments/CFDI/Stripe diffs. See `CLAUDE.md` §"Process" for the full
+> role-to-reality mapping (`Plan` subagent, `/security-review`, `/code-review`).
 
 | Agent | When to Invoke | Business Helper Context |
 |:---|:---|:---|

@@ -113,11 +113,13 @@ graph TD
 ## 03 Agent Command Quick Reference
 
 > [!WARNING]
-> **These agent names are aspirational, not executable.** The ECC suite is a third-party framework
-> that is **not installed in this repository** — there is no `.claude/agents/` directory, so
-> invoking `@planner` or `@security-reviewer` in Claude Code does nothing and gives no error.
-> The 4-Phase loop above requires no setup and should be run directly. For the real Claude Code
-> equivalents of these roles, see `CLAUDE.md` §"Process". *(Verified 2026-08-07.)*
+> **Most of these agent names are aspirational, not executable.** The ECC suite is a third-party
+> framework that was never installed here, so invoking `@planner` or `@security-reviewer` in
+> Claude Code does nothing and gives no error. **Two exceptions, defined for real in
+> `.claude/agents/` on 2026-08-07:** `database-reviewer` (the `@database-reviewer` role below)
+> and `money-path-reviewer` (no ECC counterpart — reviews payments/CFDI/Stripe diffs). The
+> 4-Phase loop itself requires no setup and should be run directly. For the full role-to-reality
+> mapping, see `CLAUDE.md` §"Process".
 
 | ECC Agent | Primary Command / Trigger | When to Use in Business Helper |
 |:---|:---|:---|
