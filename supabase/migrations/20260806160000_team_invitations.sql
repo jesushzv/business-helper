@@ -48,6 +48,8 @@ ALTER TABLE public.organization_invitations ENABLE ROW LEVEL SECURITY;
 -- Members of the organization manage its invitations. Redemption happens
 -- through the service-role client instead: the invited user is by definition
 -- not yet a member, so no authenticated policy can (or should) match their row.
+DROP POLICY IF EXISTS "Tenant members manage organization invitations"
+  ON public.organization_invitations;
 CREATE POLICY "Tenant members manage organization invitations"
 ON public.organization_invitations FOR ALL TO authenticated
 USING (
