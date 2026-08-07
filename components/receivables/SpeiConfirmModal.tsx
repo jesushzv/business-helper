@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MilestoneWithClient } from '@/lib/hooks/useReceivables';
-import { X, CheckCircle, ExternalLink, ShieldCheck } from 'lucide-react';
+import { MilestoneWithClient, ReceivableMutationOutcome } from '@/lib/hooks/useReceivables';
+import { X, CheckCircle, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
 
 interface SpeiConfirmModalProps {
   isOpen: boolean;
   milestone: MilestoneWithClient | null;
   onClose: () => void;
-  onConfirm: (milestoneId: string, transferredAmount?: number) => Promise<void>;
+  onConfirm: (milestoneId: string, transferredAmount?: number) => Promise<ReceivableMutationOutcome>;
 }
 
 export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
@@ -18,6 +18,8 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   onConfirm,
 }) => {
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [complementWarning, setComplementWarning] = useState<string | null>(null);
   const [transferredAmount, setTransferredAmount] = useState<number>(
     milestone?.transferred_amount || milestone?.amount || 0
   );
@@ -25,6 +27,8 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   React.useEffect(() => {
     if (milestone) {
       setTransferredAmount(milestone.transferred_amount || milestone.amount);
+      setErrorMessage(null);
+      setComplementWarning(null);
     }
   }, [milestone]);
 
@@ -32,11 +36,26 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
 
   const handleConfirm = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
-      await onConfirm(milestone.id, Number(transferredAmount) || milestone.amount);
+      const outcome = await onConfirm(milestone.id, Number(transferredAmount) || milestone.amount);
+
+      if (!outcome.success) {
+        // The payment was NOT confirmed. Say so where the user is looking,
+        // instead of closing over a state the server rejected.
+        setErrorMessage(outcome.error || 'No se pudo confirmar el pago');
+        return;
+      }
+
+      if (outcome.complementError) {
+        // The payment confirmed but the SAT complement did not stamp — a live
+        // fiscal obligation the user must retry from Facturación. Hold the
+        // modal open until they have seen it.
+        setComplementWarning(outcome.complementError.message);
+        return;
+      }
+
       onClose();
-    } catch (e) {
-      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -108,28 +127,57 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
           </div>
         </div>
 
-        <div className="flex gap-3 pt-2">
-          <button
-            onClick={onClose}
-            className="flex-1 min-h-[48px] px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-sm transition-colors"
+        {errorMessage && (
+          <div
+            role="alert"
+            className="mb-4 flex items-start gap-2 bg-red-950/60 border border-red-500/40 text-red-200 rounded-2xl p-4 text-sm font-medium"
           >
-            Cancelar
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={loading}
-            className="flex-1 min-h-[48px] px-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-md"
-          >
-            {loading ? (
-              <span>Confirmando...</span>
-            ) : (
-              <>
-                <CheckCircle className="w-5 h-5" />
-                <span>Confirmar Pago</span>
-              </>
-            )}
-          </button>
-        </div>
+            <AlertTriangle className="w-5 h-5 shrink-0 text-red-400" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {complementWarning ? (
+          <div className="space-y-3 pt-2">
+            <div
+              role="alert"
+              className="flex items-start gap-2 bg-amber-950/60 border border-amber-500/40 text-amber-200 rounded-2xl p-4 text-sm font-medium"
+            >
+              <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400" />
+              <span>{complementWarning}</span>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full min-h-[48px] px-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-md"
+            >
+              <CheckCircle className="w-5 h-5" />
+              <span>Entendido — pago confirmado</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 min-h-[48px] px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-sm transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={loading}
+              className="flex-1 min-h-[48px] px-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-md"
+            >
+              {loading ? (
+                <span>Confirmando...</span>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  <span>Confirmar Pago</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
