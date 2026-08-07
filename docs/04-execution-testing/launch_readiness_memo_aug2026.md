@@ -2,8 +2,8 @@
 
 > **Ground-Truth Reconciliation, Priority Stack & Launch Gate**
 >
-> *Prepared: 2026-08-07 | Verified against `main` @ `5c35719`*
-> *Method: repo docs reconciled against actual source, dependency manifest, test run, and the live issue tracker (issues #2, #3, #14, #17, #22; PRs #1–#23).*
+> *Prepared: 2026-08-07 | Verified against `main` @ `c67f229` (post #20 / #23 / #29)*
+> *Method: repo docs reconciled against actual source, dependency manifest, test run, and the live issue tracker (PRs #1–#29; issues #2, #14, #22, #24, #26, #27, #30–#38).*
 
 This document is the source of truth for launch status. It supersedes the completion claims in
 [`product-roadmap.md`](../03-product-specs/product-roadmap.md) wherever they conflict — where a doc says a
@@ -54,7 +54,7 @@ until checked against source. This memo does that check; §06 records the method
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **383 tests / 58 files**, `npx vitest run` — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **494 tests / 64 files**, `npx vitest run` — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -89,31 +89,18 @@ that were blocking. What remains is configuration and one real transaction, not 
 
 ### P0 — Blocking: money and compliance cannot be simulated
 
-1. ✅ **CFDI ships at launch** — decided. PR #23 is merged, so the code is real.
-2. **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and
-   the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the
-   integration works — and this is the last thing standing between "merged" and "trustworthy."
-3. **Configure one OTP channel.** Twilio SMS: fastest to provision, no business-verification wait, and
-   at pilot volume the per-message premium over WhatsApp is a few dollars a month. Set
-   `OTP_DELIVERY_CHANNEL=sms`, then verify a real code lands on a real handset and cannot be replayed.
-   (Per-recipient rate limiting is already in place as of PR #20.)
-4. **Apply both migrations to production before the deploy that carries them.** They are on `main` now
-   and Vercel auto-deploys `main`, so the code can outrun the schema. `npm run db:migrate:dry` first.
-6. **Make CLABE a hard gate in onboarding.** Each organization supplies its own CLABE — that is correct
-   and non-negotiable if they want to take payments, so this is an onboarding requirement rather than
-   something to provision for them. What needs verifying is that the product *enforces* it: an org
-   without a CLABE must not be able to send a payment link, and the 409 path must be exercised rather
-   than falling back to anything. Confirm `components/settings/BankAccountCard.tsx` is reachable early
-   in onboarding, not buried in settings.
-7. **Wire product analytics before the first user arrives.** There is none today — no PostHog, Mixpanel,
-   GA, or Vercel Analytics anywhere in the codebase, despite the GTM plan naming Mixpanel/PostHog.
-   Without funnel instrumentation, a disappointing launch is uninterpretable: you cannot tell whether
-   users did not want the product or could not finish signing up. Minimum viable set — signup started,
-   signup completed, first client created, first quote created, quote sent, quote signed, payment
-   confirmed. Roughly an hour of work with PostHog's free tier, and it is what makes every other number
-   in this document mean something.
-8. **Verify Stripe webhook signature enforcement** against a staging account — confirm unsigned
-   requests are rejected and duplicate deliveries are idempotent. `npm run verify:webhook` exists for this.
+✅ **CFDI ships at launch** — decided. PR #23 is merged, so the code is real.
+
+| # | Item | Tracked |
+|:--|:---|:---|
+| 1 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
+| 2 | **Configure one OTP channel.** Twilio SMS: fastest to provision, no business-verification wait, and at pilot volume the premium over WhatsApp is a few dollars a month. Set `OTP_DELIVERY_CHANNEL=sms`, then verify a real code lands on a real handset and cannot be replayed. Per-recipient rate limiting is already in place (#20). | [#2](https://github.com/jesushzv/business-helper/issues/2) |
+| 3 | **Stop reporting payments as confirmed when the write failed.** `useReceivables` fires the request and discards the outcome, so a 401/403/500 still shows `confirmed`, persists to `localStorage`, and moves the "cobrado este mes" total. This is the CFDI defect one layer up — the product asserting a financial fact that never happened — and it sits on the step that closes the core loop. | [#33](https://github.com/jesushzv/business-helper/issues/33) |
+| 4 | **Fix quote links falling back to `businesshelper.mx`.** Server-rendered quote URLs point at a domain nobody owns, embedded in the WhatsApp message sent to the client. Same component hardcodes a stranger's phone number when a client has none. | [#36](https://github.com/jesushzv/business-helper/issues/36) |
+| 5 | **Wire product analytics before the first user arrives.** None exists. Without a funnel, a disappointing launch cannot be read: no way to separate "did not want it" from "could not finish signing up." Seven events cover the loop. ~1 hour on PostHog's free tier, and it is what makes every other number here mean something. | [#37](https://github.com/jesushzv/business-helper/issues/37) |
+| 6 | **Apply both migrations to production before the deploy that carries them.** They are on `main` now and Vercel auto-deploys `main`, so the code can outrun the schema. `npm run db:migrate:dry` first. | [#14](https://github.com/jesushzv/business-helper/issues/14) |
+| 7 | **Make CLABE a hard gate in onboarding.** Each organization supplies its own — correct and non-negotiable for taking payments, so this is an onboarding requirement, not something to provision for them. Verify the product *enforces* it: no payment link without a CLABE, 409 exercised rather than falling back, and `BankAccountCard` reachable early rather than buried in settings. | [#14](https://github.com/jesushzv/business-helper/issues/14) |
+| 8 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. | [#14](https://github.com/jesushzv/business-helper/issues/14) |
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without
@@ -127,26 +114,35 @@ that were blocking. What remains is configuration and one real transaction, not 
 
 - **Wire real error monitoring.** Add `@sentry/nextjs` (or an equivalent that actually transmits) and
   route alerts to your phone. Currently a console shim; you are solo and will not otherwise see a 500.
-- **Apply the domain decision end to end.** `businesshelper.app` is the domain; `.mx` was never registered.
-  Docs are corrected. **Still outstanding in source:** `components/quotes/QuoteCard.tsx:26` falls back to a
-  hardcoded `https://businesshelper.mx/q/...` when rendered server-side, so a quote link can be sent to a
-  client pointing at a domain nobody owns; and `.env.example` needed the same fix. Confirm the apex is
-  pointed at Vercel with SSL, then sync the Supabase Auth Site/Redirect URLs and the Stripe webhook endpoint.
+- **Point the domain at Vercel.** `businesshelper.app` is the domain; `.mx` was never registered. Docs and
+  `.env.example` are corrected; the source instance is [#36](https://github.com/jesushzv/business-helper/issues/36) (P0 above).
+  Confirm the apex resolves with SSL, then sync the Supabase Auth Site/Redirect URLs and the Stripe
+  webhook endpoint to it.
+- **Require the `CI` check in branch protection** ([#38](https://github.com/jesushzv/business-helper/issues/38)).
+  CI was silently absent on PR #28 for ten hours across four pushes while Vercel and GitGuardian reported
+  green, so the PR looked checked. The cause is still unexplained — which is the argument for a rule that
+  fails closed rather than one that depends on understanding it.
 - **OTP escalating backoff + daily cap** (#22) — without it, a pilot user legitimately signing several
   quotes in one sitting can lock themselves out against the flat 5/hour window.
 - **One real production smoke test:** register → quote → WhatsApp send → OTP sign → SPEI upload → confirm.
-- **CFDI folio-pack purchase route.** `createFolioPackCheckoutPayload` exists in `lib/stripe.ts` and the
-  read path honours `cfdi_folios_purchased`, but no route creates the session and no webhook credits it.
+- **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
+  and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
+  CFDI ships at launch, so this is revenue the pricing page promises and the product cannot collect.
 - **Make the lint warning gate real.** Change the `lint` script to `next lint --max-warnings=0` and clear
   the existing warning in `components/layout/Header.tsx` (an `<img>` that should be `next/image`). Until
   then, five documents describe a gate that does not run. Cheap to fix and it stops the same drift recurring.
 
 ### P2 — Can trail launch by weeks
 
-- Complemento de Pago for PPD milestones — `buildComplementoPagoPayload` is built but not wired to the
-  payment-confirmation path.
+- Complemento de pago gaps: the request body has never reached a real PAC ([#34](https://github.com/jesushzv/business-helper/issues/34)),
+  the accountant export omits complementos ([#31](https://github.com/jesushzv/business-helper/issues/31)),
+  and one stamped in error cannot be cancelled ([#30](https://github.com/jesushzv/business-helper/issues/30)).
+  *(Filing on PPD confirmation itself landed in #29.)*
+- Migrations never execute against a real Postgres in CI, so RLS, grants and CHECK constraints are
+  unverifiable ([#35](https://github.com/jesushzv/business-helper/issues/35)).
+- `parseNaturalLanguageQuery` is keyword matching rather than a model. It now reports `engine: 'rules'`
+  instead of implying otherwise, so it is honest but not intelligent. Degrades gracefully; does not gate launch.
 - Animated demo video — storyboarded in [`demo_video_storyboard.md`](../03-product-specs/demo_video_storyboard.md), not produced.
-- AI assistant live RAG grounding — partially mocked.
 
 ---
 
@@ -155,19 +151,22 @@ that were blocking. What remains is configuration and one real transaction, not 
 Run top to bottom before announcing. Every P0 item above collapses into one of these.
 
 ### Money path integrity
-- [ ] A CFDI issued in the app corresponds to a real SAT UUID — **or** CFDI is explicitly disabled for launch
+- [ ] A CFDI issued in the app corresponds to a real SAT UUID ([#26](https://github.com/jesushzv/business-helper/issues/26)) — CFDI ships at launch, so this is required
 - [ ] Stripe checkout charges a real card in live mode with a verified webhook
 - [ ] Every pilot organization has a real CLABE, and payment confirmation reflects a real transfer
+- [ ] A failed confirmation write is reported as failed, not as `confirmed` ([#33](https://github.com/jesushzv/business-helper/issues/33))
 
 ### Signature & communications integrity
-- [ ] A signer receives a real OTP on a real handset within ~10s on the configured channel
-- [ ] OTP issuance is capped per recipient phone, not per quote (PR #20 merged)
+- [ ] A signer receives a real OTP on a real handset within ~10s on the configured channel ([#2](https://github.com/jesushzv/business-helper/issues/2))
+- [ ] The quote link a client receives resolves ([#36](https://github.com/jesushzv/business-helper/issues/36))
+- [x] OTP issuance is capped per recipient phone, not per quote (#20 merged)
 - [x] Outbound WhatsApp reminders actually send (#13)
 
 ### Operational floor
-- [ ] Production Supabase migrations applied, including both pending ones
+- [ ] Production Supabase migrations applied, including the two from #20 and #23
 - [ ] Error monitoring transmits and alerts reach the founder within minutes
-- [x] Lint, typecheck, and 383 vitest tests pass; CI runs on push
+- [ ] The funnel is instrumented, so a weak result can be diagnosed ([#37](https://github.com/jesushzv/business-helper/issues/37))
+- [x] Lint, typecheck, and **494** vitest tests pass; CI runs on PRs (verified on #28 after ten hours of silent absence — see [#38](https://github.com/jesushzv/business-helper/issues/38))
 
 ### Commercial gate (inherited)
 The [go-to-market plan](../01-strategy/go-to-market-plan.md) sets a Gate 0 before paid acquisition:
@@ -211,7 +210,7 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 383 tests / 58 files as of 5c35719
+npx vitest run                 # 494 tests / 64 files as of the #20/#23/#29 merge
 npm run typecheck
 npm run lint
 node -e "console.log(Object.keys(require('./package.json').dependencies))"
