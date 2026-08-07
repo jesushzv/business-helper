@@ -9,6 +9,20 @@ import { validatePhone } from '@/lib/phoneValidator';
 
 export default function LoginPage() {
   const router = useRouter();
+
+  /**
+   * An invitation link sends the invitee here with `?next=/invitacion/<token>`
+   * so they land back on the invitation instead of a generic dashboard. Only a
+   * same-site path is honored — `//evil.example` and absolute URLs are not —
+   * so the parameter cannot be used as an open redirect. Read from
+   * `window.location` rather than `useSearchParams` to keep this page
+   * statically renderable.
+   */
+  const resolveRedirect = (): string => {
+    if (typeof window === 'undefined') return '/dashboard';
+    const next = new URLSearchParams(window.location.search).get('next');
+    return next && /^\/[^/\\]/.test(next) ? next : '/dashboard';
+  };
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -42,7 +56,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push('/dashboard');
+      router.push(resolveRedirect());
     } catch {
       setError('Ocurrió un error al conectar con el servidor. Intenta de nuevo.');
       setLoading(false);

@@ -14,15 +14,15 @@
 - [ ] **Remove Mock Auth Defaults**: Remove all fallback defaults to `'org-demo-1'` and `'user-demo-1'` in API routes (`app/api/*`) and require valid authenticated sessions (`supabase.auth.getUser()`).
 
 ### 🤖 Real AI Integration (P1)
-- [ ] **LLM Provider API Setup**: Integrate `@google/genai` (Gemini API) or `@ai-sdk/google` in `lib/whatsappAI.ts` / `app/api/assistant/route.ts`.
-- [ ] **Live RAG & DB Context Ingestion**: Feed real Supabase client receivable balances into the AI system prompt so queries like *"¿Cuánto me debe Grupo Salinas?"* return real-time database totals rather than hardcoded demo strings.
+- [ ] **LLM Provider API Setup**: Integrate `@google/genai` (Gemini API) or `@ai-sdk/google` in `lib/whatsappAI.ts` / `app/api/assistant/route.ts`. Still open: `parseNaturalLanguageQuery` is keyword matching, and responses now say so (`engine: 'rules'`) instead of implying a model.
+- [x] **Live RAG & DB Context Ingestion**: `/api/ai/assistant` and `/api/ai/support` read the caller's own clients and open milestones via `lib/aiOrgContext.ts`. The hardcoded "Grupo Salinas" ledger and the fallback WhatsApp number are gone; the sample book of business survives only where no backend is configured, and is badged as an example in the UI.
 
 ### 🧾 SAT CFDI 4.0 PAC Invoicing (P0)
 - [ ] **Live Facturapi PAC Client**: Replace `simulateInvoiceStamping()` in `lib/facturapi.ts` with real HTTP POST requests to `https://www.facturapi.io/v1/invoices` using `FACTURAPI_SECRET_KEY`.
 - [ ] **XML & PDF Storage**: Store official XML (`legal_name.xml`) and PDF file URLs returned by Facturapi in the `milestones` and `invoices` database tables.
 
 ### 💳 Stripe Subscription Billing & Webhooks (P0)
-- [ ] **Stripe Node SDK Integration**: Install `stripe` package and call `stripe.checkout.sessions.create()` in `app/api/stripe/checkout/route.ts` with real price IDs ($299 MXN Emprendedor, $599 MXN Negocio, $999 MXN Empresa).
+- [x] **Stripe Checkout Session Creation**: `app/api/stripe/checkout/route.ts` creates a real Checkout Session against the configured `STRIPE_PRICE_*` ids ($299 MXN Inicial, $599 MXN Negocio, $999 MXN Empresa) through `lib/stripeClient.ts`, which calls the REST API directly — the `stripe` SDK was not added for a single form-encoded request. Without `STRIPE_SECRET_KEY` the endpoint answers 503 rather than a placeholder URL.
 - [ ] **Stripe Webhook Listener**: Implement `app/api/stripe/webhook/route.ts` handling `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted` to dynamically update `organizations.subscription_tier` and `subscription_status`.
 
 ### 💾 Supabase Database & Storage Production Setup (P0)

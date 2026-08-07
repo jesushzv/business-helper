@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAIAssistant } from '@/lib/hooks/useAIAssistant';
-import { Bot, Send, Sparkles, MessageSquare, ArrowRight, DollarSign } from 'lucide-react';
+import { Bot, Send, Sparkles, MessageSquare, ArrowRight, DollarSign, Info, AlertCircle } from 'lucide-react';
 
 const SUGGESTED_QUERIES = [
   '¿Cuánto me debe Grupo Salinas?',
@@ -12,7 +12,7 @@ const SUGGESTED_QUERIES = [
 ];
 
 export function AIAssistantCard() {
-  const { query, setQuery, history, loading, askAssistant } = useAIAssistant();
+  const { query, setQuery, history, loading, error, isDemoMode, askAssistant } = useAIAssistant();
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +43,25 @@ export function AIAssistantCard() {
           Haz preguntas en lenguaje natural sobre tus saldos, adeudos de clientes y cobros pendientes, y obtén enlaces de acción de 1 clic para WhatsApp.
         </p>
       </div>
+
+      {/* What this assistant actually is. The card presented keyword matching
+          over a fixed sample ledger as an AI reading the user's business; both
+          halves of that are now stated. */}
+      <div className="flex items-start gap-2 p-4 rounded-2xl border border-slate-800 bg-slate-900/90 text-sm text-slate-300">
+        <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+        <span>
+          {isDemoMode
+            ? 'Estás viendo la demostración: las respuestas usan un negocio de ejemplo, no datos reales.'
+            : 'Las respuestas se calculan con reglas sobre tus clientes y cobros registrados.'}
+        </span>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 p-4 rounded-2xl border border-rose-500/30 bg-rose-950/80 text-sm text-rose-300">
+          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
 
       {/* Suggested Quick Queries */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
@@ -88,7 +107,14 @@ export function AIAssistantCard() {
                 <MessageSquare className="w-4 h-4 text-indigo-400" />
                 &ldquo;{item.query}&rdquo;
               </span>
-              <span className="text-xs text-slate-400 font-medium">{item.timestamp}</span>
+              <span className="text-xs text-slate-400 font-medium flex items-center gap-2">
+                {item.isDemo && (
+                  <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-950/80 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
+                    Ejemplo
+                  </span>
+                )}
+                {item.timestamp}
+              </span>
             </div>
 
             <p className="text-slate-200 text-base leading-relaxed">{item.answerText}</p>

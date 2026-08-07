@@ -97,6 +97,47 @@ export interface Database {
           created_at?: string;
         };
       };
+      organization_invitations: {
+        Row: {
+          id: string;
+          organization_id: string;
+          email: string;
+          role: 'manager' | 'member' | 'accountant';
+          token_hash: string;
+          status: 'pending' | 'accepted' | 'revoked';
+          invited_by: string | null;
+          expires_at: string;
+          accepted_at: string | null;
+          accepted_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          email: string;
+          role?: 'manager' | 'member' | 'accountant';
+          token_hash: string;
+          status?: 'pending' | 'accepted' | 'revoked';
+          invited_by?: string | null;
+          expires_at: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          email?: string;
+          role?: 'manager' | 'member' | 'accountant';
+          token_hash?: string;
+          status?: 'pending' | 'accepted' | 'revoked';
+          invited_by?: string | null;
+          expires_at?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          created_at?: string;
+        };
+      };
       clients: {
         Row: {
           id: string;

@@ -2,6 +2,20 @@
 
 import { useState, useCallback } from 'react';
 import { parseNaturalLanguageQuery } from '@/lib/whatsappAI';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+
+/**
+ * Operations assistant state.
+ *
+ * The hook answered every question in the browser from a fixed ledger
+ * ("Grupo Salinas" owing 45,000 MXN), so a signed-in owner asking about their
+ * own collections got numbers belonging to nobody. It now calls
+ * `/api/ai/assistant`, which reads that organization's records.
+ *
+ * The demo ledger survives only where there is no backend at all — the static
+ * marketing demo — and every answer from it is marked `isDemo` so the UI can
+ * say so rather than let it pass for the user's data.
+ */
 
 export interface AIResponse {
   query: string;
@@ -11,46 +25,93 @@ export interface AIResponse {
   answerText: string;
   whatsappUrl: string;
   timestamp: string;
+  isDemo: boolean;
+}
+
+/** Sample book of business for the no-backend marketing demo. */
+const DEMO_ORG_DATA = {
+  clients: [
+    { id: 'c-1', name: 'Construcciones Maya', phone: '8115551234' },
+    { id: 'c-2', name: 'Desarrollos Inmobiliarios del Norte', phone: '8189998877' },
+    { id: 'c-salinas', name: 'Grupo Salinas', phone: '8112223344' }
+  ],
+  receivables: [
+    { clientId: 'c-1', amount: 75000, status: 'overdue', label: 'Anticipo Obra' },
+    { clientId: 'c-salinas', amount: 45000, status: 'overdue', label: 'Finiquito' }
+  ]
+};
+
+function timestamp(): string {
+  return new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 }
 
 export function useAIAssistant() {
   const [query, setQuery] = useState<string>('');
   const [history, setHistory] = useState<AIResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const askAssistant = useCallback((inputQuery: string) => {
-    if (!inputQuery.trim()) return;
-    setLoading(true);
+  /** True when answers come from the sample ledger instead of real records. */
+  const isDemoMode = !isSupabaseConfigured();
 
-    const demoOrgData = {
-      clients: [
-        { id: 'c-1', name: 'Construcciones Maya', phone: '8115551234' },
-        { id: 'c-2', name: 'Desarrollos Inmobiliarios del Norte', phone: '8189998877' },
-        { id: 'c-salinas', name: 'Grupo Salinas', phone: '8112223344' }
-      ],
-      receivables: [
-        { clientId: 'c-1', amount: 75000, status: 'overdue', label: 'Anticipo Obra' },
-        { clientId: 'c-salinas', amount: 45000, status: 'overdue', label: 'Finiquito' }
-      ]
-    };
+  const askAssistant = useCallback(
+    async (inputQuery: string): Promise<AIResponse | undefined> => {
+      if (!inputQuery.trim()) return;
+      setLoading(true);
+      setError(null);
 
-    const res = parseNaturalLanguageQuery(inputQuery, demoOrgData);
-    const item: AIResponse = {
-      ...res,
-      timestamp: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-    };
+      try {
+        if (isDemoMode) {
+          const res = parseNaturalLanguageQuery(inputQuery, DEMO_ORG_DATA);
+          const item: AIResponse = { ...res, timestamp: timestamp(), isDemo: true };
+          setHistory((prev) => [item, ...prev]);
+          setQuery('');
+          return item;
+        }
 
-    setHistory((prev) => [item, ...prev]);
-    setQuery('');
-    setLoading(false);
-    return item;
-  }, []);
+        const response = await fetch('/api/ai/assistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: inputQuery }),
+        });
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          setError(data?.error?.message || 'No se pudo procesar tu consulta.');
+          return;
+        }
+
+        const item: AIResponse = {
+          query: data.query,
+          intent: data.intent,
+          matchedClient: data.matchedClient ?? null,
+          totalOverdue: data.totalOverdue ?? 0,
+          answerText: data.answerText,
+          whatsappUrl: data.whatsappUrl,
+          timestamp: timestamp(),
+          isDemo: false,
+        };
+
+        setHistory((prev) => [item, ...prev]);
+        setQuery('');
+        return item;
+      } catch {
+        setError('No se pudo procesar tu consulta.');
+        return;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [isDemoMode]
+  );
 
   return {
     query,
     setQuery,
     history,
     loading,
+    error,
+    isDemoMode,
     askAssistant
   };
 }

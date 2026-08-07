@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { simulateInvoiceStamping } from '@/lib/facturapi';
-import { generateMonthlySummaryCSV, buildAccountantZipManifest } from '@/lib/accountantExport';
 
 export interface InvoiceItem {
   id: string;
@@ -90,24 +89,28 @@ export function useInvoices() {
     }
   }, []);
 
-  const downloadAccountantPackage = useCallback((monthYear: string = '2026-08') => {
+  /**
+   * Downloads the accountant package.
+   *
+   * This used to build the CSV in the browser from the demo invoices above, so
+   * the file an accountant received described transactions that only existed in
+   * this component's state. It now downloads what `/api/accountant/export`
+   * produces from the organization's own milestones.
+   */
+  const downloadAccountantPackage = useCallback(async (monthYear: string = new Date().toISOString().slice(0, 7)) => {
     setExporting(true);
     try {
-      const exportMilestones = invoices.map((inv) => ({
-        id: inv.milestoneId,
-        label: inv.concept,
-        amount: inv.amount,
-        due_date: inv.dueDate,
-        status: 'confirmed',
-        cfdi_id: inv.cfdiId,
-        cfdi_xml_url: inv.xmlUrl,
-        cfdi_pdf_url: inv.pdfUrl
-      }));
+      const res = await fetch(`/api/accountant/export?month=${monthYear}&format=csv`);
 
-      const csvContent = generateMonthlySummaryCSV('org-demo-1', monthYear, exportMilestones);
-      const manifest = buildAccountantZipManifest('org-demo-1', monthYear, exportMilestones);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        return {
+          success: false,
+          error: data?.error?.message || 'Error al generar paquete para contador',
+        };
+      }
 
-      // Trigger client-side CSV download
+      const csvContent = await res.text();
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -116,14 +119,15 @@ export function useInvoices() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-      return { success: true, manifest, csvContent };
+      return { success: true, csvContent };
     } catch {
       return { success: false, error: 'Error al generar paquete para contador' };
     } finally {
       setExporting(false);
     }
-  }, [invoices]);
+  }, []);
 
   return {
     invoices,

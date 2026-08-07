@@ -122,6 +122,11 @@ export function getStripeTierConfig(tierKey: string): StripeTierConfig {
 export function createCheckoutPayload(tierKey: string, organizationId: string, returnUrl?: string) {
   const plan = getStripeTierConfig(tierKey);
   const baseUrl = returnUrl || `${getAppBaseUrl()}/dashboard/settings`;
+  const metadata = {
+    organization_id: organizationId,
+    tier_id: plan.id,
+  };
+
   return {
     mode: 'subscription',
     payment_method_types: ['card'],
@@ -131,10 +136,13 @@ export function createCheckoutPayload(tierKey: string, organizationId: string, r
         quantity: 1,
       },
     ],
-    metadata: {
-      organization_id: organizationId,
-      tier_id: plan.id,
-    },
+    metadata,
+    // Checkout metadata does not propagate to the subscription object, and the
+    // webhook resolves the tenant from `metadata.organization_id` on whatever
+    // object the event carries. Without this copy, every later
+    // `customer.subscription.*` event would arrive unattributable.
+    subscription_data: { metadata },
+    client_reference_id: organizationId,
     success_url: `${baseUrl}?session_id={CHECKOUT_SESSION_ID}&status=success`,
     cancel_url: `${baseUrl}?status=cancelled`,
   };

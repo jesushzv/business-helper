@@ -5,7 +5,8 @@ import {
   validateAIQuota,
   sanitizeAIQuery,
 } from '@/lib/whatsappAI';
-import { requireUser } from '@/lib/apiAuth';
+import { requireUser, requireOrgAccess } from '@/lib/apiAuth';
+import { loadAIOrgContext } from '@/lib/aiOrgContext';
 
 /**
  * POST /api/ai/support
@@ -13,16 +14,24 @@ import { requireUser } from '@/lib/apiAuth';
  * 
  * Processes user support queries about product features, how-tos, SPEI, SAT CFDI 4.0,
  * branding, and RBAC permissions directly inside the web application.
+ *
+ * Answers come from the FAQ corpus in lib/helpFAQ and from the organization's
+ * own receivables — the hardcoded "Grupo Salinas" ledger this route used to
+ * fall back to is gone. The matching is deterministic, which the response
+ * states as `engine: 'rules'` rather than implying a model wrote it.
  */
 export async function POST(request: Request) {
   // Was anonymous, with the rate limit keyed to x-forwarded-for — a header the
   // caller controls, so the quota was trivially bypassed by rotating it.
+  // Support answers are mostly FAQ content, so any signed-in user may ask —
+  // membership of an organization is required only to reach its receivables.
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
+  const { userId } = auth;
 
   try {
     // Rate limit per authenticated user (max 10 req/min for in-app support).
-    const rateLimit = checkRateLimit(auth.userId, 10);
+    const rateLimit = checkRateLimit(userId, 10);
 
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -59,23 +68,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const demoOrgData = {
-      clients: [
-        { id: 'c-1', name: 'Construcciones Maya', phone: '8115551234' },
-        { id: 'c-salinas', name: 'Grupo Salinas', phone: '8112223344' },
-      ],
-      receivables: [
-        { clientId: 'c-1', amount: 75000, status: 'overdue' },
-        { clientId: 'c-salinas', amount: 45000, status: 'overdue' },
-      ],
-    };
+    const orgAccess = await requireOrgAccess();
+    const orgData = orgAccess.ok
+      ? await loadAIOrgContext(orgAccess.ctx.supabase, orgAccess.ctx.organizationId)
+      : {};
 
-    const aiResponse = parseNaturalLanguageQuery(sanitizedQuery, demoOrgData);
+    const aiResponse = parseNaturalLanguageQuery(sanitizedQuery, orgData);
 
     return NextResponse.json({
       success: true,
       query: sanitizedQuery,
       response: aiResponse,
+      engine: 'rules',
       quota: quotaCheck,
     });
   } catch {
