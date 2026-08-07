@@ -128,9 +128,11 @@ that were blocking. What remains is configuration and one real transaction, not 
 - **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
   CFDI ships at launch, so this is revenue the pricing page promises and the product cannot collect.
-- **Make the lint warning gate real.** Change the `lint` script to `next lint --max-warnings=0` and clear
-  the existing warning in `components/layout/Header.tsx` (an `<img>` that should be `next/image`). Until
-  then, five documents describe a gate that does not run. Cheap to fix and it stops the same drift recurring.
+- **Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).
+  Change the `lint` script to `next lint --max-warnings=0` and clear the `<img>`-should-be-`next/image`
+  warnings first. **There are three, not one** — `AppShell.tsx:76`, `Footer.tsx:18`, `Header.tsx:30`
+  (verified 2026-08-07; this line and #38 previously recorded only `Header.tsx`). Until then, five
+  documents describe a gate that does not run. Cheap to fix and it stops the same drift recurring.
 
 ### P2 — Can trail launch by weeks
 
@@ -184,22 +186,31 @@ Launch Readiness ≥ 7.0, Mobile ≥ 6.0, Credibility ≥ 7.0.
 
 These require the founder and are not resolvable from the codebase.
 
-1. **Does CFDI invoicing ship at launch, or is it deferred?** PR #23 is code-complete but has never
-   touched a live PAC. Deferring means launching with Quotes + AR + Client CRM only — which is closer
-   to the PRD's own stated MVP ("start even leaner with just Quotes + Receivables") than the current scope.
+1. ~~**Does CFDI invoicing ship at launch, or is it deferred?**~~ **Resolved 2026-08-07 — CFDI ships
+   at launch.** Confirmed by the founder. The deferral option (Quotes + AR + Client CRM only, closer
+   to the PRD's own leaner MVP) is off the table, so [#26](https://github.com/jesushzv/business-helper/issues/26)
+   — one real stamp through a live Facturapi sandbox — is genuinely blocking rather than negotiable.
 2. **Which OTP channel — Twilio SMS, Twilio WhatsApp, or Meta Cloud API?** All three are implemented.
    Is an account provisioned, and is WhatsApp Business API approval (which takes days) already in motion?
 3. **Are there real CLABE account numbers for the pilot organizations?**
 4. ~~**`businesshelper.app` or `businesshelper.mx`?** Docs and commit history disagree.~~
    Resolved — the domain is `businesshelper.app`; `.mx` was never registered (see P1 §03 and #36).
    *(This line originally read ".app or .app" — a typo that erased the question it was asking.)*
-5. **Does the September launch date hold?** The P0 list is roughly 1–2 focused weeks for one person —
-   real work, not documentation cleanup. Hold the date by cutting CFDI, or slip and keep full scope?
+5. ~~**Does the September launch date hold?**~~ **Resolved 2026-08-07 — the September date holds,
+   at full scope.** Confirmed by the founder alongside decision 1.
+
+   > [!IMPORTANT]
+   > **Both halves of the trade were taken, so the schedule has no relief valve left.** The original
+   > framing offered a choice: hold the date by cutting CFDI, or keep scope and slip. Keeping both
+   > means all eight P0 items in §03 must land, and the only remaining variable is hours —
+   > which is decision 7, still open. If the P0 list starts slipping, the next lever is not scope
+   > or date but pilot count: recruit fewer pilots for a longer, closer-watched first cohort.
 6. **Ad budget and platform for pilot recruiting**, given pilots are being recruited cold rather than
    from a warm list.
 7. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
    "1–2 focused weeks" is two calendar weeks or closer to a month.
-8. **Merge posture on PRs #20 and #23** — review and merge, or founder reads them first?
+8. ~~**Merge posture on PRs #20 and #23** — review and merge, or founder reads them first?~~
+   Moot — both merged to `main` on 2026-08-07 (see §02).
 9. **Preferred pivot path** if the kill criteria in [`okrs.md`](../01-strategy/okrs.md) trigger. Three
    candidates: narrow to a single module; freeze development for a validation-only sprint; or wind down
    cleanly and redirect the time. Worth deciding while calm rather than mid-crisis.

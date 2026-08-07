@@ -92,6 +92,20 @@ engineering journal.
   → implement + security review → verify + doc sync) for: new features, schema/migration changes,
   and anything touching money, fiscal documents, auth, or OTP. Before writing SQL or Supabase
   calls, verify field names against `docs/02-architecture/database-schema-design.md`.
+
+  > **The `@agent` names in the playbook are not executable — the loop itself is.**
+  > `ecc-execution-playbook.md` §03 and `MASTER_PROMPT.md` §06 reference `@planner`, `@tdd-guide`,
+  > `@security-reviewer` and six others from the third-party "Everything Claude Code" suite.
+  > **Nothing in this repo defines them** — there is no `.claude/agents/` directory — so typing
+  > `@planner` does nothing, silently. Run the four phases directly; that needs no setup. Where a
+  > genuine second pass is wanted, these are the real equivalents in Claude Code:
+  >
+  > | Playbook name | What actually exists |
+  > |:---|:---|
+  > | `@planner`, `@architect` | the `Plan` subagent |
+  > | `@security-reviewer` | the `/security-review` skill |
+  > | `@code-reviewer` | the `/code-review` skill |
+  > | `@tdd-guide`, `@database-reviewer`, `@build-error-resolver`, `@e2e-runner` | no equivalent — perform the step directly |
 - **Light path** for small fixes, copy, and docs: make the change, add/update a test, run the
   quality gate. No spec-doc ceremony required.
 - The hard rules above and the quality gate are non-negotiable at every size.
@@ -132,9 +146,10 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 
 ## Known gotchas
 
-- The lint gate is nominal (see Commands). Three live `<img>`-vs-`next/image` warnings block
-  `--max-warnings=0`: `components/layout/AppShell.tsx:76`, `Footer.tsx:18`, `Header.tsx:30`
-  (the memo's P1 item counts only Header; verified 2026-08-07 there are three).
+- The lint gate is nominal (see Commands) — tracked as
+  [#46](https://github.com/jesushzv/business-helper/issues/46). Three live `<img>`-vs-`next/image`
+  warnings block `--max-warnings=0`: `components/layout/AppShell.tsx:76`, `Footer.tsx:18`,
+  `Header.tsx:30`. Clear all three before flipping the script, or CI turns red on every PR.
 - CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38).
   After opening a PR, verify the `CI` check actually ran; absence looks identical to passing.
 - E2E exists but is not in CI; never cite Playwright results you didn't run.
