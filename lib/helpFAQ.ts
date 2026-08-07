@@ -45,7 +45,7 @@ export const FAQ_ITEMS: FAQItem[] = [
     id: 'fac-1',
     category: 'facturacion',
     question: '¿Cómo genero una factura electrónica SAT CFDI 4.0?',
-    answer: 'En la sección "Facturación", puedes timbrar en 1 clic tus cotizaciones aceptadas o pagos confirmados utilizando tu cuenta conectada de Facturapi. El sistema genera los archivos XML y PDF oficiales.',
+    answer: 'Primero conecta tu cuenta de Facturapi en "Ajustes" (tus sellos CSD se quedan con tu PAC; aquí solo guardamos la llave de API cifrada). Después, en "Facturación" timbras cada cobro en 1 clic: el PAC devuelve el folio fiscal y guardamos los archivos XML y PDF oficiales.',
     tags: ['sat', 'cfdi', 'factura', 'facturapi', 'xml', 'pdf', '4.0']
   },
   {

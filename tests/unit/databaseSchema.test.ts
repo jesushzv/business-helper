@@ -21,7 +21,10 @@ const TENANT_TABLES = [
   'audit_logs',
 ] as const;
 
-const ALL_TABLES = ['organizations', 'csd_credentials', ...TENANT_TABLES] as const;
+// csd_credentials was created here and dropped in
+// 20260807120000_cfdi_pac_integration.sql — Business Helper never holds a CSD.
+// It is asserted by tests/unit/cfdiIssuance.test.ts, not here.
+const ALL_TABLES = ['organizations', ...TENANT_TABLES] as const;
 
 describe('Initial schema migration', () => {
   it.each(ALL_TABLES)('defines table %s', (table) => {

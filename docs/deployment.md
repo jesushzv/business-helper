@@ -90,8 +90,12 @@ graph TD
      - For `sms`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER`
      - For `whatsapp` via Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`
      - For `whatsapp` via Meta: `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID`
+   - **CFDI 4.0 Invoicing**:
+     - `PAC_ENCRYPTION_KEY`: 32 bytes (base64 or hex) sealing the PAC API keys tenants connect. Required before anyone can connect a PAC; without it `/api/organization/pac` answers 503 rather than storing a credential in plaintext.
+     - `FACTURAPI_SECRET_KEY` (optional): the platform's own PAC key (`sk_live_...`), used by tenants who have not connected one. Their stamps consume the folios their plan includes. A `sk_test_` key is refused in production — it produces documents with no fiscal validity.
+     - Business Helper never receives CSD certificates (`.cer`/`.key`): they stay with the user's PAC.
+     - Storage: the `cfdi-documents` bucket is created by `supabase/migrations/20260807120000_cfdi_pac_integration.sql` and must stay private.
    - **Third-Party Integrations (Optional)**:
-     - `FACTURAPI_SECRET_KEY` (Live PAC key `sk_live_...` & SAT CSD `.cer`/`.key` upload)
      - `GEMINI_API_KEY` (Google Cloud Gemini API Key)
 4. Click **Deploy**.
 
