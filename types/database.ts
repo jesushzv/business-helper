@@ -664,6 +664,29 @@ export interface Database {
           processed_at?: string;
         };
       };
+      otp_send_log: {
+        Row: {
+          id: string;
+          phone_e164: string;
+          quote_id: string | null;
+          channel: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          phone_e164: string;
+          quote_id?: string | null;
+          channel?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          phone_e164?: string;
+          quote_id?: string | null;
+          channel?: string | null;
+          created_at?: string;
+        };
+      };
     };
     // These tables are hand-written rather than generated, and omit the
     // `Relationships` key supabase-js needs to resolve a schema, which is why

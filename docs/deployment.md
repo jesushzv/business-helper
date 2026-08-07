@@ -192,6 +192,43 @@ no webhook secret will take payments without upgrading the account.
 
 ---
 
+## 05d Step 4d: OTP Send Rate Limiting
+
+`POST /api/quotes/public/[token]/otp` is unauthenticated by design — the signer
+is not logged in and the quote token is the whole credential. Until the
+remediation of issue #17 its only bound was a 30s cooldown on
+`quotes.client_otp_sent_at`, which is per quote: a client with several open
+quotes has several valid tokens resolving to one `clients.phone`, so cycling
+between them issued a code on every request. Every send is a billable
+Twilio/Meta message, and on SMS that is the pattern carriers flag as pumping.
+
+**Migration required.** `20260807000000_otp_send_rate_limit.sql` creates
+`otp_send_log`, the persisted counter the limit reads. It has to be persisted:
+Vercel functions share no memory, so an in-process counter would reset on a cold
+start and limit nothing. **Without the table the endpoint returns 500 rather
+than sending unmetered codes** — apply migrations before deploying the code,
+per §03.
+
+Current limits (`lib/otpRateLimit.ts`):
+
+| Bound | Value | Keyed on |
+|---|---|---|
+| Resend cooldown | 30 seconds | One quote |
+| Rolling window | 5 codes per hour | The recipient phone, across every quote |
+| Lifetime cap | 10 codes | One quote |
+
+Over-cap requests answer `429` in the shape the cooldown already used —
+`{ "error": …, "retry_after_seconds": N }` — with `retry_after_seconds` omitted
+on the lifetime cap, where waiting does not help.
+
+**Checklist:**
+- [ ] Two quotes belonging to the same client share one budget: alternating between their tokens stops at the hourly cap instead of sending on every request
+- [ ] The cap holds across separate serverless invocations (verify from the deployed URL, not `next dev`)
+- [ ] A different client's phone still receives codes while the first is capped
+- [ ] Rows appear in `otp_send_log` with `phone_e164` in E.164, and the table returns nothing to the anon key
+
+---
+
 ## 06 Step 5: Custom Domain Provisioning Protocol
 
 When ready to transition from `.vercel.app` to a production custom domain (e.g., `businesshelper.mx`):
