@@ -169,6 +169,59 @@ threshold CI does not run (#51).
 
 **Lint debt is 22, not 23** (#46): an unused import went with the onboarding change.
 
+### Update 2026-08-07 ~22:30 UTC — the CLABE gate (#64), drafted, pending merge
+
+The gate held only for a user who completed onboarding in one sitting. Two populations walked
+around it: an organization created before onboarding collected a settlement account, and one
+abandoned between the step-2 `POST` that creates the organization and the step-3 `PATCH` that
+saves the account. Both end up with `bank_clabe IS NULL`, a usable dashboard, and no path back —
+so the 409 fired in front of the paying client instead of in front of the tenant.
+
+**The decision the issue asked for was made deliberately: server gate + banner, not a login
+redirect.** A redirect closes the hole for owners and breaks it for everyone else — `PATCH
+/api/organization` is scoped by `owner_id`, so a manager or member bounced to onboarding lands in
+a form they cannot save and a redirect they cannot exit. The chosen shape is strictly stronger on
+the exit criterion that matters: it refuses on the server, where a redirect only nags in the UI.
+
+**Code, verified by `typecheck` + `lint` (22 warnings, 0 errors) + 668 vitest tests / 82 files
++ `next build`. Against mocked services — no deployment was exercised:**
+
+- **`lib/settlementAccount.ts`** — the gate. `requireSettlementAccount()` refuses with 409
+  `ORG_BANK_DETAILS_MISSING` before any server path hands a `/pay/` link to a client, and treats
+  a failed or empty lookup as *not ready*: letting a link out on a query that did not run is the
+  fail-open half. `hasSettlementAccount()` applies the 18-digit rule rather than a truthiness
+  check, so a partial CLABE written directly to the column reads as missing.
+- **`POST /api/whatsapp/broadcast`** moved from `requireUser` to `requireOrgAccess` and refuses
+  before dispatch. The reminder carries the `/pay/` link, so a 409 after dispatch would already
+  have put a dead link in front of the client.
+- **A non-dismissable dashboard banner** (`SettlementAccountBanner`) is the prompt these
+  organizations were never given, and the Cobranza and Facturación share actions render disabled
+  with the CLABE named as the blocker — a missing account reported as a missing phone number
+  sends the owner to edit the wrong record.
+- **Onboarding resumes.** An existing organization opens straight at the account step with what
+  is known prefilled. This also stops the step-2 `POST` from creating a *second* organization for
+  an owner who reopens `/onboarding`, which it would previously have done.
+- **`useSettlementAccount` is tri-state** (`true` / `false` / `null`), pinned by
+  `tests/unit/useSettlementAccountHonesty.test.ts`. Only a server answer warns or disables:
+  claiming an account exists would leave the hole open, and claiming one is missing on a failed
+  request would paste "nobody can pay you" across a healthy tenant's dashboard.
+- `isClientDemoMode()` moved out of `lib/hooks/useQuotes.ts` into `lib/clientDemoMode.ts` (still
+  re-exported there) now that it has a second and third caller.
+
+**#64 stays open after merge.** Its third exit criterion is a real deployment with a real
+organization row; everything above is verified against mocked `fetch`. The PR says `Refs #64`.
+
+**Coverage moved up but is still under the threshold**, which it was before this change too:
+lines 80.35% → 80.88%, statements 78.77% → 79.13%, branches 69.37% → 69.71%, functions
+79.67% → 79.69%, against a gate of 85/85/80/80 that CI does not run (#51).
+
+**Filed in passing**, all three from auditing every surface that hands a `/pay/` link to a client:
+**#72** (the Facturación reminder builds `/pay/<milestone.id>` where the route resolves by quote
+`public_token` — a 404 sent to a real client), **#73** (two hardcoded origins in the WhatsApp
+reminder builders, one of them a domain nobody owns — the #36/#47 defect class again), **#74**
+(the route's `isSandbox` flag is unreachable, so a guard the tests exercise directly cannot fire
+in the deployed path).
+
 ---
 
 ## 03 Priority Stack
@@ -191,7 +244,7 @@ threshold CI does not run (#51).
 | 2 | **Configure one OTP channel.** Twilio SMS: fastest to provision, no business-verification wait, and at pilot volume the premium over WhatsApp is a few dollars a month. Set `OTP_DELIVERY_CHANNEL=sms`, then verify a real code lands on a real handset and cannot be replayed. Per-recipient rate limiting is already in place (#20). Without this no quote can be signed at all, so it gates the end-to-end check for everything else. | [#2](https://github.com/jesushzv/business-helper/issues/2) |
 | 3 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 | 4 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
-| 5 | **Close the remaining holes in the CLABE gate.** Onboarding now collects the settlement account and the 409 refusal has behavioural coverage. Still open: an organization created before that step, or one that abandons it between the `POST` and the `PATCH`, has no CLABE and is never asked again — the 409 then fires in front of the paying client. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
+| 5 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code (see the 22:30 update): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
 | 6 | **Stop `useQuotes` asserting a contract that was never created.** `convertToContract` flipped status locally and announced "convertida a contrato con 2 hitos de cobranza" whether or not the route succeeded — the #33 defect on the step that opens the receivable. Promoted from unranked on 2026-08-07. | [#59](https://github.com/jesushzv/business-helper/issues/59) |
 | 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking of the six: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
@@ -203,7 +256,8 @@ threshold CI does not run (#51).
 fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
 
 > [!NOTE]
-> **Rows 1–4 and 7 need the founder; rows 5–6 need an agent.** The founder rows are
+> **Rows 1–5 and 7 need the founder; row 6 needs an agent.** Row 5 moved across on
+> 2026-08-07: its code half is done, and what is left is a live check. The founder rows are
 > credentials, accounts, a real handset and a real card — no PR can close them. They do not
 > block the agent rows, so the two tracks run in parallel, which is most of the slack left in
 > a September date that decision 5 fixed at full scope.

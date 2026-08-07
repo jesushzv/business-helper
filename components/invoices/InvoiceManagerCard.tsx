@@ -7,6 +7,7 @@ import {
   type InvoiceItem,
 } from '@/lib/hooks/useInvoices';
 import { generateReminderBroadcastPayload } from '@/lib/whatsappBroadcast';
+import { useSettlementAccount } from '@/lib/hooks/useSettlementAccount';
 import { generateNotaDeVentaPayload, generateReceiptWhatsAppLink } from '@/lib/receiptGenerator';
 import { FileText, Download, Send, CheckCircle, Clock, FileCode, AlertCircle, MessageSquare, Ban, Receipt } from 'lucide-react';
 
@@ -199,6 +200,11 @@ export function InvoiceManagerCard() {
   // what a cobro settled on issuance is. PPD is opt-in per cobro and is only
   // offered now that the complemento de pago it obliges can actually be filed.
   const [paymentMethods, setPaymentMethods] = useState<Record<string, CFDIPaymentMethod>>({});
+
+  // Only a confirmed-missing account blocks sharing; unknown leaves the button
+  // alone and lets the server refuse (#64).
+  const { ready: settlementReady } = useSettlementAccount();
+  const canSharePaymentLinks = settlementReady !== false;
 
   const handleStamp = async (milestoneId: string) => {
     setStampedMessage(null);
@@ -445,14 +451,19 @@ export function InvoiceManagerCard() {
                       Nota de Venta PDF
                     </button>
 
+                    {/* This aviso carries a /pay/ link, so it is gated on the
+                        settlement account the same way the Cobranza card is:
+                        without a CLABE that page answers 409 (#64). */}
                     <button
                       onClick={() => handleWhatsAppBroadcast(inv)}
-                      disabled={!inv.clientPhone}
+                      disabled={!inv.clientPhone || !canSharePaymentLinks}
                       className="min-h-[44px] px-3 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-40"
                       title={
-                        inv.clientPhone
-                          ? 'Enviar aviso WhatsApp'
-                          : 'El cliente no tiene WhatsApp registrado'
+                        !canSharePaymentLinks
+                          ? 'Agrega la CLABE de tu negocio para poder cobrar'
+                          : inv.clientPhone
+                            ? 'Enviar aviso WhatsApp'
+                            : 'El cliente no tiene WhatsApp registrado'
                       }
                     >
                       <MessageSquare className="w-4 h-4 text-emerald-400" />

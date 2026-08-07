@@ -179,3 +179,99 @@ describe('OnboardingPage — SPEI settlement account (#14)', () => {
     expect(screen.getByRole('button', { name: /Comenzar en Business Helper/i })).toBeEnabled();
   });
 });
+
+/**
+ * #64 — an organization that already exists has nothing left to do here but
+ * the settlement account.
+ *
+ * Two populations land on this page with a live organization row and no CLABE:
+ * anyone who closed the tab between the step-2 POST that creates the row and
+ * the step-3 PATCH that saves the account, and anyone whose organization was
+ * created before this step existed. Both were previously stranded — nothing
+ * routed them back, and rerunning the form from step 1 would have created a
+ * second organization.
+ */
+describe('OnboardingPage — resuming an existing organization (#64)', () => {
+  const EXISTING_ORG = {
+    organization: {
+      id: 'org-1',
+      name: 'Ferretería La Silla',
+      rfc: 'FLS850101HD9',
+      regimen_fiscal: '626',
+      codigo_postal: '64000',
+      industry: 'retail',
+      bank_name: null,
+      bank_clabe: null,
+      bank_account_holder: null,
+    },
+    role: 'owner',
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
+    vi.stubEnv('NEXT_PUBLIC_DEMO_MODE', '');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('opens straight at the bank step when the organization already exists', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, EXISTING_ORG));
+
+    render(<OnboardingPage />);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/CLABE Interbancaria/i)).toBeInTheDocument()
+    );
+    // Step 2 must not be reachable again: its POST would create a second
+    // organization for the same owner.
+    expect(screen.queryByRole('button', { name: /Continuar a Datos Fiscales/i })).toBeNull();
+  });
+
+  it('saves the account against the organization that already exists', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, EXISTING_ORG));
+
+    render(<OnboardingPage />);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/CLABE Interbancaria/i)).toBeInTheDocument()
+    );
+
+    fireEvent.change(screen.getByLabelText(/^Banco/i), { target: { value: 'BBVA México' } });
+    fireEvent.change(screen.getByLabelText(/CLABE Interbancaria/i), {
+      target: { value: VALID_CLABE },
+    });
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { organization: { id: 'org-1' } }));
+    fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'));
+    const [, patchCall] = fetchMock.mock.calls;
+    expect(patchCall?.[1]).toMatchObject({ method: 'PATCH' });
+  });
+
+  it('starts at step 1 when the caller has no organization yet', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(403, { error: { code: 'NO_ORGANIZATION', message: 'Sin organización' } })
+    );
+
+    render(<OnboardingPage />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Continuar a Datos Fiscales/i })).toBeInTheDocument()
+    );
+  });
+
+  it('does not skip ahead when the organization could not be read', async () => {
+    // Jumping to the bank step on a failed read would strand a genuinely new
+    // user on a PATCH that has no row to update.
+    fetchMock.mockRejectedValueOnce(new Error('network down'));
+
+    render(<OnboardingPage />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Continuar a Datos Fiscales/i })).toBeInTheDocument()
+    );
+  });
+});

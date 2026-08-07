@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2, ArrowRight, ShieldCheck, FileText, MapPin, Landmark } from 'lucide-react';
 import { validateRFC } from '@/lib/rfcValidator';
 import { formatClabe, normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
+import { isClientDemoMode } from '@/lib/clientDemoMode';
+import { hasSettlementAccount } from '@/lib/settlementAccount';
 
 const REGIMENES_FISCALES = [
   { code: '601', label: '601 - General de Ley Personas Morales' },
@@ -34,6 +36,61 @@ export default function OnboardingPage() {
   const [bankAccountHolder, setBankAccountHolder] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resuming, setResuming] = useState(false);
+
+  /**
+   * Resume an onboarding that already created its organization (#64).
+   *
+   * The organization row is created by the step-2 `POST` and the settlement
+   * account is a separate step-3 `PATCH`. Closing the tab in between left a
+   * complete, usable organization with no CLABE and no path back to this form —
+   * and organizations created before this step existed are in the same state.
+   *
+   * So: if an organization already exists, step 1 and step 2 are done. Land on
+   * the account step with what we know prefilled. This also stops a second
+   * organization from being created by anyone who reopens `/onboarding`, which
+   * the step-2 `POST` would otherwise happily do.
+   */
+  useEffect(() => {
+    // No backend, no organization to resume — and the demo must not sit on a
+    // spinner waiting for a fetch that answers with fixtures.
+    if (isClientDemoMode()) return;
+
+    let cancelled = false;
+    setResuming(true);
+
+    fetch('/api/organization')
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (cancelled) return;
+
+        const org = data?.organization;
+        // 403 NO_ORGANIZATION is the normal first-run case: nothing to resume.
+        if (!res.ok || !org) return;
+
+        setName(org.name || '');
+        setRfc(org.rfc || '');
+        if (org.regimen_fiscal) setRegimenFiscal(org.regimen_fiscal);
+        setCodigoPostal(org.codigo_postal || '');
+        if (org.industry) setIndustry(org.industry);
+        setBankName(org.bank_name || '');
+        setBankAccountHolder(org.bank_account_holder || '');
+        if (hasSettlementAccount(org)) setBankClabe(formatClabe(org.bank_clabe as string));
+
+        setStep(3);
+      })
+      .catch(() => {
+        // Leave the user on step 1 rather than claiming anything about an
+        // organization we could not read.
+      })
+      .finally(() => {
+        if (!cancelled) setResuming(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const rfcValidation = rfc ? validateRFC(rfc) : { isValid: false, type: null };
   const clabeDigits = normalizeClabe(bankClabe);
@@ -203,8 +260,14 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {resuming && (
+          <div className="mt-8 text-center text-sm font-semibold text-slate-400">
+            Cargando la información de tu negocio...
+          </div>
+        )}
+
         {/* Step 1: Business Identity */}
-        {step === 1 && (
+        {!resuming && step === 1 && (
           <form onSubmit={handleNextStep} className="mt-6 space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-300">
@@ -246,7 +309,7 @@ export default function OnboardingPage() {
         )}
 
         {/* Step 2: SAT Tax Configuration */}
-        {step === 2 && (
+        {!resuming && step === 2 && (
           <form onSubmit={handleCreateOrganization} className="mt-6 space-y-5">
             <div>
               <div className="flex items-center justify-between">
@@ -326,7 +389,7 @@ export default function OnboardingPage() {
         )}
 
         {/* Step 3: SPEI settlement account */}
-        {step === 3 && (
+        {!resuming && step === 3 && (
           <form onSubmit={handleSaveBankAccount} className="mt-6 space-y-5">
             <div className="flex items-start gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-950/70 p-4 text-xs font-bold text-emerald-300">
               <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />

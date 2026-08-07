@@ -9,12 +9,22 @@ interface ReceivableCardProps {
   milestone: MilestoneWithClient;
   todayStr?: string;
   onOpenConfirmModal?: (milestone: MilestoneWithClient) => void;
+  /**
+   * False when the organization has no CLABE (#64). Both actions here hand a
+   * `/pay/` link to a client, and that page answers 409 without a settlement
+   * account — so sharing it sends the customer to a dead end.
+   *
+   * Defaults to true so an unknown state never blocks the page; the server
+   * gate refuses regardless. Only a confirmed-missing account disables.
+   */
+  canShare?: boolean;
 }
 
 export const ReceivableCard: React.FC<ReceivableCardProps> = ({
   milestone,
   todayStr = new Date().toISOString().split('T')[0],
   onOpenConfirmModal,
+  canShare = true,
 }) => {
   const formattedAmount = new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -50,7 +60,7 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
   // No fallback number: a payment reminder carries the amount owed and the
   // /pay/ link, and must never go to a phone the tenant did not record. The
   // previous default was a real, dialable Monterrey number (#44).
-  const whatsappUrl = milestone.client_phone
+  const whatsappUrl = milestone.client_phone && canShare
     ? generatePaymentReminderLink({
         phone: milestone.client_phone,
         clientName: milestone.client_name || 'Cliente',
@@ -122,29 +132,56 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
                 <span>Recordar WhatsApp</span>
               </a>
             ) : (
+              // The reason must name the thing the owner has to fix. A missing
+              // CLABE reported as a missing phone number sends them to edit the
+              // wrong record.
               <button
                 type="button"
                 disabled
-                title="Agrega un teléfono al cliente para enviar recordatorios por WhatsApp"
+                title={
+                  canShare
+                    ? 'Agrega un teléfono al cliente para enviar recordatorios por WhatsApp'
+                    : 'Agrega la CLABE de tu negocio para poder cobrar'
+                }
                 className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm whitespace-nowrap"
               >
                 <MessageSquare className="w-4 h-4 shrink-0" />
-                <span>Agrega un teléfono para WhatsApp</span>
+                <span>
+                  {canShare
+                    ? 'Agrega un teléfono para WhatsApp'
+                    : 'Agrega tu CLABE para cobrar'}
+                </span>
               </button>
             )
           )}
 
-          <a
-            href={`/pay/${milestone.public_token || 'demo'}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`${
-              isConfirmed ? 'w-full' : 'shrink-0'
-            } min-h-[44px] px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap`}
-          >
-            <ExternalLink className="w-4 h-4 shrink-0 text-slate-400" />
-            <span>Portal SPEI</span>
-          </a>
+          {canShare ? (
+            <a
+              href={`/pay/${milestone.public_token || 'demo'}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${
+                isConfirmed ? 'w-full' : 'shrink-0'
+              } min-h-[44px] px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap`}
+            >
+              <ExternalLink className="w-4 h-4 shrink-0 text-slate-400" />
+              <span>Portal SPEI</span>
+            </a>
+          ) : (
+            // Not a link at all: this is the URL the owner copies to send a
+            // client, and without a CLABE that page answers 409.
+            <button
+              type="button"
+              disabled
+              title="Agrega la CLABE de tu negocio para poder cobrar"
+              className={`${
+                isConfirmed ? 'w-full' : 'shrink-0'
+              } min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-not-allowed text-xs sm:text-sm whitespace-nowrap`}
+            >
+              <ExternalLink className="w-4 h-4 shrink-0 text-slate-500" />
+              <span>Portal SPEI</span>
+            </button>
+          )}
         </div>
 
         {!isConfirmed && (

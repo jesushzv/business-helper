@@ -72,6 +72,22 @@ Organizations now carry their own `bank_name` / `bank_clabe` /
 organization has not configured an account the payment page returns 409 and
 renders no payment instructions — it never falls back to a default account.
 
+That refusal is the backstop, and on its own it fires in front of the paying
+client. The same refusal now also runs one step earlier, before a payment link
+is shared at all (`lib/settlementAccount.ts`):
+
+- `requireSettlementAccount(supabase, organizationId)` answers 409
+  `ORG_BANK_DETAILS_MISSING` on any server path that hands a `/pay/` link to a
+  client — today `POST /api/whatsapp/broadcast`. A failed or empty lookup counts
+  as *not ready*; the gate does not release a link on a query that did not run.
+- The dashboard carries a non-dismissable banner while `bank_clabe IS NULL`, and
+  the share actions on Cobranza and Facturación render disabled. Only an owner is
+  offered the form — `PATCH /api/organization` is scoped by `owner_id`, so a
+  member pointed at it could not save.
+- `/onboarding` resumes at the settlement-account step when an organization
+  already exists, which is the way back for a tenant who abandoned it or predates
+  it.
+
 ### Also fixed in passing
 
 - `organizations.subscription_tier` still constrained to `emprendedor` while the
@@ -122,8 +138,10 @@ PATCH /api/organization
 
 Existing tenants have no CLABE and their payment pages will 409 until they do.
 This is intentional — the alternative is continuing to route their customers'
-money to the wrong account — but it needs a comms plan before deploy. To find
-who still needs to act:
+money to the wrong account. Such a tenant now meets a banner on the dashboard
+and disabled share actions rather than discovering it through a client, so the
+comms plan is a backstop rather than the only warning. To find who still needs
+to act:
 
 ```sql
 select id, name from organizations where bank_clabe is null;
@@ -185,3 +203,11 @@ the organization check before reaching the ledger, so those two are skipped.
 - [ ] An organization with no CLABE gets 409, not a fallback account.
 - [ ] Saving a CLABE under **Ajustes → Cuenta Bancaria** makes that org's
       payment page render instructions.
+- [ ] An organization row with `bank_clabe` set to NULL shows the dashboard
+      banner, disables the Cobranza and Facturación share actions, and gets 409
+      from `POST /api/whatsapp/broadcast` — with no reminder actually sent.
+- [ ] Opening `/onboarding` as that organization's owner lands on the settlement
+      account step, and saving there clears the banner without creating a second
+      organization row (`select count(*) from organizations where owner_id = …`).
+- [ ] A member (not the owner) of that organization sees the banner without the
+      "Agregar mi CLABE" link.

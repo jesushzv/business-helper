@@ -56,3 +56,47 @@ describe('ReceivableCard reminder phone (#44)', () => {
     expect(document.body.innerHTML).not.toContain('8115551234');
   });
 });
+
+/**
+ * #64 — neither share action may hand out a /pay/ link the organization cannot
+ * be paid through. Without a CLABE that page answers 409 in front of the
+ * client, so the card refuses at the point of sharing instead.
+ */
+describe('ReceivableCard share actions without a settlement account (#64)', () => {
+  it('shares freely when the organization has an account', () => {
+    render(<ReceivableCard milestone={BASE_MILESTONE} todayStr="2026-08-07" canShare />);
+
+    expect(screen.getByRole('link', { name: /Recordar WhatsApp/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Portal SPEI/i })).toHaveAttribute(
+      'href',
+      '/pay/paytoken123'
+    );
+  });
+
+  it('offers no shareable link at all when the CLABE is missing', () => {
+    render(<ReceivableCard milestone={BASE_MILESTONE} todayStr="2026-08-07" canShare={false} />);
+
+    expect(screen.queryByRole('link', { name: /Recordar WhatsApp/i })).toBeNull();
+    // Rendered as a disabled control rather than a link: this is the URL the
+    // owner would copy and send.
+    expect(screen.queryByRole('link', { name: /Portal SPEI/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /Portal SPEI/i })).toBeDisabled();
+    expect(document.body.innerHTML).not.toContain('/pay/paytoken123');
+  });
+
+  it('names the CLABE as the blocker, not the phone number', () => {
+    // The reason has to point at the record the owner must actually fix.
+    render(<ReceivableCard milestone={BASE_MILESTONE} todayStr="2026-08-07" canShare={false} />);
+
+    expect(screen.getByRole('button', { name: /CLABE/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Agrega un teléfono/i })).toBeNull();
+  });
+
+  it('still shares when the settlement state is unknown', () => {
+    // The default keeps the page usable while the organization read is in
+    // flight or has failed; the server gate refuses regardless.
+    render(<ReceivableCard milestone={BASE_MILESTONE} todayStr="2026-08-07" />);
+
+    expect(screen.getByRole('link', { name: /Portal SPEI/i })).toBeInTheDocument();
+  });
+});

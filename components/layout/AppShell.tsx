@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { DemoBanner } from '@/components/demo/DemoBanner';
+import { SettlementAccountBanner } from '@/components/settlement/SettlementAccountBanner';
 import { FeatureTierComparisonModal } from '@/components/features/FeatureTierComparisonModal';
 import { isDemoModeActive } from '@/lib/demoUtils';
 import { getAssetUrl } from '@/lib/url';
@@ -130,6 +131,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
       {/* Main Content Area */}
       <div className="pb-24 md:pl-64 md:pb-0">
+        {/* Sits above every dashboard page: an organization with no CLABE cannot
+            be paid, and nothing else in the app says so until a client hits the
+            409 on the payment page (#64). */}
+        <SettlementAccountBanner />
         <main className="mx-auto min-h-screen max-w-7xl">{children}</main>
       </div>
 

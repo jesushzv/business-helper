@@ -14,6 +14,7 @@ export async function GET() {
         codigo_postal: '64000',
         industry: 'construction',
       },
+      role: 'owner',
     });
   }
 
@@ -22,7 +23,7 @@ export async function GET() {
   // placeholder — and an anonymous request always got a 200.
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId } = auth.ctx;
+  const { supabase, organizationId, role } = auth.ctx;
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,7 +40,11 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ organization });
+    // The caller's role travels with the organization so the settlement-account
+    // banner can address the right person (#64): only an owner can PATCH this
+    // row — the update is scoped by `owner_id` — so pointing a member at the
+    // bank form would send them somewhere they cannot save.
+    return NextResponse.json({ organization, role });
   } catch {
     return NextResponse.json(
       { error: { code: 'SERVER_ERROR', message: 'Error al obtener la organización' } },
