@@ -110,7 +110,7 @@ Before launching the Beta to pilot SMB owners, the product must pass all 6 hard 
 - [x] **Data Isolation Gate**: Database queries scoped to multi-tenant RLS policies (`organization_id`); API auth enforcement added in PR #1.
 - [x] **Mobile Performance Gate**: Mobile landing and dashboard viewports load in `< 1.8 seconds` on 4G connections.
 - [x] **Coverage Gate**: Unit test coverage across tax calculators, RFC validators, and storage dispatchers meets **>= 85%**.
-- [x] **Zero Warning Gate**: ESLint and TypeScript checks pass with `--max-warnings=0`, enforced by CI on push.
+- [~] **Zero Warning Gate**: `npm run typecheck` passes clean and CI runs both on every PR. **But the warning gate is nominal, not enforced:** `npm run lint` is bare `next lint` with no `--max-warnings=0`, so it exits 0 while emitting warnings — there is a live one in `components/layout/Header.tsx` today. To make the gate real, change the script to `next lint --max-warnings=0` and clear the existing warnings first.
 - [~] **OTP Security Gate**: Verification is capped at 3 failed attempts, but **issuance is capped per quote rather than per recipient phone** — one handset can be pumped across a client's several open quotes (issue #17). PR #20 closes this and must merge before a provider goes live.
 - [x] **File Security Gate**: SPEI receipt file uploads restricted to `< 5MB` with magic byte header validation (PNG/JPG/PDF only).
 

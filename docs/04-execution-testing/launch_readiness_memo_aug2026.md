@@ -58,6 +58,7 @@ until checked against source. This memo does that check; §06 records the method
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
 | E2E | "14/14 Playwright scenarios passing" | `playwright.config.ts` and `tests/e2e/` exist; not run in this verification pass — treat as unverified |
+| Zero-warning lint gate | "ESLint passes with `--max-warnings=0`" (5 docs) | **Gate is nominal.** `npm run lint` is bare `next lint` — it exits 0 while emitting warnings, and there is a live one in `components/layout/Header.tsx`. Nothing enforces the threshold. |
 
 > [!IMPORTANT]
 > **The Sentry finding matters disproportionately for a solo founder.** Error monitoring is the only
@@ -108,6 +109,9 @@ Deploying either branch without its migration returns 500s from the affected rou
 - **One real production smoke test:** register → quote → WhatsApp send → OTP sign → SPEI upload → confirm.
 - **CFDI folio-pack purchase route.** `createFolioPackCheckoutPayload` exists in `lib/stripe.ts` and the
   read path honours `cfdi_folios_purchased`, but no route creates the session and no webhook credits it.
+- **Make the lint warning gate real.** Change the `lint` script to `next lint --max-warnings=0` and clear
+  the existing warning in `components/layout/Header.tsx` (an `<img>` that should be `next/image`). Until
+  then, five documents describe a gate that does not run. Cheap to fix and it stops the same drift recurring.
 
 ### P2 — Can trail launch by weeks
 

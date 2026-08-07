@@ -99,7 +99,7 @@ graph TD
 
 1. **Build & Lint Verification**:
    * If TypeScript or ESLint errors occur, invoke `@build-error-resolver`.
-   * Command: `npm run typecheck && npm run lint` (Must pass with `--max-warnings=0`).
+   * Command: `npm run typecheck && npm run lint`. Both must exit clean. *Note: `npm run lint` is bare `next lint` — it exits 0 even with warnings, so read the output rather than trusting the exit code. The `--max-warnings=0` gate described elsewhere is not currently wired into the script.*
 2. **Coverage Gate Verification**:
    * Command: `npm run test:coverage` (Must achieve `>= 85%` line/statement coverage via Vitest V8 reporter).
 3. **End-to-End Verification**:
