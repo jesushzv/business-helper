@@ -4,6 +4,11 @@
 >
 > Copy this prompt and substitute `[TASK_ID]` with the target Sprint or Workstream ID.
 > This prompt maximizes context injection from the full documentation suite and enforces the ECC 4-Phase execution loop.
+>
+> **Subordinate to [`CLAUDE.md`](CLAUDE.md)** — the repo-root operating authority. Where this
+> template and `CLAUDE.md` disagree (commands, hard rules, process weight), `CLAUDE.md` wins.
+> This file remains the copy-paste template for sprint/workback/hotfix execution modes and the
+> full persona constraint tables.
 
 ---
 
@@ -37,14 +42,13 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 
 ## 00 Project Identity & Context Primer
 
-**Business Helper** is a mobile-first B2B SaaS platform for Mexican SMBs that replaces fragmented Excel sheets and WhatsApp chats with an integrated **Quote → Contract → Pay → Confirm** cash flow system. Built on **Next.js 16 + Supabase + PostgreSQL** with SAT CFDI 4.0 electronic invoicing via Facturapi PAC.
+**Business Helper** is a mobile-first B2B SaaS platform for Mexican SMBs that replaces fragmented Excel sheets and WhatsApp chats with an integrated **Quote → Contract → Pay → Confirm** cash flow system. Built on **Next.js 15 + Supabase + PostgreSQL** with SAT CFDI 4.0 electronic invoicing via Facturapi PAC.
 
 - **Domain**: [businesshelper.app](https://businesshelper.app)
 - **Target Market**: Mexican SMBs ($800K–$5M MXN monthly revenue) in Monterrey, CDMX, Tijuana, and Guadalajara
 - **Pricing**: $299 / $599 / $999 MXN/month + optional CFDI folio packs
-- **Tech Stack**: Next.js 16 (RSC + Server Actions), Supabase Auth + PostgreSQL + Storage, Stripe Billing, Facturapi PAC, Vercel Edge
-- **Current Status**: 16 sprints completed (175/175 tests passing), dual UX/UI audit remediation workback in progress
-- **Audit Consensus Score**: 5.0/10 (Launch Readiness) | 4.75–5.0/10 (Mobile) — Target: ≥ 7.0/10 and ≥ 6.0/10
+- **Tech Stack**: Next.js 15 (RSC + Server Actions), Supabase Auth + PostgreSQL + Storage, Stripe Billing, Facturapi PAC, Vercel Edge
+- **Current Status**: see @[docs/04-execution-testing/launch_readiness_memo_aug2026.md] — the source of truth for what is done and what blocks launch. (Test count, gate status and audit scores drift too fast to be trusted here; this line once claimed 175/175 while the suite had 494 tests.)
 
 ---
 
@@ -57,10 +61,11 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 
 | Priority | Document | Purpose |
 |:---|:---|:---|
-| 🔴 P0 | @[docs/AGENTS-DOCS-GUIDE.md] | Agent navigation rules, operating constraints, and doc index |
+| 🔴 P0 | @[CLAUDE.md] | The operating authority: hard rules, commands, API conventions, gotchas |
+| 🔴 P0 | @[docs/AGENTS-DOCS-GUIDE.md] | Doc index and navigation matrix |
 | 🔴 P0 | @[docs/04-execution-testing/ecc-execution-playbook.md] | The 4-Phase ECC loop (Planning → TDD → Implementation → Verification) |
 | 🔴 P0 | @[docs/02-architecture/database-schema-design.md] | PostgreSQL table schemas, indexes, RLS policies, and field names |
-| 🔴 P0 | @[docs/02-architecture/app-architecture-plan.md] | Next.js 16 architecture, API conventions, file organization |
+| 🔴 P0 | @[docs/02-architecture/app-architecture-plan.md] | Next.js 15 architecture, API conventions, file organization |
 | 🔴 P0 | @[docs/01-strategy/user-personas.md] | Don Roberto & Lic. Mariana persona constraints (UX, mobile, WhatsApp) |
 
 ### Tier 2 — Read Based on Task Context
@@ -227,7 +232,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 
 | Layer | Technology | Key Files |
 |:---|:---|:---|
-| **Framework** | Next.js 16 (App Router, RSC, Server Actions) | `app/`, `next.config.ts` |
+| **Framework** | Next.js 15 (App Router, RSC, Server Actions) | `app/`, `next.config.ts` |
 | **Database** | Supabase PostgreSQL + RLS | `supabase/`, `lib/supabase/` |
 | **Auth** | Supabase Auth (HTTP-only cookies) | `middleware.ts`, `app/(auth)/` |
 | **Billing** | Stripe (MXN pricing) | `lib/stripe.ts` |
@@ -235,11 +240,18 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 | **Styling** | Tailwind CSS + Brand dark slate theme (#090D16) | `app/globals.css` |
 | **Testing** | Vitest (unit + component) + Playwright | `tests/unit/`, `tests/components/`, `tests/e2e/` |
 | **Deployment** | Vercel Edge (businesshelper.app) | `vercel.json` |
-| **Monitoring** | Sentry error tracking | `lib/sentry.ts` |
+| **Monitoring** | ⚠️ Not live — `lib/sentry.ts` is a console shim, nothing transmits (P1 in launch memo) | `lib/sentry.ts` |
 
 ---
 
 ## 06 ECC Agent Quick Reference
+
+> [!WARNING]
+> **Mostly not executable in this repo.** The ECC agent suite was never installed, so `@planner`,
+> `@security-reviewer` and most names below do nothing when invoked. **Exception:**
+> `@database-reviewer` is now real (`.claude/agents/database-reviewer.md`), joined by
+> `money-path-reviewer` for payments/CFDI/Stripe diffs. See `CLAUDE.md` §"Process" for the full
+> role-to-reality mapping (`Plan` subagent, `/security-review`, `/code-review`).
 
 | Agent | When to Invoke | Business Helper Context |
 |:---|:---|:---|
@@ -248,7 +260,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 | `@tdd-guide` | Before writing business logic | Target `tests/unit/` (Vitest, importing the `.ts` sources) |
 | `@database-reviewer` | SQL migrations or RLS changes | Enforce `organization_id` scoping |
 | `@security-reviewer` | Client-facing features | Audit file uploads, OTP, input sanitization |
-| `@typescript-reviewer` | Components and hooks | Next.js 16 RSC/Client split, type safety |
+| `@typescript-reviewer` | Components and hooks | Next.js 15 RSC/Client split, type safety |
 | `@build-error-resolver` | When `npm run typecheck` fails | Fix TS errors and lint violations |
 | `@e2e-runner` | Pre-merge verification | Run Playwright headless suite |
 | `@code-reviewer` | Post-implementation polish | Code quality and type refinement |
