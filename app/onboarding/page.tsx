@@ -49,7 +49,7 @@ export default function OnboardingPage() {
     setError(null);
 
     try {
-      await fetch('/api/organization', {
+      const res = await fetch('/api/organization', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -60,11 +60,32 @@ export default function OnboardingPage() {
           industry,
         }),
       });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.organization?.id) {
+        router.push('/dashboard');
+        return;
+      }
+
+      // The one case where continuing without an organization is right: the
+      // demo deployment has no backend to create one in (503
+      // BACKEND_NOT_CONFIGURED). Any other failure must keep the user on the
+      // form — a dashboard without an organization answers 403 NO_ORGANIZATION
+      // on every route, with no way back to this form.
+      if (res.status === 503 && data?.error?.code === 'BACKEND_NOT_CONFIGURED') {
+        router.push('/dashboard');
+        return;
+      }
+
+      setError(
+        data?.error?.message ||
+          'No se pudo guardar la información de tu negocio. Intenta de nuevo.'
+      );
     } catch {
-      // Continue to dashboard anyway in demo mode
+      setError('No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.');
     } finally {
       setLoading(false);
-      router.push('/dashboard');
     }
   };
 
