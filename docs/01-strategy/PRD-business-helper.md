@@ -285,7 +285,7 @@ These extend directly from existing Mi Pacto code:
 
 #### 🧾 Module 5: Invoicing & CFDI (Facturación)
 
-> See [CFDI Integration Architecture](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/02-architecture/cfdi_integration_architecture.md) for the full trust-forward PAC integration strategy.
+> See [CFDI Integration Architecture](../../docs/02-architecture/cfdi_integration_architecture.md) for the full trust-forward PAC integration strategy.
 
 - One-click CFDI generation from accepted quotes/contracts
 - SAT-compliant electronic invoicing (Facturación 4.0)

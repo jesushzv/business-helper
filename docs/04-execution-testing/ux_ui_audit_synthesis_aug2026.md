@@ -153,4 +153,4 @@
 
 ---
 
-*Document saved under `docs/04-execution-testing/ux_ui_audit_synthesis_aug2026.md` per [AGENTS-DOCS-GUIDE.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/AGENTS-DOCS-GUIDE.md).*
+*Document saved under `docs/04-execution-testing/ux_ui_audit_synthesis_aug2026.md` per [AGENTS-DOCS-GUIDE.md](../../docs/AGENTS-DOCS-GUIDE.md).*

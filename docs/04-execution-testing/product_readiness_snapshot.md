@@ -2,26 +2,40 @@
 
 > **Executive Readiness Summary, Technical Audit, Expert Review Integration & Launch Action Plan**
 >
-> *Document Created: 2026-08-03 | Updated: 2026-08-03 (Post Expert Review)*  
+> *Document Created: 2026-08-03 | Updated: 2026-08-07 (Post Security Review — status claims corrected)*
 > *Target Launch Target: September 2026 (Monterrey Pilot Launch)*
 > *Expert Review Score: 5.35 / 10 (Launch) | 4.75 / 10 (Mobile)*
+
+> [!CAUTION]
+> **This document's original status dashboard was inaccurate and has been corrected.** A security review
+> on 2026-08-06 found that several features recorded here as "100% Complete" were **simulated** — the UI
+> and data model existed, but the third-party call underneath was faked. Most seriously, CFDI stamping
+> fabricated invoice IDs and URLs while writing `cfdi_status: 'issued'`, so the product could show a
+> business owner a SAT invoice that never existed.
+>
+> **[`launch_readiness_memo_aug2026.md`](launch_readiness_memo_aug2026.md) is the current source of truth**
+> for launch status and supersedes this document wherever the two conflict. The module capability
+> descriptions in §02 below remain broadly accurate as *scope*; treat them as claims about what is built,
+> not evidence that each integration has executed against its real service.
 
 ---
 
 ## 01 Executive Status Dashboard
 
+*Corrected 2026-08-07 against `main` @ `5c35719`. See the memo §06 for the verification method.*
+
 | Metric / Dimension | Status | Verified Details |
 | :--- | :---: | :--- |
-| **Overall Roadmap Progress** | 🟢 **100%** | Sprints 1 through 16 fully built and integrated into `main`. |
-| **Automated Test Suite** | 🟢 **175 / 175** | 100% passing rate across 49 test suites (`scripts/test-runner.js`). |
-| **Code Quality & Linter** | 🟢 **Zero Warnings** | `npm run typecheck` passes with `--max-warnings=0`. |
-| **Multi-Tenant Security** | 🟢 **100% Audited** | Multi-tenant Row Level Security (RLS) active on all 9 PostgreSQL database tables. |
-| **Sandbox Mode Safety** | 🟢 **Isolated** | Zero external API dispatches (WhatsApp / Facturapi) in Sandbox Mode; mock fallbacks verified. |
-| **B2B Trade Credit & SAT PPD**| 🟢 **100% Complete** | Credit limits (`credit_limit`), payment terms (`credit_days`), quote credit guards & SAT `PPD`/`CPP` support. |
-| **WhatsApp AI Support Webhook**| 🟢 **100% Complete** | Gemini AI support router, RAG FAQ knowledge base, Meta/Twilio GET/POST webhook & human handoff. |
-| **Expert Review: Launch Readiness** | 🔴 **5.35 / 10** | Independent product expert scored credibility (3/10), conversion funnel (4/10), UX polish (5/10). **NOT READY for mass launch.** |
+| **Feature Scope Built** | 🟢 **Sprints 1–16** | All planned modules exist in `main`. "Built" ≠ "integration verified" — see the two rows below. |
+| **Money-Path Integrity** | 🔴 **Remediation in flight** | CFDI stamping was simulated (issue #3, PR #23 unmerged, never run against a live PAC). Stripe checkout, team invites and accountant export were simulated and are now real (PR #19). |
+| **E-Signature (OTP) Delivery** | 🔴 **Not operational** | Provider code merged (PR #16) but no credentials configured; per-recipient rate limiting still unmerged (issue #17 / PR #20). The signing flow cannot function today. |
+| **Automated Test Suite** | 🟢 **383 / 383** | 58 files passing via `npx vitest run`. *(`scripts/test-runner.js` was retired in PR #21 — any doc citing it or a count of 144/175/182 is stale.)* |
+| **Code Quality & Linter** | 🟢 **Zero Warnings** | `npm run typecheck` and `npm run lint` pass. CI enforces on push (`.github/workflows/ci.yml`). |
+| **Multi-Tenant Security** | 🟢 **Audited** | RLS active on all multi-tenant tables; API auth enforcement added in PR #1. See [`security-p0-remediation.md`](../security-p0-remediation.md). |
+| **Error Monitoring** | 🔴 **Not live** | No `@sentry/nextjs` dependency. `lib/sentry.ts` `captureException` only writes to `console.error`; nothing is transmitted. Prior "Sentry Monitoring Live" claims were incorrect. |
+| **Expert Review: Launch Readiness** | 🔴 **5.35 / 10** | Scored credibility (3/10), conversion funnel (4/10), UX polish (5/10). Predates the findings above and assessed the landing page only. |
 | **Expert Review: Mobile Score** | 🔴 **4.75 / 10** | Typography (4/10), performance (4/10), in-app browser compat (4/10). Requires hardening before paid ads. |
-| **Launch Phase** | 🟡 **Soft Launch / Beta** | Transitioning from **Feature Development** to **Expert Review Remediation & Credibility Building**. |
+| **Launch Phase** | 🟡 **Pre-Beta Remediation** | Blocked on the P0 stack in [`launch_readiness_memo_aug2026.md`](launch_readiness_memo_aug2026.md) §03. |
 
 ---
 
@@ -77,7 +91,7 @@ gantt
 #### 5. Zero-Friction Invoicing & Accountant Tools (`/invoices`)
 * **Nota de Venta & Recibo de Pago PDF Engine** (`lib/receiptGenerator.ts`): 1-click printable/downloadable receipt with tenant branding and tax breakdowns without needing SAT CSD digital certificates or PAC credentials.
 * **1-Click Accountant Export Package** (`lib/accountantExport.ts`): Structured CSV summaries and organized ZIP downloads for external accountants (*contadores*).
-* **CFDI 4.0 Pay-Per-Folio Add-on**: PAC API Key integration for self-service CFDI 4.0 XML+PDF stamping available across all plans. Users connect their own PAC (Facturama, FiscalAPI, SW Sapien) — Business Helper never stores CSD certificates. See [cfdi_integration_architecture.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/02-architecture/cfdi_integration_architecture.md).
+* **CFDI 4.0 Pay-Per-Folio Add-on**: PAC API Key integration for self-service CFDI 4.0 XML+PDF stamping available across all plans. Users connect their own PAC (Facturama, FiscalAPI, SW Sapien) — Business Helper never stores CSD certificates. See [cfdi_integration_architecture.md](../../docs/02-architecture/cfdi_integration_architecture.md).
 * Pre-saved product catalog with SAT unit keys (`E48`) and product codes (`84111506`).
 
 #### 6. Enterprise Roles, AI & Operations (`/team`, `/assistant`, `/products`, `/settings`)
@@ -93,7 +107,7 @@ gantt
 ## 03 Expert Review Findings & Remediation Status
 
 > [!WARNING]
-> An independent product expert and two UX/UI audit reviews evaluated the landing page, conversion funnel, and trust posture in August 2026. The complete analyses are archived in [product_expert_review_aug2026.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_expert_review_aug2026.md) and tracked in [product_readiness_workback.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_readiness_workback.md).
+> An independent product expert and two UX/UI audit reviews evaluated the landing page, conversion funnel, and trust posture in August 2026. The complete analyses are archived in [product_expert_review_aug2026.md](../../docs/04-execution-testing/product_expert_review_aug2026.md) and tracked in [product_readiness_workback.md](../../docs/04-execution-testing/product_readiness_workback.md).
 
 ### Critical Issues (🔴 Launch Blockers)
 
@@ -122,7 +136,7 @@ gantt
 
 ## 04 Pre-Launch Action Plan (Updated Post Expert Review)
 
-The workback is now organized into 3 phases with hard gates. Full details in [product_readiness_workback.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_readiness_workback.md).
+The workback is now organized into 3 phases with hard gates. Full details in [product_readiness_workback.md](../../docs/04-execution-testing/product_readiness_workback.md).
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────┐
@@ -146,19 +160,20 @@ The workback is now organized into 3 phases with hard gates. Full details in [pr
 ```
 
 ### Workstream 1: Production Infrastructure & Secrets Configuration
-- [x] **Stripe Live Enablement**: Live keys configured. Map live price IDs ($299, $599, $999 MXN).
-- [x] **AI Assistant Production Key**: Live `GEMINI_API_KEY` provisioned.
-- [x] **WhatsApp Channel**: 100% operational via 1-Tap `wa.me/` Click-to-Chat deep links.
-- [x] **Default Invoicing Engine**: Nota de Venta PDF & Accountant ZIP Export operational.
+- [ ] **Stripe Live Enablement**: Checkout is implemented as raw REST against `api.stripe.com/v1` (`lib/stripeClient.ts`; there is no `stripe` SDK dependency). **Unverified:** live keys and price IDs mapped, and webhook signature enforcement confirmed against a staging account (`npm run verify:webhook`).
+- [ ] **OTP Delivery Provider**: Code merged for Twilio SMS / Twilio WhatsApp / Meta Cloud API (`lib/otpDelivery.ts`), **no credentials configured**. Blocks the e-signature flow entirely. See issue #2.
+- [x] **Outbound WhatsApp Dispatch**: Real sends via Twilio / Meta (PR #13), plus zero-cost `wa.me/` Click-to-Chat deep links for owner-initiated messages.
+- [x] **Default Invoicing Engine**: Nota de Venta PDF & Accountant ZIP Export operational (export reads real milestones as of PR #19).
+- [ ] **Error Monitoring**: `lib/sentry.ts` is a console-only shim. Needs a real transport before launch.
 
 ### Workstream 2: Custom Domain, SSL & Webhook Alignment
-- [x] **Domain Registration**: `businesshelper.mx` registered and active on Vercel.
-- [x] **Vercel DNS Routing**: Apex A record and CNAME configured with SSL.
-- [x] **Callback & Webhook Sync**: Supabase Auth and Stripe webhook URLs updated.
+- [ ] **Domain Decision**: Docs specify `businesshelper.mx`; recent commit history moved copy to `.app`. **Confirm which apex is actually registered** and set canonicals/redirects accordingly.
+- [ ] **Vercel DNS Routing**: Apex A record and CNAME with SSL — unverified against the live project.
+- [ ] **Callback & Webhook Sync**: Supabase Auth Site/Redirect URLs and the Stripe webhook endpoint must match the chosen domain.
 
 ### Workstream 3: Marketing Deliverables & Product Demo
 - [ ] **Animated Demo Video**: Generate a 60–90 second motion graphics walkthrough: *Quote Creation → WhatsApp Share → OTP Cryptoseal → SPEI Receipt Upload → Confirmation*.
-- [ ] **Landing Page Expert Review Fixes**: Apply all Phase 1 credibility and trust fixes per [workback](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_readiness_workback.md).
+- [ ] **Landing Page Expert Review Fixes**: Apply all Phase 1 credibility and trust fixes per [workback](../../docs/04-execution-testing/product_readiness_workback.md).
 - [ ] **Testimonial Replacement**: Replace placeholder initials with credible fictional profiles including full names, company names, industries, and avatar illustrations.
 
 ### Workstream 4: Operational Support & Monterrey Pilot Onboarding
@@ -204,4 +219,4 @@ The workback is now organized into 3 phases with hard gates. Full details in [pr
 
 ---
 
-*Document maintained under `docs/04-execution-testing/product_readiness_snapshot.md` per [AGENTS-DOCS-GUIDE.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/AGENTS-DOCS-GUIDE.md).*
+*Document maintained under `docs/04-execution-testing/product_readiness_snapshot.md` per [AGENTS-DOCS-GUIDE.md](../../docs/AGENTS-DOCS-GUIDE.md).*

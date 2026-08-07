@@ -52,10 +52,10 @@ graph TD
    * Use `@planner` to decompose the roadmap sprint task into single-session subtasks.
    * Use `@architect` if the task introduces a new data model, API endpoint, or third-party service.
 2. **Mandatory Document Reading**:
-   * Inspect [`docs/02-architecture/database-schema-design.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/02-architecture/database-schema-design.md) for table schemas, indexes, and RLS constraints.
-   * Inspect [`docs/02-architecture/app-architecture-plan.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/02-architecture/app-architecture-plan.md) for API conventions.
+   * Inspect [`docs/02-architecture/database-schema-design.md`](../../docs/02-architecture/database-schema-design.md) for table schemas, indexes, and RLS constraints.
+   * Inspect [`docs/02-architecture/app-architecture-plan.md`](../../docs/02-architecture/app-architecture-plan.md) for API conventions.
 3. **Artifact Output**:
-   * Create or update a [`docs/03-product-specs/feature_implementation_spec.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/03-product-specs/feature_implementation_spec.md) detailing:
+   * Create or update a [`docs/03-product-specs/feature_implementation_spec.md`](../../docs/03-product-specs/feature_implementation_spec.md) detailing:
      * P0 Acceptance Criteria (testable statements).
      * Exact files to create/modify.
      * Mobile edge cases and empty states.
@@ -106,7 +106,7 @@ graph TD
    * Delegate to `@e2e-runner` to run Playwright E2E browser tests.
    * Command: `npx playwright test`
 4. **Roadmap & Audit Log Sync**:
-   * Mark sprint task completed in [`docs/03-product-specs/product-roadmap.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/03-product-specs/product-roadmap.md).
+   * Mark sprint task completed in [`docs/03-product-specs/product-roadmap.md`](../../docs/03-product-specs/product-roadmap.md).
 
 ---
 
@@ -136,4 +136,4 @@ Every feature and sprint MUST pass this checklist before being considered comple
 - [ ] **Typecheck & Lint**: `npm run typecheck` and `npm run lint` pass with 0 warnings.
 - [ ] **Coverage Gate**: `npm run test` verifies line/branch coverage `>= 85%`.
 - [ ] **E2E Tests**: Playwright happy-path user flows pass cleanly in headless browser.
-- [ ] **Roadmap**: [`product-roadmap.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/03-product-specs/product-roadmap.md) updated with checked task boxes.
+- [ ] **Roadmap**: [`product-roadmap.md`](../../docs/03-product-specs/product-roadmap.md) updated with checked task boxes.

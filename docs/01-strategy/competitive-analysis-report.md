@@ -241,4 +241,4 @@ Friction                     │                   10-Min Setup
 
 ---
 
-*Document maintained under `docs/01-strategy/competitive-analysis-report.md` per [AGENTS-DOCS-GUIDE.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/AGENTS-DOCS-GUIDE.md).*
+*Document maintained under `docs/01-strategy/competitive-analysis-report.md` per [AGENTS-DOCS-GUIDE.md](../../docs/AGENTS-DOCS-GUIDE.md).*

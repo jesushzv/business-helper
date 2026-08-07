@@ -319,4 +319,4 @@ Each FAQ entry in Section 08 should be wrapped in `FAQPage` JSON-LD for rich sni
 
 ---
 
-*Document maintained under `docs/03-product-specs/landing-page-brief.md` per [AGENTS-DOCS-GUIDE.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/AGENTS-DOCS-GUIDE.md).*
+*Document maintained under `docs/03-product-specs/landing-page-brief.md` per [AGENTS-DOCS-GUIDE.md](../../docs/AGENTS-DOCS-GUIDE.md).*

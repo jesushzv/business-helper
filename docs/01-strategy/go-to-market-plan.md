@@ -79,7 +79,7 @@ We use a **Freemium 14-Day Full-Access Trial** transitioning to flat per-busines
 | **Empresa** | **$999 MXN/mo** (~$55 USD) | Growing SMBs & Agencies (5–15 employees) | Up to 15 Users, Unlimited Clients & Quotes, **50 CFDI folios included** + $2/folio extra, Dedicated WhatsApp Support |
 
 > [!IMPORTANT]
-> **CFDI Pricing Repositioned (Expert Review):** CFDI invoicing was previously gated behind the $999 Empresa plan. This created a $700 upgrade barrier for a $3 invoice. CFDI is now a pay-per-folio add-on available across all plans. Users connect their own PAC (Facturama, FiscalAPI, SW Sapien) — Business Helper never stores CSD certificates. See [cfdi_integration_architecture.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/02-architecture/cfdi_integration_architecture.md).
+> **CFDI Pricing Repositioned (Expert Review):** CFDI invoicing was previously gated behind the $999 Empresa plan. This created a $700 upgrade barrier for a $3 invoice. CFDI is now a pay-per-folio add-on available across all plans. Users connect their own PAC (Facturama, FiscalAPI, SW Sapien) — Business Helper never stores CSD certificates. See [cfdi_integration_architecture.md](../../docs/02-architecture/cfdi_integration_architecture.md).
 
 ### Competitive Anchoring
 
@@ -120,7 +120,7 @@ SenHub ($79/mo CFDI-only, no quotes/collections)
 | Mobile Responsiveness | 4.75 / 10 | ≥ 6.0 / 10 |
 | Credibility / Social Proof | 3 / 10 | ≥ 7 / 10 |
 
-**Until Gate 0 passes:** Focus exclusively on organic channels (LinkedIn, WhatsApp communities, accountant referrals) and beta testimonial collection. See [product_readiness_workback.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/04-execution-testing/product_readiness_workback.md) for the remediation timeline.
+**Until Gate 0 passes:** Focus exclusively on organic channels (LinkedIn, WhatsApp communities, accountant referrals) and beta testimonial collection. See [product_readiness_workback.md](../../docs/04-execution-testing/product_readiness_workback.md) for the remediation timeline.
 
 ### Launch Channels & Tactics Matrix
 

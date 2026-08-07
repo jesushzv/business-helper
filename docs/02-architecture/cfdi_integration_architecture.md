@@ -202,4 +202,4 @@ Database: organizations table
 
 ---
 
-*Document maintained under `docs/02-architecture/cfdi_integration_architecture.md` per [AGENTS-DOCS-GUIDE.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/AGENTS-DOCS-GUIDE.md).*
+*Document maintained under `docs/02-architecture/cfdi_integration_architecture.md` per [AGENTS-DOCS-GUIDE.md](../../docs/AGENTS-DOCS-GUIDE.md).*

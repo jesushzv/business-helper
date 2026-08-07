@@ -45,7 +45,7 @@ gantt
 |---|---|---|---|---|
 | A1 | **Replace testimonial placeholders & fix photo reuse**: Replace placeholders with real/illustrative Monterrey/CDMX/Tijuana business profiles. **Crucial:** Eliminate photo reuse between hero count (`+500 PyMEs`) and testimonial cards. | 🔴 Critical | Design | ☑ |
 | A2 | **Replace mock data & raw crypto hashes**: Replace `0x9f8e7d6c...` and empty-string hash `sha256:e3b0c442...` with labeled "Ejemplo: Sello Digital SHA-256" and realistic business numbers | 🔴 Critical | Engineering | ☑ |
-| A3 | **Fix "Ver Demostración en Video" dead CTA**: Fix unclickable text CTA; connect to interactive video modal or animated demo walkthrough ([demo_video_storyboard.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/03-product-specs/demo_video_storyboard.md)) | 🔴 Critical | Product | ☑ |
+| A3 | **Fix "Ver Demostración en Video" dead CTA**: Fix unclickable text CTA; connect to interactive video modal or animated demo walkthrough ([demo_video_storyboard.md](../../docs/03-product-specs/demo_video_storyboard.md)) | 🔴 Critical | Product | ☑ |
 | A4 | **Replace self-issued badges with external trust seals**: Swap defensive "Verificado en Producción" badges for PAC partner logo (Facturapi), SSL cert link, and Banxico SPEI validation badge | 🟡 High | Marketing | ☑ |
 | A5 | **Add visible contact information**: Dedicated Email channels (`contacto@`, `hector@`, `soporte@`), physical address (Tijuana, B.C. / San Diego, CA) | 🟡 High | Engineering | ☑ |
 | A6 | **Add team/founder section**: Profiles for Hector Zamora (CEO), Gilberto Santana (CTO), and Guillermo Fernandez (COO) with real photos/third-person bios | 🟡 Medium | Product | ☑ |
@@ -59,7 +59,7 @@ gantt
 | # | Task | Severity | Owner | Status |
 |---|---|---|---|---|
 | B1 | **Resolve FAQ/Pricing contradiction**: Update FAQ copy to match new CFDI add-on model (not plan-gated) | 🔴 Critical | Engineering | ☑ |
-| B2 | **Update pricing table**: Show CFDI as pay-per-folio add-on across all plans per [cfdi_integration_architecture.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/02-architecture/cfdi_integration_architecture.md) | 🔴 Critical | Engineering | ☑ |
+| B2 | **Update pricing table**: Show CFDI as pay-per-folio add-on across all plans per [cfdi_integration_architecture.md](../../docs/02-architecture/cfdi_integration_architecture.md) | 🔴 Critical | Engineering | ☑ |
 | B3 | **Update Stripe products**: Create new CFDI folio pack Stripe products ($100/50 folios, $350/200 folios) | 🟡 High | Engineering | ☑ |
 | B4 | **Add CFDI trust messaging**: "Nunca almacenamos tus certificados SAT" copy on pricing and invoicing sections | 🟡 High | Engineering | ☑ |
 
@@ -215,4 +215,4 @@ gantt
 
 ---
 
-*Document maintained under `docs/04-execution-testing/product_readiness_workback.md` per [AGENTS-DOCS-GUIDE.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/AGENTS-DOCS-GUIDE.md).*
+*Document maintained under `docs/04-execution-testing/product_readiness_workback.md` per [AGENTS-DOCS-GUIDE.md](../../docs/AGENTS-DOCS-GUIDE.md).*

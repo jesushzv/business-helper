@@ -71,7 +71,7 @@ graph TD
    - **Root Directory**: `./`
    - **Build Command**: `npm run build`
    - **Output Directory**: `.next`
-3. Add Environment Variables (from [.env.production](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/.env.production) template):
+3. Add Environment Variables (see `.env.example` for the full list; never commit a populated `.env.production`):
    - **Core Infrastructure**:
      - `NEXT_PUBLIC_SUPABASE_URL`: `https://dfyoavffxzujvxvnsizi.supabase.co`
      - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: `sb_publishable_4w3ZlvFUwFtRTWI5s6QfVw_127miFZO`

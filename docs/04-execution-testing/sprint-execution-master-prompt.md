@@ -2,7 +2,7 @@
 
 > **Quick Usage Guide for the MASTER_PROMPT.md Template**
 >
-> The root-level [`MASTER_PROMPT.md`](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/MASTER_PROMPT.md) is the gold template for all AI agent execution. This document provides quick-reference usage instructions.
+> The root-level [`MASTER_PROMPT.md`](../../MASTER_PROMPT.md) is the gold template for all AI agent execution. This document provides quick-reference usage instructions.
 
 ---
 
@@ -50,4 +50,4 @@ The `MASTER_PROMPT.md` template is designed to **maximize context injection** by
 
 ---
 
-*Document maintained under `docs/04-execution-testing/sprint-execution-master-prompt.md` per [AGENTS-DOCS-GUIDE.md](file:///Users/jhzamora/.gemini/antigravity-ide/scratch/business-helper/docs/AGENTS-DOCS-GUIDE.md).*
+*Document maintained under `docs/04-execution-testing/sprint-execution-master-prompt.md` per [AGENTS-DOCS-GUIDE.md](../../docs/AGENTS-DOCS-GUIDE.md).*
