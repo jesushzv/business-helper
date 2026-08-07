@@ -12,6 +12,22 @@ import { formatE164MexicanPhone } from './whatsappOutbound';
 
 export type OtpDeliveryChannel = 'sms' | 'whatsapp' | 'console';
 
+/**
+ * The concrete API a channel resolves to. `whatsapp` is two providers, chosen
+ * by which credentials are present, so the channel alone does not say what an
+ * operator has to configure.
+ */
+export type OtpDeliveryProvider = 'twilio_sms' | 'twilio_whatsapp' | 'meta_whatsapp' | 'console';
+
+export interface OtpDeliveryConfigReport {
+  channel: OtpDeliveryChannel;
+  provider: OtpDeliveryProvider;
+  /** True only when a code can reach a real handset. Never true for `console`. */
+  ready: boolean;
+  /** Variables the selected provider needs and the environment does not have. */
+  missing: string[];
+}
+
 export interface OtpDeliveryResult {
   delivered: boolean;
   channel: OtpDeliveryChannel;
@@ -27,18 +43,71 @@ export interface OtpDeliveryResult {
 /** Abandon a provider call rather than hanging the signing request behind it. */
 const DELIVERY_TIMEOUT_MS = 10_000;
 
+type EnvRecord = Record<string, string | undefined>;
+
 function isProduction(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-export function getDeliveryChannel(): OtpDeliveryChannel {
-  const configured = process.env.OTP_DELIVERY_CHANNEL;
+export function getDeliveryChannel(env: EnvRecord = process.env): OtpDeliveryChannel {
+  const configured = env.OTP_DELIVERY_CHANNEL;
   if (configured === 'sms' || configured === 'whatsapp') return configured;
   return 'console';
 }
 
-export function isDeliveryConfigured(): boolean {
-  return getDeliveryChannel() !== 'console';
+export function isDeliveryConfigured(env: EnvRecord = process.env): boolean {
+  return getDeliveryChannel(env) !== 'console';
+}
+
+/**
+ * Resolves an environment to the provider it selects and the variables that
+ * provider is still missing.
+ *
+ * Without this, a half-configured deployment — channel set, credentials absent
+ * or misspelled — is indistinguishable from a working one until a real signer
+ * requests a code and gets a 502. The same rules drive the send functions
+ * below and `npm run verify:otp`, so a preflight check and an actual send agree
+ * on what "configured" means.
+ */
+export function describeDeliveryConfig(env: EnvRecord = process.env): OtpDeliveryConfigReport {
+  const channel = getDeliveryChannel(env);
+
+  if (channel === 'console') {
+    // Not a deployable channel: in production it fails closed, and in
+    // development it reaches a log rather than a handset.
+    return {
+      channel,
+      provider: 'console',
+      ready: false,
+      missing: ['OTP_DELIVERY_CHANNEL'],
+    };
+  }
+
+  const twilioShared = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'];
+
+  if (channel === 'sms') {
+    const missing = twilioShared.filter((key) => !env[key]);
+    if (!env.TWILIO_SMS_NUMBER && !env.TWILIO_PHONE_NUMBER) missing.push('TWILIO_SMS_NUMBER');
+    return { channel, provider: 'twilio_sms', ready: missing.length === 0, missing };
+  }
+
+  // whatsapp: Twilio when its number is set, Meta otherwise — mirroring
+  // sendViaProvider, so the report names the provider that would actually run.
+  if (env.TWILIO_WHATSAPP_NUMBER) {
+    const missing = twilioShared.filter((key) => !env[key]);
+    return { channel, provider: 'twilio_whatsapp', ready: missing.length === 0, missing };
+  }
+
+  const missing = ['META_WHATSAPP_TOKEN', 'META_PHONE_NUMBER_ID'].filter((key) => !env[key]);
+  return { channel, provider: 'meta_whatsapp', ready: missing.length === 0, missing };
+}
+
+/**
+ * A failure message naming exactly what is absent. Safe to return over HTTP:
+ * it carries variable names, never their values.
+ */
+function notConfiguredError(label: string, missing: string[]): string {
+  return `${label} no configurado (falta ${missing.join(', ')})`;
 }
 
 function otpMessage(code: string): string {
@@ -59,7 +128,7 @@ async function sendViaTwilioSms(recipient: string, code: string): Promise<OtpDel
       delivered: false,
       channel: 'sms',
       devCode: null,
-      error: 'SMS no configurado (falta TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN o TWILIO_SMS_NUMBER)',
+      error: notConfiguredError('SMS', describeDeliveryConfig().missing),
     };
   }
 
@@ -103,7 +172,14 @@ async function sendViaTwilioWhatsApp(recipient: string, code: string): Promise<O
   const from = process.env.TWILIO_WHATSAPP_NUMBER;
 
   if (!accountSid || !authToken || !from) {
-    return { delivered: false, channel: 'whatsapp', devCode: null, error: 'not_configured' };
+    // The route returns this string to the caller, so it has to read as a
+    // message rather than as an internal token.
+    return {
+      delivered: false,
+      channel: 'whatsapp',
+      devCode: null,
+      error: notConfiguredError('WhatsApp', describeDeliveryConfig().missing),
+    };
   }
 
   const body = new URLSearchParams({
@@ -153,7 +229,7 @@ async function sendViaMetaWhatsApp(recipient: string, code: string): Promise<Otp
       delivered: false,
       channel: 'whatsapp',
       devCode: null,
-      error: 'WhatsApp no configurado (falta TWILIO_WHATSAPP_NUMBER o META_WHATSAPP_TOKEN/META_PHONE_NUMBER_ID)',
+      error: notConfiguredError('WhatsApp', describeDeliveryConfig().missing),
     };
   }
 
@@ -223,6 +299,7 @@ export async function deliverOtp(phone: string, code: string): Promise<OtpDelive
     if (isProduction()) {
       // Fail closed. Returning the code to the caller in production would
       // hand every signature to whoever requested it.
+      console.error('[otp] delivery failed: OTP_DELIVERY_CHANNEL is unset in production');
       return {
         delivered: false,
         channel,
@@ -235,5 +312,18 @@ export async function deliverOtp(phone: string, code: string): Promise<OtpDelive
     return { delivered: true, channel, devCode: code };
   }
 
-  return sendViaProvider(channel, phone, code);
+  const result = await sendViaProvider(channel, phone, code);
+
+  if (!result.delivered) {
+    // The signer only ever sees a 502, so without this a provider outage or a
+    // misspelled credential leaves no trace anywhere an operator looks. The
+    // code and the recipient stay out of the log line.
+    console.error(
+      `[otp] delivery failed over ${result.channel} (${describeDeliveryConfig().provider}): ${
+        result.error ?? 'motivo desconocido'
+      }`
+    );
+  }
+
+  return result;
 }

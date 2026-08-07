@@ -149,6 +149,34 @@ With the variable unset outside production, codes are logged to the server
 console and returned as `dev_code`. In production an unset channel fails closed:
 echoing the code back would hand every signature to whoever asked for one.
 
+### Verifying the channel
+
+Credentials that are absent, misspelled, or belong to the wrong account produce
+exactly the same 502 as an unset channel — and by default the first person to
+discover it is a signer. Check before enabling:
+
+```
+OTP_DELIVERY_CHANNEL=sms \
+TWILIO_ACCOUNT_SID=AC… TWILIO_AUTH_TOKEN=… TWILIO_SMS_NUMBER=+1… \
+npm run verify:otp
+```
+
+It resolves which provider the environment selects, names any variable that
+provider still needs, and makes an authenticated read against Twilio or Meta —
+without sending anything. Adding `OTP_TEST_PHONE=+52…` sends one real message
+to that handset; it is a fixed sample string, not an OTP, and the script never
+touches a quote.
+
+`describeDeliveryConfig()` in `lib/otpDelivery.ts` applies the same rules
+in-process, and a failed send is now logged server-side (provider and reason,
+never the code or the recipient) so a misconfiguration is visible in the
+platform log rather than only as a 502.
+
+Note that a provider accepting a message is not the same as a handset receiving
+one: carriers drop SMS, and WhatsApp accepts then discards a template-less send
+outside the 24-hour customer service window. The end-to-end check below is what
+settles it.
+
 ## 5. Staging verification
 
 Everything here is a property of a running deployment rather than of the code,
@@ -168,6 +196,19 @@ applied and its redelivery is deduplicated. Without `ORG_ID` the route stops at
 the organization check before reaching the ledger, so those two are skipped.
 
 - [ ] `npm run verify:webhook` passes all six checks against staging.
+
+### OTP delivery checks — scripted
+
+```
+OTP_DELIVERY_CHANNEL=whatsapp \
+TWILIO_ACCOUNT_SID=AC… TWILIO_AUTH_TOKEN=… TWILIO_WHATSAPP_NUMBER=+1… \
+OTP_TEST_PHONE=+52… \
+npm run verify:otp
+```
+
+- [ ] `npm run verify:otp` reports the intended provider with no missing variables.
+- [ ] The credential stage passes against the account that will serve production.
+- [ ] With `OTP_TEST_PHONE` set, the sample message arrives on that handset.
 
 ### By hand
 
