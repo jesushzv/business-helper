@@ -117,7 +117,7 @@ one-to-one so the drift is visible next time.
 **Tracker changes:** #14 split into #62 / #63 / #64 (it carried three P0s in one body, so none
 could close independently); #59 promoted to P0; #65 and #66 filed for work found in passing.
 
-**Code, verified by `typecheck` + `lint` (22 warnings, 0 errors) + 591 vitest tests / 77 files
+**Code, verified by `typecheck` + `lint` (22 warnings, 0 errors) + 594 vitest tests / 78 files
 + `next build`. Against mocked services — no deployment was exercised:**
 
 - **#59:** `updateQuoteStatus` and `convertToContract` now apply the server outcome. The
@@ -246,7 +246,7 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 - [ ] Production Supabase migrations applied — **all three** from #20, #23 and #29 ([#62](https://github.com/jesushzv/business-helper/issues/62))
 - [ ] Error monitoring transmits and alerts reach the founder within minutes ([#52](https://github.com/jesushzv/business-helper/issues/52))
 - [x] The funnel is instrumented, so a weak result can be diagnosed (#37, PR #56) — wired, not yet read against real traffic
-- [x] Lint, typecheck, and **591** vitest tests / 77 files pass; CI runs on PRs (verified on #28 after ten hours of silent absence — see [#38](https://github.com/jesushzv/business-helper/issues/38))
+- [x] Lint, typecheck, and **594** vitest tests / 78 files pass; CI runs on PRs (verified on #28 after ten hours of silent absence — see [#38](https://github.com/jesushzv/business-helper/issues/38))
 
 ### Commercial gate (inherited)
 The [go-to-market plan](../01-strategy/go-to-market-plan.md) sets a Gate 0 before paid acquisition:
@@ -301,7 +301,7 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 591 tests / 77 files as of the 2026-08-07 P0 reconciliation
+npx vitest run                 # 594 tests / 78 files as of the 2026-08-07 P0 reconciliation
                                # (was 494/64 at the #20/#23/#29 merge, 569/76 after PR #57)
 npm run typecheck
 npm run lint
