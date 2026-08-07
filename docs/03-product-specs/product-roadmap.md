@@ -1,5 +1,10 @@
 # Product & Feature Roadmap: Business Helper
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** The sprint tables below record what was **planned and built**, not what is verified working. This file marked Sprints 1–16 "Completed" while CFDI stamping, Stripe checkout, team invites and the accountant export were all simulated — that is the incident this whole convention exists to prevent.
+
 > **MVP Scope, Sprint Breakdown, Launch Gates & Expansion Roadmap**
 >
 > A structured execution document for **Business Helper** mapping the MVP functional scope, sprint-by-sprint release schedule, beta launch gates, and post-MVP expansion phases.
@@ -11,11 +16,11 @@
 > "scope built and unit-tested", not "integration verified against the real service."**
 >
 > For what is actually launch-safe, see
-> [`launch_readiness_memo_aug2026.md`](../04-execution-testing/launch_readiness_memo_aug2026.md),
+> [`docs/STATUS.md`](../STATUS.md),
 > which supersedes this document wherever the two conflict.
 >
 > Test counts cited per sprint (`73/73`, `152/152`, `182/182` …) refer to the retired
-> `scripts/test-runner.js`, deleted in PR #21. **Current baseline: 383 tests / 58 files via `npx vitest run`.**
+> `scripts/test-runner.js`, deleted in PR #21. **The current baseline lives in [`docs/STATUS.md`](../STATUS.md) — this file no longer restates it, because it was 182, then 383, then 494, and wrong each time.**
 > The per-sprint counts are kept as a historical record only.
 
 ---
@@ -118,7 +123,7 @@ Before launching the Beta to pilot SMB owners, the product must pass all 6 hard 
 > **These six gates are necessary but not sufficient.** They were all reported green while CFDI stamping
 > was simulated and OTP delivery had no provider — because none of them test whether a third-party
 > integration actually executes. The money-path and delivery gates in
-> [`launch_readiness_memo_aug2026.md`](../04-execution-testing/launch_readiness_memo_aug2026.md) §04
+> [`docs/STATUS.md`](../STATUS.md) §04
 > cover that gap and must pass as well.
 
 ---

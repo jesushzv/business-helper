@@ -1,5 +1,10 @@
 # Product Expert Analysis: Business Helper — Independent Review Archive
 
+> [!CAUTION]
+> **ARCHIVED — do not read this for status, and do not update it.**
+> Superseded by [`docs/STATUS.md`](../STATUS.md), the single source of truth. Kept only as a record of what
+> was believed on the date it was written. A point-in-time external review; its findings were folded into the launch gate and the UX audit workstreams.
+
 > **Independent Product Review Reference Document**
 >
 > *Review Date: August 2026*

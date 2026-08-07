@@ -120,7 +120,7 @@ SenHub ($79/mo CFDI-only, no quotes/collections)
 | Mobile Responsiveness | 4.75 / 10 | ≥ 6.0 / 10 |
 | Credibility / Social Proof | 3 / 10 | ≥ 7 / 10 |
 
-**Until Gate 0 passes:** Focus exclusively on organic channels (LinkedIn, WhatsApp communities, accountant referrals) and beta testimonial collection. See [product_readiness_workback.md](../../docs/04-execution-testing/product_readiness_workback.md) for the remediation timeline.
+**Until Gate 0 passes:** Focus exclusively on organic channels (LinkedIn, WhatsApp communities, accountant referrals) and beta testimonial collection. See [product_readiness_workback.md](../99-archive/product_readiness_workback.md) for the remediation timeline.
 
 ### Launch Channels & Tactics Matrix
 

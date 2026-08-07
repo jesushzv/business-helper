@@ -1,5 +1,10 @@
 # ECC Sprint & Feature Execution Playbook: Business Helper
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** The checklists here are **steps an agent performs**, not a record of what has been done. Coverage thresholds quoted are policy targets.
+
 > **Repeatable Workflow Protocol for AI Agents & Development Sprints**
 >
 > A step-by-step operating playbook for leveraging the **Everything Claude Code (ECC)** agent suite to plan, build, test, and verify every feature and sprint in **Business Helper**.

@@ -1,5 +1,10 @@
 # Brand Guidelines & Marketing Strategy Specification: Business Helper
 
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+> [!NOTE]
+> **Live status lives in [`docs/STATUS.md`](../STATUS.md) — not here.** The coloured marks here are **palette and design tokens**, not status indicators.
+
 > **Executive Branding, Identity & Commercial Strategy Specification**
 >
 > Formulated by the Brand & Marketing Strategy Taskforce for **Business Helper** — the mobile-first business operations platform for Mexican SMBs. Grounded in `@docs/AGENTS-DOCS-GUIDE.md`, `@docs/01-strategy/go-to-market-plan.md`, and `@docs/01-strategy/user-personas.md`.

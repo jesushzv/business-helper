@@ -1,5 +1,10 @@
 # Module Capabilities Reference: Business Helper
 
+> [!CAUTION]
+> **ARCHIVED — do not read this for status, and do not update it.**
+> Superseded by [`docs/STATUS.md`](../STATUS.md), the single source of truth. Kept only as a record of what
+> was believed on the date it was written. It carried a competing status dashboard that reported 100% roadmap progress while core integrations were simulated.
+
 > **What each module does, and where it lives in the codebase**
 >
 > *Originally "Product Readiness & Roadmap Execution Snapshot" (2026-08-03). Collapsed 2026-08-07 to the
@@ -12,17 +17,17 @@ capability inventory, not a status report.
 > **These entries describe scope, not verification.** A module listed here exists and is unit-tested; that
 > is not evidence its third-party integration has executed against the real service. The 2026-08-06 security
 > review found several of these shipping with a simulated call underneath. For what is actually launch-safe,
-> read [`launch_readiness_memo_aug2026.md`](launch_readiness_memo_aug2026.md).
+> read [`docs/STATUS.md`](../STATUS.md).
 
 **Where the other content went**
 
 | Question | Read instead |
 |:---|:---|
-| Is this ready to launch? What is actually done? | [`launch_readiness_memo_aug2026.md`](launch_readiness_memo_aug2026.md) |
+| Is this ready to launch? What is actually done? | [`docs/STATUS.md`](../STATUS.md) |
 | Expert review findings and remediation status | [`product_readiness_workback.md`](product_readiness_workback.md) (WS-A…WS-I, with gates) |
-| Full review analyses | [`product_expert_review_aug2026.md`](product_expert_review_aug2026.md), [`ux_ui_audit_synthesis_aug2026.md`](ux_ui_audit_synthesis_aug2026.md) |
-| Pre-launch task checklist | [`product_launch_checklist.md`](product_launch_checklist.md) |
-| Launch-day playbook | [`product_launch_checklist.md`](product_launch_checklist.md) §04 |
+| Full review analyses | [`product_expert_review_aug2026.md`](product_expert_review_aug2026.md), [`ux_ui_audit_synthesis_aug2026.md`](../04-execution-testing/ux_ui_audit_synthesis_aug2026.md) |
+| Pre-launch task checklist | [`product_launch_checklist.md`](../04-execution-testing/product_launch_checklist.md) |
+| Launch-day playbook | [`product_launch_checklist.md`](../04-execution-testing/product_launch_checklist.md) §04 |
 | Sprint history and schedule | [`product-roadmap.md`](../03-product-specs/product-roadmap.md) |
 
 *Prior revisions carried its own copies of the middle four. They had already drifted — its remediation table
