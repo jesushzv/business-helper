@@ -5,9 +5,10 @@
 > *Prepared: 2026-08-07 | Verified against `main` @ `5c35719`*
 > *Method: repo docs reconciled against actual source, dependency manifest, test run, and the live issue tracker (issues #2, #3, #14, #17, #22; PRs #1–#23).*
 
-This document supersedes the status dashboards in [`product_readiness_snapshot.md`](product_readiness_snapshot.md)
-and the completion claims in [`product-roadmap.md`](../03-product-specs/product-roadmap.md)
-wherever they conflict. Where a doc says a feature is done and the code says otherwise, **the code wins.**
+This document is the source of truth for launch status. It supersedes the completion claims in
+[`product-roadmap.md`](../03-product-specs/product-roadmap.md) wherever they conflict — where a doc says a
+feature is done and the code says otherwise, **the code wins.** (`product_readiness_snapshot.md` carried a
+competing status dashboard; it was collapsed to a module capabilities reference on 2026-08-07.)
 
 An HTML rendering of this memo is published at
 <https://claude.ai/code/artifact/bce71e34-9298-436f-8dda-9e432ea9763a> (private to the owner).

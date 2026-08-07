@@ -38,7 +38,7 @@ business-helper/docs/
 │   ├── launch_readiness_memo_aug2026.md # ★ CURRENT SOURCE OF TRUTH for launch status
 │   ├── ecc-execution-playbook.md        # ECC Agent 4-phase sprint execution playbook
 │   ├── product_launch_checklist.md      # Go-live technical & operational checklist
-│   ├── product_readiness_snapshot.md    # Executive snapshot (status corrected 2026-08-07)
+│   ├── product_readiness_snapshot.md    # Module capabilities reference — what each module does & where
 │   ├── product_readiness_workback.md    # Post-expert-review workback schedule & gate framework
 │   ├── product_expert_review_aug2026.md # Independent product expert review archive
 │   ├── ux_ui_audit_synthesis_aug2026.md # Dual UX/UI audit synthesis
@@ -94,7 +94,8 @@ These were deleted as redundant or spent; git history retains them.
 | **Fixing a production bug or regression** | [`bug_investigation_plan.md`](../docs/05-templates/bug_investigation_plan.md) | [`technical_design_document.md`](../docs/02-architecture/technical_design_document.md) |
 | **Refactoring existing code** | [`refactoring_plan.md`](../docs/05-templates/refactoring_plan.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
 | **Building marketing landing pages or ads** | [`landing-page-brief.md`](../docs/03-product-specs/landing-page-brief.md) | [`go-to-market-plan.md`](../docs/01-strategy/go-to-market-plan.md) |
-| **Preparing for Beta launch or deployment** | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) | [`product_readiness_snapshot.md`](../docs/04-execution-testing/product_readiness_snapshot.md) |
+| **Preparing for Beta launch or deployment** | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) | [`launch_readiness_memo_aug2026.md`](../docs/04-execution-testing/launch_readiness_memo_aug2026.md) |
+| **Finding what a module does or where its code lives** | [`product_readiness_snapshot.md`](../docs/04-execution-testing/product_readiness_snapshot.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
 | **Working on CFDI / invoicing / PAC integration** | [`cfdi_integration_architecture.md`](../docs/02-architecture/cfdi_integration_architecture.md) | [`PRD-business-helper.md`](../docs/01-strategy/PRD-business-helper.md) (Module 5) |
 | **Responding to product expert reviews** | [`product_expert_review_aug2026.md`](../docs/04-execution-testing/product_expert_review_aug2026.md) | [`product_readiness_workback.md`](../docs/04-execution-testing/product_readiness_workback.md) |
 | **Tracking workback progress or gate status** | [`product_readiness_workback.md`](../docs/04-execution-testing/product_readiness_workback.md) | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) |
