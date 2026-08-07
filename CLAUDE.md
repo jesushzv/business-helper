@@ -149,9 +149,12 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 ## Known gotchas
 
 - The lint gate is nominal (see Commands) — tracked as
-  [#46](https://github.com/jesushzv/business-helper/issues/46). Three live `<img>`-vs-`next/image`
-  warnings block `--max-warnings=0`: `components/layout/AppShell.tsx:76`, `Footer.tsx:18`,
-  `Header.tsx:30`. Clear all three before flipping the script, or CI turns red on every PR.
+  [#46](https://github.com/jesushzv/business-helper/issues/46), where the full warning inventory
+  lives: **23 warnings across 8 files** (14 × `no-img-element`, 9 × `no-unused-vars`, half of them
+  in `app/page.tsx`). Clear them all before flipping the script to `--max-warnings=0`, or CI turns
+  red on every PR. Cautionary note: this count was wrong twice (recorded as 1, then 3) because both
+  readings came from a truncated tail of the output — **when counting lint warnings, read the whole
+  output**, `npm run lint 2>&1 | grep -c "Warning:"`.
 - CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38).
   After opening a PR, verify the `CI` check actually ran; absence looks identical to passing.
 - E2E exists but is not in CI; never cite Playwright results you didn't run.

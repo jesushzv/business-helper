@@ -129,10 +129,12 @@ that were blocking. What remains is configuration and one real transaction, not 
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
   CFDI ships at launch, so this is revenue the pricing page promises and the product cannot collect.
 - **Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).
-  Change the `lint` script to `next lint --max-warnings=0` and clear the `<img>`-should-be-`next/image`
-  warnings first. **There are three, not one** — `AppShell.tsx:76`, `Footer.tsx:18`, `Header.tsx:30`
-  (verified 2026-08-07; this line and #38 previously recorded only `Header.tsx`). Until then, five
-  documents describe a gate that does not run. Cheap to fix and it stops the same drift recurring.
+  Change the `lint` script to `next lint --max-warnings=0` and clear the existing warnings first.
+  **There are 23, not one** — 14 × `no-img-element` and 9 × unused imports across 8 files, half in
+  `app/page.tsx`; the full inventory is in #46. (This line originally said `Header.tsx` only, was
+  "corrected" to three, and both counts came from reading a truncated tail of the lint output —
+  the gate being fail-open is exactly why the debt grew unnoticed.) Until the script enforces the
+  threshold, five documents describe a gate that does not run.
 
 ### P2 — Can trail launch by weeks
 
