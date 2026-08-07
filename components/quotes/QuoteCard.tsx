@@ -4,6 +4,7 @@ import React from 'react';
 import { Quote, Client } from '@/types';
 import { QuoteStatusBadge } from './QuoteStatusBadge';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
+import { getQuotePublicUrl } from '@/lib/url';
 import { MessageSquare, ArrowRight, CheckCircle, FileText } from 'lucide-react';
 
 interface QuoteCardProps {
@@ -19,14 +20,14 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
   }).format(quote.total_amount);
 
   const clientName = client?.name || 'Cliente sin asignar';
-  const clientPhone = client?.phone || '8115551234';
+  // No fallback number: a quote must never be sent to a phone the tenant did
+  // not record. The previous default was a real, dialable Monterrey number.
+  const clientPhone = client?.phone || null;
 
-  const publicUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/q/${quote.public_token}`
-    : `https://businesshelper.mx/q/${quote.public_token}`;
+  const publicUrl = getQuotePublicUrl(quote.public_token);
 
   const messageText = `Hola ${clientName}, le comparto la cotización "${quote.title}" por un total de ${formattedTotal}.\n\nPuede ver el detalle y firmar en línea aquí:\n${publicUrl}`;
-  const whatsappUrl = generateWhatsAppLink(clientPhone, messageText);
+  const whatsappUrl = clientPhone ? generateWhatsAppLink(clientPhone, messageText) : null;
 
   return (
     <div className="bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl hover:border-slate-700 transition-all p-5 flex flex-col justify-between text-white">
@@ -56,16 +57,28 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
 
       <div className="flex flex-col gap-2 pt-3 border-t border-slate-800">
         <div className="flex items-center gap-2">
-          {/* 1-Tap WhatsApp Button */}
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
-          >
-            <MessageSquare className="w-4 h-4 shrink-0" />
-            <span>Enviar por WhatsApp</span>
-          </a>
+          {/* 1-Tap WhatsApp Button — only when the client has a phone on record */}
+          {whatsappUrl ? (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
+            >
+              <MessageSquare className="w-4 h-4 shrink-0" />
+              <span>Enviar por WhatsApp</span>
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="Agrega un teléfono al cliente para enviar por WhatsApp"
+              className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm whitespace-nowrap"
+            >
+              <MessageSquare className="w-4 h-4 shrink-0" />
+              <span>Agrega un teléfono para WhatsApp</span>
+            </button>
+          )}
 
           {/* View Details Link */}
           <a
