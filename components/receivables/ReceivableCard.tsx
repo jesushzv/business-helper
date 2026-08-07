@@ -47,15 +47,20 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
   const StatusIcon = statusBadge.icon;
 
   const reminderStatus = isOverdue ? 'overdue' : isDueToday ? 'due_today' : 'upcoming_3d';
-  const whatsappUrl = generatePaymentReminderLink({
-    phone: milestone.client_phone || '8115551234',
-    clientName: milestone.client_name || 'Cliente',
-    milestoneLabel: milestone.label,
-    amount: milestone.amount,
-    dueDate: milestone.due_date,
-    status: reminderStatus,
-    payToken: milestone.public_token || 'demo_token',
-  });
+  // No fallback number: a payment reminder carries the amount owed and the
+  // /pay/ link, and must never go to a phone the tenant did not record. The
+  // previous default was a real, dialable Monterrey number (#44).
+  const whatsappUrl = milestone.client_phone
+    ? generatePaymentReminderLink({
+        phone: milestone.client_phone,
+        clientName: milestone.client_name || 'Cliente',
+        milestoneLabel: milestone.label,
+        amount: milestone.amount,
+        dueDate: milestone.due_date,
+        status: reminderStatus,
+        payToken: milestone.public_token || 'demo_token',
+      })
+    : null;
 
   return (
     <div className="bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl hover:border-slate-700 transition-all p-5 flex flex-col justify-between text-white">
@@ -106,15 +111,27 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
       <div className="flex flex-col gap-2 pt-3 border-t border-slate-800">
         <div className="flex items-center gap-2">
           {!isConfirmed && (
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
-            >
-              <MessageSquare className="w-4 h-4 shrink-0" />
-              <span>Recordar WhatsApp</span>
-            </a>
+            whatsappUrl ? (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
+              >
+                <MessageSquare className="w-4 h-4 shrink-0" />
+                <span>Recordar WhatsApp</span>
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                title="Agrega un teléfono al cliente para enviar recordatorios por WhatsApp"
+                className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm whitespace-nowrap"
+              >
+                <MessageSquare className="w-4 h-4 shrink-0" />
+                <span>Agrega un teléfono para WhatsApp</span>
+              </button>
+            )
           )}
 
           <a
