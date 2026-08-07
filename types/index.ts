@@ -29,7 +29,9 @@ export type Quote = Omit<QuoteRow, QuoteServerOnlyFields | QuoteSignatureFields>
   Partial<Pick<QuoteRow, QuoteSignatureFields>>;
 export type Contract = Database['public']['Tables']['contracts']['Row'];
 export type Milestone = Database['public']['Tables']['milestones']['Row'];
-export type CSDCredential = Database['public']['Tables']['csd_credentials']['Row'];
+export type PacConnection = Database['public']['Tables']['pac_connections']['Row'];
+export type CfdiPaymentComplement =
+  Database['public']['Tables']['cfdi_payment_complements']['Row'];
 export type AuditLog = Database['public']['Tables']['audit_logs']['Row'];
 
 export interface LineItem {

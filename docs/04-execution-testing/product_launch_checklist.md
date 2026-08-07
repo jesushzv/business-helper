@@ -31,13 +31,15 @@
 - [ ] **Real Handset Verification**: A code arrives within ~10s on the configured channel and cannot be replayed.
 
 ### 🤖 Real AI Integration (P1)
-- [x] **LLM Provider Integration**: `lib/whatsappAI.ts` calls the Gemini REST API directly (no `@google/genai` SDK dependency); `lib/aiOrgContext.ts` supplies organization context.
-- [ ] **Live RAG Grounding**: `buildAIPromptContext` formats real receivable balances, but assistant responses are still partially mocked. Verify against live data before promoting the feature.
+- [x] **Live RAG & DB Context Ingestion**: `/api/ai/assistant` and `/api/ai/support` read the caller's own clients and open milestones via `lib/aiOrgContext.ts`. The hardcoded "Grupo Salinas" ledger and the fallback WhatsApp number are gone; the sample book of business survives only where no backend is configured, and is badged as an example in the UI.
+- [ ] **LLM Provider API Setup**: Still open — `parseNaturalLanguageQuery` is keyword matching, not a model. Responses now say so (`engine: 'rules'`) rather than implying otherwise, so this is honest but not yet intelligent. P2: it degrades gracefully and does not gate launch.
 
 ### 🧾 SAT CFDI 4.0 PAC Invoicing (P0)
-- [ ] **Real PAC Stamping**: **Previously marked complete in error.** `simulateInvoiceStamping()` fabricated invoice IDs and `storage.businesshelper.mx` URLs while writing `cfdi_status: 'issued'` — recording invoices the SAT never saw (issue #3). PR #23 replaces this with a real provider-agnostic PAC client, **but has never been executed against a live Facturapi sandbox** and is unmerged.
-- [ ] **XML & PDF Storage**: PR #23 stores documents in a private `cfdi-documents` bucket and persists paths (not URLs) on the milestone. Unverified against a real stamp.
-- [ ] **Migration Applied**: `20260807120000_cfdi_pac_integration.sql` must be applied before the code deploys.
+- [x] **Live Facturapi PAC Client**: `lib/pacClient.ts` stamps through the PAC — the organization's own account, or the platform's `FACTURAPI_SECRET_KEY`. The earlier `issueInvoiceClient()` "graceful fallback" was the defect: it resolved every failure into `simulateInvoiceStamping()`, so a fabricated folio was indistinguishable from a real one. Both are removed. *(Merged in PR #23.)*
+- [x] **XML & PDF Storage**: `app/api/invoices/issue/route.ts` downloads the XML and PDF from the PAC into the private `cfdi-documents` bucket and records the object paths on the milestone. The old columns held `storage.businesshelper.mx` URLs that resolved to nothing; the migration clears them.
+- [x] **Complemento de Pago**: filed when a PPD milestone is confirmed *(PR #29)*.
+- [ ] **One real stamp against a live PAC**: **still outstanding, and the item that matters.** PR #23's coverage runs against a mocked `fetch`, which proves the code is correct, not that the integration works. Obtain a Facturapi sandbox key and issue one invoice end to end, confirming a real SAT UUID comes back and the stored XML/PDF open.
+- [ ] **Migration Applied**: `20260807120000_cfdi_pac_integration.sql` must be applied to production before the deploy carrying it.
 
 ### 💳 Stripe Subscription Billing & Webhooks (P0)
 - [x] **Checkout Implementation**: `lib/stripeClient.ts` creates Checkout Sessions via raw REST against `api.stripe.com/v1`. *(There is no `stripe` SDK dependency — the earlier "Install `stripe` package" description does not match the implementation.)* Made real in PR #19.
@@ -157,14 +159,15 @@
 ## 03 Pre-Launch (T-1 Week: Sep 12 – Sep 18, 2026)
 
 - [x] **Production Deployment Guide & Secrets Template**: `docs/deployment.md` and `.env.example` map the production keys.
-- [ ] **Production DB Migrations**: Confirm every migration in `supabase/migrations/` is applied to the production project, **including the two pending from unmerged PRs** (`20260807000000_otp_send_rate_limit.sql`, `20260807120000_cfdi_pac_integration.sql`). Verify with `npm run db:migrate:dry`.
+- [ ] **Production DB Migrations**: Confirm every migration in `supabase/migrations/` is applied to the production project, **including the two that landed with PRs #20 and #23** (`20260807000000_otp_send_rate_limit.sql`, `20260807120000_cfdi_pac_integration.sql`). Both are on `main` now, so a deploy without them returns 500s from the OTP and invoice routes. Verify with `npm run db:migrate:dry`.
 - [ ] **Supabase Production Infrastructure**: Verify `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are set in the Vercel environment. *(Do not record project refs, keys, or `.env.production` contents in this repo.)*
 - [ ] **Production API Keys Configuration**:
   - [ ] `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`: Live key set and webhook endpoint registered (`/api/stripe/webhook`). Verify with `npm run verify:webhook`.
-  - [ ] `STRIPE_PRICE_*`: Live price IDs mapped for each tier.
-  - [ ] `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / channel number — **required, not optional.** The earlier "Not Needed / Bypassed" note was wrong: `wa.me/` Click-to-Chat only covers *owner-initiated* messages. It cannot deliver an OTP to a signer, so without a provider the e-signature flow is inoperable. One Twilio account also covers the outbound reminders in `lib/whatsappOutbound.ts`. (Meta Cloud API is the alternative.)
-  - [ ] `PAC_ENCRYPTION_KEY` + `FACTURAPI_SECRET_KEY`: required only if CFDI ships at launch (PR #23). If CFDI is deferred, the Nota de Venta PDF and Accountant ZIP Export cover the MVP invoicing story without SAT CSD friction.
-- [ ] **Domain & SSL Setup**: **Decide `businesshelper.app` vs `.app` first** — docs and commit history disagree. Then on Vercel:
+  - [ ] `STRIPE_PRICE_*`: Live price IDs mapped for each tier (Inicial / Negocio / Empresa).
+  - [ ] `OTP_DELIVERY_CHANNEL` + `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / sender number — **required, not optional.** The earlier "Not Needed / Bypassed" note was wrong: `wa.me/` Click-to-Chat only covers *owner-initiated* messages. It cannot deliver an OTP to a signer, so without a provider the e-signature flow is inoperable and no quote can be signed. One Twilio account also covers the outbound reminders in `lib/whatsappOutbound.ts`. (Meta Cloud API is the alternative; Twilio SMS is the fastest to provision.)
+  - [ ] `PAC_ENCRYPTION_KEY`: **Required before anyone can connect a PAC.** 32 bytes (base64 or hex) sealing tenant PAC API keys; `/api/organization/pac` answers 503 rather than storing a credential in plaintext without it.
+  - [ ] `FACTURAPI_SECRET_KEY`: **Optional.** It is the platform's shared PAC account, used by tenants who have not connected their own; those stamps consume the folios their plan includes. Without it, an organization connects its own PAC in Ajustes and invoicing still works. The Nota de Venta PDF and Accountant ZIP Export (`lib/receiptGenerator.ts`) remain the zero-SAT default.
+- [ ] **Domain & SSL Setup**: The domain is **`businesshelper.app`** — `.mx` was never registered. On Vercel:
   - Apex A Record: `76.76.21.21`
   - Subdomain CNAME: `cname.vercel-dns.com`
   - Sync Supabase Auth **Site URL** & **Redirect URL** (`/auth/callback`).

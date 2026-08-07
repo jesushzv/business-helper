@@ -341,7 +341,7 @@ USING (organization_id IN (SELECT auth.user_organization_ids()));
 | Service | Purpose | SDK / Package | Environment Variables | Failure Handling |
 |:---|:---|:---|:---|:---|
 | **Supabase Cloud** | Postgres DB, Auth Engine, Object Storage | `@supabase/supabase-js`, `@supabase/ssr` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Graceful fallback error response; retry logic on network timeouts |
-| **Facturapi** | SAT CFDI 4.0 PAC Electronic Invoicing | `facturapi` | `FACTURAPI_SECRET_KEY` | Queue failed invoice requests; return `cfdi_status: 'failed'` with retry trigger |
+| **Facturapi** | SAT CFDI 4.0 PAC Electronic Invoicing | REST via `lib/pacClient.ts` (no SDK) | `FACTURAPI_SECRET_KEY` (platform account), `PAC_ENCRYPTION_KEY` (seals tenant keys) | Record `cfdi_status: 'failed'` with the PAC's own message, release the reserved folio, and surface it for retry. Never a simulated stamp. |
 | **Stripe** | SaaS Subscription Management & Checkout | `stripe`, `@stripe/stripe-js` | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | Webhook retries; manual sync button in Admin settings |
 | **Resend** | Transactional Emails (OTP, Notifications) | `resend`, `@react-email/components` | `RESEND_API_KEY` | Fallback to direct client-side WhatsApp link alert if email fails |
 | **WhatsApp API** | Direct Click-to-Chat & Status Alerts | Direct URL construction (`wa.me/`) | N/A (Standard URL protocol) | Fallback to copyable URL link if popup blocked |

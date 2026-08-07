@@ -41,6 +41,9 @@
 - `subscription_tier`: text (not null, default: `'free'`) -- 'free' | 'emprendedor' | 'negocio' | 'empresa'
 - `subscription_status`: text (not null, default: `'active'`) -- 'active' | 'past_due' | 'canceled'
 - `facturapi_organization_id`: text (nullable) -- Linked PAC tenant ID
+- `cfdi_folios_used`: integer (not null, default: `0`) -- Folios spent inside `cfdi_folios_period`
+- `cfdi_folios_period`: text (nullable) -- 'YYYY-MM' the counter above describes
+- `cfdi_folios_purchased`: integer (not null, default: `0`) -- Pack folios; do not expire monthly
 - `created_at`: timestamptz (not null, default: `now()`)
 - `updated_at`: timestamptz (not null, default: `now()`)
 
@@ -144,23 +147,40 @@
 - `receipt_url`: text (nullable) -- Storage URL for SPEI proof
 - `tracking_reference`: text (nullable) -- SPEI Clave de Rastreo (Banxico)
 - `transferred_amount`: numeric(12,2) (nullable)
-- `cfdi_id`: text (nullable) -- Facturapi UUID
-- `cfdi_status`: text (not null, default: `'none'`) -- 'none' | 'pending' | 'issued' | 'failed'
-- `cfdi_xml_url`: text (nullable)
-- `cfdi_pdf_url`: text (nullable)
+- `cfdi_id`: text (nullable) -- The PAC's own invoice id, used to cancel or re-download
+- `cfdi_uuid`: text (nullable, UQ where not null) -- SAT folio fiscal
+- `cfdi_status`: text (not null, default: `'none'`) -- 'none' | 'pending' | 'issued' | 'failed' | 'cancelled'
+- `cfdi_provider`: text (nullable) -- PAC that stamped it
+- `cfdi_environment`: text (nullable) -- 'sandbox' | 'live'; a sandbox document has no fiscal validity
+- `cfdi_xml_path`: text (nullable) -- Object path in the private `cfdi-documents` bucket
+- `cfdi_pdf_path`: text (nullable) -- Object path in the private `cfdi-documents` bucket
+- `cfdi_xml_url`: text (nullable) -- Authenticated download route, for the accountant export
+- `cfdi_pdf_url`: text (nullable) -- Authenticated download route, for the accountant export
+- `cfdi_stamped_at`: timestamptz (nullable)
+- `cfdi_cancelled_at`: timestamptz (nullable)
+- `cfdi_error`: text (nullable) -- Why the last attempt failed, in the user's language
 - `confirmed_at`: timestamptz (nullable)
 - `created_at`: timestamptz (not null, default: `now()`)
 
-#### `csd_credentials` (Vault)
+#### `pac_connections`
+
+> Replaced `csd_credentials`, which was dropped in `20260807120000_cfdi_pac_integration.sql`.
+> That table modelled a user's CSD (`certificate_base64`, `private_key_encrypted`,
+> `password_encrypted`). Nothing ever wrote to it, and per §02 of
+> `cfdi_integration_architecture.md` nothing ever should: the trust argument
+> ("nunca almacenamos tus certificados SAT") depends on that data not existing here.
+> The CSD stays with the user's PAC; we hold only the revocable API key below.
+
 - `id`: uuid (PK, default: `gen_random_uuid()`)
 - `organization_id`: uuid (FK -> `organizations.id`, not null, UQ)
-- `certificate_base64`: text (not null)
-- `private_key_encrypted`: text (not null) -- Encrypted with KMS/HMAC key
-- `password_encrypted`: text (not null)
-- `rfc`: text (not null)
-- `is_active`: boolean (not null, default: `true`)
-- `expires_at`: timestamptz (nullable)
+- `provider`: text (not null, default: `'facturapi'`)
+- `api_key_sealed`: text (not null) -- 'v1.<iv>.<tag>.<ciphertext>', AES-256-GCM (`PAC_ENCRYPTION_KEY`)
+- `api_key_hint`: text (not null) -- Last four characters, for the settings UI
+- `environment`: text (not null, default: `'sandbox'`) -- 'sandbox' | 'live'
+- `connected_by`: uuid (nullable, FK -> `auth.users.id`)
 - `created_at`: timestamptz (not null, default: `now()`)
+- `updated_at`: timestamptz (not null, default: `now()`)
+- *RLS*: restricted to the organization **owner**, not every member
 
 #### `audit_logs`
 - `id`: uuid (PK, default: `gen_random_uuid()`)
@@ -186,7 +206,7 @@ auth.users (Supabase)
   │ (Owner 1:1)                                       ├── (1:N) ──> clients
   └───────────────────────────────────────────────────┼── (1:N) ──> products
                                                       ├── (1:N) ──> quotes ── (1:1) ──> contracts
-                                                      └── (1:N) ──> csd_credentials     │
+                                                      └── (1:1) ──> pac_connections     │
                                                                                         └── (1:N) ──> milestones
 ```
 
@@ -367,8 +387,8 @@ ON CONFLICT (organization_id, user_id) DO NOTHING;
 |:---|:---|:---|:---|
 | `rfc` | `organizations`, `clients` | PII / Tax Data | Stored in plaintext; protected via Supabase RLS |
 | `phone`, `email` | `clients` | PII | Stored in plaintext; sanitized on input |
-| `private_key_encrypted` | `csd_credentials` | Confidential Legal Key | **AES-256-GCM** encrypted before database insertion |
-| `password_encrypted` | `csd_credentials` | Credential | **AES-256-GCM** encrypted before database insertion |
+| `api_key_sealed` | `pac_connections` | PAC Credential | **AES-256-GCM** sealed before insertion (`PAC_ENCRYPTION_KEY`, never stored in a row); owner-only RLS |
+| CSD (`.cer`, `.key`, password) | — | Confidential Legal Key | **Never stored.** Held by the user's PAC; Business Helper only sends invoice data |
 | `client_otp_code` | `contracts` | Transient Auth Code | 6-digit random string; cleared immediately upon verification |
 
 ### Row-Level Security (RLS) Policies

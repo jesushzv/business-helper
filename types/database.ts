@@ -24,6 +24,9 @@ export interface Database {
           subscription_tier: 'free' | 'inicial' | 'emprendedor' | 'negocio' | 'empresa';
           subscription_status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired';
           facturapi_organization_id: string | null;
+          cfdi_folios_used: number;
+          cfdi_folios_period: string | null;
+          cfdi_folios_purchased: number;
           bank_name: string | null;
           bank_clabe: string | null;
           bank_account_holder: string | null;
@@ -44,6 +47,9 @@ export interface Database {
           subscription_tier?: 'free' | 'inicial' | 'emprendedor' | 'negocio' | 'empresa';
           subscription_status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired';
           facturapi_organization_id?: string | null;
+          cfdi_folios_used?: number;
+          cfdi_folios_period?: string | null;
+          cfdi_folios_purchased?: number;
           bank_name?: string | null;
           bank_clabe?: string | null;
           bank_account_holder?: string | null;
@@ -64,6 +70,9 @@ export interface Database {
           subscription_tier?: 'free' | 'inicial' | 'emprendedor' | 'negocio' | 'empresa';
           subscription_status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired';
           facturapi_organization_id?: string | null;
+          cfdi_folios_used?: number;
+          cfdi_folios_period?: string | null;
+          cfdi_folios_purchased?: number;
           bank_name?: string | null;
           bank_clabe?: string | null;
           bank_account_holder?: string | null;
@@ -408,9 +417,19 @@ export interface Database {
           tracking_reference: string | null;
           transferred_amount: number | null;
           cfdi_id: string | null;
-          cfdi_status: 'none' | 'pending' | 'issued' | 'failed';
+          cfdi_status: 'none' | 'pending' | 'issued' | 'failed' | 'cancelled';
+          cfdi_uuid: string | null;
+          cfdi_provider: string | null;
+          cfdi_environment: 'sandbox' | 'live' | null;
+          cfdi_xml_path: string | null;
+          cfdi_pdf_path: string | null;
+          cfdi_stamped_at: string | null;
+          cfdi_cancelled_at: string | null;
+          cfdi_error: string | null;
           cfdi_xml_url: string | null;
           cfdi_pdf_url: string | null;
+          cfdi_payment_method: 'PUE' | 'PPD' | null;
+          cfdi_total: number | null;
           confirmed_at: string | null;
           created_at: string;
         };
@@ -426,9 +445,19 @@ export interface Database {
           tracking_reference?: string | null;
           transferred_amount?: number | null;
           cfdi_id?: string | null;
-          cfdi_status?: 'none' | 'pending' | 'issued' | 'failed';
+          cfdi_status?: 'none' | 'pending' | 'issued' | 'failed' | 'cancelled';
+          cfdi_uuid?: string | null;
+          cfdi_provider?: string | null;
+          cfdi_environment?: 'sandbox' | 'live' | null;
+          cfdi_xml_path?: string | null;
+          cfdi_pdf_path?: string | null;
+          cfdi_stamped_at?: string | null;
+          cfdi_cancelled_at?: string | null;
+          cfdi_error?: string | null;
           cfdi_xml_url?: string | null;
           cfdi_pdf_url?: string | null;
+          cfdi_payment_method?: 'PUE' | 'PPD' | null;
+          cfdi_total?: number | null;
           confirmed_at?: string | null;
           created_at?: string;
         };
@@ -444,46 +473,140 @@ export interface Database {
           tracking_reference?: string | null;
           transferred_amount?: number | null;
           cfdi_id?: string | null;
-          cfdi_status?: 'none' | 'pending' | 'issued' | 'failed';
+          cfdi_status?: 'none' | 'pending' | 'issued' | 'failed' | 'cancelled';
+          cfdi_uuid?: string | null;
+          cfdi_provider?: string | null;
+          cfdi_environment?: 'sandbox' | 'live' | null;
+          cfdi_xml_path?: string | null;
+          cfdi_pdf_path?: string | null;
+          cfdi_stamped_at?: string | null;
+          cfdi_cancelled_at?: string | null;
+          cfdi_error?: string | null;
           cfdi_xml_url?: string | null;
           cfdi_pdf_url?: string | null;
+          cfdi_payment_method?: 'PUE' | 'PPD' | null;
+          cfdi_total?: number | null;
           confirmed_at?: string | null;
           created_at?: string;
         };
       };
-      csd_credentials: {
+      // A milestone models one CFDI. A PPD invoice paid in three transfers owes
+      // three complementos de pago, each a stamped document with its own folio
+      // fiscal, so they live in their own table.
+      // See 20260807170000_cfdi_payment_complements.sql.
+      cfdi_payment_complements: {
         Row: {
           id: string;
           organization_id: string;
-          certificate_base64: string;
-          private_key_encrypted: string;
-          password_encrypted: string;
-          rfc: string;
-          is_active: boolean;
-          expires_at: string | null;
+          milestone_id: string;
+          installment: number;
+          amount: number;
+          last_balance: number;
+          remaining_balance: number;
+          payment_form: string;
+          payment_date: string;
+          operation_number: string | null;
+          status: 'pending' | 'issued' | 'failed' | 'cancelled';
+          cfdi_id: string | null;
+          cfdi_uuid: string | null;
+          cfdi_provider: string | null;
+          cfdi_environment: 'sandbox' | 'live' | null;
+          cfdi_xml_path: string | null;
+          cfdi_pdf_path: string | null;
+          stamped_at: string | null;
+          cancelled_at: string | null;
+          error: string | null;
+          created_by: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
           organization_id: string;
-          certificate_base64: string;
-          private_key_encrypted: string;
-          password_encrypted: string;
-          rfc: string;
-          is_active?: boolean;
-          expires_at?: string | null;
+          milestone_id: string;
+          installment: number;
+          amount: number;
+          last_balance: number;
+          remaining_balance: number;
+          payment_form?: string;
+          payment_date?: string;
+          operation_number?: string | null;
+          status?: 'pending' | 'issued' | 'failed' | 'cancelled';
+          cfdi_id?: string | null;
+          cfdi_uuid?: string | null;
+          cfdi_provider?: string | null;
+          cfdi_environment?: 'sandbox' | 'live' | null;
+          cfdi_xml_path?: string | null;
+          cfdi_pdf_path?: string | null;
+          stamped_at?: string | null;
+          cancelled_at?: string | null;
+          error?: string | null;
+          created_by?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
           organization_id?: string;
-          certificate_base64?: string;
-          private_key_encrypted?: string;
-          password_encrypted?: string;
-          rfc?: string;
-          is_active?: boolean;
-          expires_at?: string | null;
+          milestone_id?: string;
+          installment?: number;
+          amount?: number;
+          last_balance?: number;
+          remaining_balance?: number;
+          payment_form?: string;
+          payment_date?: string;
+          operation_number?: string | null;
+          status?: 'pending' | 'issued' | 'failed' | 'cancelled';
+          cfdi_id?: string | null;
+          cfdi_uuid?: string | null;
+          cfdi_provider?: string | null;
+          cfdi_environment?: 'sandbox' | 'live' | null;
+          cfdi_xml_path?: string | null;
+          cfdi_pdf_path?: string | null;
+          stamped_at?: string | null;
+          cancelled_at?: string | null;
+          error?: string | null;
+          created_by?: string | null;
           created_at?: string;
+          updated_at?: string;
+        };
+      };
+      // csd_credentials was dropped in 20260807120000_cfdi_pac_integration.sql.
+      // Business Helper never holds a user's CSD; see the migration and
+      // docs/02-architecture/cfdi_integration_architecture.md §02.
+      pac_connections: {
+        Row: {
+          id: string;
+          organization_id: string;
+          provider: 'facturapi';
+          api_key_sealed: string;
+          api_key_hint: string;
+          environment: 'sandbox' | 'live';
+          connected_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          provider?: 'facturapi';
+          api_key_sealed: string;
+          api_key_hint: string;
+          environment?: 'sandbox' | 'live';
+          connected_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          provider?: 'facturapi';
+          api_key_sealed?: string;
+          api_key_hint?: string;
+          environment?: 'sandbox' | 'live';
+          connected_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
       };
       audit_logs: {
@@ -540,6 +663,45 @@ export interface Database {
           payload?: Json | null;
           processed_at?: string;
         };
+      };
+      otp_send_log: {
+        Row: {
+          id: string;
+          phone_e164: string;
+          quote_id: string | null;
+          channel: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          phone_e164: string;
+          quote_id?: string | null;
+          channel?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          phone_e164?: string;
+          quote_id?: string | null;
+          channel?: string | null;
+          created_at?: string;
+        };
+      };
+    };
+    // These tables are hand-written rather than generated, and omit the
+    // `Relationships` key supabase-js needs to resolve a schema, which is why
+    // callers throughout the app cast the client. The signatures below document
+    // the folio RPCs installed by 20260807120000_cfdi_pac_integration.sql.
+    Functions: {
+      /** Spends one CFDI folio for the period, included allowance first. */
+      reserve_cfdi_folio: {
+        Args: { p_organization_id: string; p_period: string; p_included: number };
+        Returns: Json;
+      };
+      /** Returns a reserved folio when the stamp never happened. */
+      release_cfdi_folio: {
+        Args: { p_organization_id: string; p_period: string; p_source: string };
+        Returns: undefined;
       };
     };
   };

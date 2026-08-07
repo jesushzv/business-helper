@@ -90,8 +90,12 @@ graph TD
      - For `sms`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER`
      - For `whatsapp` via Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`
      - For `whatsapp` via Meta: `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID`
+   - **CFDI 4.0 Invoicing**:
+     - `PAC_ENCRYPTION_KEY`: 32 bytes (base64 or hex) sealing the PAC API keys tenants connect. Required before anyone can connect a PAC; without it `/api/organization/pac` answers 503 rather than storing a credential in plaintext.
+     - `FACTURAPI_SECRET_KEY` (optional): the platform's own PAC key (`sk_live_...`), used by tenants who have not connected one. Their stamps consume the folios their plan includes. A `sk_test_` key is refused in production — it produces documents with no fiscal validity.
+     - Business Helper never receives CSD certificates (`.cer`/`.key`): they stay with the user's PAC.
+     - Storage: the `cfdi-documents` bucket is created by `supabase/migrations/20260807120000_cfdi_pac_integration.sql` and must stay private.
    - **Third-Party Integrations (Optional)**:
-     - `FACTURAPI_SECRET_KEY` (Live PAC key `sk_live_...` & SAT CSD `.cer`/`.key` upload)
      - `GEMINI_API_KEY` (Google Cloud Gemini API Key)
 4. Click **Deploy**.
 
@@ -185,6 +189,43 @@ no webhook secret will take payments without upgrading the account.
 - [ ] Inviting a colleague returns an `/invitacion/<token>` link; opening it while signed in as the invited address joins the organization, and a second use is refused
 - [ ] An invitation link opened by a different account is rejected (`EMAIL_MISMATCH`)
 - [ ] `/api/accountant/export?month=YYYY-MM` returns the tenant's own milestones; a month with no records exports an empty CSV rather than sample rows
+
+---
+
+## 05d Step 4d: OTP Send Rate Limiting
+
+`POST /api/quotes/public/[token]/otp` is unauthenticated by design — the signer
+is not logged in and the quote token is the whole credential. Until the
+remediation of issue #17 its only bound was a 30s cooldown on
+`quotes.client_otp_sent_at`, which is per quote: a client with several open
+quotes has several valid tokens resolving to one `clients.phone`, so cycling
+between them issued a code on every request. Every send is a billable
+Twilio/Meta message, and on SMS that is the pattern carriers flag as pumping.
+
+**Migration required.** `20260807000000_otp_send_rate_limit.sql` creates
+`otp_send_log`, the persisted counter the limit reads. It has to be persisted:
+Vercel functions share no memory, so an in-process counter would reset on a cold
+start and limit nothing. **Without the table the endpoint returns 500 rather
+than sending unmetered codes** — apply migrations before deploying the code,
+per §03.
+
+Current limits (`lib/otpRateLimit.ts`):
+
+| Bound | Value | Keyed on |
+|---|---|---|
+| Resend cooldown | 30 seconds | One quote |
+| Rolling window | 5 codes per hour | The recipient phone, across every quote |
+| Lifetime cap | 10 codes | One quote |
+
+Over-cap requests answer `429` in the shape the cooldown already used —
+`{ "error": …, "retry_after_seconds": N }` — with `retry_after_seconds` omitted
+on the lifetime cap, where waiting does not help.
+
+**Checklist:**
+- [ ] Two quotes belonging to the same client share one budget: alternating between their tokens stops at the hourly cap instead of sending on every request
+- [ ] The cap holds across separate serverless invocations (verify from the deployed URL, not `next dev`)
+- [ ] A different client's phone still receives codes while the first is capped
+- [ ] Rows appear in `otp_send_log` with `phone_e164` in E.164, and the table returns nothing to the anon key
 
 ---
 

@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { generateOTP, hashOTP, otpExpiryDate, OTP_TTL_SECONDS } from '@/lib/otpSeal';
-import { deliverOtp, isDeliveryConfigured } from '@/lib/otpDelivery';
+import { deliverOtp, getDeliveryChannel, isDeliveryConfigured } from '@/lib/otpDelivery';
+import {
+  normalizeOtpRecipient,
+  reserveOtpSend,
+  type OtpLedgerClient,
+} from '@/lib/otpRateLimit';
 
 /**
  * Issues an OTP for a quote signature.
@@ -11,6 +16,11 @@ import { deliverOtp, isDeliveryConfigured } from '@/lib/otpDelivery';
  * plaintext leaves the server exclusively over the delivery channel to the
  * client's registered phone. The response never carries the code in
  * production, so requesting one grants the caller nothing.
+ *
+ * Issuance is bounded twice over. The cooldown below paces one quote; the
+ * ledger in lib/otpRateLimit caps what a phone number can be sent in an hour,
+ * no matter how many quotes — and therefore how many valid public tokens —
+ * point at it.
  */
 
 /** Minimum gap between issues for the same quote, to blunt SMS-pumping. */
@@ -75,6 +85,36 @@ export async function POST(
       return NextResponse.json(
         { error: 'El cliente no tiene un número de teléfono registrado' },
         { status: 422 }
+      );
+    }
+
+    // The limit key is derived here, from the phone the database holds for the
+    // client — never from anything the (unauthenticated) caller sent.
+    const recipient = normalizeOtpRecipient(phone);
+    if (!recipient) {
+      return NextResponse.json(
+        { error: 'El teléfono registrado del cliente no es un número válido' },
+        { status: 422 }
+      );
+    }
+
+    // Claimed before the code is minted: over-cap requests must not rotate the
+    // quote's stored digest, which would invalidate a code already in transit.
+    const reservation = await reserveOtpSend(supabase as unknown as OtpLedgerClient, {
+      phoneE164: recipient,
+      quoteId: quote.id,
+      channel: getDeliveryChannel(),
+    });
+
+    if (!reservation.allowed) {
+      return NextResponse.json(
+        {
+          error: reservation.error,
+          ...(reservation.retryAfterSeconds !== undefined
+            ? { retry_after_seconds: reservation.retryAfterSeconds }
+            : {}),
+        },
+        { status: 429 }
       );
     }
 

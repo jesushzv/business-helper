@@ -68,17 +68,20 @@ until checked against source. This memo does that check; §06 records the method
 
 ### Open and blocking
 
+*Updated 2026-08-07 17:20 UTC — PRs #20, #23 and #29 merged to `main`, which clears three of the five rows
+that were blocking. What remains is configuration and one real transaction, not code.*
+
 | Item | State | Blocks launch? |
 |:---|:---|:---|
-| **#3** / PR **#23** — real CFDI via PAC | Draft PR, unmerged. Code complete and well-tested against a mocked `fetch`; **never executed against a live Facturapi sandbox**. | Yes, if CFDI ships at launch |
-| **#17** / PR **#20** — OTP rate limit per phone | Open PR, unmerged. Without it, one phone can be pumped across quotes — each quote carries its own cooldown. | Yes — must land before any OTP provider goes live |
-| **#2** — OTP provider configuration | Code merged; credentials not in the environment. Never tested against a real handset. | Yes — the signature flow cannot function |
-| **#14** — post-merge operational setup | Per-org CLABE configuration, Stripe webhook staging verification, deployment doc sign-off | Yes |
+| **Live PAC stamp** | **The one that matters.** PR #23 merged, so stamping is real code — but its coverage runs against a mocked `fetch`, and no invoice has been issued through a live Facturapi sandbox. Merging is not verification. | **Yes** — CFDI ships at launch |
+| **#2** — OTP provider configuration | Code merged; no credentials in the environment. `OTP_DELIVERY_CHANNEL` unset means 502 and **no quote can be signed**. Never tested on a real handset. | **Yes** — the core loop is dead without it |
+| **Production migrations** | `20260807000000_otp_send_rate_limit.sql` (#20) and `20260807120000_cfdi_pac_integration.sql` (#23) are on `main` now. Applying them is manual and Vercel auto-deploys `main`, so **the deploy can outrun the schema** — the OTP and invoice routes return 500 until they land. | **Yes** |
+| **Product analytics** | None exist. Launching without a funnel makes a weak result uninterpretable. | **Yes** — see P0 §03 |
+| **#14** — operational setup | CLABE enforcement in onboarding, Stripe webhook staging verification, deployment doc sign-off. | Yes |
+| ~~**#3** / PR #23 — real CFDI via PAC~~ | ✅ Merged. `lib/pacClient.ts` stamps for real; `simulateInvoiceStamping()` and its "graceful fallback" are both gone. | Cleared |
+| ~~**#17** / PR #20 — OTP rate limit per phone~~ | ✅ Merged. Issuance is now capped on the recipient phone across quotes. | Cleared |
+| ~~Complemento de Pago~~ | ✅ Merged (#29) — filed when a PPD milestone is confirmed. Was P2. | Cleared |
 | **#22** — OTP escalating backoff + daily cap | Not started. Hardening on top of #17. | No — can trail launch |
-
-Both open PRs carry pending migrations that **must be applied before the code deploys**:
-`20260807000000_otp_send_rate_limit.sql` (#20) and `20260807120000_cfdi_pac_integration.sql` (#23).
-Deploying either branch without its migration returns 500s from the affected routes.
 
 ---
 
@@ -86,14 +89,16 @@ Deploying either branch without its migration returns 500s from the affected rou
 
 ### P0 — Blocking: money and compliance cannot be simulated
 
-1. **Decide whether CFDI invoicing ships at launch or becomes a fast-follow.** This is the single
-   decision that most changes the critical path. See §05 Q1.
-2. If it ships — obtain a live Facturapi sandbox key and execute PR #23's stamping flow end-to-end
-   once, for real. Mocked `fetch` coverage is not evidence that the PAC integration works.
-3. **Merge PR #20** (OTP per-phone rate limiting) before any provider is live.
-4. **Configure one OTP channel** — Twilio SMS is the pragmatic default — set `OTP_DELIVERY_CHANNEL`,
-   and verify a real code arrives on a real handset and cannot be replayed.
-5. **Apply both pending migrations to production** before deploying the code that depends on them.
+1. ✅ **CFDI ships at launch** — decided. PR #23 is merged, so the code is real.
+2. **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and
+   the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the
+   integration works — and this is the last thing standing between "merged" and "trustworthy."
+3. **Configure one OTP channel.** Twilio SMS: fastest to provision, no business-verification wait, and
+   at pilot volume the per-message premium over WhatsApp is a few dollars a month. Set
+   `OTP_DELIVERY_CHANNEL=sms`, then verify a real code lands on a real handset and cannot be replayed.
+   (Per-recipient rate limiting is already in place as of PR #20.)
+4. **Apply both migrations to production before the deploy that carries them.** They are on `main` now
+   and Vercel auto-deploys `main`, so the code can outrun the schema. `npm run db:migrate:dry` first.
 6. **Make CLABE a hard gate in onboarding.** Each organization supplies its own CLABE — that is correct
    and non-negotiable if they want to take payments, so this is an onboarding requirement rather than
    something to provision for them. What needs verifying is that the product *enforces* it: an org

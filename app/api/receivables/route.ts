@@ -24,9 +24,16 @@ export async function GET() {
   const { supabase, organizationId } = auth.ctx;
 
   try {
+    // The complements are embedded rather than fetched per row: a PPD invoice
+    // owes one per payment, and the invoicing screen has to be able to say
+    // which cobros still owe the SAT a document without N extra requests.
     const { data: receivables, error } = await supabase
       .from('milestones')
-      .select('*, contracts(*, clients(*))')
+      .select(
+        '*, contracts(*, clients(*)), ' +
+          'cfdi_payment_complements(id, installment, amount, last_balance, remaining_balance, ' +
+          'status, cfdi_uuid, cfdi_xml_path, cfdi_pdf_path, payment_date, error)'
+      )
       .eq('organization_id', organizationId)
       .order('due_date', { ascending: true });
 

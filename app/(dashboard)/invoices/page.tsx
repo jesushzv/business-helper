@@ -3,7 +3,7 @@ import { InvoiceManagerCard } from '@/components/invoices/InvoiceManagerCard';
 
 export const metadata = {
   title: 'Facturación & Contador | Business Helper',
-  description: 'Timbrado SAT CFDI 4.0 y Paquete de Exportación para Contador (ZIP/CSV).'
+  description: 'Timbrado SAT CFDI 4.0 con tu PAC y Paquete de Exportación para Contador (ZIP/CSV).'
 };
 
 export default function InvoicesPage() {
@@ -16,7 +16,7 @@ export default function InvoicesPage() {
             Facturación SAT & Exportación Contador
           </h1>
           <p className="text-sm sm:text-base text-slate-400 mt-1">
-            Emite facturas CFDI 4.0 en 1 clic y descarga el paquete mensual completo para tu contador.
+            Timbra facturas CFDI 4.0 con el PAC que conectes y descarga el paquete mensual completo para tu contador.
           </p>
         </div>
 

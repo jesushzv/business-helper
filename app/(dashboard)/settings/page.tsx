@@ -7,6 +7,7 @@ import { OrgProfileCard } from '@/components/settings/OrgProfileCard';
 import { BankAccountCard } from '@/components/settings/BankAccountCard';
 import { SubscriptionBillingCard } from '@/components/settings/SubscriptionBillingCard';
 import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard';
+import { PacConnectionCard } from '@/components/settings/PacConnectionCard';
 
 export default function SettingsPage() {
   const { settings, subscriptionStatusInfo, updateSettings, loading, saving } = useOrganizationSettings();
@@ -62,6 +63,9 @@ export default function SettingsPage() {
 
             {/* SPEI Settlement Account */}
             <BankAccountCard />
+
+            {/* CFDI 4.0 stamping credentials */}
+            <PacConnectionCard />
 
             {/* White-Labeling & Branding Settings */}
             <BrandingSettingsCard settings={settings} onSave={updateSettings} saving={saving} />

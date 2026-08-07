@@ -1,24 +1,255 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useInvoices } from '@/lib/hooks/useInvoices';
+import {
+  useInvoices,
+  type CFDIPaymentMethod,
+  type InvoiceItem,
+} from '@/lib/hooks/useInvoices';
 import { generateReminderBroadcastPayload } from '@/lib/whatsappBroadcast';
 import { generateNotaDeVentaPayload, generateReceiptWhatsAppLink } from '@/lib/receiptGenerator';
-import { FileText, Download, Send, CheckCircle, Clock, FileCode, AlertCircle, MessageSquare } from 'lucide-react';
+import { FileText, Download, Send, CheckCircle, Clock, FileCode, AlertCircle, MessageSquare, Ban, Receipt } from 'lucide-react';
+
+const currency = (value: number) =>
+  `$${value.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`;
+
+/**
+ * Facturación screen.
+ *
+ * The copy here promised more than the product did: "Timbrar SAT (Pro)" ran a
+ * browser-side simulation, and the confirmation read "Factura timbrada
+ * exitosamente con Facturapi PAC (CFDI 4.0)" when no PAC had been contacted.
+ * Every claim on this screen is now tied to something the API returned — the
+ * folio fiscal for a stamped document, the PAC's own message for a failure, and
+ * an explicit "sin validez fiscal" for anything stamped against a test account.
+ */
+
+function StatusBadge({ invoice }: { invoice: InvoiceItem }) {
+  if (invoice.cfdiStatus === 'issued') {
+    const isSandbox = invoice.cfdiEnvironment === 'sandbox';
+    return (
+      <span
+        className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${
+          isSandbox
+            ? 'bg-amber-950/80 text-amber-300 border-amber-500/30'
+            : 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
+        }`}
+      >
+        <CheckCircle className="w-3.5 h-3.5" />
+        {isSandbox ? 'CFDI de prueba (sin validez fiscal)' : 'CFDI Emitido'}
+      </span>
+    );
+  }
+
+  if (invoice.cfdiStatus === 'pending') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-bold bg-sky-950/80 text-sky-300 px-2.5 py-1 rounded-full border border-sky-500/30">
+        <Clock className="w-3.5 h-3.5" />
+        Timbrado en proceso
+      </span>
+    );
+  }
+
+  if (invoice.cfdiStatus === 'failed') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-bold bg-rose-950/80 text-rose-300 px-2.5 py-1 rounded-full border border-rose-500/30">
+        <AlertCircle className="w-3.5 h-3.5" />
+        Timbrado fallido
+      </span>
+    );
+  }
+
+  if (invoice.cfdiStatus === 'cancelled') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-bold bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-600">
+        <Ban className="w-3.5 h-3.5" />
+        CFDI cancelado
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-bold bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700">
+      <FileText className="w-3.5 h-3.5" />
+      Sin factura CFDI
+    </span>
+  );
+}
+
+/**
+ * The complemento de pago state of one PPD invoice.
+ *
+ * A PPD document declares the amount as still owed. Every payment against it
+ * obliges the taxpayer to file a complement with the SAT in the first days of
+ * the following month, and the product used to be able to issue the PPD
+ * document while having no way to file the complement at all. This block is
+ * where that obligation becomes visible: what has been filed, what is still
+ * outstanding, and — when an automatic attempt failed — a way to retry it.
+ */
+function ComplementPanel({
+  invoice,
+  busy,
+  onSend,
+}: {
+  invoice: InvoiceItem;
+  busy: boolean;
+  onSend: () => void;
+}) {
+  if (invoice.cfdiStatus !== 'issued' || invoice.paymentMethod !== 'PPD') return null;
+
+  const settled = invoice.outstandingBalance <= 0;
+  const failed = invoice.complements.filter((c) => c.status === 'failed');
+
+  return (
+    <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/60 p-3 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-300">
+          <Receipt className="w-3.5 h-3.5" />
+          Factura PPD — complemento de pago
+        </span>
+        <span className="text-xs text-slate-400">
+          {settled
+            ? 'Saldada: todos los pagos tienen complemento.'
+            : `Saldo insoluto ${currency(invoice.outstandingBalance)}`}
+        </span>
+      </div>
+
+      {invoice.complements.length > 0 && (
+        <ul className="space-y-1">
+          {invoice.complements.map((c) => (
+            <li key={c.id} className="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
+              <span className="text-slate-300 font-semibold">Parcialidad {c.installment}</span>
+              <span>{currency(c.amount)}</span>
+              {c.status === 'issued' && c.uuid ? (
+                <code className="bg-slate-900 px-1.5 py-0.5 rounded text-slate-300 border border-slate-800 font-mono">
+                  {c.uuid}
+                </code>
+              ) : (
+                <span className={c.status === 'failed' ? 'text-rose-300' : 'text-sky-300'}>
+                  {c.status === 'failed' ? 'No se pudo timbrar' : 'En proceso'}
+                </span>
+              )}
+              {c.status === 'issued' && c.xmlUrl && (
+                <a
+                  href={c.xmlUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-300 underline underline-offset-2"
+                >
+                  XML
+                </a>
+              )}
+              {c.status === 'issued' && c.pdfUrl && (
+                <a
+                  href={c.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-300 underline underline-offset-2"
+                >
+                  PDF
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {failed.length > 0 && failed[failed.length - 1].error && (
+        <p className="text-xs text-rose-300">{failed[failed.length - 1].error}</p>
+      )}
+
+      {!settled && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={onSend}
+            disabled={busy}
+            className="min-h-[40px] px-3 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all disabled:opacity-50"
+            title="Emitir el complemento de pago del saldo pendiente"
+          >
+            {busy ? 'Emitiendo...' : 'Emitir complemento de pago'}
+          </button>
+          <span className="text-xs text-slate-500">
+            Se emite solo al confirmar el pago; usa este botón si falló o si cobraste fuera de la app.
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function InvoiceManagerCard() {
-  const { invoices, stamping, exporting, stampCFDI, downloadAccountantPackage } = useInvoices();
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-08');
+  const {
+    invoices,
+    loading,
+    loadError,
+    stampingId,
+    complementingId,
+    exporting,
+    stampCFDI,
+    sendComplement,
+    downloadAccountantPackage,
+  } = useInvoices();
+  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
+    new Date().toISOString().slice(0, 7)
+  );
   const [stampedMessage, setStampedMessage] = useState<string | null>(null);
+  const [stampError, setStampError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  // PUE stays the default: it declares the invoice as already paid, which is
+  // what a cobro settled on issuance is. PPD is opt-in per cobro and is only
+  // offered now that the complemento de pago it obliges can actually be filed.
+  const [paymentMethods, setPaymentMethods] = useState<Record<string, CFDIPaymentMethod>>({});
 
-  const handleStamp = (milestoneId: string) => {
+  const handleStamp = async (milestoneId: string) => {
     setStampedMessage(null);
-    const res = stampCFDI(milestoneId);
-    if (res.success) {
-      setStampedMessage('Factura timbrada exitosamente con Facturapi PAC (CFDI 4.0)');
-      setTimeout(() => setStampedMessage(null), 4000);
+    setStampError(null);
+
+    const method = paymentMethods[milestoneId] || 'PUE';
+    const res = await stampCFDI(milestoneId, method);
+
+    if (!res.success) {
+      // The PAC's rejection is the actionable part — a missing RFC, an
+      // exhausted folio allowance, a key that is not connected.
+      setStampError(res.error || 'No se pudo timbrar la factura');
+      return;
     }
+
+    const validity =
+      res.environment === 'sandbox'
+        ? ' Se emitió contra el entorno de pruebas de tu PAC: no tiene validez fiscal.'
+        : '';
+
+    // A PPD invoice is only half the paperwork, and the user has to know that
+    // at the moment they issue it rather than a month later.
+    const ppdNotice = res.complementRequired
+      ? ' Al ser PPD, cada pago que confirmes emitirá su complemento de pago ante el SAT.'
+      : '';
+
+    setStampedMessage(
+      `Factura timbrada. Folio fiscal ${res.uuid}.${validity}${ppdNotice}${res.warning ? ` ${res.warning}` : ''}`
+    );
+  };
+
+  const handleComplement = async (milestoneId: string) => {
+    setStampedMessage(null);
+    setStampError(null);
+
+    const res = await sendComplement(milestoneId);
+
+    if (!res.success) {
+      setStampError(res.error || 'No se pudo emitir el complemento de pago');
+      return;
+    }
+
+    if (!res.issued) {
+      setStampedMessage(res.message || 'Este cobro no tiene un complemento de pago pendiente.');
+      return;
+    }
+
+    setStampedMessage(
+      `Complemento de pago timbrado (parcialidad ${res.installment}). Folio fiscal ${res.uuid}. ` +
+        `Saldo insoluto ${currency(res.remainingBalance ?? 0)}.${res.warning ? ` ${res.warning}` : ''}`
+    );
   };
 
   const handleExport = async () => {
@@ -31,7 +262,9 @@ export function InvoiceManagerCard() {
     }
   };
 
-  const handleWhatsAppBroadcast = (inv: (typeof invoices)[0]) => {
+  const handleWhatsAppBroadcast = (inv: InvoiceItem) => {
+    if (!inv.clientPhone) return;
+
     const payload = generateReminderBroadcastPayload(
       {
         id: inv.milestoneId,
@@ -42,7 +275,7 @@ export function InvoiceManagerCard() {
       },
       {
         name: inv.clientName,
-        phone: '8115551234'
+        phone: inv.clientPhone
       },
       'overdue'
     );
@@ -50,16 +283,20 @@ export function InvoiceManagerCard() {
     window.open(payload.whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 
-  const handleNotaDeVenta = (inv: (typeof invoices)[0]) => {
+  const handleNotaDeVenta = (inv: InvoiceItem) => {
+    if (!inv.clientPhone) return;
+
     const payload = generateNotaDeVentaPayload({
       title: inv.concept,
       clientName: inv.clientName,
-      clientRfc: inv.clientRfc,
+      clientRfc: inv.clientRfc || '',
       amount: inv.amount,
-      status: inv.cfdiStatus === 'issued' ? 'FACTURADO SAT' : 'PAGADO',
+      // Only a document stamped against a live PAC account is a filed invoice.
+      status:
+        inv.cfdiStatus === 'issued' && inv.cfdiEnvironment === 'live' ? 'FACTURADO SAT' : 'PAGADO',
     });
 
-    const waUrl = generateReceiptWhatsAppLink(payload, '8115551234');
+    const waUrl = generateReceiptWhatsAppLink(payload, inv.clientPhone);
     window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
@@ -107,10 +344,10 @@ export function InvoiceManagerCard() {
         </div>
       )}
 
-      {exportError && (
+      {(stampError || exportError || loadError) && (
         <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl flex items-center gap-3 text-sm font-semibold shadow-sm">
           <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-          {exportError}
+          {stampError || exportError || loadError}
         </div>
       )}
 
@@ -123,99 +360,177 @@ export function InvoiceManagerCard() {
               Comprobantes Comerciales & Facturación SAT CFDI 4.0
             </h3>
             <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-              Envía Notas de Venta inmediatas por WhatsApp o timbra facturas SAT CFDI (Opcional Pro).
+              Envía Notas de Venta inmediatas por WhatsApp, o timbra el CFDI con el PAC que conectaste en Ajustes.
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-800 text-slate-300 px-3 py-1.5 rounded-full border border-slate-700">
             <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-            SAT CFDI: Opcional Pro
+            SAT CFDI: requiere PAC conectado
           </span>
         </div>
 
-        <div className="divide-y divide-slate-800/80">
-          {invoices.map((inv) => (
-            <div
-              key={inv.id}
-              className="p-5 hover:bg-slate-800/50 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-4"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h4 className="font-bold text-white text-base">{inv.concept}</h4>
-                  {inv.cfdiStatus === 'issued' ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-emerald-950/80 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      CFDI Emitido
+        {loading ? (
+          <div className="p-6 space-y-3">
+            <div className="h-20 w-full animate-pulse rounded-xl bg-slate-800/70" />
+            <div className="h-20 w-full animate-pulse rounded-xl bg-slate-800/70" />
+          </div>
+        ) : invoices.length === 0 ? (
+          <div className="p-8 text-center space-y-2">
+            <p className="text-slate-300 font-semibold">Aún no tienes cobros registrados.</p>
+            <p className="text-sm text-slate-400">
+              Convierte una cotización aceptada en contrato y sus cobros aparecerán aquí para facturar.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800/80">
+            {invoices.map((inv) => (
+              <div
+                key={inv.id}
+                className="p-5 hover:bg-slate-800/50 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h4 className="font-bold text-white text-base">{inv.concept}</h4>
+                    <StatusBadge invoice={inv} />
+                  </div>
+
+                  <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-400 flex-wrap pt-1">
+                    <span>Cliente: <strong className="text-slate-200">{inv.clientName}</strong></span>
+                    <span>
+                      RFC:{' '}
+                      <code className="bg-slate-950 px-1.5 py-0.5 rounded text-slate-300 border border-slate-800 font-mono">
+                        {inv.clientRfc || 'Sin RFC'}
+                      </code>
                     </span>
-                  ) : inv.cfdiStatus === 'pending' ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-amber-950/80 text-amber-300 px-2.5 py-1 rounded-full border border-amber-500/30">
-                      <Clock className="w-3.5 h-3.5" />
-                      Nota de Venta Lista
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      Nota de Venta Lista
-                    </span>
+                    <span>Vence: {inv.dueDate}</span>
+                  </div>
+
+                  {inv.cfdiUuid && (
+                    <p className="text-xs text-slate-400 pt-1">
+                      Folio fiscal:{' '}
+                      <code className="bg-slate-950 px-1.5 py-0.5 rounded text-slate-300 border border-slate-800 font-mono">
+                        {inv.cfdiUuid}
+                      </code>
+                    </p>
                   )}
+
+                  {inv.cfdiError && (
+                    <p className="text-xs text-rose-300 pt-1 max-w-xl">{inv.cfdiError}</p>
+                  )}
+
+                  <ComplementPanel
+                    invoice={inv}
+                    busy={complementingId === inv.milestoneId}
+                    onSend={() => handleComplement(inv.milestoneId)}
+                  />
                 </div>
 
-                <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-400 flex-wrap pt-1">
-                  <span>Cliente: <strong className="text-slate-200">{inv.clientName}</strong></span>
-                  <span>RFC: <code className="bg-slate-950 px-1.5 py-0.5 rounded text-slate-300 border border-slate-800 font-mono">{inv.clientRfc}</code></span>
-                  <span>Vence: {inv.dueDate}</span>
-                </div>
-              </div>
+                <div className="flex items-center gap-3 justify-between lg:justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800 flex-wrap">
+                  <span className="font-mono font-extrabold text-white text-lg">
+                    ${inv.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                  </span>
 
-              <div className="flex items-center gap-3 justify-between lg:justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800 flex-wrap">
-                <span className="font-mono font-extrabold text-white text-lg">
-                  ${inv.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
-                </span>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    onClick={() => handleNotaDeVenta(inv)}
-                    className="min-h-[44px] px-3.5 bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5"
-                    title="Generar Nota de Venta"
-                  >
-                    <FileText className="w-4 h-4 text-indigo-400" />
-                    Nota de Venta PDF
-                  </button>
-
-                  <button
-                    onClick={() => handleWhatsAppBroadcast(inv)}
-                    className="min-h-[44px] px-3 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5"
-                    title="Enviar aviso WhatsApp"
-                  >
-                    <MessageSquare className="w-4 h-4 text-emerald-400" />
-                    Aviso WhatsApp
-                  </button>
-
-                  {inv.cfdiStatus === 'issued' ? (
-                    <a
-                      href={inv.pdfUrl || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="min-h-[44px] px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-700"
-                    >
-                      <Download className="w-4 h-4 text-slate-400" />
-                      CFDI XML
-                    </a>
-                  ) : (
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
-                      onClick={() => handleStamp(inv.milestoneId)}
-                      disabled={stamping}
-                      className="min-h-[44px] px-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/50 disabled:opacity-50"
-                      title="Opcional Pro: Timbrar CFDI SAT"
+                      onClick={() => handleNotaDeVenta(inv)}
+                      disabled={!inv.clientPhone}
+                      className="min-h-[44px] px-3.5 bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-40"
+                      title={
+                        inv.clientPhone
+                          ? 'Generar Nota de Venta'
+                          : 'El cliente no tiene WhatsApp registrado'
+                      }
                     >
-                      <Send className="w-4 h-4" />
-                      {stamping ? 'Timbrando...' : 'Timbrar SAT (Pro)'}
+                      <FileText className="w-4 h-4 text-indigo-400" />
+                      Nota de Venta PDF
                     </button>
-                  )}
+
+                    <button
+                      onClick={() => handleWhatsAppBroadcast(inv)}
+                      disabled={!inv.clientPhone}
+                      className="min-h-[44px] px-3 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-40"
+                      title={
+                        inv.clientPhone
+                          ? 'Enviar aviso WhatsApp'
+                          : 'El cliente no tiene WhatsApp registrado'
+                      }
+                    >
+                      <MessageSquare className="w-4 h-4 text-emerald-400" />
+                      Aviso WhatsApp
+                    </button>
+
+                    {inv.cfdiStatus === 'issued' ? (
+                      <div className="flex items-center gap-2">
+                        {/* Only offered when a document was actually stored. */}
+                        {inv.xmlUrl && (
+                          <a
+                            href={inv.xmlUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="min-h-[44px] px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-700"
+                          >
+                            <Download className="w-4 h-4 text-slate-400" />
+                            CFDI XML
+                          </a>
+                        )}
+                        {inv.pdfUrl && (
+                          <a
+                            href={inv.pdfUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="min-h-[44px] px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-700"
+                          >
+                            <Download className="w-4 h-4 text-slate-400" />
+                            CFDI PDF
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        {/* MetodoPago is a property of the document, not a
+                            preference, and it cannot be changed after
+                            stamping — so it is chosen here, before. */}
+                        <label className="sr-only" htmlFor={`metodo-pago-${inv.milestoneId}`}>
+                          Método de pago SAT
+                        </label>
+                        <select
+                          id={`metodo-pago-${inv.milestoneId}`}
+                          value={paymentMethods[inv.milestoneId] || 'PUE'}
+                          onChange={(e) =>
+                            setPaymentMethods((prev) => ({
+                              ...prev,
+                              [inv.milestoneId]: e.target.value as CFDIPaymentMethod,
+                            }))
+                          }
+                          disabled={stampingId !== null || inv.cfdiStatus === 'cancelled'}
+                          className="min-h-[44px] px-3 bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
+                          title="PUE: el cobro ya está pagado. PPD: se pagará después, y cada pago emitirá su complemento."
+                        >
+                          <option value="PUE">PUE — Pago en una exhibición</option>
+                          <option value="PPD">PPD — Pago diferido o en parcialidades</option>
+                        </select>
+
+                        <button
+                        onClick={() => handleStamp(inv.milestoneId)}
+                        disabled={stampingId !== null || inv.cfdiStatus === 'cancelled'}
+                        className="min-h-[44px] px-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/50 disabled:opacity-50"
+                        title="Timbrar CFDI 4.0 con tu PAC"
+                      >
+                        <Send className="w-4 h-4" />
+                        {stampingId === inv.milestoneId
+                          ? 'Timbrando...'
+                          : inv.cfdiStatus === 'failed'
+                            ? 'Reintentar timbrado'
+                            : 'Timbrar CFDI'}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
