@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
+import { hasCapability } from '@/lib/teamRBAC';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { issuePaymentComplement } from '@/lib/complementoPago';
 import { getAppBaseUrl } from '@/lib/url';
@@ -23,7 +24,17 @@ export async function POST(
 ) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId, userId } = auth.ctx;
+  const { supabase, organizationId, userId, role } = auth.ctx;
+
+  // Confirming turns "owed" into "collected" — it moves the receivables
+  // dashboard, the analytics, the accountant export, and (for PPD invoices)
+  // stamps a complemento de pago. The role matrix withholds it from `member`.
+  if (!hasCapability(role, 'confirm_payment')) {
+    return NextResponse.json(
+      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite confirmar pagos' } },
+      { status: 403 }
+    );
+  }
 
   try {
     const { id } = await params;
