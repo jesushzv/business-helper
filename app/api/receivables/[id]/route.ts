@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess, pickFields, MILESTONE_WRITABLE_FIELDS } from '@/lib/apiAuth';
+import { hasCapability } from '@/lib/teamRBAC';
 
 /**
  * Single-milestone operations.
@@ -43,7 +44,7 @@ export async function PUT(
 ) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId } = auth.ctx;
+  const { supabase, organizationId, role } = auth.ctx;
 
   try {
     const { id } = await params;
@@ -54,6 +55,16 @@ export async function PUT(
       return NextResponse.json(
         { error: { code: 'NO_WRITABLE_FIELDS', message: 'No hay campos válidos para actualizar' } },
         { status: 400 }
+      );
+    }
+
+    // `status` is a writable field, so without this check a role denied at
+    // /confirm could mark the milestone collected here instead — same financial
+    // outcome, minus the audit log and the complemento the confirm route files.
+    if (updates.status === 'confirmed' && !hasCapability(role, 'confirm_payment')) {
+      return NextResponse.json(
+        { error: { code: 'FORBIDDEN', message: 'Tu rol no permite confirmar pagos' } },
+        { status: 403 }
       );
     }
 
