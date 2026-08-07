@@ -15,7 +15,8 @@
     "sync-blob": "node scripts/upload-to-vercel-blob.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry-run",
-    "verify:webhook": "node scripts/verify-stripe-webhook.mjs"
+    "verify:webhook": "node scripts/verify-stripe-webhook.mjs",
+    "verify:otp": "node scripts/verify-otp-delivery.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
