@@ -43,6 +43,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   const [applyRetencionIva, setApplyRetencionIva] = useState<boolean>(false);
 
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (isOpen && clients && clients.length > 0 && (!clientId || !clients.some(c => c.id === clientId))) {
@@ -118,6 +119,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
     if (submitting || !effectiveClientId || !title.trim()) return;
 
     setSubmitting(true);
+    setSubmitError(null);
     try {
       await onSubmit({
         title: title.trim(),
@@ -130,7 +132,13 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
       });
       onClose();
     } catch (err) {
-      console.error('Failed to create quote:', err);
+      // The quote was not created; the wizard stays open so nothing pretends
+      // otherwise (#50).
+      setSubmitError(
+        err instanceof Error && err.message
+          ? err.message
+          : 'No se pudo crear la cotización. Intenta de nuevo.'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -409,6 +417,13 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                   className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
+            </div>
+          )}
+
+          {submitError && (
+            <div className="mt-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3 text-rose-400 text-sm font-semibold">
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+              <span>{submitError}</span>
             </div>
           )}
 

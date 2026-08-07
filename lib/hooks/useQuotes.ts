@@ -60,6 +60,20 @@ const INITIAL_DEMO_QUOTES: Quote[] = [
 
 const LOCAL_STORAGE_KEY = 'business_helper_quotes_v1';
 
+/**
+ * True when this build/browser is the demo experience: no Supabase baked into
+ * the bundle, the demo flag set, or the visitor opted into the sandbox. Only
+ * then are locally minted quotes and demo fixtures legitimate; on a configured
+ * deployment the server is the sole source of truth (#50).
+ */
+function isClientDemoMode(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    (typeof window !== 'undefined' && localStorage.getItem('business_helper_sandbox') === 'true')
+  );
+}
+
 export function useQuotes() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -70,18 +84,32 @@ export function useQuotes() {
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const res = await fetch('/api/quotes');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.quotes && Array.isArray(data.quotes) && data.quotes.length > 0) {
+
+    if (!isClientDemoMode()) {
+      try {
+        const res = await fetch('/api/quotes');
+        const data = await res.json().catch(() => null);
+
+        if (res.ok && Array.isArray(data?.quotes)) {
+          // The server's answer is the answer — including an empty list. A
+          // real tenant with zero quotes must see zero, not the demo fixtures.
           setQuotes(data.quotes);
-          setLoading(false);
-          return;
+        } else {
+          // A configured backend answered with a failure. Falling back to
+          // demo data here would present fiction as fact; report it instead.
+          const err = (data as { error?: string | { message?: string } } | null)?.error;
+          setError(
+            (typeof err === 'string' && err) ||
+              (typeof err === 'object' && err?.message) ||
+              'No se pudieron cargar tus cotizaciones'
+          );
         }
+      } catch {
+        setError('No se pudo conectar con el servidor');
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      // Fall through to localStorage / demo fallback
+      return;
     }
 
     try {
@@ -127,66 +155,78 @@ export function useQuotes() {
     taxOptions?: { applyIva?: boolean; applyRetencionIsr?: boolean; applyRetencionIva?: boolean };
   }): Promise<Quote> => {
     const totals = calculateQuoteTotals(data.line_items, data.taxOptions);
-    const publicToken = generatePublicToken();
 
-    const newQuote: Quote = {
-      id: `quote-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      organization_id: 'org-demo-1',
+    const payload = {
       client_id: data.client_id,
-      created_by: 'user-demo-1',
       title: data.title,
-      line_items: data.line_items as unknown as Quote['line_items'],
+      line_items: data.line_items,
       subtotal_amount: totals.subtotal,
       iva_amount: totals.ivaAmount,
       retencion_isr_amount: totals.retencionIsrAmount,
       retencion_iva_amount: totals.retencionIvaAmount,
       total_amount: totals.totalAmount,
       currency: (data.currency as 'MXN' | 'USD') || 'MXN',
-      status: 'sent',
+      status: 'sent' as const,
       valid_until: data.valid_until || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       notes: data.notes || '',
-      public_token: publicToken,
-      converted_contract_id: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
-    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || !process.env.NEXT_PUBLIC_SUPABASE_URL || (typeof window !== 'undefined' && localStorage.getItem('business_helper_sandbox') === 'true');
-
-    if (!isDemoMode) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1500);
-        const res = await fetch('/api/quotes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newQuote),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const saved = await res.json();
-          if (saved && saved.id) {
-            // Only real writes count toward the funnel — activation measured
-            // against demo fixtures would be self-deception.
-            track('quote_created', { organization_id: saved.organization_id });
-            setQuotes((prev) => [saved, ...prev]);
-            return saved;
-          }
-        }
-      } catch {
-        // Fallback to local state mutation
-      }
+    // The demo deployment has no backend; a locally minted quote is the honest
+    // representation of what exists. Everywhere else the server row is the only
+    // quote — identity fields (id, public_token, organization_id, created_by)
+    // are the server's to assign, and the /q/ link only works if the token the
+    // UI shows is the token the database holds.
+    if (isClientDemoMode()) {
+      const localQuote: Quote = {
+        ...payload,
+        id: `quote-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        organization_id: 'org-demo-1',
+        created_by: 'user-demo-1',
+        line_items: data.line_items as unknown as Quote['line_items'],
+        public_token: generatePublicToken(),
+        converted_contract_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setQuotes((prev) => {
+        const next = [localQuote, ...prev];
+        syncLocalStorage(next);
+        return next;
+      });
+      return localQuote;
     }
 
-    setQuotes((prev) => {
-      const next = [newQuote, ...prev];
-      syncLocalStorage(next);
-      return next;
-    });
+    // A failed write must surface as a failure. The previous version fell back
+    // to local state after any error — or a 1.5s timeout — so a quote that was
+    // never stored (or was stored under a different token than the one shown)
+    // appeared created, and the WhatsApp link it produced led the client to
+    // "Cotización no encontrada" (#50).
+    let res: Response;
+    try {
+      res = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      throw new Error('No se pudo conectar con el servidor. La cotización no fue creada.');
+    }
 
-    return newQuote;
+    const saved = await res.json().catch(() => null);
+
+    if (!res.ok || !saved?.id) {
+      const message =
+        (typeof saved?.error === 'string' && saved.error) ||
+        saved?.error?.message ||
+        'No se pudo crear la cotización. Intenta de nuevo.';
+      throw new Error(message);
+    }
+
+    // Only real writes count toward the funnel — activation measured
+    // against demo fixtures would be self-deception.
+    track('quote_created', { organization_id: saved.organization_id });
+    setQuotes((prev) => [saved, ...prev]);
+    return saved;
   };
 
   const updateQuoteStatus = async (id: string, status: string): Promise<Quote> => {

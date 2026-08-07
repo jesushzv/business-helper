@@ -73,11 +73,17 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !newQuote) {
-      return NextResponse.json({ error: 'Failed to create quote' }, { status: 500 });
+      return NextResponse.json(
+        { error: { code: 'SERVER_ERROR', message: 'No se pudo crear la cotización' } },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(newQuote, { status: 201 });
   } catch {
-    return NextResponse.json({ error: 'Failed to create quote' }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'No se pudo crear la cotización' } },
+      { status: 500 }
+    );
   }
 }
