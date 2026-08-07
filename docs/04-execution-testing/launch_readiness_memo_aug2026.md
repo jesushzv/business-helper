@@ -117,6 +117,18 @@ one-to-one so the drift is visible next time.
 **Tracker changes:** #14 split into #62 / #63 / #64 (it carried three P0s in one body, so none
 could close independently); #59 promoted to P0; #65 and #66 filed for work found in passing.
 
+**Second pass — the map extended past this memo.** The one-to-one check initially covered §03
+only. Widening it to the whole doc set found three launch-gate items tracked nowhere, now filed:
+**#68** (Stripe live secret key + per-tier Price IDs + one real card charge — a P0, and the only
+one that had no issue of any kind), **#69** (the Playwright suite has never been executed; the
+"14/14 passing" claim corresponds to no run), **#70** (no production smoke test, including
+`/api/health` against the deployed URL). #69 and #70 are deliberately **not** labelled P0: the
+`(P0)` headings in `product_launch_checklist.md` are domain labels, and the memo ranks the smoke
+test P1 and E2E lower. `product-roadmap.md` and `product_launch_checklist.md` were refreshed —
+the checklist recorded PR #20 as unmerged, two migrations instead of three, Stripe live mode
+pointing at the now-split #14, 383/58 tests, and a "coverage exceeds 85%" claim resting on a
+threshold CI does not run (#51).
+
 **Code, verified by `typecheck` + `lint` (22 warnings, 0 errors) + 594 vitest tests / 78 files
 + `next build`. Against mocked services — no deployment was exercised:**
 
@@ -158,9 +170,10 @@ could close independently); #59 promoted to P0; #65 and #66 filed for work found
 | 1 | **Apply the three pending migrations before the deploy that carries them.** Vercel auto-deploys `main` and migrations are manual, so the code outruns the schema. Note: **three**, not two — the complementos migration from #29 landed after the earlier wording here. This is the root dependency; every P0 below that needs a deployed environment runs through a route it blocks. `npm run db:migrate:dry` first. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
 | 2 | **Configure one OTP channel.** Twilio SMS: fastest to provision, no business-verification wait, and at pilot volume the premium over WhatsApp is a few dollars a month. Set `OTP_DELIVERY_CHANNEL=sms`, then verify a real code lands on a real handset and cannot be replayed. Per-recipient rate limiting is already in place (#20). Without this no quote can be signed at all, so it gates the end-to-end check for everything else. | [#2](https://github.com/jesushzv/business-helper/issues/2) |
 | 3 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
-| 4 | **Close the remaining holes in the CLABE gate.** Onboarding now collects the settlement account and the 409 refusal has behavioural coverage. Still open: an organization created before that step, or one that abandons it between the `POST` and the `PATCH`, has no CLABE and is never asked again — the 409 then fires in front of the paying client. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
-| 5 | **Stop `useQuotes` asserting a contract that was never created.** `convertToContract` flipped status locally and announced "convertida a contrato con 2 hitos de cobranza" whether or not the route succeeded — the #33 defect on the step that opens the receivable. Promoted from unranked on 2026-08-07. | [#59](https://github.com/jesushzv/business-helper/issues/59) |
-| 6 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking of the six: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+| 4 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
+| 5 | **Close the remaining holes in the CLABE gate.** Onboarding now collects the settlement account and the 409 refusal has behavioural coverage. Still open: an organization created before that step, or one that abandons it between the `POST` and the `PATCH`, has no CLABE and is never asked again — the 409 then fires in front of the paying client. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
+| 6 | **Stop `useQuotes` asserting a contract that was never created.** `convertToContract` flipped status locally and announced "convertida a contrato con 2 hitos de cobranza" whether or not the route succeeded — the #33 defect on the step that opens the receivable. Promoted from unranked on 2026-08-07. | [#59](https://github.com/jesushzv/business-helper/issues/59) |
+| 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking of the six: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
 **Cleared since this section was first written** (2026-08-07, all verified closed on the tracker):
 [#33](https://github.com/jesushzv/business-helper/issues/33) payment confirmation (PR #55) ·
@@ -170,10 +183,10 @@ could close independently); #59 promoted to P0; #65 and #66 filed for work found
 fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
 
 > [!NOTE]
-> **Rows 1–3 need the founder; rows 4–6 need an agent.** The first three are credentials,
-> accounts and a real handset — no PR can close them. The last three are code. They do not
-> block each other, so they run in parallel, which is most of the slack left in a September
-> date that decision 5 fixed at full scope.
+> **Rows 1–4 and 7 need the founder; rows 5–6 need an agent.** The founder rows are
+> credentials, accounts, a real handset and a real card — no PR can close them. They do not
+> block the agent rows, so the two tracks run in parallel, which is most of the slack left in
+> a September date that decision 5 fixed at full scope.
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without
@@ -230,7 +243,7 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 
 ### Money path integrity
 - [ ] A CFDI issued in the app corresponds to a real SAT UUID ([#26](https://github.com/jesushzv/business-helper/issues/26)) — CFDI ships at launch, so this is required
-- [ ] Stripe checkout charges a real card in live mode with a verified webhook ([#63](https://github.com/jesushzv/business-helper/issues/63))
+- [ ] Stripe checkout charges a real card in live mode ([#68](https://github.com/jesushzv/business-helper/issues/68)) with a verified webhook ([#63](https://github.com/jesushzv/business-helper/issues/63)) — two halves, tracked separately
 - [ ] Every pilot organization has a real CLABE, and payment confirmation reflects a real transfer ([#64](https://github.com/jesushzv/business-helper/issues/64))
 - [x] A failed confirmation write is reported as failed, not as `confirmed` (#33, PR #55)
 - [ ] A failed quote→contract conversion is reported as failed, not announced as a payment schedule ([#59](https://github.com/jesushzv/business-helper/issues/59) — fixed in code, unexercised against a deployment)
