@@ -37,7 +37,6 @@ business-helper/docs/
 ├── 04-execution-testing/                # Launch & Quality Assurance
 │   ├── launch_readiness_memo_aug2026.md # ★ CURRENT SOURCE OF TRUTH for launch status
 │   ├── ecc-execution-playbook.md        # ECC Agent 4-phase sprint execution playbook
-│   ├── sprint-execution-master-prompt.md# Sprint execution prompt template
 │   ├── product_launch_checklist.md      # Go-live technical & operational checklist
 │   ├── product_readiness_snapshot.md    # Executive snapshot (status corrected 2026-08-07)
 │   ├── product_readiness_workback.md    # Post-expert-review workback schedule & gate framework
@@ -72,6 +71,14 @@ These were deleted as redundant or spent; git history retains them.
 | `03-product-specs/session_workstream2_custom_domain.md` | Spent one-off session spec; work landed in `lib/url.ts` |
 | `03-product-specs/session_workstream3_marketing_deliverables.md` | Spent one-off session spec for `lib/marketingCopy.ts`, which was never created |
 | `04-execution-testing/refactoring_plan.md` | Moved to `05-templates/` — it is a template with `[placeholder]` fields, not a plan |
+| `MASTER_PROMPT_TEMP.md` | Spent UX/UI remediation prompt. Its tasks (A7–A10, C1, C6–C7, E8–E12, F6–F8) are all ☑ in the workback; 6 of its 8 target component files no longer exist; it asserted "Gate 1 RE-OPENED / FAILED" against the workback's "Gate 1 PASSED"; and **Mode D already lives verbatim in `MASTER_PROMPT.md`** |
+| `04-execution-testing/sprint-execution-master-prompt.md` | Restated Modes A/B/C, which `MASTER_PROMPT.md` already carries verbatim. A second copy of an authoritative source is a drift vector, which is what happened to `MASTER_PROMPT_TEMP.md` |
+
+> [!NOTE]
+> **The rule applied: redundancy and spentness are grounds for deletion; inaccuracy is grounds for correction.**
+> Wrong-but-load-bearing documents (`product_readiness_snapshot.md`, `product_launch_checklist.md`,
+> `product-roadmap.md`, `MASTER_PROMPT.md`) were fixed in place rather than removed — deleting them would
+> erase the record of what was believed and when, and leave whoever relied on them with nothing to replace it.
 
 ---
 
