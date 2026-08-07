@@ -207,9 +207,11 @@ const body =
   'Business Helper: prueba de configuración del canal de verificación. ' +
   'No es un código de firma y no requiere ninguna acción.';
 
+let send;
+
 if (provider === 'twilio_sms' || provider === 'twilio_whatsapp') {
   const prefix = provider === 'twilio_whatsapp' ? 'whatsapp:' : '';
-  const send = await request(
+  send = await request(
     `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(env.TWILIO_ACCOUNT_SID)}/Messages.json`,
     {
       method: 'POST',
@@ -227,7 +229,7 @@ if (provider === 'twilio_sms' || provider === 'twilio_whatsapp') {
   );
 } else {
   const version = env.META_GRAPH_API_VERSION || 'v21.0';
-  const send = await request(
+  send = await request(
     `https://graph.facebook.com/${version}/${encodeURIComponent(env.META_PHONE_NUMBER_ID)}/messages`,
     {
       method: 'POST',
@@ -251,6 +253,23 @@ if (provider === 'twilio_sms' || provider === 'twilio_whatsapp') {
 }
 
 if (failed) {
+  // 63016 (Twilio) and 131047 (Meta) both mean the same thing: a free-form
+  // message to someone outside the 24-hour customer service window. That is
+  // the normal state for a signer who was just sent a quote link, and it needs
+  // an approved authentication template rather than a configuration change.
+  const code = send.json?.code ?? send.json?.error?.code;
+  if (code === 63016 || code === 131047) {
+    fail(
+      `The provider refused a free-form message to ${testPhone} (${code}).\n\n` +
+        '  WhatsApp only allows free-form sends inside the 24-hour window that opens\n' +
+        '  when the recipient messages the business. An OTP to anyone else has to go\n' +
+        '  out as an approved template in the authentication category, which\n' +
+        '  lib/otpDelivery.ts does not send yet.\n\n' +
+        '  Either message the business from this handset and re-run within 24 hours\n' +
+        '  to confirm the credentials, or use OTP_DELIVERY_CHANNEL=sms.'
+    );
+  }
+
   fail(`${failed} check${failed === 1 ? '' : 's'} failed.`);
 }
 

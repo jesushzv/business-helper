@@ -172,10 +172,23 @@ in-process, and a failed send is now logged server-side (provider and reason,
 never the code or the recipient) so a misconfiguration is visible in the
 platform log rather than only as a 502.
 
-Note that a provider accepting a message is not the same as a handset receiving
-one: carriers drop SMS, and WhatsApp accepts then discards a template-less send
-outside the 24-hour customer service window. The end-to-end check below is what
-settles it.
+A provider accepting a message is also not the same as a handset receiving one —
+a number can be unreachable, or the account can have no WhatsApp — so the
+end-to-end check below is what settles it.
+
+### The `whatsapp` channel needs an approved template
+
+WhatsApp permits free-form business-initiated messages only inside the 24-hour
+customer service window, i.e. to someone who messaged the business first.
+Outside it, an OTP must go out as a pre-approved template in the authentication
+category.
+
+`lib/otpDelivery.ts` currently sends free-form text on both WhatsApp providers,
+so a send to a signer who has not messaged the business recently is rejected —
+Meta error 131047, Twilio error 63016 — and the signing flow returns 502. That
+is the normal case for a client who was just sent a quote link, so the channel
+does not yet work for cold recipients. Tracked separately; `sms` has no
+equivalent requirement.
 
 ## 5. Staging verification
 
