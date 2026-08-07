@@ -4,6 +4,7 @@ import React from 'react';
 import { Quote, Client } from '@/types';
 import { QuoteStatusBadge } from './QuoteStatusBadge';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
+import { track } from '@/lib/analytics';
 import { getQuotePublicUrl } from '@/lib/url';
 import { MessageSquare, ArrowRight, CheckCircle, FileText } from 'lucide-react';
 
@@ -63,6 +64,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => track('quote_sent', { organization_id: quote.organization_id, quote_id: quote.id })}
               className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
             >
               <MessageSquare className="w-4 h-4 shrink-0" />

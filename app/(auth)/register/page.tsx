@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Building2, Lock, Mail, ArrowRight, AlertCircle, Sparkles, FileText, Phone, Users, ShieldCheck } from 'lucide-react';
 import { validateRFC } from '@/lib/rfcValidator';
 import { validatePhone } from '@/lib/phoneValidator';
+import { track } from '@/lib/analytics';
 
 const REGIMENES_FISCALES = [
   { code: '601', label: '601 - General de Ley Personas Morales' },
@@ -39,6 +40,10 @@ function RegisterFormContent() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    track('signup_started');
+  }, []);
 
   const rfcResult = rfc ? validateRFC(rfc) : { isValid: false, type: null };
   const phoneResult = phone ? validatePhone(phone) : { isValid: false, phone: '' };
@@ -106,8 +111,11 @@ function RegisterFormContent() {
       }
 
       if (data.user) {
+        track('signup_completed', { company_size: companySize, tax_regime: taxRegime });
         router.push('/onboarding');
       } else {
+        // Email confirmation pending — the account exists, the funnel step is done.
+        track('signup_completed', { company_size: companySize, tax_regime: taxRegime, pending_email_confirmation: true });
         setError('Registro iniciado. Por favor revisa tu correo electrónico para confirmar.');
         setLoading(false);
       }

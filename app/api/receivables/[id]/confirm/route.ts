@@ -4,6 +4,7 @@ import { hasCapability } from '@/lib/teamRBAC';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { issuePaymentComplement } from '@/lib/complementoPago';
 import { getAppBaseUrl } from '@/lib/url';
+import { track } from '@/lib/analytics';
 
 /**
  * Confirms that a milestone's payment was received.
@@ -91,6 +92,14 @@ export async function POST(
     if (auditError) {
       console.error('Failed to write payment confirmation audit log', auditError);
     }
+
+    // The loop closed: owed became collected. Fired only after the write
+    // landed, so the funnel counts facts, not attempts.
+    track(
+      'payment_confirmed',
+      { organization_id: organizationId, milestone_id: id },
+      { distinctId: userId }
+    );
 
     const complement = await fileComplementIfOwed({
       supabase,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { verifyStoredOTP, generateDigitalSeal, OTP_MAX_ATTEMPTS } from '@/lib/otpSeal';
+import { track } from '@/lib/analytics';
 
 /**
  * Public quote surface — reached by the client over a shared link, with no
@@ -118,7 +119,7 @@ export async function POST(
     const { data: quote, error: fetchError } = await (supabase as any)
       .from('quotes')
       .select(
-        'id, status, total_amount, client_otp_hash, client_otp_expires_at, client_otp_attempts, client_otp_verified, contract_hash, accepted_at, clients(name)'
+        'id, status, organization_id, total_amount, client_otp_hash, client_otp_expires_at, client_otp_attempts, client_otp_verified, contract_hash, accepted_at, clients(name)'
       )
       .eq('public_token', token)
       .maybeSingle();
@@ -212,6 +213,14 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    // The signer is an external party; their identity is PII the funnel does
+    // not need. The organization's id keys the event to the tenant's funnel.
+    track(
+      'quote_signed',
+      { organization_id: quote.organization_id, quote_id: quote.id },
+      { distinctId: `org:${quote.organization_id}` }
+    );
 
     return NextResponse.json({
       success: true,

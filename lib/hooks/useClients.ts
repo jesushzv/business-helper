@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Client } from '@/types';
+import { track } from '@/lib/analytics';
 
 // Mock initial data for Don Roberto & Demo mode
 const INITIAL_DEMO_CLIENTS: Client[] = [
@@ -151,6 +152,9 @@ export function useClients() {
         if (res.ok) {
           const saved = await res.json();
           if (saved && saved.id) {
+            // Only real writes count toward the funnel; the demo/local path
+            // below is fiction and would pollute it.
+            track('client_created', { organization_id: saved.organization_id });
             setClients((prev) => [saved, ...prev]);
             return saved;
           }

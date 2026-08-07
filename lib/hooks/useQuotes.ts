@@ -5,6 +5,7 @@ import { Quote } from '@/types';
 import { generatePublicToken } from '../quoteToken';
 import { calculateQuoteTotals, LineItem } from '../quoteCalculator';
 import { convertQuoteToContract } from '../quoteToContract';
+import { track } from '@/lib/analytics';
 
 const INITIAL_DEMO_QUOTES: Quote[] = [
   {
@@ -167,6 +168,9 @@ export function useQuotes() {
         if (res.ok) {
           const saved = await res.json();
           if (saved && saved.id) {
+            // Only real writes count toward the funnel — activation measured
+            // against demo fixtures would be self-deception.
+            track('quote_created', { organization_id: saved.organization_id });
             setQuotes((prev) => [saved, ...prev]);
             return saved;
           }
