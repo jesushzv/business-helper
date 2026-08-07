@@ -47,6 +47,14 @@ engineering journal.
 | `npm run verify:webhook` | Stripe webhook signature verification check |
 
 - **Node 22 required** for the test suite (jsdom 30 / undici 8; on Node 20 the suite reports "no tests" instead of failing).
+- **A fresh clone has no `node_modules` — run `npm ci` first.** Without it `npm run typecheck` emits
+  ~200 `TS2307: Cannot find module 'vitest'` / `'@testing-library/react'` errors that read exactly
+  like your change broke the build. Nothing in the error text says "install your dependencies."
+- **`npm run test:coverage` currently fails on `main`** — the 85/85/80/80 thresholds are aspirational
+  and CI does not run them ([#51](https://github.com/jesushzv/business-helper/issues/51));
+  `docs/STATUS.md` carries the live figures. So judge your change on the **delta**, not the absolute:
+  measure on a stashed tree (`git stash -u`) and again with your work, and say which way it moved.
+  Do not "fix" a red coverage run you did not cause, and do not report the gate as passing.
 - Quality gate before any commit: `npm run typecheck && npm run lint && npx vitest run` (and `npm run build` for structural changes — Vitest strips TS annotations, so only `tsc`/`build` catch interface mismatches).
 
 ## Architecture map
@@ -65,6 +73,12 @@ engineering journal.
    only control — by-id routes need the filter so they 404 instead of revealing a row exists.
 4. Gate privileged writes with `hasCapability(role, …)` from `lib/teamRBAC.ts` (see issue #32 for
    what happens when a route skips this).
+   **Corollary for the UI: never send a user to fix something they lack the write for.** Check who
+   the write is scoped to before designing the prompt — `PATCH /api/organization` is scoped by
+   `owner_id`, so a redirect that bounced every member to `/onboarding` would have trapped managers
+   and members in a form that 404s. That single fact decided the whole design of #64. A prompt aimed
+   at the wrong role is worse than no prompt: it reads as a bug in the product.
+   `/api/organization` GET returns `role` alongside the organization for exactly this.
 5. Distinguish the two failure worlds: Supabase unconfigured → demo deployment, 503
    `BACKEND_NOT_CONFIGURED`; configured but no session → 401. Never demo data for an
    unauthenticated caller.
@@ -140,6 +154,14 @@ on `organizations` with a 402 `FOLIOS_EXHAUSTED` when spent; **PUE** (paid on is
 payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 `docs/02-architecture/cfdi_integration_architecture.md`.
 
+**One token, two public pages.** `/q/[token]` (signing) and `/pay/[token]` (payment) both resolve
+`quotes.public_token` — the payment route looks the quote up and walks to its contract and
+milestones. So a `/pay/` link is **never** built from a milestone or contract id, and a builder that
+does produces a 404 in front of a paying client
+([#72](https://github.com/jesushzv/business-helper/issues/72) is that bug, still open). Build both
+links through `lib/url.ts`, never from a literal origin — the hardcoded-domain defect has now
+shipped three times (#36, #47, #73).
+
 ## Docs router
 
 | Need | Read |
@@ -159,11 +181,13 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 
 - The lint gate is nominal (see Commands) — tracked as
   [#46](https://github.com/jesushzv/business-helper/issues/46), where the full warning inventory
-  lives: **23 warnings across 8 files** (14 × `no-img-element`, 9 × `no-unused-vars`, half of them
-  in `app/page.tsx`). Clear them all before flipping the script to `--max-warnings=0`, or CI turns
-  red on every PR. Cautionary note: this count was wrong twice (recorded as 1, then 3) because both
-  readings came from a truncated tail of the output — **when counting lint warnings, read the whole
-  output**, `npm run lint 2>&1 | grep -c "Warning:"`.
+  lives: **22 warnings across 7 files** (14 × `no-img-element`, 8 × `no-unused-vars`, half of them
+  in `app/page.tsx`) — re-measured 2026-08-07 against `a029809`; `docs/STATUS.md` is the authority
+  if the two ever disagree. Clear them all before flipping the script to `--max-warnings=0`, or CI
+  turns red on every PR. Cautionary note: this count has now been wrong **three** times (recorded
+  as 1, then 3, then 23) — the first two from a truncated tail, the third from not re-measuring
+  after a PR removed an unused import. **Count the whole output, and count it again yourself
+  rather than quoting this line**: `npm run lint 2>&1 | grep -c "Warning:"`.
 - CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38).
   After opening a PR, verify the `CI` check actually ran; absence looks identical to passing.
 - E2E exists but is not in CI; never cite Playwright results you didn't run.
@@ -173,13 +197,24 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 - **Demo-mode detection differs by side.** Collection GET routes answer the demo deployment with
   200 + empty lists, so a client hook can NOT use `503 BACKEND_NOT_CONFIGURED` to decide when demo
   fixtures are legitimate — that code only appears on authenticated/mutating paths. Hooks must gate
-  on the build-time signal instead (`isClientDemoMode()` in `lib/hooks/useQuotes.ts` is the
-  reference). Getting this wrong either blanks the marketing demo or shows fixtures to real tenants.
+  on the build-time signal instead — `isClientDemoMode()` in `lib/clientDemoMode.ts` (moved out of
+  `lib/hooks/useQuotes.ts` in #64 once it had three callers; still re-exported there). Getting this
+  wrong either blanks the marketing demo or shows fixtures to real tenants.
+  **In Vitest this signal defaults to *on***: `NEXT_PUBLIC_SUPABASE_URL` is unset, so any code path
+  behind it is skipped and a test meant to exercise the real-tenant branch silently asserts nothing.
+  Stub it — `vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co')` — and use
+  `vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')` for the demo case.
 - **Optimistic-fallback hooks are this repo's most repeated defect** (#33 receivables, #50 quote
   creation, #58 the public signing page, #59 still open). When touching `lib/hooks/*` or a public
   page: every mutation applies the server row on success and throws/surfaces on failure; demo
   fixtures only behind `isClientDemoMode()`. Pin it with an `*Honesty.test.ts` suite —
   `tests/unit/useReceivablesHonesty.test.ts` is the template.
+- **A hook that gates a warning or a disabled control needs three states, not two.** `true` /
+  `false` / **`null` = unknown** (still loading, or the read failed). Collapsing unknown into
+  `false` invents a fact — it warns a healthy tenant, or blocks an action, on the strength of a
+  network blip; collapsing it into `true` re-opens whatever hole the gate was closing. Never let
+  the client be the only enforcement: gate on the server too, then the permissive choice for
+  unknown is safe. `lib/hooks/useSettlementAccount.ts` is the reference (#64).
 
 ## GitHub conventions
 
