@@ -192,6 +192,7 @@ lib/pacCredentials.ts  → AES-256-GCM sealing of PAC API keys (PAC_ENCRYPTION_K
 lib/cfdiFolios.ts      → plan allowance; only meters stamps on the platform account
 lib/cfdiStorage.ts     → XML/PDF into the private `cfdi-documents` bucket
 lib/facturapi.ts       → CFDI 4.0 payload construction and validation only
+lib/complementoPago.ts → whether a PPD payment owes a complement, and filing it
 
 Database (20260807120000_cfdi_pac_integration.sql)
   pac_connections            — provider, sealed api key, hint, environment (owner-only RLS)
@@ -200,16 +201,71 @@ Database (20260807120000_cfdi_pac_integration.sql)
   milestones.cfdi_uuid / _provider / _environment / _xml_path / _pdf_path
            / _stamped_at / _cancelled_at / _error
   csd_credentials            — dropped (see §02; nothing may store a CSD here)
+
+Database (20260807170000_cfdi_payment_complements.sql)
+  milestones.cfdi_payment_method  — PUE / PPD, as stamped
+  milestones.cfdi_total           — the PAC's own total, which balances reconcile against
+  cfdi_payment_complements        — one row per payment complement, stamped or attempted
 ```
 
 **Endpoints**
 
 | Route | Purpose |
 |---|---|
-| `POST /api/invoices/issue` | Stamps a milestone. Validates both parties, reserves a folio, calls the PAC, stores XML/PDF, records the UUID. |
+| `POST /api/invoices/issue` | Stamps a milestone. Validates both parties, reserves a folio, calls the PAC, stores XML/PDF, records the UUID and the payment method. |
 | `POST /api/invoices/[id]/cancel` | Files a SAT cancellation with a motive (01–04). |
-| `GET /api/invoices/[id]/document?type=xml\|pdf` | Signs a short-lived link to the stored document. |
+| `GET /api/invoices/[id]/document?type=xml\|pdf[&complement=<id>]` | Signs a short-lived link to the stored document, invoice or complement. |
+| `GET/POST /api/invoices/[id]/complement` | Reports what a PPD invoice still owes, and files a complement by hand. |
+| `POST /api/receivables/[id]/confirm` | Confirms a payment — and files the complement it owes, when the CFDI is PPD. |
 | `GET/PUT/DELETE /api/organization/pac` | Connects, inspects and revokes the tenant's PAC key. |
+
+### Complemento de Recepción de Pagos (PPD)
+
+A CFDI stamped **PUE** declares the amount as already paid. **PPD** declares
+that it is not, and obliges the taxpayer to file a *complemento de pago* — a
+second stamped document, type `P`, with its own folio fiscal — within the first
+days of the month following each payment received.
+
+`buildComplementoPagoPayload` existed from the start and nothing called it,
+while `/api/invoices/issue` already accepted `paymentMethod: 'PPD'`. The product
+could therefore create the obligation and had no way to meet it.
+
+**How it works now.** `/api/receivables/[id]/confirm` is where a payment becomes
+known, so it is where the complement is filed. The attempt runs inline — the
+document is due in days and there is no job runner — but it can never fail the
+confirmation: the money arrived either way, so a failure is returned alongside
+the confirmed milestone and left as a `failed` row the user retries from
+Facturación.
+
+**Partial payments.** `installment` is the SAT NumParcialidad, derived from the
+complements already issued against the invoice rather than hardcoded to `1`.
+Each row stores `last_balance` (ImpSaldoAnt) and `remaining_balance`
+(ImpSaldoInsoluto) as stamped, and a partial payment carries a proportional
+slice of the invoice's IVA and retenciones in ImpuestosDR. A payment larger than
+the outstanding balance is capped: ImpPagado may not exceed ImpSaldoAnt.
+
+**Duplicate protection.** A partial unique index on
+`(milestone_id, installment)`, excluding failed rows, stops two confirmations
+racing on the same cobro from stamping the same parcialidad twice — a duplicate
+complement can only be undone by cancelling it at the SAT. The PAC idempotency
+key is `complement:<milestoneId>:<installment>`, so a retry after a timeout is
+deduplicated while a genuine second payment is not.
+
+**Folios.** A complement is a stamped document the PAC bills for, so it spends a
+folio on the same terms as an invoice: only on the platform's account, released
+when the stamp does not happen.
+
+**Capability.** `POST /api/invoices/[id]/complement` requires `issue_cfdi`, like
+stamping. The automatic path in `confirm` does not: the PPD invoice was already
+issued by someone holding that capability, and the complement is the legally
+required consequence of a payment, not a new commitment. Refusing to file it
+because a `member` confirmed the transfer would leave the organization out of
+compliance to enforce a permission about a decision already taken.
+
+**The default is still PUE.** PPD is now reachable from the invoicing screen,
+per-cobro, because the complement it obliges can finally be filed. It is not the
+default: a cobro settled on issuance is PUE, which is what most of this
+product's users are doing.
 
 **Folio metering.** A tenant stamping through its own PAC is billed by that PAC
 and is not metered. Only stamps on the platform's `FACTURAPI_SECRET_KEY` account
@@ -224,7 +280,8 @@ production.
 1. Folio pack purchase — `createFolioPackCheckoutPayload` exists in `lib/stripe.ts` but no route creates the session and no webhook credits `cfdi_folios_purchased`.
 2. Per-folio metered billing for the Inicial tier (§05) — today that tier stamps by connecting its own PAC.
 3. Additional adapters (FiscalAPI, SW Sapien) behind the same `PacProvider` interface.
-4. Complemento de Pago — `buildComplementoPagoPayload` is built but not yet sent when a PPD milestone is confirmed.
+4. Cancelling a complemento de pago. `/api/invoices/[id]/cancel` cancels the invoice; a complement stamped in error has no route of its own, and the SAT requires cancelling the complement before the invoice it settles.
+5. The accountant export (`lib/accountantExport.ts`) still lists one CFDI per milestone. A PPD invoice's complements are stamped documents the accountant needs and are not in the package.
 
 ---
 

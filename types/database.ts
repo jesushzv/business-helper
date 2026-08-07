@@ -428,6 +428,8 @@ export interface Database {
           cfdi_error: string | null;
           cfdi_xml_url: string | null;
           cfdi_pdf_url: string | null;
+          cfdi_payment_method: 'PUE' | 'PPD' | null;
+          cfdi_total: number | null;
           confirmed_at: string | null;
           created_at: string;
         };
@@ -454,6 +456,8 @@ export interface Database {
           cfdi_error?: string | null;
           cfdi_xml_url?: string | null;
           cfdi_pdf_url?: string | null;
+          cfdi_payment_method?: 'PUE' | 'PPD' | null;
+          cfdi_total?: number | null;
           confirmed_at?: string | null;
           created_at?: string;
         };
@@ -480,8 +484,91 @@ export interface Database {
           cfdi_error?: string | null;
           cfdi_xml_url?: string | null;
           cfdi_pdf_url?: string | null;
+          cfdi_payment_method?: 'PUE' | 'PPD' | null;
+          cfdi_total?: number | null;
           confirmed_at?: string | null;
           created_at?: string;
+        };
+      };
+      // A milestone models one CFDI. A PPD invoice paid in three transfers owes
+      // three complementos de pago, each a stamped document with its own folio
+      // fiscal, so they live in their own table.
+      // See 20260807170000_cfdi_payment_complements.sql.
+      cfdi_payment_complements: {
+        Row: {
+          id: string;
+          organization_id: string;
+          milestone_id: string;
+          installment: number;
+          amount: number;
+          last_balance: number;
+          remaining_balance: number;
+          payment_form: string;
+          payment_date: string;
+          operation_number: string | null;
+          status: 'pending' | 'issued' | 'failed' | 'cancelled';
+          cfdi_id: string | null;
+          cfdi_uuid: string | null;
+          cfdi_provider: string | null;
+          cfdi_environment: 'sandbox' | 'live' | null;
+          cfdi_xml_path: string | null;
+          cfdi_pdf_path: string | null;
+          stamped_at: string | null;
+          cancelled_at: string | null;
+          error: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          milestone_id: string;
+          installment: number;
+          amount: number;
+          last_balance: number;
+          remaining_balance: number;
+          payment_form?: string;
+          payment_date?: string;
+          operation_number?: string | null;
+          status?: 'pending' | 'issued' | 'failed' | 'cancelled';
+          cfdi_id?: string | null;
+          cfdi_uuid?: string | null;
+          cfdi_provider?: string | null;
+          cfdi_environment?: 'sandbox' | 'live' | null;
+          cfdi_xml_path?: string | null;
+          cfdi_pdf_path?: string | null;
+          stamped_at?: string | null;
+          cancelled_at?: string | null;
+          error?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          milestone_id?: string;
+          installment?: number;
+          amount?: number;
+          last_balance?: number;
+          remaining_balance?: number;
+          payment_form?: string;
+          payment_date?: string;
+          operation_number?: string | null;
+          status?: 'pending' | 'issued' | 'failed' | 'cancelled';
+          cfdi_id?: string | null;
+          cfdi_uuid?: string | null;
+          cfdi_provider?: string | null;
+          cfdi_environment?: 'sandbox' | 'live' | null;
+          cfdi_xml_path?: string | null;
+          cfdi_pdf_path?: string | null;
+          stamped_at?: string | null;
+          cancelled_at?: string | null;
+          error?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
       };
       // csd_credentials was dropped in 20260807120000_cfdi_pac_integration.sql.

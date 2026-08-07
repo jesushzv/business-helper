@@ -1,10 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useInvoices, type InvoiceItem } from '@/lib/hooks/useInvoices';
+import {
+  useInvoices,
+  type CFDIPaymentMethod,
+  type InvoiceItem,
+} from '@/lib/hooks/useInvoices';
 import { generateReminderBroadcastPayload } from '@/lib/whatsappBroadcast';
 import { generateNotaDeVentaPayload, generateReceiptWhatsAppLink } from '@/lib/receiptGenerator';
-import { FileText, Download, Send, CheckCircle, Clock, FileCode, AlertCircle, MessageSquare, Ban } from 'lucide-react';
+import { FileText, Download, Send, CheckCircle, Clock, FileCode, AlertCircle, MessageSquare, Ban, Receipt } from 'lucide-react';
+
+const currency = (value: number) =>
+  `$${value.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`;
 
 /**
  * Facturación screen.
@@ -69,14 +76,117 @@ function StatusBadge({ invoice }: { invoice: InvoiceItem }) {
   );
 }
 
+/**
+ * The complemento de pago state of one PPD invoice.
+ *
+ * A PPD document declares the amount as still owed. Every payment against it
+ * obliges the taxpayer to file a complement with the SAT in the first days of
+ * the following month, and the product used to be able to issue the PPD
+ * document while having no way to file the complement at all. This block is
+ * where that obligation becomes visible: what has been filed, what is still
+ * outstanding, and — when an automatic attempt failed — a way to retry it.
+ */
+function ComplementPanel({
+  invoice,
+  busy,
+  onSend,
+}: {
+  invoice: InvoiceItem;
+  busy: boolean;
+  onSend: () => void;
+}) {
+  if (invoice.cfdiStatus !== 'issued' || invoice.paymentMethod !== 'PPD') return null;
+
+  const settled = invoice.outstandingBalance <= 0;
+  const failed = invoice.complements.filter((c) => c.status === 'failed');
+
+  return (
+    <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/60 p-3 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-300">
+          <Receipt className="w-3.5 h-3.5" />
+          Factura PPD — complemento de pago
+        </span>
+        <span className="text-xs text-slate-400">
+          {settled
+            ? 'Saldada: todos los pagos tienen complemento.'
+            : `Saldo insoluto ${currency(invoice.outstandingBalance)}`}
+        </span>
+      </div>
+
+      {invoice.complements.length > 0 && (
+        <ul className="space-y-1">
+          {invoice.complements.map((c) => (
+            <li key={c.id} className="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
+              <span className="text-slate-300 font-semibold">Parcialidad {c.installment}</span>
+              <span>{currency(c.amount)}</span>
+              {c.status === 'issued' && c.uuid ? (
+                <code className="bg-slate-900 px-1.5 py-0.5 rounded text-slate-300 border border-slate-800 font-mono">
+                  {c.uuid}
+                </code>
+              ) : (
+                <span className={c.status === 'failed' ? 'text-rose-300' : 'text-sky-300'}>
+                  {c.status === 'failed' ? 'No se pudo timbrar' : 'En proceso'}
+                </span>
+              )}
+              {c.status === 'issued' && c.xmlUrl && (
+                <a
+                  href={c.xmlUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-300 underline underline-offset-2"
+                >
+                  XML
+                </a>
+              )}
+              {c.status === 'issued' && c.pdfUrl && (
+                <a
+                  href={c.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-300 underline underline-offset-2"
+                >
+                  PDF
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {failed.length > 0 && failed[failed.length - 1].error && (
+        <p className="text-xs text-rose-300">{failed[failed.length - 1].error}</p>
+      )}
+
+      {!settled && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={onSend}
+            disabled={busy}
+            className="min-h-[40px] px-3 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all disabled:opacity-50"
+            title="Emitir el complemento de pago del saldo pendiente"
+          >
+            {busy ? 'Emitiendo...' : 'Emitir complemento de pago'}
+          </button>
+          <span className="text-xs text-slate-500">
+            Se emite solo al confirmar el pago; usa este botón si falló o si cobraste fuera de la app.
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InvoiceManagerCard() {
   const {
     invoices,
     loading,
     loadError,
     stampingId,
+    complementingId,
     exporting,
     stampCFDI,
+    sendComplement,
     downloadAccountantPackage,
   } = useInvoices();
   const [selectedMonth, setSelectedMonth] = useState<string>(() =>
@@ -85,12 +195,17 @@ export function InvoiceManagerCard() {
   const [stampedMessage, setStampedMessage] = useState<string | null>(null);
   const [stampError, setStampError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  // PUE stays the default: it declares the invoice as already paid, which is
+  // what a cobro settled on issuance is. PPD is opt-in per cobro and is only
+  // offered now that the complemento de pago it obliges can actually be filed.
+  const [paymentMethods, setPaymentMethods] = useState<Record<string, CFDIPaymentMethod>>({});
 
   const handleStamp = async (milestoneId: string) => {
     setStampedMessage(null);
     setStampError(null);
 
-    const res = await stampCFDI(milestoneId);
+    const method = paymentMethods[milestoneId] || 'PUE';
+    const res = await stampCFDI(milestoneId, method);
 
     if (!res.success) {
       // The PAC's rejection is the actionable part — a missing RFC, an
@@ -104,8 +219,36 @@ export function InvoiceManagerCard() {
         ? ' Se emitió contra el entorno de pruebas de tu PAC: no tiene validez fiscal.'
         : '';
 
+    // A PPD invoice is only half the paperwork, and the user has to know that
+    // at the moment they issue it rather than a month later.
+    const ppdNotice = res.complementRequired
+      ? ' Al ser PPD, cada pago que confirmes emitirá su complemento de pago ante el SAT.'
+      : '';
+
     setStampedMessage(
-      `Factura timbrada. Folio fiscal ${res.uuid}.${validity}${res.warning ? ` ${res.warning}` : ''}`
+      `Factura timbrada. Folio fiscal ${res.uuid}.${validity}${ppdNotice}${res.warning ? ` ${res.warning}` : ''}`
+    );
+  };
+
+  const handleComplement = async (milestoneId: string) => {
+    setStampedMessage(null);
+    setStampError(null);
+
+    const res = await sendComplement(milestoneId);
+
+    if (!res.success) {
+      setStampError(res.error || 'No se pudo emitir el complemento de pago');
+      return;
+    }
+
+    if (!res.issued) {
+      setStampedMessage(res.message || 'Este cobro no tiene un complemento de pago pendiente.');
+      return;
+    }
+
+    setStampedMessage(
+      `Complemento de pago timbrado (parcialidad ${res.installment}). Folio fiscal ${res.uuid}. ` +
+        `Saldo insoluto ${currency(res.remainingBalance ?? 0)}.${res.warning ? ` ${res.warning}` : ''}`
     );
   };
 
@@ -274,6 +417,12 @@ export function InvoiceManagerCard() {
                   {inv.cfdiError && (
                     <p className="text-xs text-rose-300 pt-1 max-w-xl">{inv.cfdiError}</p>
                   )}
+
+                  <ComplementPanel
+                    invoice={inv}
+                    busy={complementingId === inv.milestoneId}
+                    onSend={() => handleComplement(inv.milestoneId)}
+                  />
                 </div>
 
                 <div className="flex items-center gap-3 justify-between lg:justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800 flex-wrap">
@@ -337,7 +486,31 @@ export function InvoiceManagerCard() {
                         )}
                       </div>
                     ) : (
-                      <button
+                      <>
+                        {/* MetodoPago is a property of the document, not a
+                            preference, and it cannot be changed after
+                            stamping — so it is chosen here, before. */}
+                        <label className="sr-only" htmlFor={`metodo-pago-${inv.milestoneId}`}>
+                          Método de pago SAT
+                        </label>
+                        <select
+                          id={`metodo-pago-${inv.milestoneId}`}
+                          value={paymentMethods[inv.milestoneId] || 'PUE'}
+                          onChange={(e) =>
+                            setPaymentMethods((prev) => ({
+                              ...prev,
+                              [inv.milestoneId]: e.target.value as CFDIPaymentMethod,
+                            }))
+                          }
+                          disabled={stampingId !== null || inv.cfdiStatus === 'cancelled'}
+                          className="min-h-[44px] px-3 bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
+                          title="PUE: el cobro ya está pagado. PPD: se pagará después, y cada pago emitirá su complemento."
+                        >
+                          <option value="PUE">PUE — Pago en una exhibición</option>
+                          <option value="PPD">PPD — Pago diferido o en parcialidades</option>
+                        </select>
+
+                        <button
                         onClick={() => handleStamp(inv.milestoneId)}
                         disabled={stampingId !== null || inv.cfdiStatus === 'cancelled'}
                         className="min-h-[44px] px-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/50 disabled:opacity-50"
@@ -349,7 +522,8 @@ export function InvoiceManagerCard() {
                           : inv.cfdiStatus === 'failed'
                             ? 'Reintentar timbrado'
                             : 'Timbrar CFDI'}
-                      </button>
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
