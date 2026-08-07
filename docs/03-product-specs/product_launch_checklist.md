@@ -18,8 +18,8 @@
 - [x] **Live RAG & DB Context Ingestion**: `/api/ai/assistant` and `/api/ai/support` read the caller's own clients and open milestones via `lib/aiOrgContext.ts`. The hardcoded "Grupo Salinas" ledger and the fallback WhatsApp number are gone; the sample book of business survives only where no backend is configured, and is badged as an example in the UI.
 
 ### 🧾 SAT CFDI 4.0 PAC Invoicing (P0)
-- [ ] **Live Facturapi PAC Client**: Replace `simulateInvoiceStamping()` in `lib/facturapi.ts` with real HTTP POST requests to `https://www.facturapi.io/v1/invoices` using `FACTURAPI_SECRET_KEY`.
-- [ ] **XML & PDF Storage**: Store official XML (`legal_name.xml`) and PDF file URLs returned by Facturapi in the `milestones` and `invoices` database tables.
+- [x] **Live Facturapi PAC Client**: `simulateInvoiceStamping()` is gone. `lib/pacClient.ts` POSTs to `https://www.facturapi.io/v1/invoices` behind a provider-agnostic interface, using the organization's own PAC key or the platform's `FACTURAPI_SECRET_KEY`. There is no fallback: a stamp returns a SAT UUID or an error.
+- [x] **XML & PDF Storage**: The documents themselves are downloaded from the PAC and stored in the private `cfdi-documents` bucket; `milestones` keeps the object paths and `/api/invoices/[id]/document` signs a short-lived link per request.
 
 ### 💳 Stripe Subscription Billing & Webhooks (P0)
 - [x] **Stripe Checkout Session Creation**: `app/api/stripe/checkout/route.ts` creates a real Checkout Session against the configured `STRIPE_PRICE_*` ids ($299 MXN Inicial, $599 MXN Negocio, $999 MXN Empresa) through `lib/stripeClient.ts`, which calls the REST API directly — the `stripe` SDK was not added for a single form-encoded request. Without `STRIPE_SECRET_KEY` the endpoint answers 503 rather than a placeholder URL.

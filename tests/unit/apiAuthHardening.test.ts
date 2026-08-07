@@ -153,11 +153,15 @@ describe('money-path routes do not fabricate success', () => {
     expect(pattern.test(source)).toBe(false);
   });
 
-  it('the CFDI endpoint does not record a simulated stamp as issued', () => {
+  it('the CFDI endpoint records a stamp only when a PAC returned a folio fiscal', () => {
+    // The interim mitigation wrote `cfdi_status: 'simulated'` because nothing
+    // was issued. Now something is: 'issued' may be written, but only alongside
+    // the UUID that came back from the PAC.
     const source = stripComments(
       readFileSync(join(process.cwd(), 'app/api/invoices/issue/route.ts'), 'utf8')
     );
-    expect(source).not.toContain("cfdi_status: 'issued'");
-    expect(source).toContain("cfdi_status: 'simulated'");
+    expect(source).not.toContain("cfdi_status: 'simulated'");
+    expect(source).toContain('stampInvoice(');
+    expect(source).toMatch(/cfdi_uuid: document\.uuid[\s\S]{0,240}cfdi_status: 'issued'/);
   });
 });

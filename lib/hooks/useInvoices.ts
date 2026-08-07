@@ -1,91 +1,174 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { simulateInvoiceStamping } from '@/lib/facturapi';
+import { useCallback, useEffect, useState } from 'react';
+
+/**
+ * Invoicing state for the facturación screen.
+ *
+ * The list here was three hardcoded invoices — one of them already carrying a
+ * `cfdi_889123_abc` id and two storage.businesshelper.mx URLs — and "timbrar"
+ * called `simulateInvoiceStamping` in the browser, so the badge flipped to
+ * "CFDI Emitido" without anything leaving the page. Every part of that was
+ * fiction, including for a user who had genuinely invoiced nothing.
+ *
+ * It now reads the organization's own milestones and stamps through
+ * `/api/invoices/issue`, which contacts a PAC. A failure is surfaced as a
+ * failure; there is no local state change that fakes success.
+ */
+
+export type CFDIStatus = 'none' | 'pending' | 'issued' | 'failed' | 'cancelled';
 
 export interface InvoiceItem {
   id: string;
   milestoneId: string;
   clientName: string;
-  clientRfc: string;
+  clientRfc: string | null;
+  clientPhone: string | null;
   concept: string;
   amount: number;
   dueDate: string;
-  cfdiStatus: 'none' | 'pending' | 'issued' | 'failed';
-  cfdiId?: string | null;
-  xmlUrl?: string | null;
-  pdfUrl?: string | null;
+  cfdiStatus: CFDIStatus;
+  cfdiUuid: string | null;
+  /** 'sandbox' documents come from a PAC test account and have no fiscal validity. */
+  cfdiEnvironment: 'sandbox' | 'live' | null;
+  cfdiError: string | null;
+  xmlUrl: string | null;
+  pdfUrl: string | null;
 }
 
-const INITIAL_INVOICES: InvoiceItem[] = [
-  {
-    id: 'inv-1',
-    milestoneId: 'm-101',
-    clientName: 'Construcciones Maya S.A. de C.V.',
-    clientRfc: 'CMA120315HD9',
-    concept: 'Anticipo 50% Proyecto Torre Norte',
-    amount: 75000,
-    dueDate: '2026-08-15',
-    cfdiStatus: 'issued',
-    cfdiId: 'cfdi_889123_abc',
-    xmlUrl: 'https://storage.businesshelper.mx/cfdi/cfdi_889123_abc.xml',
-    pdfUrl: 'https://storage.businesshelper.mx/cfdi/cfdi_889123_abc.pdf'
-  },
-  {
-    id: 'inv-2',
-    milestoneId: 'm-102',
-    clientName: 'Desarrollos Inmobiliarios del Norte',
-    clientRfc: 'DIN080920AB3',
-    concept: 'Pago Finiquito Servicios de Ingenieria',
-    amount: 45000,
-    dueDate: '2026-08-20',
-    cfdiStatus: 'none',
-    cfdiId: null,
-    xmlUrl: null,
-    pdfUrl: null
-  },
-  {
-    id: 'inv-3',
-    milestoneId: 'm-103',
-    clientName: 'Taller Industrial Regiomontano',
-    clientRfc: 'GORR750412890',
-    concept: 'Mantenimiento Preventivo Mensual',
-    amount: 18000,
-    dueDate: '2026-08-28',
-    cfdiStatus: 'pending',
-    cfdiId: null,
-    xmlUrl: null,
-    pdfUrl: null
-  }
-];
+/** Shape of a milestone row as `/api/receivables` returns it. */
+interface ReceivableRow {
+  id: string;
+  label: string;
+  amount: number | string;
+  due_date: string;
+  cfdi_status?: CFDIStatus | null;
+  cfdi_uuid?: string | null;
+  cfdi_environment?: 'sandbox' | 'live' | null;
+  cfdi_error?: string | null;
+  cfdi_xml_url?: string | null;
+  cfdi_pdf_url?: string | null;
+  contracts?: {
+    title?: string | null;
+    clients?: { name?: string | null; rfc?: string | null; phone?: string | null } | null;
+  } | null;
+}
+
+function toInvoiceItem(row: ReceivableRow): InvoiceItem {
+  const client = row.contracts?.clients;
+
+  return {
+    id: row.id,
+    milestoneId: row.id,
+    clientName: client?.name || 'Cliente sin nombre',
+    clientRfc: client?.rfc || null,
+    clientPhone: client?.phone || null,
+    concept: row.contracts?.title ? `${row.contracts.title} — ${row.label}` : row.label,
+    amount: typeof row.amount === 'string' ? Number(row.amount) : row.amount,
+    dueDate: row.due_date,
+    cfdiStatus: row.cfdi_status || 'none',
+    cfdiUuid: row.cfdi_uuid || null,
+    cfdiEnvironment: row.cfdi_environment || null,
+    cfdiError: row.cfdi_error || null,
+    xmlUrl: row.cfdi_xml_url || null,
+    pdfUrl: row.cfdi_pdf_url || null,
+  };
+}
+
+export interface StampOutcome {
+  success: boolean;
+  uuid?: string;
+  environment?: 'sandbox' | 'live';
+  warning?: string | null;
+  error?: string;
+}
 
 export function useInvoices() {
-  const [invoices, setInvoices] = useState<InvoiceItem[]>(INITIAL_INVOICES);
-  const [stamping, setStamping] = useState<boolean>(false);
+  const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [stampingId, setStampingId] = useState<string | null>(null);
   const [exporting, setExporting] = useState<boolean>(false);
 
-  const stampCFDI = useCallback((milestoneId: string) => {
-    setStamping(true);
+  const loadInvoices = useCallback(async () => {
+    setLoadError(null);
     try {
-      const stampResult = simulateInvoiceStamping(milestoneId);
+      const res = await fetch('/api/receivables');
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setLoadError(data?.error?.message || 'No se pudieron cargar tus cobros');
+        return;
+      }
+
+      setInvoices((data?.receivables || []).map(toInvoiceItem));
+    } catch {
+      setLoadError('No se pudieron cargar tus cobros');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadInvoices();
+  }, [loadInvoices]);
+
+  /**
+   * Stamps a milestone through the organization's PAC.
+   *
+   * The row is refreshed from the response rather than assumed: the folio
+   * fiscal, the environment and any warning about the stored copies all come
+   * from what the PAC actually returned.
+   */
+  const stampCFDI = useCallback(async (milestoneId: string): Promise<StampOutcome> => {
+    setStampingId(milestoneId);
+    try {
+      const res = await fetch('/api/invoices/issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ milestoneId }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const message = data?.error?.message || 'No se pudo timbrar la factura';
+        setInvoices((prev) =>
+          prev.map((inv) =>
+            inv.milestoneId === milestoneId
+              ? { ...inv, cfdiStatus: 'failed', cfdiError: message }
+              : inv
+          )
+        );
+        return { success: false, error: message };
+      }
+
       setInvoices((prev) =>
         prev.map((inv) =>
           inv.milestoneId === milestoneId
             ? {
                 ...inv,
                 cfdiStatus: 'issued',
-                cfdiId: stampResult.cfdiId,
-                xmlUrl: stampResult.xmlUrl,
-                pdfUrl: stampResult.pdfUrl
+                cfdiUuid: data.uuid,
+                cfdiEnvironment: data.environment,
+                cfdiError: data.warning || null,
+                xmlUrl: data.xmlUrl,
+                pdfUrl: data.pdfUrl,
               }
             : inv
         )
       );
-      return { success: true, stampResult };
+
+      return {
+        success: true,
+        uuid: data.uuid,
+        environment: data.environment,
+        warning: data.warning,
+      };
     } catch {
-      return { success: false, error: 'Error al timbrar factura con Facturapi' };
+      return { success: false, error: 'No se pudo conectar con el servicio de facturación' };
     } finally {
-      setStamping(false);
+      setStampingId(null);
     }
   }, []);
 
@@ -131,8 +214,11 @@ export function useInvoices() {
 
   return {
     invoices,
-    stamping,
+    loading,
+    loadError,
+    stampingId,
     exporting,
+    reload: loadInvoices,
     stampCFDI,
     downloadAccountantPackage
   };

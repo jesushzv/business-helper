@@ -20,8 +20,8 @@
 - [x] **Live RAG & DB Context Ingestion**: Formatted live Supabase client receivable balances into the AI system prompt (`buildAIPromptContext`) for real-time structured answers and WhatsApp action links.
 
 ### 🧾 SAT CFDI 4.0 PAC Invoicing (P0)
-- [x] **Live Facturapi PAC Client**: Added `issueInvoiceClient()` in `lib/facturapi.ts` making live HTTP POST requests to `https://www.facturapi.io/v1/invoices` using `FACTURAPI_SECRET_KEY` with graceful fallback.
-- [x] **XML & PDF Storage**: Configured `app/api/invoices/issue/route.ts` to persist returned official XML and PDF URLs in the `milestones` table.
+- [x] **Live Facturapi PAC Client**: `lib/pacClient.ts` stamps through the PAC — the organization's own account, or the platform's `FACTURAPI_SECRET_KEY`. The earlier `issueInvoiceClient()` "graceful fallback" was the defect: it resolved every failure into `simulateInvoiceStamping()`, so a fabricated folio was indistinguishable from a real one. Both are removed.
+- [x] **XML & PDF Storage**: `app/api/invoices/issue/route.ts` downloads the XML and PDF from the PAC into the private `cfdi-documents` bucket and records the object paths on the milestone. The old columns held `storage.businesshelper.mx` URLs that resolved to nothing; the migration clears them.
 
 ### 💳 Stripe Subscription Billing & Webhooks (P0)
 - [x] **Stripe Node SDK Integration**: Updated `lib/stripe.ts` and `app/api/stripe/checkout/route.ts` to create live Stripe Checkout sessions with mapped price IDs ($299 MXN Emprendedor, $599 MXN Negocio, $999 MXN Empresa).
@@ -144,7 +144,8 @@
   - [x] `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`: Replace sandbox keys with live Stripe key & register webhook endpoint (`/api/stripe/webhook`).
   - [x] `STRIPE_PRICE_EMPRENDEDOR`, `STRIPE_PRICE_NEGOCIO`, `STRIPE_PRICE_EMPRESA`: Map live Stripe price IDs ($299, $599, $999 MXN).
   - [x] `TWILIO_ACCOUNT_SID` & `TWILIO_AUTH_TOKEN`: **Not Needed / Bypassed**. Platform operates 100% via 1-Tap `wa.me/` Click-to-Chat deep links ($0 API cost, 0 setup).
-  - [x] `FACTURAPI_SECRET_KEY`: **Not Needed for MVP Launch**. Platform defaults to **1-Click Nota de Venta PDF** & **Accountant ZIP Export** (`lib/receiptGenerator.ts`), removing SAT CSD friction. Facturapi remains an optional Pro add-on.
+  - [x] `FACTURAPI_SECRET_KEY`: **Optional**. It is the platform's shared PAC account, used by tenants who have not connected their own; those stamps consume the folios their plan includes. Without it, an organization connects its own PAC in Ajustes and invoicing still works. The Nota de Venta PDF and Accountant ZIP Export (`lib/receiptGenerator.ts`) remain the zero-SAT default.
+  - [ ] `PAC_ENCRYPTION_KEY`: **Required before anyone can connect a PAC.** 32 bytes (base64 or hex) sealing tenant PAC API keys; `/api/organization/pac` answers 503 rather than storing a credential in plaintext without it.
 - [ ] **Domain & SSL Setup**: Configure custom domain `businesshelper.mx` on Vercel:
   - Apex A Record: `76.76.21.21`
   - Subdomain CNAME: `cname.vercel-dns.com`

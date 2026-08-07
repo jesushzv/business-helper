@@ -139,7 +139,7 @@ For users with very low invoice volume (< 5/month):
 | Phase | Model | Priority | Timeline |
 |---|---|---|---|
 | **Current (MVP)** | Nota de Venta PDF + Accountant ZIP Export | ✅ Shipped | Now |
-| **Phase 1** | Option A — PAC API Key integration (Facturama/FiscalAPI) | 🔴 High | Week 3–6 |
+| **Phase 1** | Option A — PAC API Key integration (Facturapi) | ✅ Shipped | Aug 2026 |
 | **Phase 1.5** | Option C — Connected PAC Account (OAuth flow) | 🟡 Medium | Week 6–8 |
 | **Phase 2** | Option D — SAT Portal redirect (low-volume users) | 🟡 Medium | Week 8–10 |
 | **Phase 3** | Option B — Client-side browser signing | 🟢 Future | Q1 2027 |
@@ -175,30 +175,56 @@ For users with very low invoice volume (< 5/month):
 
 ## 06 Technical Implementation Notes
 
-### Current Architecture (Facturapi Direct)
+### Shipped Architecture (Option A — PAC API Key)
+
+Until August 2026 the code below this heading described a plan, and
+`lib/facturapi.ts` shipped a `simulateInvoiceStamping()` that fabricated a folio
+and two `storage.businesshelper.mx` URLs. The route wrote them as
+`cfdi_status: 'issued'`, so the product recorded invoices the SAT had never
+seen. That is gone; there is no simulated path left in the codebase.
+
 ```
-lib/facturapi.ts → POST https://www.facturapi.io/v1/invoices
-                   Headers: { Authorization: Bearer FACTURAPI_SECRET_KEY }
+lib/pacClient.ts       → provider-agnostic stamp / cancel / download
+                         └── Facturapi adapter (POST https://www.facturapi.io/v1/invoices,
+                             Authorization: Bearer <key>)
+lib/pacConnection.ts   → resolves the tenant's own PAC key, else the platform's
+lib/pacCredentials.ts  → AES-256-GCM sealing of PAC API keys (PAC_ENCRYPTION_KEY)
+lib/cfdiFolios.ts      → plan allowance; only meters stamps on the platform account
+lib/cfdiStorage.ts     → XML/PDF into the private `cfdi-documents` bucket
+lib/facturapi.ts       → CFDI 4.0 payload construction and validation only
+
+Database (20260807120000_cfdi_pac_integration.sql)
+  pac_connections            — provider, sealed api key, hint, environment (owner-only RLS)
+  organizations.cfdi_folios_used / _period / _purchased
+  reserve_cfdi_folio() / release_cfdi_folio()  — SECURITY DEFINER, service_role only
+  milestones.cfdi_uuid / _provider / _environment / _xml_path / _pdf_path
+           / _stamped_at / _cancelled_at / _error
+  csd_credentials            — dropped (see §02; nothing may store a CSD here)
 ```
 
-### Target Architecture (PAC API Key Model)
-```
-lib/pacClient.ts → Abstraction layer supporting multiple PAC providers
-                   ├── facturapi.ts (Facturama adapter)
-                   ├── fiscalapi.ts (FiscalAPI adapter)
-                   └── swsapien.ts  (SW Sapien adapter)
+**Endpoints**
 
-Database: organizations table
-  ├── pac_provider (enum: 'facturama' | 'fiscalapi' | 'swsapien' | null)
-  ├── pac_api_key (encrypted, stored in Supabase Vault)
-  └── cfdi_folios_remaining (integer, decremented per stamp)
-```
+| Route | Purpose |
+|---|---|
+| `POST /api/invoices/issue` | Stamps a milestone. Validates both parties, reserves a folio, calls the PAC, stores XML/PDF, records the UUID. |
+| `POST /api/invoices/[id]/cancel` | Files a SAT cancellation with a motive (01–04). |
+| `GET /api/invoices/[id]/document?type=xml\|pdf` | Signs a short-lived link to the stored document. |
+| `GET/PUT/DELETE /api/organization/pac` | Connects, inspects and revokes the tenant's PAC key. |
 
-### Migration Path
-1. Current `FACTURAPI_SECRET_KEY` in `.env` becomes the **platform default** for users who don't bring their own PAC
-2. New `/settings/invoicing` page lets users connect their own PAC API key
-3. PAC API keys are stored encrypted in Supabase Vault (never in plaintext)
-4. `lib/facturapi.ts` refactored into `lib/pacClient.ts` with provider-agnostic interface
+**Folio metering.** A tenant stamping through its own PAC is billed by that PAC
+and is not metered. Only stamps on the platform's `FACTURAPI_SECRET_KEY` account
+spend the plan's monthly allowance, then any purchased folios.
+
+**Sandbox.** A `sk_test_` key returns structurally complete documents with no
+fiscal validity. The environment is recorded on the milestone, surfaced in the
+UI as *"CFDI de prueba (sin validez fiscal)"*, and refused outright in
+production.
+
+### Still Open
+1. Folio pack purchase — `createFolioPackCheckoutPayload` exists in `lib/stripe.ts` but no route creates the session and no webhook credits `cfdi_folios_purchased`.
+2. Per-folio metered billing for the Inicial tier (§05) — today that tier stamps by connecting its own PAC.
+3. Additional adapters (FiscalAPI, SW Sapien) behind the same `PacProvider` interface.
+4. Complemento de Pago — `buildComplementoPagoPayload` is built but not yet sent when a PPD milestone is confirmed.
 
 ---
 
