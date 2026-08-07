@@ -6,6 +6,7 @@ import { useReceivables, MilestoneWithClient } from '@/lib/hooks/useReceivables'
 import { ReceivablesSummaryCards } from '@/components/receivables/ReceivablesSummaryCards';
 import { ReceivableCard } from '@/components/receivables/ReceivableCard';
 import { SpeiConfirmModal } from '@/components/receivables/SpeiConfirmModal';
+import { useSettlementAccount } from '@/lib/hooks/useSettlementAccount';
 import { Search, Wallet } from 'lucide-react';
 
 export default function ReceivablesPage() {
@@ -19,6 +20,8 @@ export default function ReceivablesPage() {
     setSearchQuery,
     confirmPayment,
   } = useReceivables();
+
+  const { ready: settlementReady } = useSettlementAccount();
 
   const [selectedMilestone, setSelectedMilestone] = useState<MilestoneWithClient | null>(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -104,6 +107,10 @@ export default function ReceivablesPage() {
               key={m.id}
               milestone={m}
               onOpenConfirmModal={handleOpenConfirmModal}
+              // Only a confirmed-missing settlement account disables sharing;
+              // `null` (loading or a failed read) leaves the actions alone and
+              // lets the server gate refuse (#64).
+              canShare={settlementReady !== false}
             />
           ))}
         </div>

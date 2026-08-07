@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUser, isDemoDeployment } from '@/lib/apiAuth';
+import { requireOrgAccess, isDemoDeployment } from '@/lib/apiAuth';
+import { requireSettlementAccount } from '@/lib/settlementAccount';
 import { dispatchWhatsAppReminder, WhatsAppReminderOptions } from '@/lib/whatsappOutbound';
 
 export async function POST(req: NextRequest) {
@@ -8,8 +9,19 @@ export async function POST(req: NextRequest) {
   // so shipping it set — in a preview deploy, say — silently made this endpoint
   // anonymous. Whether a backend is configured is the only thing that may
   // relax the check now, and it is read from server state.
-  const auth = await requireUser();
+  //
+  // requireOrgAccess rather than requireUser: this message carries a /pay/ link,
+  // and the settlement-account gate below needs to know which tenant is about
+  // to hand one to a client.
+  const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
+  const { supabase, organizationId } = auth.ctx;
+
+  // #64 — refuse before the link leaves rather than after the client opens it.
+  // Without a CLABE the /pay/ page this message points at answers 409, so
+  // sending it spends the tenant's credibility on a dead end.
+  const settlement = await requireSettlementAccount(supabase, organizationId);
+  if (!settlement.ok) return settlement.response;
 
   const isSandbox = isDemoDeployment();
 

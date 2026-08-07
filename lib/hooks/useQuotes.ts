@@ -6,6 +6,7 @@ import { generatePublicToken } from '../quoteToken';
 import { calculateQuoteTotals, LineItem } from '../quoteCalculator';
 import { convertQuoteToContract, ContractResult } from '../quoteToContract';
 import { track } from '@/lib/analytics';
+import { isClientDemoMode } from '@/lib/clientDemoMode';
 
 const INITIAL_DEMO_QUOTES: Quote[] = [
   {
@@ -65,14 +66,11 @@ const LOCAL_STORAGE_KEY = 'business_helper_quotes_v1';
  * the bundle, the demo flag set, or the visitor opted into the sandbox. Only
  * then are locally minted quotes and demo fixtures legitimate; on a configured
  * deployment the server is the sole source of truth (#50).
+ *
+ * Defined in lib/clientDemoMode.ts since #64 gave it a second caller; re-exported
+ * here because CLAUDE.md names this hook as the reference implementation.
  */
-function isClientDemoMode(): boolean {
-  return (
-    process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ||
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    (typeof window !== 'undefined' && localStorage.getItem('business_helper_sandbox') === 'true')
-  );
-}
+export { isClientDemoMode };
 
 export function useQuotes() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
