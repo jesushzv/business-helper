@@ -121,3 +121,54 @@ describe('rule 2 — volatile numbers live only in the authority', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Rule 3 — the P0 table's own internal consistency.
+ *
+ * The table states an invariant ("every row maps to exactly one open issue and
+ * every open P0 issue appears below") that no test can fully check offline: the
+ * open/closed half needs the tracker. What *is* checkable is the half that has
+ * actually drifted — #76 was merged and its row never added, and the rows have
+ * now been renumbered twice by hand (#79 inserted at 6, #76 at 2), each time
+ * with prose elsewhere referring to rows by number.
+ *
+ * So this pins the mechanical part: rows numbered 1..N with no gaps, no
+ * duplicates, exactly one issue link each, and no two rows tracking the same
+ * issue. It cannot tell you a row is missing — only that the ones present are
+ * coherent. Stated plainly so nobody reads a green run as "the invariant holds".
+ */
+describe('rule 3 — the P0 table is internally coherent', () => {
+  const ROW = /^\| (\d+) \| .*?\| \[#(\d+)\]\(https:\/\/github\.com\/[^)]+\/issues\/(\d+)\) \|\s*$/;
+
+  const rows = read(AUTHORITY)
+    .split('\n')
+    .map((line) => line.match(ROW))
+    .filter((m): m is RegExpMatchArray => m !== null)
+    .map((m) => ({ n: Number(m[1]), label: Number(m[2]), href: Number(m[3]) }));
+
+  it('has rows to check at all', () => {
+    // Guards against the regex silently matching nothing after a format change,
+    // which would make every assertion below vacuously true.
+    expect(rows.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('numbers rows 1..N with no gaps or duplicates', () => {
+    expect(rows.map((r) => r.n)).toEqual(rows.map((_, i) => i + 1));
+  });
+
+  it('links each row to exactly one issue, with the label matching the href', () => {
+    const mismatched = rows.filter((r) => r.label !== r.href);
+    expect(mismatched.map((r) => `row ${r.n}: #${r.label} → issues/${r.href}`)).toEqual([]);
+  });
+
+  it('tracks no issue in two different rows', () => {
+    const seen = new Map<number, number>();
+    const dupes: string[] = [];
+    for (const r of rows) {
+      const prev = seen.get(r.href);
+      if (prev !== undefined) dupes.push(`#${r.href} in rows ${prev} and ${r.n}`);
+      else seen.set(r.href, r.n);
+    }
+    expect(dupes).toEqual([]);
+  });
+});
