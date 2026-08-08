@@ -208,6 +208,27 @@ describe('supporting behavior preserved', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  /**
+   * The guard above used to sit *below* the wa_me_link branch, so it only ever
+   * ran in the two API modes. In link mode — the default, with no credentials
+   * configured — an unusable number produced `https://wa.me/?text=…`, a link
+   * with no recipient at all, returned with `success: true` (#40).
+   */
+  it('rejects an unusable phone number in wa_me_link mode too, rather than building a recipient-less link', async () => {
+    const result = await dispatchWhatsAppReminder({ ...BASE, phone: '' }, {});
+
+    expect(result.success).toBe(false);
+    expect(result.waMeUrl).toBeUndefined();
+  });
+
+  it('does not build a wa.me link for a number that is not reachable', async () => {
+    const result = await dispatchWhatsAppReminder({ ...BASE, phone: '1234567' }, {});
+
+    expect(result.success).toBe(false);
+    // The shape that used to ship: a link whose recipient segment is empty.
+    expect(result.waMeUrl ?? '').not.toContain('wa.me/?');
+  });
+
   it('formats Mexican numbers to E.164', () => {
     expect(formatE164MexicanPhone('8115559988')).toBe('+528115559988');
     expect(formatE164MexicanPhone('528115559988')).toBe('+528115559988');

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { validateRFC } from '@/lib/rfcValidator';
+import { normalizeClientPhone } from '@/lib/phoneValidator';
 
 /**
  * Single-client operations.
@@ -68,11 +69,21 @@ export async function PUT(
       }
     }
 
+    // Only when the caller is actually setting the phone — a PATCH of, say,
+    // `notes` must not fail over a value already in the column (#40).
+    const phoneNormalized = normalizeClientPhone(phone);
+    if (phone !== undefined && phoneNormalized.error) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_PHONE', message: phoneNormalized.error } },
+        { status: 400 }
+      );
+    }
+
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (name !== undefined && String(name).trim()) updates.name = String(name).trim();
     if (contactName !== undefined) updates.contact_name = contactName;
     if (email !== undefined) updates.email = email;
-    if (phone !== undefined) updates.phone = phone;
+    if (phone !== undefined) updates.phone = phoneNormalized.value;
     if (rfc !== undefined) updates.rfc = rfc ? String(rfc).toUpperCase().trim() : null;
     if (regimenFiscal !== undefined) updates.regimen_fiscal = regimenFiscal;
     if (codigoPostal !== undefined) updates.codigo_postal = codigoPostal;

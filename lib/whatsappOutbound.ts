@@ -41,7 +41,20 @@ export function formatE164MexicanPhone(phone: string): string {
   if (digits.length === 12 && digits.startsWith('52')) {
     return `+${digits}`;
   }
-  return digits ? `+${digits}` : '';
+  // Legacy +521 mobile form. lib/whatsappLink.ts has always normalized this
+  // (its "Case 2"); this function did not, so the same stored number produced
+  // a working wa.me link and a malformed provider recipient (#40).
+  if (digits.length === 13 && digits.startsWith('521')) {
+    return `+52${digits.slice(3)}`;
+  }
+  // Anything else is not a number this product knows how to reach. It used to
+  // return `+${digits}` — so a 7-digit local number or an extension was handed
+  // to the provider prefixed with a plus, and `normalizeOtpRecipient`'s
+  // `\+[0-9]{10,15}` test waved through everything from 10 to 15 digits. Fail
+  // closed instead (hard rule 3): callers already treat '' as "unusable
+  // number" and surface it, which tells the tenant their stored phone is the
+  // problem rather than blaming the provider.
+  return '';
 }
 
 /**
@@ -235,6 +248,14 @@ export async function dispatchWhatsAppReminder(
 ): Promise<WhatsAppDispatchResult> {
   const mode = getWhatsAppDispatchMode(env);
   const payload = formatOutboundReminderPayload(options);
+
+  // Checked before the wa_me_link branch, not after it. With the guard below
+  // the branch, an unusable number in link mode produced
+  // `https://wa.me/?text=…` — a recipient-less link — and reported
+  // `success: true` for it. Only the two API modes ever reached the guard.
+  if (!payload.recipient) {
+    return { success: false, mode: mode.type, error: 'Número de teléfono inválido' };
+  }
 
   if (mode.type === 'wa_me_link') {
     const encodedMsg = encodeURIComponent(payload.message);

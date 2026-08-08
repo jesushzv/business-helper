@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess, isDemoDeployment } from '@/lib/apiAuth';
 import { validateRFC } from '@/lib/rfcValidator';
+import { normalizeClientPhone } from '@/lib/phoneValidator';
 
 /**
  * Client collection.
@@ -63,6 +64,20 @@ export async function POST(request: Request) {
       }
     }
 
+    // The phone is what a signature is later delivered to, so an unusable
+    // value must not reach the column. This route used to only `.trim()`, so
+    // "llamar a la oficina", a 7-digit local number or an extension persisted
+    // happily and surfaced much later as a 502 from the OTP route, blaming the
+    // provider for a value entered here (#40). Stored normalized to 10 digits
+    // so downstream E.164 formatting is deterministic.
+    const phoneNormalized = normalizeClientPhone(phone);
+    if (phoneNormalized.error) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_PHONE', message: phoneNormalized.error } },
+        { status: 400 }
+      );
+    }
+
     const { data: newClient, error } = await supabase
       .from('clients')
       .insert({
@@ -70,7 +85,7 @@ export async function POST(request: Request) {
         name: name.trim(),
         contact_name: contactName ? String(contactName).trim() : null,
         email: email ? String(email).trim() : null,
-        phone: phone ? String(phone).trim() : null,
+        phone: phoneNormalized.value,
         rfc: rfc ? String(rfc).toUpperCase().trim() : null,
         regimen_fiscal: regimenFiscal || null,
         codigo_postal: codigoPostal || null,
