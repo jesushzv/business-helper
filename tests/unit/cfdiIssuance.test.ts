@@ -18,6 +18,7 @@ function read(...segments: string[]): string {
 }
 
 const migration = read('supabase', 'migrations', '20260807120000_cfdi_pac_integration.sql');
+const folioGrants = read('supabase', 'migrations', '20260808030000_folio_rpc_grants.sql');
 const issueRoute = read('app', 'api', 'invoices', 'issue', 'route.ts');
 
 describe('CFDI issuance has no simulated path', () => {
@@ -103,5 +104,41 @@ describe('CFDI integration migration', () => {
 
   it('keeps the CFDI document bucket private', () => {
     expect(migration).toContain("VALUES ('cfdi-documents', 'cfdi-documents', false)");
+  });
+});
+
+describe('folio RPC grants', () => {
+  // REVOKE ... FROM PUBLIC in 20260807120000 did not remove Supabase's default
+  // per-role EXECUTE grants, so anon and authenticated could call two
+  // SECURITY DEFINER functions that mint and spend folios. Verified live on
+  // 2026-08-08 before this migration; these assertions keep the named roles
+  // revoked rather than trusting the PUBLIC revoke to cover them.
+  it('revokes the named roles, not just PUBLIC', () => {
+    expect(folioGrants).toContain(
+      'REVOKE EXECUTE ON FUNCTION public.reserve_cfdi_folio(uuid, text, integer) FROM anon, authenticated;'
+    );
+    expect(folioGrants).toContain(
+      'REVOKE EXECUTE ON FUNCTION public.release_cfdi_folio(uuid, text, text) FROM anon, authenticated;'
+    );
+  });
+
+  it('leaves the folio RPCs reachable by the service role', () => {
+    expect(folioGrants).toContain(
+      'GRANT EXECUTE ON FUNCTION public.reserve_cfdi_folio(uuid, text, integer) TO service_role;'
+    );
+    expect(folioGrants).toContain(
+      'GRANT EXECUTE ON FUNCTION public.release_cfdi_folio(uuid, text, text) TO service_role;'
+    );
+  });
+
+  it('keeps both callers on the service-role client', () => {
+    // A caller that switched to the user's client would now 403 rather than
+    // silently spending someone else's folio, but the failure would surface to
+    // a paying tenant mid-stamp. Pin it here instead.
+    for (const source of [issueRoute, read('lib', 'complementoPago.ts')]) {
+      // The call is wrapped across lines in one of the two files.
+      expect(source).toMatch(/service\s*\.rpc\(\s*'reserve_cfdi_folio'/);
+      expect(source).toMatch(/service\s*\.rpc\(\s*'release_cfdi_folio'/);
+    }
   });
 });
