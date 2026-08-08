@@ -95,6 +95,8 @@ graph TD
      - For `sms`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER`
      - For `whatsapp` via Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`
      - For `whatsapp` via Meta: `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID`
+     - **Verify before trusting the channel**: `npm run verify:otp` with the same variables exported locally. It names any variable the selected provider is missing and authenticates against Twilio/Meta without sending. Add `OTP_TEST_PHONE=+52…` to send one sample message to a handset you control. Half-configured credentials return the same 502 as no configuration at all, so the first person to notice would otherwise be a signer.
+     - Clients need `clients.phone` populated; the issue endpoint answers 422 without it.
    - **CFDI 4.0 Invoicing**:
      - `PAC_ENCRYPTION_KEY`: 32 bytes (base64 or hex) sealing the PAC API keys tenants connect. Required before anyone can connect a PAC; without it `/api/organization/pac` answers 503 rather than storing a credential in plaintext.
      - `FACTURAPI_SECRET_KEY` (optional): the platform's own PAC key (`sk_live_...`), used by tenants who have not connected one. Their stamps consume the folios their plan includes. A `sk_test_` key is refused in production — it produces documents with no fiscal validity.
