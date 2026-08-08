@@ -10,7 +10,6 @@ interface SmartVideoPlayerProps {
   className?: string;
   objectFit?: 'cover' | 'contain' | 'fill';
   objectPosition?: 'object-top' | 'object-center' | 'object-bottom';
-  screenshotOnly?: boolean;
 }
 
 export function SmartVideoPlayer({
@@ -19,7 +18,6 @@ export function SmartVideoPlayer({
   className = '',
   objectFit = 'cover',
   objectPosition = 'object-top',
-  screenshotOnly = true,
 }: SmartVideoPlayerProps) {
   const primaryPoster = getAssetUrl(poster);
   const [currentPoster, setCurrentPoster] = useState(primaryPoster);
@@ -27,6 +25,7 @@ export function SmartVideoPlayer({
   return (
     <div className={`relative w-full h-full bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center ${className}`}>
       {/* Static App Screenshot Display */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
       <img
         src={currentPoster}
         alt={alt}

@@ -79,7 +79,7 @@ until checked against source. This memo does that check; §06 records the method
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
 | E2E | "14/14 Playwright scenarios passing" | `playwright.config.ts` and `tests/e2e/` exist; not run in this verification pass — treat as unverified |
-| Zero-warning lint gate | "ESLint passes with `--max-warnings=0`" (5 docs) | **Gate is nominal.** `npm run lint` is bare `next lint` — it exits 0 while emitting warnings, and there is a live one in `components/layout/Header.tsx`. Nothing enforces the threshold. |
+| Zero-warning lint gate | "ESLint passes with `--max-warnings=0`" (5 docs) | ~~Gate was nominal — bare `next lint`, exit 0 with warnings.~~ **Enforced since 2026-08-08 (#46):** script is `next lint --max-warnings=0`, debt cleared to 0, failure verified with a planted warning. |
 
 > [!IMPORTANT]
 > **The Sentry finding matters disproportionately for a solo founder.** Error monitoring is the only
@@ -311,6 +311,27 @@ precede it with `DROP POLICY IF EXISTS`, as `20260808030000` does for its own st
 **What #62 still wants:** its fourth exit criterion is one live request against each affected
 route. Schema is no longer the blocker; the routes have not been exercised.
 
+### Update 2026-08-08 — the lint gate is real (#46), drafted, pending merge
+
+**Lint debt is 0 and the script now enforces it.** All 22 warnings cleared: the 8
+`no-unused-vars` deleted (7 dead imports in `app/page.tsx`, the unused `screenshotOnly` prop in
+`SmartVideoPlayer`), and the 14 `no-img-element` sites resolved with scoped, per-site
+`eslint-disable-next-line` comments — 6 SVG-logo sites permanently (next/image does not optimize
+SVGs), 8 PNG-screenshot sites until the `next/image` migration filed as
+[#82](https://github.com/jesushzv/business-helper/issues/82) (blocked on `images.remotePatterns`
+for the env-configured CDN origin `getAssetUrl()` can return — converting today would trade a
+warning for a runtime crash on CDN deployments).
+
+`package.json` lint script is now `next lint --max-warnings=0`. **The gate was shown to fail
+before being trusted**: a planted unused import made `npm run lint` exit 1; removing it restored
+exit 0. Since `npm test` chains lint first and CI runs it, a new warning now fails the PR. The
+five documents that described the gate as nominal (CLAUDE.md, MASTER_PROMPT.md §07, the ECC
+playbook §04, the roadmap sprint-16 gate, the launch checklist) were updated in the same PR.
+
+**Code + lint config, verified by `typecheck` + `lint` (0 warnings, 0 errors) + vitest + `next
+build`. No deployment was exercised; nothing here touches runtime behavior beyond deleted dead
+imports.**
+
 ---
 
 ## 03 Priority Stack
@@ -381,13 +402,12 @@ fixture quote for every token (PR #57) — never listed as a P0 and worse than s
 - **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
   CFDI ships at launch, so this is revenue the pricing page promises and the product cannot collect.
-- **Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).
-  Change the `lint` script to `next lint --max-warnings=0` and clear the existing warnings first.
-  **There are 23, not one** — 14 × `no-img-element` and 9 × unused imports across 8 files, half in
-  `app/page.tsx`; the full inventory is in #46. (This line originally said `Header.tsx` only, was
-  "corrected" to three, and both counts came from reading a truncated tail of the lint output —
-  the gate being fail-open is exactly why the debt grew unnoticed.) Until the script enforces the
-  threshold, five documents describe a gate that does not run.
+- ~~**Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).~~
+  **Done 2026-08-08** — script is `next lint --max-warnings=0`, all 22 warnings cleared (the
+  count settled at 22 after being recorded as 1, 3 and 23; the gate being fail-open is exactly
+  why the debt grew unnoticed). Failure verified with a planted warning. Remaining follow-up is
+  the `next/image` migration for the 8 PNG screenshot sites, tracked as
+  [#82](https://github.com/jesushzv/business-helper/issues/82) (P2).
 
 ### P2 — Can trail launch by weeks
 
