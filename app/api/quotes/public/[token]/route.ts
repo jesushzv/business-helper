@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { verifyStoredOTP, generateDigitalSeal, OTP_MAX_ATTEMPTS } from '@/lib/otpSeal';
+import { publicApiError } from '@/lib/publicApiError';
 import { track } from '@/lib/analytics';
 
 /**
@@ -76,12 +77,16 @@ export async function GET(
       .maybeSingle();
 
     if (error || !quote) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+      return publicApiError(404, 'QUOTE_NOT_FOUND', 'Cotización no encontrada');
     }
 
     return NextResponse.json(quote);
   } catch {
-    return NextResponse.json({ error: 'Failed to fetch public quote' }, { status: 500 });
+    return publicApiError(
+      500,
+      'QUOTE_FETCH_FAILED',
+      'No se pudo cargar la cotización. Intente de nuevo más tarde.'
+    );
   }
 }
 
@@ -101,9 +106,10 @@ export async function POST(
   const { token } = await params;
 
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      { error: 'La firma digital no está disponible en modo demo' },
-      { status: 503 }
+    return publicApiError(
+      503,
+      'BACKEND_NOT_CONFIGURED',
+      'La firma digital no está disponible en modo demo'
     );
   }
 
@@ -125,7 +131,7 @@ export async function POST(
       .maybeSingle();
 
     if (fetchError || !quote) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+      return publicApiError(404, 'QUOTE_NOT_FOUND', 'Cotización no encontrada');
     }
 
     // Already signed: return the existing seal instead of re-signing, so a
@@ -140,9 +146,10 @@ export async function POST(
     }
 
     if (!['sent', 'accepted'].includes(quote.status)) {
-      return NextResponse.json(
-        { error: 'Esta cotización no está disponible para firma' },
-        { status: 409 }
+      return publicApiError(
+        409,
+        'QUOTE_NOT_SIGNABLE',
+        'Esta cotización no está disponible para firma'
       );
     }
 
@@ -161,15 +168,19 @@ export async function POST(
         .update({ client_otp_attempts: verification.attempts })
         .eq('public_token', token);
 
-      return NextResponse.json(
+      const remaining = Math.max(0, OTP_MAX_ATTEMPTS - verification.attempts);
+      // `attempts`/`remaining`/`expired` are body siblings the signing modal
+      // reads as data; only the prose moves inside the envelope.
+      return publicApiError(
+        400,
+        verification.expired ? 'OTP_EXPIRED' : remaining === 0 ? 'OTP_ATTEMPTS_EXHAUSTED' : 'OTP_INCORRECT',
+        verification.error || 'Código OTP incorrecto',
         {
           success: false,
           attempts: verification.attempts,
-          remaining: Math.max(0, OTP_MAX_ATTEMPTS - verification.attempts),
+          remaining,
           expired: verification.expired || false,
-          error: verification.error,
-        },
-        { status: 400 }
+        }
       );
     }
 
@@ -208,9 +219,10 @@ export async function POST(
     // previous version did by ignoring the result — records a signature that
     // does not exist.
     if (updateError) {
-      return NextResponse.json(
-        { error: 'No se pudo registrar la firma. Intente de nuevo.' },
-        { status: 500 }
+      return publicApiError(
+        500,
+        'SIGNATURE_WRITE_FAILED',
+        'No se pudo registrar la firma. Intente de nuevo.'
       );
     }
 
@@ -229,6 +241,10 @@ export async function POST(
       accepted_at: timestamp,
     });
   } catch {
-    return NextResponse.json({ error: 'Failed to sign public quote' }, { status: 500 });
+    return publicApiError(
+      500,
+      'SIGNATURE_FAILED',
+      'No se pudo firmar la cotización. Intente de nuevo.'
+    );
   }
 }

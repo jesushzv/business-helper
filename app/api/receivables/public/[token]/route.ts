@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { publicApiError } from '@/lib/publicApiError';
 
 /**
  * Public SPEI payment surface, reached over a shared link with no session.
@@ -56,7 +57,7 @@ export async function GET(
       .maybeSingle();
 
     if (error || !quote?.contracts?.milestones?.length) {
-      return NextResponse.json({ error: 'Cobro no encontrado' }, { status: 404 });
+      return publicApiError(404, 'PAYMENT_NOT_FOUND', 'Cobro no encontrado');
     }
 
     const milestone = quote.contracts.milestones[0];
@@ -64,14 +65,14 @@ export async function GET(
 
     // Refuse to render payment instructions rather than fall back to any
     // default account: sending a payer to the wrong CLABE misdirects real money.
+    // `code` used to sit as a sibling of `error` — the one route with a
+    // fourth body shape (#65). It now lives inside the envelope like every
+    // other public error; app/pay/[token]/page.tsx branches on it.
     if (!org?.bank_clabe) {
-      return NextResponse.json(
-        {
-          error:
-            'Este negocio aún no ha configurado su cuenta bancaria para recibir pagos SPEI.',
-          code: 'ORG_BANK_DETAILS_MISSING',
-        },
-        { status: 409 }
+      return publicApiError(
+        409,
+        'ORG_BANK_DETAILS_MISSING',
+        'Este negocio aún no ha configurado su cuenta bancaria para recibir pagos SPEI.'
       );
     }
 
@@ -91,7 +92,7 @@ export async function GET(
       },
     });
   } catch {
-    return NextResponse.json({ error: 'No se pudo cargar el cobro' }, { status: 500 });
+    return publicApiError(500, 'PAYMENT_FETCH_FAILED', 'No se pudo cargar el cobro');
   }
 }
 
@@ -102,9 +103,10 @@ export async function POST(
   const { token } = await params;
 
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      { error: 'El registro de pagos no está disponible en modo demo' },
-      { status: 503 }
+    return publicApiError(
+      503,
+      'BACKEND_NOT_CONFIGURED',
+      'El registro de pagos no está disponible en modo demo'
     );
   }
 
@@ -116,16 +118,18 @@ export async function POST(
     const transferredAmount = Number(body?.transferred_amount);
 
     if (!trackingReference) {
-      return NextResponse.json(
-        { error: 'La clave de rastreo SPEI es obligatoria' },
-        { status: 400 }
+      return publicApiError(
+        400,
+        'TRACKING_REFERENCE_REQUIRED',
+        'La clave de rastreo SPEI es obligatoria'
       );
     }
 
     if (!Number.isFinite(transferredAmount) || transferredAmount <= 0) {
-      return NextResponse.json(
-        { error: 'El monto transferido debe ser mayor a cero' },
-        { status: 400 }
+      return publicApiError(
+        400,
+        'INVALID_TRANSFERRED_AMOUNT',
+        'El monto transferido debe ser mayor a cero'
       );
     }
 
@@ -141,7 +145,7 @@ export async function POST(
     const milestoneId = quote?.contracts?.milestones?.[0]?.id;
 
     if (fetchError || !milestoneId) {
-      return NextResponse.json({ error: 'Cobro no encontrado' }, { status: 404 });
+      return publicApiError(404, 'PAYMENT_NOT_FOUND', 'Cobro no encontrado');
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,9 +160,10 @@ export async function POST(
       .eq('id', milestoneId);
 
     if (updateError) {
-      return NextResponse.json(
-        { error: 'No se pudo registrar el comprobante. Intente de nuevo.' },
-        { status: 500 }
+      return publicApiError(
+        500,
+        'RECEIPT_WRITE_FAILED',
+        'No se pudo registrar el comprobante. Intente de nuevo.'
       );
     }
 
@@ -167,9 +172,6 @@ export async function POST(
       message: 'Comprobante SPEI enviado correctamente',
     });
   } catch {
-    return NextResponse.json(
-      { error: 'No se pudo registrar el comprobante' },
-      { status: 500 }
-    );
+    return publicApiError(500, 'RECEIPT_WRITE_FAILED', 'No se pudo registrar el comprobante');
   }
 }

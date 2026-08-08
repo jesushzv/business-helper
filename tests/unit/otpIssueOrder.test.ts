@@ -105,6 +105,7 @@ describe('POST /api/quotes/public/[token]/otp — deliver before store', () => {
     expect(res.status).toBe(500);
     // The signer holds a code that verifies against nothing; the message must
     // direct them to request a new one, not claim the send worked.
-    expect(body.error).toContain('Solicite uno nuevo');
+    expect(body.error.code).toBe('OTP_STORE_FAILED');
+    expect(body.error.message).toContain('Solicite uno nuevo');
   });
 });
