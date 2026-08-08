@@ -58,13 +58,18 @@ describe('wa.me fallback (no provider configured)', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('is forced in sandbox even when live credentials are present', async () => {
+  // Sandbox comes from server env, not from a caller-supplied flag. The flag
+  // this used to pass existed only on `POST /api/whatsapp/broadcast`, sourced
+  // from `isDemoDeployment()`, which that route's auth guard has already
+  // answered 503 for — so it could never be true there, and this test reported
+  // a route protection that did not exist (#74).
+  it('is forced by IS_SANDBOX in the environment even when live credentials are present', async () => {
     const spy = stubFetch(() => jsonResponse({}));
 
-    const result = await dispatchWhatsAppReminder(
-      { ...BASE, isSandbox: true },
-      { ...TWILIO_ENV }
-    );
+    const result = await dispatchWhatsAppReminder(BASE, {
+      ...TWILIO_ENV,
+      IS_SANDBOX: 'true',
+    });
 
     expect(result.mode).toBe('wa_me_link');
     // The whole point of sandbox mode: no message reaches a real number.

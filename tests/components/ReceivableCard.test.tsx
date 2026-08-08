@@ -100,3 +100,38 @@ describe('ReceivableCard share actions without a settlement account (#64)', () =
     expect(screen.getByRole('link', { name: /Portal SPEI/i })).toBeInTheDocument();
   });
 });
+
+/**
+ * A milestone with no quote token has no payment page.
+ *
+ * The card filled that gap with `milestone.public_token || 'demo'`, so every
+ * real tenant — whose rows carried no token at all until `/api/receivables`
+ * started returning one — got a "Portal SPEI" button pointing at `/pay/demo`.
+ * It renders as a live link and answers `Cobro no encontrado`.
+ */
+describe('ReceivableCard with no quote token', () => {
+  const NO_TOKEN = { ...BASE_MILESTONE, public_token: undefined } as MilestoneWithClient;
+
+  it('offers no payment link rather than a placeholder one', () => {
+    render(<ReceivableCard milestone={NO_TOKEN} todayStr="2026-08-07" canShare />);
+
+    expect(screen.queryByRole('link', { name: /Portal SPEI/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /Portal SPEI/i })).toBeDisabled();
+    expect(document.body.innerHTML).not.toContain('/pay/demo');
+    expect(document.body.innerHTML).not.toContain('/pay/undefined');
+  });
+
+  it('sends no WhatsApp reminder that would carry a dead link', () => {
+    render(<ReceivableCard milestone={NO_TOKEN} todayStr="2026-08-07" canShare />);
+
+    expect(screen.queryByRole('link', { name: /Recordar WhatsApp/i })).toBeNull();
+    expect(document.body.innerHTML).not.toContain('demo_token');
+  });
+
+  it('names the missing quote as the blocker, not the CLABE or the phone', () => {
+    render(<ReceivableCard milestone={NO_TOKEN} todayStr="2026-08-07" canShare />);
+
+    expect(screen.getByRole('button', { name: /Sin liga de pago/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Agrega tu CLABE/i })).toBeNull();
+  });
+});

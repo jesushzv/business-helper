@@ -65,7 +65,14 @@ describe('WhatsApp Payment Reminder Links', () => {
 describe('WhatsApp Reminder Broadcast Payloads', () => {
   it('targets the client number and names the client in the message', () => {
     const payload = generateReminderBroadcastPayload(
-      { id: 'm1', label: 'Finiquito', amount: 15000, due_date: '2026-08-20', status: 'pending' },
+      {
+        id: 'm1',
+        publicToken: 'quote_token_m1',
+        label: 'Finiquito',
+        amount: 15000,
+        due_date: '2026-08-20',
+        status: 'pending',
+      },
       { name: 'Construcciones MTY', phone: '8119998877' },
       'overdue',
       'https://businesshelper.app'
@@ -76,15 +83,51 @@ describe('WhatsApp Reminder Broadcast Payloads', () => {
     expect(payload.whatsappUrl.startsWith('https://wa.me/528119998877')).toBe(true);
   });
 
-  it('deep-links to the milestone payment page', () => {
+  /**
+   * This assertion used to read `/pay/m42` — the milestone id — and passed,
+   * which is why #72 shipped: the suite pinned the defect rather than catching
+   * it. `/pay/[token]` resolves a quote's public_token, so the id form is a
+   * 404 in front of a paying client.
+   */
+  it('deep-links to the quote public token, never the milestone id', () => {
     const payload = generateReminderBroadcastPayload(
-      { id: 'm42', label: 'Anticipo', amount: 1000, due_date: '2026-08-20', status: 'pending' },
+      {
+        id: 'm42',
+        publicToken: 'quote_token_abc',
+        label: 'Anticipo',
+        amount: 1000,
+        due_date: '2026-08-20',
+        status: 'pending',
+      },
       { name: 'Cliente', phone: '8119998877' },
       'due_today',
       'https://businesshelper.app'
     );
 
-    expect(payload.message).toContain('https://businesshelper.app/pay/m42');
+    expect(payload.paymentUrl).toBe('https://businesshelper.app/pay/quote_token_abc');
+    expect(payload.message).toContain('https://businesshelper.app/pay/quote_token_abc');
+    expect(payload.message).not.toContain('/pay/m42');
     expect(payload.type).toBe('due_today');
+  });
+
+  it('carries no payment link at all when the milestone has no quote token', () => {
+    const payload = generateReminderBroadcastPayload(
+      {
+        id: 'm99',
+        publicToken: null,
+        label: 'Anticipo',
+        amount: 1000,
+        due_date: '2026-08-20',
+        status: 'pending',
+      },
+      { name: 'Cliente', phone: '8119998877' },
+      'overdue',
+      'https://businesshelper.app'
+    );
+
+    // A dead link is worse than none: it reads as a broken business.
+    expect(payload.paymentUrl).toBeNull();
+    expect(payload.message).not.toContain('/pay/');
+    expect(payload.message).toContain('saldo pendiente');
   });
 });

@@ -3,6 +3,7 @@
  */
 
 import { generateWhatsAppLink } from './whatsappLink';
+import { getAppBaseUrl, getPaymentPublicUrl } from './url';
 
 export interface PaymentReminderParams {
   phone: string;
@@ -11,6 +12,11 @@ export interface PaymentReminderParams {
   amount: number;
   dueDate: string;
   status?: 'upcoming_3d' | 'due_today' | 'overdue' | string;
+  /**
+   * The quote's `public_token`. Absent means there is no payment page to send
+   * them to, so the caller should not be building a reminder at all — see the
+   * note in generatePaymentReminderLink.
+   */
   payToken?: string;
   baseUrl?: string;
 }
@@ -27,7 +33,9 @@ export function generatePaymentReminderLink(params: PaymentReminderParams): stri
     dueDate = '',
     status = 'due_today',
     payToken = '',
-    baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://business-helper.vercel.app',
+    // Was 'https://business-helper.vercel.app' — a preview host, not the
+    // product domain (#73). #73 listed two builders; this was a third.
+    baseUrl,
   } = params;
 
   const formattedAmount = Number(amount).toLocaleString('es-MX', {
@@ -35,7 +43,16 @@ export function generatePaymentReminderLink(params: PaymentReminderParams): stri
     maximumFractionDigits: 2,
   });
 
-  const payUrl = payToken ? `${baseUrl}/pay/${payToken}` : baseUrl;
+  // Without a token there is no payment page, so the message links to the app
+  // root rather than to /pay/<nothing>. Callers are expected not to offer the
+  // reminder at all in that case; this is the last line of defence, not the
+  // intended path.
+  const resolvedBase = baseUrl ? baseUrl.replace(/\/+$/, '') : getAppBaseUrl();
+  const payUrl = payToken
+    ? baseUrl
+      ? `${resolvedBase}/pay/${payToken}`
+      : getPaymentPublicUrl(payToken)
+    : resolvedBase;
 
   let text = '';
 

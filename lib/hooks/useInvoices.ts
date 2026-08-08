@@ -47,6 +47,15 @@ export interface PaymentComplement {
 export interface InvoiceItem {
   id: string;
   milestoneId: string;
+  /**
+   * The quote's `public_token`, for the `/pay/` link the WhatsApp aviso carries.
+   *
+   * Deliberately not `milestoneId`: the aviso used to build `/pay/${milestoneId}`,
+   * which the route resolves as a quote token and therefore never finds (#72).
+   * `null` when the contract has no quote — the aviso is disabled rather than
+   * sent with a dead link.
+   */
+  publicToken: string | null;
   clientName: string;
   clientRfc: string | null;
   clientPhone: string | null;
@@ -101,7 +110,15 @@ interface ReceivableRow {
   contracts?: {
     title?: string | null;
     clients?: { name?: string | null; rfc?: string | null; phone?: string | null } | null;
+    /** Embedded through `contracts.quote_id`; carries the token `/pay/` resolves. */
+    quotes?: { public_token?: string | null } | { public_token?: string | null }[] | null;
   } | null;
+}
+
+/** Unwraps a PostgREST to-one embed that may arrive as an object or a 1-element array. */
+function firstOf<T>(value: T | T[] | null | undefined): T | undefined {
+  if (!value) return undefined;
+  return Array.isArray(value) ? value[0] : value;
 }
 
 function toNumber(value: number | string | null | undefined): number {
@@ -143,6 +160,7 @@ function toInvoiceItem(row: ReceivableRow): InvoiceItem {
   return {
     id: row.id,
     milestoneId,
+    publicToken: firstOf(row.contracts?.quotes)?.public_token || null,
     clientName: client?.name || 'Cliente sin nombre',
     clientRfc: client?.rfc || null,
     clientPhone: client?.phone || null,

@@ -220,7 +220,58 @@ lines 80.35% → 80.88%, statements 78.77% → 79.13%, branches 69.37% → 69.71
 `public_token` — a 404 sent to a real client), **#73** (two hardcoded origins in the WhatsApp
 reminder builders, one of them a domain nobody owns — the #36/#47 defect class again), **#74**
 (the route's `isSandbox` flag is unreachable, so a guard the tests exercise directly cannot fire
-in the deployed path).
+in the deployed path). All three are addressed in the 2026-08-08 update below.
+
+### Update 2026-08-08 — the `/pay/` link itself (#72, #73, #74, #78), drafted, pending merge
+
+#64 closed the question of *when* a payment link may be shared. This closes *what* gets shared:
+the gate was protecting a link that, for a real tenant, did not resolve.
+
+**The largest defect was not one of the three filed issues.** `lib/hooks/useReceivables.ts`
+assigned raw `/api/receivables` rows straight into `MilestoneWithClient`, whose flat
+`client_name` / `client_phone` / `contract_title` / `public_token` fields existed only on the
+demo fixtures in that same file — the API nests them under `contracts`, and never returned
+`public_token` at all, because it is a column on `quotes`, not `milestones`. Every field is
+optional, so the missing mapping was not a type error. Against a real tenant, Cobranza therefore
+showed "Cliente no asignado" for named clients, disabled the WhatsApp reminder as though no phone
+were on file, and — filling the gap with `public_token || 'demo'` — pointed **"Portal SPEI" at
+`/pay/demo`**. Filed as **#78** and fixed here.
+
+**Code, verified by `typecheck` + `lint` (22 warnings, 0 errors — no delta) + 687 vitest tests /
+84 files + `next build`. Against mocked services — no deployment was exercised:**
+
+- **`getPaymentPublicUrl()`** joins `getQuotePublicUrl()` in `lib/url.ts`, so the payment link has
+  one builder the way the quote link does. Both resolve the browser origin first and
+  `getAppBaseUrl()` otherwise.
+- **#78** — `/api/receivables` embeds `quotes!quote_id(public_token)`; a new exported
+  `toMilestoneWithClient()` flattens the row; `ReceivableCard` drops both placeholder fallbacks
+  and renders a disabled control naming the real blocker when there is no token.
+- **#72** — `BroadcastMilestone` now carries `publicToken` as a field distinct from `id`, so the
+  substitution that caused the bug is a compile error rather than an invisible one. `InvoiceItem`
+  carries the token through `useInvoices`, and the aviso is disabled without it.
+- **#73** — three builders, not the two the issue listed: `whatsappBroadcast.ts`,
+  `whatsappOutbound.ts` and **`whatsappReminder.ts:38`**, which #73's table missed. All resolve
+  through `lib/url.ts` now.
+- **#74** — `isSandbox` removed from the route and from `WhatsAppReminderOptions`.
+  `getWhatsAppDispatchMode` keeps its `env.IS_SANDBOX` check for callers not behind the 503.
+
+**Two tests were pinning defects rather than catching them**, which is why both shipped:
+`whatsappLinks.test.ts` asserted `/pay/m42` — the milestone id — and passed; `whatsappDispatch.test.ts`
+asserted a sandbox guard through the parameter that could never be true in the route. Both now
+assert the corrected behaviour. A new scan in `tests/unit/url.test.ts` fails the build if any
+`lib/*.ts` module regains a literal app origin; it was confirmed to fail against a planted literal
+rather than assumed to work.
+
+**Coverage moved up on all four axes**, measured against a stashed tree at `870090e`:
+statements 79.13% → 79.22%, branches 69.71% → 70.11%, functions 79.69% → 79.82%,
+lines 80.88% → 80.96%. Still under the 85/85/80/80 gate that CI does not run (#51).
+
+**Filed, not fixed: #79.** `quotes` and `contracts` are joined by two foreign keys, and the two
+selects in `app/api/receivables/public/[token]/route.ts` embed `contracts` under `quotes` with no
+disambiguating hint. If PostgREST answers PGRST201 there, both handlers take their `error` branch
+and **every** `/pay/` link 404s for every tenant — a P0, and consistent with the fact that #64's
+live check has never been run. This could not be verified without a database, so the PR hints only
+the embed it adds and leaves those two alone. #79 carries the 5-minute curl repro.
 
 ---
 
@@ -245,8 +296,9 @@ in the deployed path).
 | 3 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 | 4 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
 | 5 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code (see the 22:30 update): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
-| 6 | **Stop `useQuotes` asserting a contract that was never created.** `convertToContract` flipped status locally and announced "convertida a contrato con 2 hitos de cobranza" whether or not the route succeeded — the #33 defect on the step that opens the receivable. Promoted from unranked on 2026-08-07. | [#59](https://github.com/jesushzv/business-helper/issues/59) |
-| 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking of the six: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+| 6 | **Verify whether the public `/pay/` route can resolve anything at all.** `quotes` and `contracts` are joined by two foreign keys, and both selects in `app/api/receivables/public/[token]/route.ts` embed `contracts` under `quotes` unhinted. If PostgREST answers PGRST201 there, `error` is truthy and every payment link 404s for every tenant — which would mean the page has never worked, consistent with row 5's live check never having been run. Ranked here, not lower, because it would invalidate rows 5 and the whole SPEI half of the loop; ranked below the credential rows because confirming it needs the deployed environment row 1 gates. A 5-minute curl settles it. | [#79](https://github.com/jesushzv/business-helper/issues/79) |
+| 7 | **Stop `useQuotes` asserting a contract that was never created.** `convertToContract` flipped status locally and announced "convertida a contrato con 2 hitos de cobranza" whether or not the route succeeded — the #33 defect on the step that opens the receivable. Promoted from unranked on 2026-08-07. | [#59](https://github.com/jesushzv/business-helper/issues/59) |
+| 8 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking of the six: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
 **Cleared since this section was first written** (2026-08-07, all verified closed on the tracker):
 [#33](https://github.com/jesushzv/business-helper/issues/33) payment confirmation (PR #55) ·
@@ -256,11 +308,13 @@ in the deployed path).
 fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
 
 > [!NOTE]
-> **Rows 1–5 and 7 need the founder; row 6 needs an agent.** Row 5 moved across on
-> 2026-08-07: its code half is done, and what is left is a live check. The founder rows are
-> credentials, accounts, a real handset and a real card — no PR can close them. They do not
-> block the agent rows, so the two tracks run in parallel, which is most of the slack left in
-> a September date that decision 5 fixed at full scope.
+> **Rows 1–6 and 8 need the founder; row 7 needs an agent.** Row 5 moved across on
+> 2026-08-07: its code half is done, and what is left is a live check. Row 6 (added 2026-08-08)
+> is the same shape — an agent wrote the analysis and the fix, but only a deployed database can
+> say whether the defect is real. The founder rows are credentials, accounts, a real handset and
+> a real card — no PR can close them. They do not block the agent rows, so the two tracks run in
+> parallel, which is most of the slack left in a September date that decision 5 fixed at full
+> scope.
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without

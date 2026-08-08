@@ -211,3 +211,27 @@ the organization check before reaching the ledger, so those two are skipped.
       organization row (`select count(*) from organizations where owner_id = …`).
 - [ ] A member (not the owner) of that organization sees the banner without the
       "Agregar mi CLABE" link.
+
+Every line above checks a **refusal**. None of them checks that a healthy
+organization's payment link actually opens, which is how #78 (the share action
+built `/pay/demo`) and #79 (the route's embed may not resolve at all) stayed
+invisible through two rounds of this list. Walk the positive path too:
+
+- [ ] On **Cobranza**, a cobro belonging to an org *with* a CLABE shows the real
+      client name and contract title — not "Cliente no asignado" / "Contrato sin
+      título", which is what a row that lost its nested embed renders as.
+- [ ] **Portal SPEI** on that cobro is an enabled link whose href is
+      `/pay/<the quote's public_token>` — compare it against
+      `select public_token from quotes where id = <the contract's quote_id>`.
+      Anything shaped like `/pay/demo` or `/pay/<a milestone uuid>` is the #78/#72
+      defect back.
+- [ ] Open that URL as an anonymous visitor (private window). It must render the
+      CLABE and beneficiary — **not** `Cobro no encontrado`. A 404 here on a
+      token that exists is #79: check the API directly,
+      `curl -s "$APP_URL/api/receivables/public/<token>"`, and look for `PGRST201`
+      from PostgREST behind it.
+- [ ] Submit a tracking reference from that page and confirm the milestone flips
+      to `marked_paid` in the database — the POST handler carries the same
+      unhinted embed as the GET.
+- [ ] On **Facturación**, "Aviso WhatsApp" for the same cobro opens `wa.me` with a
+      message whose `/pay/` link is byte-identical to the one above.

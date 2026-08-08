@@ -105,6 +105,15 @@ engineering journal.
    the merge (`npm run db:migrate:dry` first). CI posts a reminder; treat it as a requirement.
 7. **Tests import the `.ts` sources** — never hand-maintained `.js` mirrors (retired in PR #21).
    Every code change ships with corresponding Vitest coverage; keep the 85% gate.
+   **Before fixing a bug, grep the suite for the defect's shape — the test that should have caught
+   it may be asserting it.** Two did in #72/#74: `whatsappLinks.test.ts` asserted the reminder
+   contained `/pay/m42`, the *milestone id*, and passed; `whatsappDispatch.test.ts` asserted a
+   sandbox guard through a parameter the route could never set to true. A green suite around a live
+   defect means a test is pinning it, and that test is part of the fix.
+   **An assertion of absence must be shown to fail.** A test claiming "no literal origins", "no
+   fabricated ids", "no placeholder tokens" that silently matches nothing is indistinguishable from
+   one that passes. Plant a violation, watch it go red, remove it — then commit. The origin scan in
+   `tests/unit/url.test.ts` was confirmed this way and names the offending `file: line`.
 8. **Mexican Spanish, plain language** in all user-facing copy — benefit claims
    ("Evidencia Legal Certificada"), never developer jargon (RLS, sha256, multitenant).
 
@@ -157,10 +166,19 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 **One token, two public pages.** `/q/[token]` (signing) and `/pay/[token]` (payment) both resolve
 `quotes.public_token` — the payment route looks the quote up and walks to its contract and
 milestones. So a `/pay/` link is **never** built from a milestone or contract id, and a builder that
-does produces a 404 in front of a paying client
-([#72](https://github.com/jesushzv/business-helper/issues/72) is that bug, still open). Build both
-links through `lib/url.ts`, never from a literal origin — the hardcoded-domain defect has now
-shipped three times (#36, #47, #73).
+does produces a 404 in front of a paying client (#72 was that bug). Build both links through
+`lib/url.ts` — `getQuotePublicUrl()` and `getPaymentPublicUrl()` are the only two builders — never
+from a literal origin: the hardcoded-domain defect has now shipped four times (#36, #47, and #73's
+pair, plus a third builder #73 did not list). `tests/unit/url.test.ts` fails the build if any
+`lib/*.ts` module regains a literal app origin.
+
+**`milestones` has no `public_token` column.** The token reaches a milestone through
+`contract.quote_id → quotes.public_token`, so any query behind a share action must embed it —
+and that embed **needs an FK hint**, `quotes!quote_id(...)`: `quotes` and `contracts` are joined by
+*two* foreign keys (`contracts.quote_id` and `quotes.converted_contract_id`), which makes an
+unhinted embed ambiguous. A share action whose row has no token must offer **no link at all**; the
+placeholder tokens (`'demo'`, `'demo_token'`) that used to fill that gap rendered as live links to
+`/pay/demo`.
 
 ## Docs router
 
@@ -215,6 +233,20 @@ shipped three times (#36, #47, #73).
   network blip; collapsing it into `true` re-opens whatever hole the gate was closing. Never let
   the client be the only enforcement: gate on the server too, then the permissive choice for
   unknown is safe. `lib/hooks/useSettlementAccount.ts` is the reference (#64).
+- **An all-optional interface cannot tell you a mapping is missing.** `MilestoneWithClient` declares
+  `client_name?`, `client_phone?`, `contract_title?`, `public_token?` — so a row with *none* of them
+  is still a structurally valid value, and `useReceivables` assigning raw API rows straight into it
+  was not a type error. The only thing that ever populated those fields was the demo fixtures in the
+  same file, which made the interface look satisfied while every real tenant got `undefined` across
+  the board (#78). Two habits close this: when a hook's shape is flatter than the API's, the
+  flattening is a named exported function with its own test (`toMilestoneWithClient`); and when
+  fixtures and server rows share a type, assert against a **server-shaped** row, never only a
+  fixture. Required fields where the value is genuinely required beats optional-everything.
+- **Placeholder identifiers are the fabricated-success rule (#1) wearing a UI costume.** `token ||
+  'demo'`, `id || 'demo_token'`, `phone || '8115551234'` — each renders as a live, tappable control
+  and each has shipped here (#44, #78). Absent is absent: render the disabled control and **name the
+  specific record the tenant must fix**, because a missing CLABE reported as a missing phone number
+  sends them to edit the wrong thing.
 
 ## GitHub conventions
 
@@ -222,6 +254,14 @@ shipped three times (#36, #47, #73).
 - Follow-ups discovered mid-task are filed as GitHub issues with `file:line` references, repro
   steps, and a fix sketch — see #36/#39/#40 for the house style. The tracker is the journal;
   write issues so a future session needs no other context.
+- **An issue's enumeration is a starting point, not an inventory — re-run the search that produced
+  it.** #73's table listed *two* builders with a hardcoded origin; there were three
+  (`lib/whatsappReminder.ts` was missed). #46's lint count has been wrong three times. #64's body
+  described two holes and its comment a third state. Every one of these was written by someone
+  looking at real output — they go stale the moment a PR moves code, and a fix scoped to the list
+  leaves the remainder in place looking closed. Re-derive the set with a grep you can paste into
+  the PR, and if your count differs from the issue's, **say so explicitly** rather than quietly
+  fixing more than was asked.
 - **`Closes #N` claims the issue's *exit criteria* are met — not that you wrote the code.** When
   those criteria name a deployed behaviour (a real OAuth round-trip, a live PAC stamp, a code on a
   real handset), the issue stays open after merge: write `Refs #N` instead and say in the PR what
