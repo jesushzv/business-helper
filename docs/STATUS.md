@@ -311,6 +311,42 @@ precede it with `DROP POLICY IF EXISTS`, as `20260808030000` does for its own st
 **What #62 still wants:** its fourth exit criterion is one live request against each affected
 route. Schema is no longer the blocker; the routes have not been exercised.
 
+### Update 2026-08-08 — #76's generalizable half, and the first-ever E2E execution
+
+**The `SECURITY DEFINER` grant defect is now build-enforced.** #76 fixed two functions and asked
+for two follow-ups: a check that flags the next occurrence, and a sweep for existing ones.
+`tests/unit/securityDefinerGrants.test.ts` is both — it parses `supabase/migrations/*.sql`, finds
+every `SECURITY DEFINER` function in `public`, and fails unless a migration revokes `EXECUTE` from
+`anon` and `authenticated` **by name**. Verified by planting a migration with only the ineffective
+`FROM PUBLIC` revoke (red, with the fix in the message) and removing it (green).
+
+**The sweep found one more, and it must stay as it is.** `user_organization_ids()`
+(`20260803000000_initial_schema.sql:245`) is `SECURITY DEFINER` with no revoke at all. Revoking it
+would be a serious regression, not a fix: RLS policy expressions are evaluated as the *querying*
+role and twelve policies call `SELECT public.user_organization_ids()`, so removing `authenticated`
+would make every authenticated read fail with `permission denied for function`. It is also the safe
+shape — parameterless, filtered on `auth.uid()`. It is an explicit, documented exemption in the
+test. **Caveat this test cannot escape:** it reads migration files, not the database. Confirming
+live grants still needs the `aclexplode` query in #76.
+
+**The Playwright suite has been run for the first time: 2 passed, 8 failed** (`scenarios.spec.ts`,
+desktop-chromium, production build, no Supabase). The "14/14 passing" claim corresponds to no run,
+as #69 suspected. Worse than staleness: **two scenarios assert defects that were remediated** —
+scenario 05 requires the page to render `012180001234567890`, the P0-4 hardcoded CLABE that
+`tests/unit/securityHardening.test.ts:213` asserts appears nowhere, and scenario 04 encodes the
+pre-#57 client-side OTP flow. The two suites are in direct contradiction; only one of them runs.
+Filed as [#91](https://github.com/jesushzv/business-helper/issues/91). Also required before CI can
+run it at all: an explicit `npx playwright install --with-deps chromium` step — the pinned
+`@playwright/test` expects a browser build nothing downloads, and all 40 tests fail in ~2ms in a way
+that reads as a product failure.
+
+**#59 closed as already-done** — `updateQuoteStatus` and `convertToContract` were made honest in
+`870090e` (PR #75) and the quotes routes already answer the coded Spanish envelope; the issue was
+open only because no PR title referenced it.
+
+**Verified by `typecheck` + `lint` + vitest + `next build`; the E2E numbers above are a real local
+run, and no deployment was exercised.**
+
 ---
 
 ## 03 Priority Stack

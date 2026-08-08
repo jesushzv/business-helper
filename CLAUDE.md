@@ -206,6 +206,15 @@ placeholder tokens (`'demo'`, `'demo_token'`) that used to fill that gap rendere
   as 1, then 3, then 23) — the first two from a truncated tail, the third from not re-measuring
   after a PR removed an unused import. **Count the whole output, and count it again yourself
   rather than quoting this line**: `npm run lint 2>&1 | grep -c "Warning:"`.
+- **`REVOKE … FROM PUBLIC` does not lock down a `SECURITY DEFINER` function.** Supabase grants
+  `EXECUTE` on `public` functions to `anon` and `authenticated` as *named roles*; revoking the
+  implicit `PUBLIC` grant leaves those standing, and PostgREST serves the function at
+  `/rest/v1/rpc/<name>` outside RLS (#76 — unlimited folio minting). Always
+  `REVOKE EXECUTE ON FUNCTION public.f(<signature>) FROM anon, authenticated;`.
+  `tests/unit/securityDefinerGrants.test.ts` fails the build on a new one without it, and holds the
+  single deliberate exemption (`user_organization_ids()` — RLS policies call it as the querying
+  role, so revoking it breaks every policy). That test reads migration *files*; the live grants
+  still need the `aclexplode` query in #76.
 - CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38).
   After opening a PR, verify the `CI` check actually ran; absence looks identical to passing.
 - E2E exists but is not in CI; never cite Playwright results you didn't run.
