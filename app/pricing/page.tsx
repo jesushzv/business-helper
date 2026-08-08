@@ -80,6 +80,7 @@ export default function PricingPage() {
       <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG logo; next/image does not optimize SVGs */}
             <img src={getAssetUrl('/logo-icon.svg')} alt="Business Helper" className="h-7 w-7 object-contain" />
             <span className="font-extrabold text-white text-lg tracking-tight">Business Helper</span>
           </Link>

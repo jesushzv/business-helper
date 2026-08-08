@@ -15,6 +15,7 @@ export function Footer() {
           {/* Col 1 & 2: Brand & Overview */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG logo; next/image does not optimize SVGs */}
               <img
                 src={getAssetUrl('/logo-icon.svg')}
                 alt="Business Helper"
