@@ -8,12 +8,8 @@ import {
   ArrowRight,
   Check,
   Zap,
-  Building2,
   Sparkles,
   ShieldCheck,
-  Star,
-  Download,
-  Mail,
 } from 'lucide-react';
 import { RoiCalculator } from '@/components/landing/RoiCalculator';
 import { FaqAccordion } from '@/components/landing/FaqAccordion';
@@ -23,9 +19,7 @@ import { ContactSection } from '@/components/landing/ContactSection';
 import { StickyMobileCta } from '@/components/landing/StickyMobileCta';
 import { ComparisonSection } from '@/components/landing/ComparisonSection';
 import { HealthScoreExplainer } from '@/components/landing/HealthScoreExplainer';
-import { PhoneFrameMockup } from '@/components/landing/PhoneFrameMockup';
 import { BrowserFrameMockup } from '@/components/landing/BrowserFrameMockup';
-import { SmartVideoPlayer } from '@/components/landing/SmartVideoPlayer';
 import { LiveDemoButton } from '@/components/landing/LiveDemoButton';
 import { BottomConversionForm } from '@/components/landing/BottomConversionForm';
 import { DifferentiatorTimeline } from '@/components/landing/DifferentiatorTimeline';
@@ -34,7 +28,7 @@ import { PricingComparisonTable } from '@/components/pricing/PricingComparisonTa
 import { Footer } from '@/components/layout/Footer';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { getAssetUrl } from '@/lib/url';
-import { TESTIMONIALS, CONTACT_INFO } from '@/lib/trustData';
+import { TESTIMONIALS } from '@/lib/trustData';
 
 export const metadata = {
   title: 'Business Helper | Cotizaciones, Cobranza y CFDI 4.0',
@@ -56,6 +50,7 @@ export default function LandingPage() {
       <header className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG logo; next/image does not optimize SVGs */}
             <img src={getAssetUrl('/logo-icon.svg')} alt="Business Helper" className="h-10 w-10 object-contain" />
             <div>
               <span className="text-xl font-black tracking-tight text-white">
@@ -179,6 +174,7 @@ export default function LandingPage() {
             {/* Hero Right Visual Mockup (ONLY BrowserFrameMockup) */}
             <div className="lg:col-span-6 flex justify-center w-full">
               <BrowserFrameMockup url="app.businesshelper.app/dashboard">
+                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
                 <img
                   src={getAssetUrl('/assets/demo/cuj_02_dashboard_kpis.png')}
                   alt="Dashboard Business Helper — Control de Cotizaciones y Cobranza"
@@ -287,6 +283,7 @@ export default function LandingPage() {
             </div>
             <div className="lg:col-span-6">
               <BrowserFrameMockup url="app.businesshelper.app/quotes/new">
+                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
                 <img
                   src={getAssetUrl('/assets/demo/cuj_04_quote_wizard_step2.png')}
                   alt="Generador de Cotizaciones Business Helper — Cálculo de Impuestos SAT"
@@ -323,6 +320,7 @@ export default function LandingPage() {
             </div>
             <div className="lg:col-span-6 lg:order-1">
               <BrowserFrameMockup url="app.businesshelper.app/q/cotizacion-demo">
+                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
                 <img
                   src={getAssetUrl('/assets/demo/cuj_05_signing_otp_modal.png')}
                   alt="Aprobación de Cotización vía OTP y Portal SPEI"
@@ -359,6 +357,7 @@ export default function LandingPage() {
             </div>
             <div className="lg:col-span-6">
               <BrowserFrameMockup url="app.businesshelper.app/spei/portal">
+                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
                 <img
                   src={getAssetUrl('/assets/demo/cuj_07_spei_portal.png')}
                   alt="Portal de Validación SPEI Banxico — Business Helper"
@@ -395,6 +394,7 @@ export default function LandingPage() {
             </div>
             <div className="lg:col-span-6 lg:order-1">
               <BrowserFrameMockup url="app.businesshelper.app/receivables">
+                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
                 <img
                   src={getAssetUrl('/assets/demo/cuj_06_accounts_receivable.png')}
                   alt="Panel de Cobranza Quién Me Debe — Business Helper"
@@ -431,6 +431,7 @@ export default function LandingPage() {
             </div>
             <div className="lg:col-span-6">
               <BrowserFrameMockup url="app.businesshelper.app/invoices">
+                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
                 <img
                   src={getAssetUrl('/assets/demo/cuj_10_invoices_sat.png')}
                   alt="Timbrado Fiscal CFDI 4.0 SAT — Business Helper"

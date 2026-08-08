@@ -74,6 +74,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         {/* Sidebar Header */}
         <div className="flex h-16 items-center justify-between border-b border-slate-800/80 px-6">
           <Link href="/dashboard" className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG logo; next/image does not optimize SVGs */}
             <img src={getAssetUrl('/logo-icon.svg')} alt="Business Helper" className="h-9 w-9 object-contain" />
             <div>
               <span className="text-lg font-black tracking-tight text-white">
