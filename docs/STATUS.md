@@ -95,7 +95,7 @@ that were blocking. What remains is configuration and one real transaction, not 
 |:---|:---|:---|
 | **Live PAC stamp** | **The one that matters.** PR #23 merged, so stamping is real code — but its coverage runs against a mocked `fetch`, and no invoice has been issued through a live Facturapi sandbox. Merging is not verification. | **Yes** — CFDI ships at launch |
 | **#2** — OTP provider configuration | Code merged; no credentials in the environment. `OTP_DELIVERY_CHANNEL` unset means 502 and **no quote can be signed**. Never tested on a real handset. | **Yes** — the core loop is dead without it |
-| **Production migrations** | `20260807000000_otp_send_rate_limit.sql` (#20) and `20260807120000_cfdi_pac_integration.sql` (#23) are on `main` now. Applying them is manual and Vercel auto-deploys `main`, so **the deploy can outrun the schema** — the OTP and invoice routes return 500 until they land. | **Yes** |
+| ~~**Production migrations**~~ | ✅ All four are applied to the production project and confirmed by schema inspection (2026-08-08, see the update below). The routes are no longer blocked on schema. What #62 still wants is one live request against each affected route. | Cleared |
 | ~~**Product analytics**~~ | ✅ Merged (#56) — the seven-event quote-to-cash funnel is wired. Not yet read against real traffic. | Cleared |
 | **#14** — operational setup | Split on 2026-08-07 into #62 (migrations), #63 (Stripe webhook staging), #64 (CLABE gate) so each maps to one P0. #14 now holds the `security-p0-remediation.md` §5 checklist and deployment-doc sign-off. | Yes |
 | ~~**#3** / PR #23 — real CFDI via PAC~~ | ✅ Merged. `lib/pacClient.ts` stamps for real; `simulateInvoiceStamping()` and its "graceful fallback" are both gone. | Cleared |
@@ -222,6 +222,44 @@ reminder builders, one of them a domain nobody owns — the #36/#47 defect class
 (the route's `isSandbox` flag is unreachable, so a guard the tests exercise directly cannot fire
 in the deployed path).
 
+### Update 2026-08-08 ~02:15 UTC — the pending migrations (#62), applied and inspected
+
+**Applied against the production Supabase project through the Supabase connector, then confirmed
+by querying the live catalog — not by a script's exit code.** The migrations are idempotent by
+convention, so a no-op and a success are indistinguishable from the outside; every claim below
+was read back out of `information_schema` / `pg_catalog`.
+
+**The issue's premise was half wrong, which is the point of inspecting.** #62 lists three pending
+migrations. Two were **already applied** — `20260807000000_otp_send_rate_limit.sql` (`otp_send_log`,
+both indexes, RLS on with zero policies, no `anon`/`authenticated` grants) and
+`20260807120000_cfdi_pac_integration.sql` (`pac_connections` + owner policy, folio columns and
+both functions, all constraints, the private `cfdi-documents` bucket, `csd_credentials` dropped).
+Only `20260807170000_cfdi_payment_complements.sql` was actually missing. It is now applied:
+`milestones.cfdi_payment_method` / `cfdi_total`, `chk_milestone_cfdi_payment_method`, the
+`cfdi_payment_complements` table with all four indexes, RLS on, the tenant policy, no `anon`
+grants. `milestones` has 0 rows, so migration `20260807120000`'s quarantine of fabricated stamps
+had nothing to demote.
+
+**One live security hole found in the process, fixed, and filed as
+[#76](https://github.com/jesushzv/business-helper/issues/76).** `reserve_cfdi_folio` and
+`release_cfdi_folio` were executable by `anon` and `authenticated`: `REVOKE … FROM PUBLIC` in
+`20260807120000` does not remove Supabase's default per-role grants. Both are `SECURITY DEFINER`
+and update `organizations` directly, so any signed-in user could call
+`/rest/v1/rpc/release_cfdi_folio` against their own org and mint unlimited folios — stamps billed
+to the platform PAC account. `20260808030000_folio_rpc_grants.sql` revokes the named roles;
+production now shows `postgres, service_role` only. Both callers already use the service-role
+client, so nothing in the app lost access.
+
+**The migration ledger did not exist.** `supabase_migrations.schema_migrations` had never been
+created — every migration to date was applied by hand — so `npm run db:migrate` (`supabase db
+push`) would have tried to replay all of them and failed on the non-idempotent `CREATE POLICY`
+statements in the older files. The ledger is now seeded with all seven versions, so `db push` is
+usable going forward. Two of the migration files carry a bare `CREATE POLICY`; new ones should
+precede it with `DROP POLICY IF EXISTS`, as `20260808030000` does for its own statements.
+
+**What #62 still wants:** its fourth exit criterion is one live request against each affected
+route. Schema is no longer the blocker; the routes have not been exercised.
+
 ---
 
 ## 03 Priority Stack
@@ -240,7 +278,7 @@ in the deployed path).
 
 | # | Item | Tracked |
 |:--|:---|:---|
-| 1 | **Apply the three pending migrations before the deploy that carries them.** Vercel auto-deploys `main` and migrations are manual, so the code outruns the schema. Note: **three**, not two — the complementos migration from #29 landed after the earlier wording here. This is the root dependency; every P0 below that needs a deployed environment runs through a route it blocks. `npm run db:migrate:dry` first. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
+| 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants). All four confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path, which needs the founder. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
 | 2 | **Configure one OTP channel.** Twilio SMS: fastest to provision, no business-verification wait, and at pilot volume the premium over WhatsApp is a few dollars a month. Set `OTP_DELIVERY_CHANNEL=sms`, then verify a real code lands on a real handset and cannot be replayed. Per-recipient rate limiting is already in place (#20). Without this no quote can be signed at all, so it gates the end-to-end check for everything else. | [#2](https://github.com/jesushzv/business-helper/issues/2) |
 | 3 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 | 4 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
@@ -330,7 +368,7 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 - [x] Outbound WhatsApp reminders actually send (#13)
 
 ### Operational floor
-- [ ] Production Supabase migrations applied — **all three** from #20, #23 and #29 ([#62](https://github.com/jesushzv/business-helper/issues/62))
+- [x] Production Supabase migrations applied — all three from #20, #23 and #29, plus `20260808030000_folio_rpc_grants.sql`; confirmed by inspecting the live schema on 2026-08-08. One live request per affected route still owed ([#62](https://github.com/jesushzv/business-helper/issues/62))
 - [ ] Error monitoring transmits and alerts reach the founder within minutes ([#52](https://github.com/jesushzv/business-helper/issues/52))
 - [x] The funnel is instrumented, so a weak result can be diagnosed (#37, PR #56) — wired, not yet read against real traffic
 - [x] Lint, typecheck, and **640** vitest tests / 79 files pass; CI runs on PRs (verified on #28 after ten hours of silent absence — see [#38](https://github.com/jesushzv/business-helper/issues/38))
