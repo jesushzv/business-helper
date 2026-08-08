@@ -27,10 +27,23 @@ export async function GET() {
     // The complements are embedded rather than fetched per row: a PPD invoice
     // owes one per payment, and the invoicing screen has to be able to say
     // which cobros still owe the SAT a document without N extra requests.
+    // `quotes` is embedded through the contract because the payment page keys
+    // on the quote's public_token: /pay/[token] resolves a quote and walks to
+    // its contract and milestones. Without it every share action on Cobranza
+    // and Facturación had no token to build a link from (#72).
+    //
+    // The `!quote_id` hint is required, not decoration: quotes and contracts
+    // are joined by two foreign keys — contracts.quote_id and
+    // quotes.converted_contract_id (`fk_quotes_converted_contract`) — and an
+    // unhinted embed between them is ambiguous (PostgREST PGRST201).
+    //
+    // Hinted by FK *column*, not constraint name: `quote_id` is written down in
+    // the migration and in types/database.ts, whereas the constraint name is
+    // whatever Postgres auto-generated for an inline REFERENCES.
     const { data: receivables, error } = await supabase
       .from('milestones')
       .select(
-        '*, contracts(*, clients(*)), ' +
+        '*, contracts(*, clients(*), quotes!quote_id(public_token)), ' +
           'cfdi_payment_complements(id, installment, amount, last_balance, remaining_balance, ' +
           'status, cfdi_uuid, cfdi_xml_path, cfdi_pdf_path, payment_date, error)'
       )

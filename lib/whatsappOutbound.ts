@@ -5,14 +5,16 @@
  * with automatic fallback to Click-to-Chat wa.me/ deep links when API keys are absent.
  */
 
+import { getPaymentPublicUrl } from './url';
+
 export interface WhatsAppReminderOptions {
   clientName: string;
   phone: string;
   amountDue: number;
   dueDate: string;
+  /** The quote's `public_token` — what `/pay/[token]` resolves. Never a milestone id (#72). */
   token: string;
   baseUrl?: string;
-  isSandbox?: boolean;
 }
 
 export interface OutboundPayload {
@@ -44,13 +46,18 @@ export function formatE164MexicanPhone(phone: string): string {
 
 /**
  * Returns active dispatch mode depending on environment credentials.
- * Forces wa_me_link when in demo/sandbox mode to prevent prod API calls or sending SMS to real numbers.
+ *
+ * Forces wa_me_link in demo/sandbox mode so a test deployment cannot make a
+ * provider call or message a real handset. Read from `env` only: the caller-
+ * supplied override this used to accept was passed by exactly one route, from
+ * `isDemoDeployment()`, which is always false past that route's auth guard —
+ * a parameter that could never be true, describing a protection the 503 above
+ * it was actually providing (#74).
  */
 export function getWhatsAppDispatchMode(
-  env: Record<string, string | undefined> = process.env,
-  isSandboxOption?: boolean
+  env: Record<string, string | undefined> = process.env
 ): WhatsAppDispatchMode {
-  const isDemo = isSandboxOption || env.NEXT_PUBLIC_DEMO_MODE === 'true' || env.IS_SANDBOX === 'true';
+  const isDemo = env.NEXT_PUBLIC_DEMO_MODE === 'true' || env.IS_SANDBOX === 'true';
 
   if (isDemo) {
     return { type: 'wa_me_link', isApiConfigured: false, isSandbox: true };
@@ -70,8 +77,13 @@ export function getWhatsAppDispatchMode(
  */
 export function formatOutboundReminderPayload(options: WhatsAppReminderOptions): OutboundPayload {
   const recipient = formatE164MexicanPhone(options.phone);
-  const baseUrl = options.baseUrl || 'https://business-helper.app';
-  const payUrl = `${baseUrl}/pay/${options.token}`;
+  // The literal here was 'https://business-helper.app' — hyphenated, and not a
+  // domain this project owns. Its only production caller never passes baseUrl,
+  // so every reminder sent through the API carried a dead link: #36 again with
+  // a different string (#73).
+  const payUrl = options.baseUrl
+    ? `${options.baseUrl.replace(/\/+$/, '')}/pay/${options.token}`
+    : getPaymentPublicUrl(options.token);
   const formattedAmount = options.amountDue.toLocaleString('es-MX', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -221,7 +233,7 @@ export async function dispatchWhatsAppReminder(
   options: WhatsAppReminderOptions,
   env: Record<string, string | undefined> = process.env
 ): Promise<WhatsAppDispatchResult> {
-  const mode = getWhatsAppDispatchMode(env, options.isSandbox);
+  const mode = getWhatsAppDispatchMode(env);
   const payload = formatOutboundReminderPayload(options);
 
   if (mode.type === 'wa_me_link') {

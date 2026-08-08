@@ -57,10 +57,18 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
   const StatusIcon = statusBadge.icon;
 
   const reminderStatus = isOverdue ? 'overdue' : isDueToday ? 'due_today' : 'upcoming_3d';
+
+  // No payment page exists for a milestone whose contract has no quote behind
+  // it. The fallbacks here were `'demo'` and `'demo_token'`, which turned that
+  // absence into `/pay/demo` — a link that looks live, sends the client to
+  // "Cobro no encontrado", and tells the tenant nothing. Absent is absent.
+  const payToken = milestone.public_token || null;
+  const hasPayLink = Boolean(payToken);
+
   // No fallback number: a payment reminder carries the amount owed and the
   // /pay/ link, and must never go to a phone the tenant did not record. The
   // previous default was a real, dialable Monterrey number (#44).
-  const whatsappUrl = milestone.client_phone && canShare
+  const whatsappUrl = milestone.client_phone && canShare && payToken
     ? generatePaymentReminderLink({
         phone: milestone.client_phone,
         clientName: milestone.client_name || 'Cliente',
@@ -68,9 +76,16 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
         amount: milestone.amount,
         dueDate: milestone.due_date,
         status: reminderStatus,
-        payToken: milestone.public_token || 'demo_token',
+        payToken,
       })
     : null;
+
+  /** The one thing the tenant has to fix, named specifically. */
+  const blockedReason = !canShare
+    ? 'Agrega la CLABE de tu negocio para poder cobrar'
+    : !hasPayLink
+      ? 'Este cobro no tiene una cotización con liga de pago'
+      : 'Agrega un teléfono al cliente para enviar recordatorios por WhatsApp';
 
   return (
     <div className="bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl hover:border-slate-700 transition-all p-5 flex flex-col justify-between text-white">
@@ -138,26 +153,24 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
               <button
                 type="button"
                 disabled
-                title={
-                  canShare
-                    ? 'Agrega un teléfono al cliente para enviar recordatorios por WhatsApp'
-                    : 'Agrega la CLABE de tu negocio para poder cobrar'
-                }
+                title={blockedReason}
                 className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm whitespace-nowrap"
               >
                 <MessageSquare className="w-4 h-4 shrink-0" />
                 <span>
-                  {canShare
-                    ? 'Agrega un teléfono para WhatsApp'
-                    : 'Agrega tu CLABE para cobrar'}
+                  {!canShare
+                    ? 'Agrega tu CLABE para cobrar'
+                    : !hasPayLink
+                      ? 'Sin liga de pago'
+                      : 'Agrega un teléfono para WhatsApp'}
                 </span>
               </button>
             )
           )}
 
-          {canShare ? (
+          {canShare && payToken ? (
             <a
-              href={`/pay/${milestone.public_token || 'demo'}`}
+              href={`/pay/${payToken}`}
               target="_blank"
               rel="noopener noreferrer"
               className={`${
@@ -169,11 +182,16 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
             </a>
           ) : (
             // Not a link at all: this is the URL the owner copies to send a
-            // client, and without a CLABE that page answers 409.
+            // client, and without a CLABE that page answers 409 — or without a
+            // quote token, 404.
             <button
               type="button"
               disabled
-              title="Agrega la CLABE de tu negocio para poder cobrar"
+              title={
+                canShare
+                  ? 'Este cobro no tiene una cotización con liga de pago'
+                  : 'Agrega la CLABE de tu negocio para poder cobrar'
+              }
               className={`${
                 isConfirmed ? 'w-full' : 'shrink-0'
               } min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-not-allowed text-xs sm:text-sm whitespace-nowrap`}

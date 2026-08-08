@@ -269,11 +269,15 @@ export function InvoiceManagerCard() {
   };
 
   const handleWhatsAppBroadcast = (inv: InvoiceItem) => {
-    if (!inv.clientPhone) return;
+    // No token, no payment page — refuse rather than open WhatsApp prefilled
+    // with a link that 404s in front of the client (#72). The button below is
+    // disabled in the same case; this is the guard behind it.
+    if (!inv.clientPhone || !inv.publicToken) return;
 
     const payload = generateReminderBroadcastPayload(
       {
         id: inv.milestoneId,
+        publicToken: inv.publicToken,
         label: inv.concept,
         amount: inv.amount,
         due_date: inv.dueDate,
@@ -456,14 +460,16 @@ export function InvoiceManagerCard() {
                         without a CLABE that page answers 409 (#64). */}
                     <button
                       onClick={() => handleWhatsAppBroadcast(inv)}
-                      disabled={!inv.clientPhone || !canSharePaymentLinks}
+                      disabled={!inv.clientPhone || !canSharePaymentLinks || !inv.publicToken}
                       className="min-h-[44px] px-3 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-40"
                       title={
                         !canSharePaymentLinks
                           ? 'Agrega la CLABE de tu negocio para poder cobrar'
-                          : inv.clientPhone
-                            ? 'Enviar aviso WhatsApp'
-                            : 'El cliente no tiene WhatsApp registrado'
+                          : !inv.publicToken
+                            ? 'Este cobro no tiene una cotización con liga de pago'
+                            : inv.clientPhone
+                              ? 'Enviar aviso WhatsApp'
+                              : 'El cliente no tiene WhatsApp registrado'
                       }
                     >
                       <MessageSquare className="w-4 h-4 text-emerald-400" />

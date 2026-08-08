@@ -9,7 +9,84 @@ export interface MilestoneWithClient extends MilestoneItem {
   client_phone?: string;
   client_email?: string;
   contract_title?: string;
+  /**
+   * The quote's `public_token` — what `/pay/[token]` resolves.
+   *
+   * Not a column on `milestones`. It reaches here from the quote behind the
+   * milestone's contract, flattened by `toMilestoneWithClient` below. Undefined
+   * means this milestone has no payment page, and the UI must offer no link
+   * rather than substitute a placeholder.
+   */
   public_token?: string;
+}
+
+/**
+ * A milestone row as `/api/receivables` returns it: nested, not flat.
+ *
+ * PostgREST returns a to-one embed as an object, but not every deployment and
+ * version agrees — an array shows up often enough that both are handled below.
+ */
+interface ReceivableApiRow extends MilestoneItem {
+  contracts?: RelatedContract | RelatedContract[] | null;
+}
+
+interface RelatedContract {
+  title?: string | null;
+  client_id?: string | null;
+  clients?: RelatedClient | RelatedClient[] | null;
+  quotes?: RelatedQuote | RelatedQuote[] | null;
+}
+
+interface RelatedClient {
+  id?: string | null;
+  name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
+interface RelatedQuote {
+  public_token?: string | null;
+}
+
+/** Unwraps a PostgREST to-one embed that may arrive as an object or a 1-element array. */
+function firstOf<T>(value: T | T[] | null | undefined): T | undefined {
+  if (!value) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * Flattens one server row into the shape the Cobranza UI reads.
+ *
+ * This did not exist: `fetchReceivables` assigned the raw API rows straight to
+ * `MilestoneWithClient`, whose flat `client_name` / `client_phone` /
+ * `contract_title` / `public_token` fields only ever existed on the demo
+ * fixtures. Against a real tenant every one of them was undefined, so the card
+ * showed "Cliente no asignado" and "Contrato sin título" for named clients,
+ * disabled the WhatsApp reminder as if the client had no phone, and — because
+ * the card filled the gap with `milestone.public_token || 'demo'` — pointed
+ * "Portal SPEI" at `/pay/demo`. The types hid it: every field is optional, so
+ * the missing mapping was not a type error.
+ */
+export function toMilestoneWithClient(row: ReceivableApiRow): MilestoneWithClient {
+  const contract = firstOf(row.contracts);
+  const client = firstOf(contract?.clients);
+  const quote = firstOf(contract?.quotes);
+
+  // Copy the milestone's own columns and drop the nested blob, rather than
+  // listing fields: the row also carries the cfdi_* columns other screens read,
+  // and an explicit list would silently stop forwarding any column added later.
+  const milestone = { ...row };
+  delete milestone.contracts;
+
+  return {
+    ...milestone,
+    client_id: client?.id || contract?.client_id || undefined,
+    client_name: client?.name || undefined,
+    client_phone: client?.phone || undefined,
+    client_email: client?.email || undefined,
+    contract_title: contract?.title || undefined,
+    public_token: quote?.public_token || undefined,
+  };
 }
 
 const INITIAL_DEMO_RECEIVABLES: MilestoneWithClient[] = [
@@ -157,7 +234,9 @@ export function useReceivables() {
         // The server's answer is the answer — including an empty list. A real
         // tenant with zero receivables must see zero, not the demo fixtures
         // (which previously claimed money owed by clients that do not exist).
-        setReceivables(data.receivables);
+        // Mapped, not assigned raw: the client, contract and quote token the UI
+        // reads arrive nested under `contracts`.
+        setReceivables(data.receivables.map(toMilestoneWithClient));
         setLoading(false);
         return;
       }

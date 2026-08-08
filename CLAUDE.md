@@ -157,10 +157,19 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 **One token, two public pages.** `/q/[token]` (signing) and `/pay/[token]` (payment) both resolve
 `quotes.public_token` — the payment route looks the quote up and walks to its contract and
 milestones. So a `/pay/` link is **never** built from a milestone or contract id, and a builder that
-does produces a 404 in front of a paying client
-([#72](https://github.com/jesushzv/business-helper/issues/72) is that bug, still open). Build both
-links through `lib/url.ts`, never from a literal origin — the hardcoded-domain defect has now
-shipped three times (#36, #47, #73).
+does produces a 404 in front of a paying client (#72 was that bug). Build both links through
+`lib/url.ts` — `getQuotePublicUrl()` and `getPaymentPublicUrl()` are the only two builders — never
+from a literal origin: the hardcoded-domain defect has now shipped four times (#36, #47, and #73's
+pair, plus a third builder #73 did not list). `tests/unit/url.test.ts` fails the build if any
+`lib/*.ts` module regains a literal app origin.
+
+**`milestones` has no `public_token` column.** The token reaches a milestone through
+`contract.quote_id → quotes.public_token`, so any query behind a share action must embed it —
+and that embed **needs an FK hint**, `quotes!quote_id(...)`: `quotes` and `contracts` are joined by
+*two* foreign keys (`contracts.quote_id` and `quotes.converted_contract_id`), which makes an
+unhinted embed ambiguous. A share action whose row has no token must offer **no link at all**; the
+placeholder tokens (`'demo'`, `'demo_token'`) that used to fill that gap rendered as live links to
+`/pay/demo`.
 
 ## Docs router
 

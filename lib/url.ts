@@ -44,6 +44,27 @@ export function getQuotePublicUrl(publicToken: string): string {
 }
 
 /**
+ * Returns the absolute public URL for a milestone's SPEI payment portal (/pay/[token]).
+ *
+ * The token is the **quote's `public_token`** — the same value `/q/[token]` uses.
+ * `/pay/[token]` looks the quote up by it and walks to the contract and its
+ * milestones, so a link built from a milestone id or a contract id resolves
+ * nothing and answers `404 Cobro no encontrado` in front of a paying client
+ * (#72). There is no milestone-id form of this URL; if the caller has no quote
+ * token it has no payment link, and must offer none rather than guess one.
+ *
+ * Origin resolution matches getQuotePublicUrl: the browser's own origin when
+ * there is one, getAppBaseUrl() otherwise — never a literal host (#36/#47/#73).
+ */
+export function getPaymentPublicUrl(publicToken: string): string {
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : getAppBaseUrl();
+  return `${origin}/pay/${publicToken}`;
+}
+
+/**
  * Returns the Supabase auth callback redirect URL for live login / register / OTP flows.
  */
 export function getAuthCallbackUrl(): string {

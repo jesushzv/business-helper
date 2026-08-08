@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireOrgAccess, isDemoDeployment } from '@/lib/apiAuth';
+import { requireOrgAccess } from '@/lib/apiAuth';
 import { requireSettlementAccount } from '@/lib/settlementAccount';
 import { dispatchWhatsAppReminder, WhatsAppReminderOptions } from '@/lib/whatsappOutbound';
 
@@ -23,8 +23,6 @@ export async function POST(req: NextRequest) {
   const settlement = await requireSettlementAccount(supabase, organizationId);
   if (!settlement.ok) return settlement.response;
 
-  const isSandbox = isDemoDeployment();
-
   try {
     const body = await req.json();
     const { clientName, phone, amountDue, dueDate, token } = body as WhatsAppReminderOptions;
@@ -33,13 +31,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios (clientName, phone, amountDue, token)' }, { status: 400 });
     }
 
+    // No isSandbox here: it was `isDemoDeployment()`, which requireOrgAccess
+    // above already answered 503 for, so it was a constant false dressed as a
+    // guard (#74). The sandbox check lives in getWhatsAppDispatchMode, read
+    // from server env, for callers that are not behind this 503.
     const result = await dispatchWhatsAppReminder({
       clientName,
       phone,
       amountDue: Number(amountDue),
       dueDate: dueDate || new Date().toISOString().split('T')[0],
       token,
-      isSandbox,
     });
 
     // dispatchWhatsAppReminder can now genuinely fail, so stop announcing a
