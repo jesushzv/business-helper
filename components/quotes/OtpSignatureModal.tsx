@@ -55,7 +55,9 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data?.error || 'No se pudo enviar el código de verificación');
+        // Public routes answer { error: { code, message } } (#65); message is
+        // Spanish and safe to show verbatim.
+        setError(data?.error?.message || 'No se pudo enviar el código de verificación');
         return;
       }
 
@@ -84,7 +86,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
       const data = await res.json();
 
       if (!res.ok || !data?.success) {
-        setError(data?.error || 'Código OTP incorrecto');
+        setError(data?.error?.message || 'Código OTP incorrecto');
         if (typeof data?.remaining === 'number') setRemaining(data.remaining);
         if (data?.expired) setSent(false);
         return;

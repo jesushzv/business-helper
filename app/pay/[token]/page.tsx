@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { validateTrackingReference, validateReceiptFile } from '@/lib/speiValidator';
+import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { getOrganizationBranding, generateThemeCssVariables } from '@/lib/branding';
 import { Building2, Upload, CheckCircle2, ShieldCheck, Copy, Check, FileText } from 'lucide-react';
 
@@ -29,6 +30,11 @@ export default function PublicPayPortalPage() {
 
   const [milestone, setMilestone] = useState<PublicMilestone | null>(null);
   const [loading, setLoading] = useState(true);
+  // Machine-readable error code from the public API envelope (#65). The one
+  // the page branches on is ORG_BANK_DETAILS_MISSING: the link is valid, the
+  // business just has no CLABE yet — telling the payer "el enlace no existe"
+  // would send them to re-ask the vendor for a link that works fine.
+  const [loadErrorCode, setLoadErrorCode] = useState<string | null>(null);
   const [copiedClabe, setCopiedClabe] = useState(false);
 
   // Form states
@@ -44,17 +50,18 @@ export default function PublicPayPortalPage() {
       setLoading(true);
       try {
         const res = await fetch(`/api/receivables/public/${token}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.milestone) {
-            setMilestone(data.milestone);
-            setTransferredAmount(data.milestone.amount.toString());
-            setLoading(false);
-            return;
-          }
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.milestone) {
+          setMilestone(data.milestone);
+          setTransferredAmount(data.milestone.amount.toString());
+          setLoading(false);
+          return;
+        }
+        if (data?.error?.code) {
+          setLoadErrorCode(data.error.code);
         }
       } catch {
-        // Fallback for demo mode
+        // Network failure falls through to the not-found rendering below.
       }
 
       // The API is the only source of bank details. A client-side fallback
@@ -119,11 +126,24 @@ export default function PublicPayPortalPage() {
 
     setSubmitting(true);
 
+    // Static marketing demo: there is no backend to record anything and the
+    // visitor is exploring, not paying — the POST route answers 503 by
+    // design. Only behind this build-time signal may the flow simulate
+    // success; a real tenant's payer always sees the API's actual outcome.
+    if (isClientDemoMode()) {
+      setSubmitted(true);
+      setSubmitting(false);
+      return;
+    }
+
     try {
-      // Simulate file upload or submit to public API
+      // NOTE: the selected file itself is not uploaded anywhere yet — this
+      // blob: URL only dereferences inside the payer's own browser session.
+      // Tracked as #85; the declaration below (clave de rastreo + monto) is
+      // what the API actually records.
       const fakeFileUrl = URL.createObjectURL(selectedFile);
 
-      await fetch(`/api/receivables/public/${token}`, {
+      const res = await fetch(`/api/receivables/public/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -133,10 +153,21 @@ export default function PublicPayPortalPage() {
         }),
       });
 
+      // The write is the record. Confirming a declaration the API rejected —
+      // as the previous version did by ignoring the response, and even
+      // reporting success from the catch block — shows the payer a
+      // confirmation for a payment the system never stored (#33's shape).
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setFormError(
+          data?.error?.message || 'No se pudo registrar el comprobante. Intente de nuevo.'
+        );
+        return;
+      }
+
       setSubmitted(true);
     } catch {
-      // Demo fallback success
-      setSubmitted(true);
+      setFormError('No se pudo contactar al servidor. Verifique su conexión e intente de nuevo.');
     } finally {
       setSubmitting(false);
     }
@@ -151,12 +182,17 @@ export default function PublicPayPortalPage() {
   }
 
   if (!milestone) {
+    const bankDetailsMissing = loadErrorCode === 'ORG_BANK_DETAILS_MISSING';
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 text-center max-w-md text-white">
-          <h2 className="text-xl font-bold text-white">Enlace de Pago No Encontrado</h2>
+          <h2 className="text-xl font-bold text-white">
+            {bankDetailsMissing ? 'Pago No Disponible Por El Momento' : 'Enlace de Pago No Encontrado'}
+          </h2>
           <p className="text-sm text-slate-400 mt-2">
-            La clave o ficha de cobro no existe o ha expirado.
+            {bankDetailsMissing
+              ? 'El negocio aún no ha configurado su cuenta bancaria para recibir pagos SPEI. Contacte a su proveedor para completar el pago.'
+              : 'La clave o ficha de cobro no existe o ha expirado.'}
           </p>
         </div>
       </div>
