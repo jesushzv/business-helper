@@ -392,6 +392,36 @@ open only because no PR title referenced it.
 **Verified by `typecheck` + `lint` + vitest + `next build`; the E2E numbers above are a real local
 run, and no deployment was exercised.**
 
+### Update 2026-08-08 — client phone validated on write (#40), drafted, pending merge
+
+**`clients.phone` is validated server-side for the first time.** `POST /api/clients` and
+`PATCH /api/clients/[id]` ran `.trim()` and nothing else, so `"llamar a la oficina"`, a 7-digit
+local number or an extension persisted into the column an e-signature is later delivered to, and
+surfaced days later as a 502 from the OTP route phrased as a provider failure. Both routes now call
+`normalizeClientPhone()` (new, in `lib/phoneValidator.ts`), answer `400 INVALID_PHONE` with a
+Spanish message that says what the number is for, and store one canonical 10-digit form. The phone
+stays optional; PATCH only validates when the caller is actually setting it.
+
+**`formatE164MexicanPhone` now fails closed.** It returned `+${digits}` for any digit count, so an
+unusable number reached the provider prefixed with a plus, and `normalizeOtpRecipient`'s
+`\+[0-9]{10,15}` test waved through everything in that range. Unrecognized shapes now return `''`,
+which every caller already treats as "número inválido". It also normalizes the legacy `+521` mobile
+form, which `lib/whatsappLink.ts` has always handled — the same stored number previously produced a
+working wa.me link and a malformed provider recipient.
+
+**A live defect found while doing it:** `dispatchWhatsAppReminder` checked `!payload.recipient`
+*below* the `wa_me_link` branch, so the guard only ever ran in the two API modes. In link mode — the
+default, with no credentials configured — an unusable number produced `https://wa.me/?text=…`, a
+link with no recipient, returned as `success: true`. Guard moved above the branch, with tests for
+both link-mode cases.
+
+**Not closed, by design:** a 10-digit *foreign* number is indistinguishable from a Mexican one and
+is still dialed as +52. #40 called that out as a decision rather than a fix; filed as
+[#94](https://github.com/jesushzv/business-helper/issues/94) with three options.
+
+**Code, verified by `typecheck` + `lint` + 703 vitest tests / 86 files + `next build`. Against
+mocked providers — no message was sent to a real handset.**
+
 ---
 
 ## 03 Priority Stack
