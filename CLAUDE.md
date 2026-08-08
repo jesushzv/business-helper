@@ -38,7 +38,7 @@ engineering journal.
 |:---|:---|
 | `npm run dev` | Dev server (turbo) |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run lint` | ⚠️ Bare `next lint` — **exits 0 even with warnings. Read the output**; the `--max-warnings=0` gate is not wired in |
+| `npm run lint` | `next lint --max-warnings=0` — fails on any warning (verified by planting one, #46). New `<img>`/unused-var warnings now break CI |
 | `npx vitest run` | Unit + component tests only |
 | `npm test` | ⚠️ Not just tests: `lint && typecheck && vitest run` — a "test" failure may be a lint failure |
 | `npm run test:coverage` | Coverage gate: 85% lines/statements, 80% functions/branches |
@@ -197,15 +197,14 @@ placeholder tokens (`'demo'`, `'demo_token'`) that used to fill that gap rendere
 
 ## Known gotchas
 
-- The lint gate is nominal (see Commands) — tracked as
-  [#46](https://github.com/jesushzv/business-helper/issues/46), where the full warning inventory
-  lives: **22 warnings across 7 files** (14 × `no-img-element`, 8 × `no-unused-vars`, half of them
-  in `app/page.tsx`) — re-measured 2026-08-07 against `a029809`; `docs/STATUS.md` is the authority
-  if the two ever disagree. Clear them all before flipping the script to `--max-warnings=0`, or CI
-  turns red on every PR. Cautionary note: this count has now been wrong **three** times (recorded
-  as 1, then 3, then 23) — the first two from a truncated tail, the third from not re-measuring
-  after a PR removed an unused import. **Count the whole output, and count it again yourself
-  rather than quoting this line**: `npm run lint 2>&1 | grep -c "Warning:"`.
+- The lint gate is real since #46 closed: `next lint --max-warnings=0`, debt cleared to zero.
+  Any new warning fails `npm run lint` — and therefore `npm test` and CI. The 14 `<img>` sites
+  carry scoped, per-site `eslint-disable-next-line` comments with reasons (SVG logos: permanent;
+  PNG screenshots: until the `next/image` migration in
+  [#82](https://github.com/jesushzv/business-helper/issues/82)). Don't add a new bare `<img>`;
+  don't widen a scoped disable to file level. Historical note: the warning count was recorded
+  wrong three times (1, 3, 23) before the gate made counting unnecessary — that era's lesson
+  ("count the whole output yourself") still applies to any other tally quoted in a doc.
 - CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38).
   After opening a PR, verify the `CI` check actually ran; absence looks identical to passing.
 - E2E exists but is not in CI; never cite Playwright results you didn't run.

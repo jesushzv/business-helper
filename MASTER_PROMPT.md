@@ -151,7 +151,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
    ```bash
    npm run typecheck && npm run lint
    ```
-   Zero errors, zero warnings. **Read the lint output — do not trust its exit code.** `npm run lint` is bare `next lint`, which exits 0 even when it emits warnings; the `--max-warnings=0` gate is not wired into the script.
+   Zero errors, zero warnings. `npm run lint` runs `next lint --max-warnings=0` (enforced since #46), so a non-zero exit is authoritative — any warning fails the command.
 
 2. **Unit Test & Coverage Gate**:
    ```bash
@@ -277,7 +277,7 @@ Every feature, sprint, and workstream task MUST pass ALL gates:
 - [ ] **Mobile UX**: Touch targets `>= 48px`, WhatsApp links pre-filled, tested on mobile viewport
 - [ ] **Brand**: UI follows dark slate theme (#090D16 base, emerald accents) per `brand_guidelines_spec.md`
 - [ ] **TypeCheck**: `npm run typecheck` passes with 0 errors, 0 warnings
-- [ ] **Lint**: `npm run lint` emits zero warnings (check the output; the script does not enforce `--max-warnings=0`)
+- [ ] **Lint**: `npm run lint` passes (`next lint --max-warnings=0` — the script fails on any warning since #46)
 - [ ] **Coverage**: `npm run test:coverage` achieves `>= 85%` coverage, 100% pass rate
 - [ ] **E2E**: Playwright happy-path flows pass (when applicable)
 - [ ] **Docs**: Roadmap or workback schedule updated with completion status
