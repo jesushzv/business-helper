@@ -27,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton
         {/* Left Branding / View Title */}
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="flex items-center gap-2 transition-transform active:scale-95">
+            {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG logo; next/image does not optimize SVGs */}
             <img src={getAssetUrl('/logo-icon.svg')} alt="Business Helper" className="h-9 w-9 object-contain" />
             <span className="hidden text-xl font-black tracking-tight text-white sm:inline-block">
               Business<span className="text-emerald-400">Helper</span>
