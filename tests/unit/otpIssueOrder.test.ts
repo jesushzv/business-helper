@@ -16,9 +16,12 @@ vi.mock('@/lib/otpDelivery', () => ({
   isDeliveryConfigured: () => true,
 }));
 
+const markOtpSendDeliveryFailed = vi.fn(async (..._args: unknown[]) => undefined);
 vi.mock('@/lib/otpRateLimit', () => ({
   normalizeOtpRecipient: (phone: string) => `+52${phone}`,
-  reserveOtpSend: async () => ({ allowed: true }),
+  checkResendBackoff: async () => ({ allowed: true }),
+  reserveOtpSend: async () => ({ allowed: true, sendId: 'send-1' }),
+  markOtpSendDeliveryFailed: (...args: unknown[]) => markOtpSendDeliveryFailed(...args),
 }));
 
 const maybeSingle = vi.fn();
@@ -59,6 +62,27 @@ beforeEach(() => {
 });
 
 describe('POST /api/quotes/public/[token]/otp — deliver before store', () => {
+  it('flags the reservation when delivery fails, so the lifetime slot is released (#60)', async () => {
+    deliverOtp.mockResolvedValue({ delivered: false, error: 'proveedor caído' });
+
+    const res = await POST(...issueRequest());
+
+    expect(res.status).toBe(502);
+    expect(markOtpSendDeliveryFailed).toHaveBeenCalledTimes(1);
+    expect(markOtpSendDeliveryFailed.mock.calls[0][1]).toBe('send-1');
+    // The stored digest is untouched — a code already in transit stays valid.
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('does not flag the reservation when delivery succeeds', async () => {
+    deliverOtp.mockResolvedValue({ delivered: true, channel: 'sms' });
+
+    const res = await POST(...issueRequest());
+
+    expect(res.status).toBe(200);
+    expect(markOtpSendDeliveryFailed).not.toHaveBeenCalled();
+  });
+
   it('does not touch the stored digest when delivery fails', async () => {
     deliverOtp.mockResolvedValue({ delivered: false, channel: 'sms', devCode: null, error: 'Proveedor caído' });
 

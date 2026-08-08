@@ -209,20 +209,31 @@ quotes has several valid tokens resolving to one `clients.phone`, so cycling
 between them issued a code on every request. Every send is a billable
 Twilio/Meta message, and on SMS that is the pattern carriers flag as pumping.
 
-**Migration required.** `20260807000000_otp_send_rate_limit.sql` creates
-`otp_send_log`, the persisted counter the limit reads. It has to be persisted:
-Vercel functions share no memory, so an in-process counter would reset on a cold
-start and limit nothing. **Without the table the endpoint returns 500 rather
-than sending unmetered codes** — apply migrations before deploying the code,
-per §03.
+**Migrations required.** `20260807000000_otp_send_rate_limit.sql` creates
+`otp_send_log`, the persisted counter the limit reads, and
+`20260809120000_otp_send_delivery_failed.sql` adds the flag that lets a
+provider failure release its lifetime slot (#60). Counters have to be
+persisted: Vercel functions share no memory, so an in-process counter would
+reset on a cold start and limit nothing. **Without the table the endpoint
+returns 500 rather than sending unmetered codes** — apply migrations before
+deploying the code, per §03.
 
-Current limits (`lib/otpRateLimit.ts`):
+Current limits (`lib/otpRateLimit.ts`, revised for #22/#60):
 
 | Bound | Value | Keyed on |
 |---|---|---|
-| Resend cooldown | 30 seconds | One quote |
-| Rolling window | 5 codes per hour | The recipient phone, across every quote |
-| Lifetime cap | 10 codes | One quote |
+| Resend backoff | 30s doubling per send this hour (30s → 60s → 120s → …), capped at 15 min | The recipient phone |
+| Hourly window | 5 codes per rolling hour | The recipient phone, across every quote |
+| Daily window | 15 codes per rolling 24h | The recipient phone, across every quote |
+| Lifetime cap | 10 **delivered** codes | One quote |
+
+The backoff replaced the flat 30-second per-quote cooldown: same first step,
+but the gap widens with each send, so a batch signer barely notices while a
+drip hits a widening wall. A delivery failure keeps its hourly and daily slots
+(a broken provider stays throttled) but releases the lifetime one, so an
+outage cannot make a quote permanently unsignable. The daily figure is
+convention (Twilio suggests 10–20/day), not a standard — revisit against real
+traffic once a provider is live.
 
 Over-cap requests answer `429` in the shape the cooldown already used —
 `{ "error": …, "retry_after_seconds": N }` — with `retry_after_seconds` omitted
