@@ -36,6 +36,11 @@ interface SelectCall {
  * Pulls every `.select(...)` argument out of a source file as one flattened
  * string (string concatenation in the argument is joined), paired with the
  * nearest preceding `.from('<table>')` in the file.
+ *
+ * Known blind spot: a select string assembled in a variable, or a
+ * `.from(tableVariable)`, escapes this scan. Every call site today writes both
+ * as literals; if one ever doesn't, extend the parser rather than trusting the
+ * green run.
  */
 function extractSelects(source: string): SelectCall[] {
   const froms: { idx: number; table: string }[] = [];

@@ -422,6 +422,55 @@ is still dialed as +52. #40 called that out as a decision rather than a fix; fil
 **Code, verified by `typecheck` + `lint` + 703 vitest tests / 86 files + `next build`. Against
 mocked providers — no message was sent to a real handset.**
 
+### Update 2026-08-08 ~22:00 UTC — #79 confirmed live and fixed; the UX-audit P0 trio (#93/#95/#96); #76 closed
+
+**#79 is no longer a prediction.** This session had the Supabase connector, so the live check the
+issue was parked on finally ran — from *inside* the database (`CREATE EXTENSION http`, four
+`http_get()` calls against the project's own PostgREST endpoint, `DROP EXTENSION`, zero residue),
+because the sandbox's network policy blocks shell HTTP to `*.supabase.co`. Result: **both unhinted
+embeds answer `300 PGRST201`**, naming exactly the two predicted FKs. Every `/pay/[token]` GET and
+POST has taken the 404 branch since the route existed — the payment page has never worked for any
+tenant. The fix (hint by FK column, `contracts!quote_id`) was verified to resolve past embed
+parsing against the same live PostgREST, and `tests/unit/postgrestEmbedHints.test.ts` now scans
+every `.select()` in `app/` and `lib/` for an unhinted quotes↔contracts embed (shown red on a
+plant). The `clients/[id]` embeds were checked in the same pass: unambiguous, no change needed.
+
+**#76 closed.** The remaining item was the live `aclexplode` sweep; it ran against production.
+Folio RPCs show `postgres, service_role` only; `user_organization_ids` is the documented
+exemption; the one new hit (`rls_auto_enable`) returns `event_trigger` and cannot be invoked
+through PostgREST — inert, Supabase-managed.
+
+**The UX-audit trio (#93/#95/#96) — all three fixed in code:**
+
+- **#95:** `useOrganizationSettings` seeded the demo tenant into every visitor's localStorage,
+  never called `GET /api/organization`, and saved with a **PUT the route does not implement** —
+  every save this hook ever made was a silent 405 converted into "guardado correctamente". It now
+  fetches on mount, saves via PATCH (extended to accept the profile fields; still owner-scoped),
+  applies the server row, and surfaces failures. `regimen_fiscal` is stored as the SAT code, not
+  the display label. `organizations.phone` exists now (`20260809000000_organization_phone.sql` —
+  **applied to production and confirmed in `information_schema`**; also the column #44 needs).
+  Branding fields with no column (color, tagline, currency) are disabled as "muy pronto" instead
+  of fabricating a save — the persistence feature is filed as
+  [#107](https://github.com/jesushzv/business-helper/issues/107).
+- **#93:** `useCurrentOrg` (new) feeds Header, AppShell, the dashboard greeting and the WhatsApp
+  greeting builders with the real org + auth user; demo identity only behind `isClientDemoMode()`.
+  One `buildClientGreeting()` replaces three disagreeing hardcoded greetings. The profile badge is
+  now a menu with **Cerrar sesión** (there was no logout anywhere); the dead notifications bell is
+  removed. The quote wizard starts with an empty line item; the pay page no longer invents
+  "BBVA México" or "Business Helper Demo". `tests/unit/demoIdentityLeak.test.ts` pins the identity
+  strings to demo-gated files (shown red on a plant).
+- **#96:** the client detail page has a three-state loading gate (no more false "Cliente no
+  encontrado" on every cold load) and derives the activity timeline, health meter and credit
+  summary from the tenant's real quotes/receivables instead of an unconditional $45,000 fixture.
+  `useClients` was the enabler and got the honesty pass: demo fixtures/localStorage only behind
+  `isClientDemoMode()`, an empty list is a real answer, mutations apply the server row or throw,
+  and `error` is finally assigned (#97 item 4 — the page-level halves of #97 remain open).
+
+**Verified by `typecheck` + `lint` (0 warnings) + 739 vitest tests / 91 files + `next build`, and
+by the live PostgREST/catalog checks described above. The UI fixes are against mocked `fetch` — the
+three issues stay open on their deployed-verification exit criteria (`Refs`), while #79's exit
+criterion was the live check itself, which ran (`Closes`).**
+
 ---
 
 ## 03 Priority Stack
@@ -440,14 +489,20 @@ mocked providers — no message was sent to a real handset.**
 
 | # | Item | Tracked |
 |:--|:---|:---|
-| 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants). All four confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path, which needs the founder. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
+| 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path, which needs the founder. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
 | 2 | **Configure one OTP channel.** Twilio SMS: fastest to provision, no business-verification wait, and at pilot volume the premium over WhatsApp is a few dollars a month. Set `OTP_DELIVERY_CHANNEL=sms`, then verify a real code lands on a real handset and cannot be replayed. Per-recipient rate limiting is already in place (#20). Without this no quote can be signed at all, so it gates the end-to-end check for everything else. | [#2](https://github.com/jesushzv/business-helper/issues/2) |
 | 3 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 | 4 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
 | 5 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code (see the 22:30 update): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
-| 6 | **Verify whether the public `/pay/` route can resolve anything at all.** `quotes` and `contracts` are joined by two foreign keys, and both selects in `app/api/receivables/public/[token]/route.ts` embed `contracts` under `quotes` unhinted. If PostgREST answers PGRST201 there, `error` is truthy and every payment link 404s for every tenant — which would mean the page has never worked, consistent with row 5's live check never having been run. Ranked here, not lower, because it would invalidate rows 5 and the whole SPEI half of the loop; ranked below the credential rows because confirming it needs the deployed environment row 1 gates. A 5-minute curl settles it. | [#79](https://github.com/jesushzv/business-helper/issues/79) |
-| 7 | **Stop `useQuotes` asserting a contract that was never created.** `convertToContract` flipped status locally and announced "convertida a contrato con 2 hitos de cobranza" whether or not the route succeeded — the #33 defect on the step that opens the receivable. Promoted from unranked on 2026-08-07. | [#59](https://github.com/jesushzv/business-helper/issues/59) |
-| 8 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking of the six: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+| 6 | **The UX-audit trio: demo identity, fabricated settings save, fabricated client history.** All three fixed in code on 2026-08-08 (see that update): real org/user identity in chrome and outbound WhatsApp with a logout that finally exists (#93); Ajustes reads and writes the real organization row instead of localStorage + a 405 (#95); client detail derives its financial modules from real rows behind a three-state loading gate (#96). Each stays open on its deployed-verification exit criterion — one pass through a real tenant's dashboard, Ajustes save, and a client page covers all three. | [#93](https://github.com/jesushzv/business-helper/issues/93) · [#95](https://github.com/jesushzv/business-helper/issues/95) · [#96](https://github.com/jesushzv/business-helper/issues/96) |
+| 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+
+**Resolved off this table on 2026-08-08:** [#79](https://github.com/jesushzv/business-helper/issues/79)
+— the PGRST201 prediction was **confirmed against live PostgREST** (every `/pay/` link had 404'd
+since the route existed) and both embeds are hinted, with a scan test pinning the pattern; closes
+with the PR. [#76](https://github.com/jesushzv/business-helper/issues/76) — closed; live
+`aclexplode` sweep ran clean. [#59](https://github.com/jesushzv/business-helper/issues/59) —
+closed as already-done (PR #75).
 
 **Cleared since this section was first written** (2026-08-07, all verified closed on the tracker):
 [#33](https://github.com/jesushzv/business-helper/issues/33) payment confirmation (PR #55) ·
@@ -457,13 +512,11 @@ mocked providers — no message was sent to a real handset.**
 fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
 
 > [!NOTE]
-> **Rows 1–6 and 8 need the founder; row 7 needs an agent.** Row 5 moved across on
-> 2026-08-07: its code half is done, and what is left is a live check. Row 6 (added 2026-08-08)
-> is the same shape — an agent wrote the analysis and the fix, but only a deployed database can
-> say whether the defect is real. The founder rows are credentials, accounts, a real handset and
-> a real card — no PR can close them. They do not block the agent rows, so the two tracks run in
-> parallel, which is most of the slack left in a September date that decision 5 fixed at full
-> scope.
+> **Every remaining row needs the founder.** As of 2026-08-08 there is no open P0 whose next step
+> an agent can take: rows 1–4 and 7 are credentials, accounts, a real handset and a real card;
+> rows 5 and 6 are code that is done and waiting on one pass through a real deployment. The
+> agent-closable items (#59, #76, #79, and the code halves of #93/#95/#96) have all been taken.
+> The founder rows do not block each other, and row 6's walkthrough can piggyback on row 5's.
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without

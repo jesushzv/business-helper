@@ -35,6 +35,7 @@
 - `codigo_postal`: text (nullable) -- 5-digit Mexican postal code
 - `logo_url`: text (nullable) -- Supabase Storage URL
 - `industry`: text (nullable) -- e.g., 'construction', 'services', 'retail'
+- `phone`: text (nullable) -- org WhatsApp contact, canonical 10-digit form (`20260809000000`; #95/#44)
 - `owner_id`: uuid (FK -> `auth.users.id`, not null, IDX)
 - `stripe_customer_id`: text (nullable, UQ)
 - `stripe_subscription_id`: text (nullable, UQ)
@@ -44,6 +45,9 @@
 - `cfdi_folios_used`: integer (not null, default: `0`) -- Folios spent inside `cfdi_folios_period`
 - `cfdi_folios_period`: text (nullable) -- 'YYYY-MM' the counter above describes
 - `cfdi_folios_purchased`: integer (not null, default: `0`) -- Pack folios; do not expire monthly
+- `bank_name`: text (nullable) -- SPEI settlement account (`20260806120000`)
+- `bank_clabe`: text (nullable) -- 18-digit CLABE; absence blocks `/pay/` (#64)
+- `bank_account_holder`: text (nullable)
 - `created_at`: timestamptz (not null, default: `now()`)
 - `updated_at`: timestamptz (not null, default: `now()`)
 

@@ -141,10 +141,16 @@ export async function PATCH(request: Request) {
 
     if (body.regimenFiscal !== undefined) {
       // Stored as the SAT code; old clients sent display labels like
-      // '601 — General de Ley Personas Morales'.
-      const code = /^(\d{3})/.exec(
-        typeof body.regimenFiscal === 'string' ? body.regimenFiscal.trim() : ''
-      );
+      // '601 — General de Ley Personas Morales'. A non-empty value that yields
+      // no code is a 400, not a silent NULL — this field feeds CFDI 4.0.
+      const raw = typeof body.regimenFiscal === 'string' ? body.regimenFiscal.trim() : '';
+      const code = /^(\d{3})/.exec(raw);
+      if (raw && !code) {
+        return NextResponse.json(
+          { error: { code: 'INVALID_INPUT', message: 'El régimen fiscal no es válido' } },
+          { status: 400 }
+        );
+      }
       update.regimen_fiscal = code ? code[1] : null;
     }
 
@@ -182,8 +188,16 @@ export async function PATCH(request: Request) {
     }
 
     if (body.logoUrl !== undefined) {
-      update.logo_url =
-        typeof body.logoUrl === 'string' && body.logoUrl.trim() ? body.logoUrl.trim() : null;
+      const logo = typeof body.logoUrl === 'string' ? body.logoUrl.trim() : '';
+      // https only: the logo renders on client-facing pages, so an arbitrary
+      // scheme (javascript:) or plain-http origin is not acceptable there.
+      if (logo && !/^https:\/\//i.test(logo)) {
+        return NextResponse.json(
+          { error: { code: 'INVALID_INPUT', message: 'La URL del logotipo debe comenzar con https://' } },
+          { status: 400 }
+        );
+      }
+      update.logo_url = logo || null;
     }
 
     if (Object.keys(update).length === 0) {
@@ -200,7 +214,12 @@ export async function PATCH(request: Request) {
       .from('organizations')
       .update(update)
       .eq('owner_id', userId)
-      .select('*')
+      // Explicit list on purpose: this table is growing CFDI/billing columns,
+      // and a `*` here would ship any future sensitive column to the browser
+      // without a diff to review.
+      .select(
+        'id, name, rfc, regimen_fiscal, codigo_postal, phone, logo_url, subscription_tier, subscription_status, bank_name, bank_clabe, bank_account_holder'
+      )
       .maybeSingle();
 
     if (error) {
