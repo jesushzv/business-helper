@@ -75,7 +75,9 @@ describe('PublicQuotePage (/q/[token])', () => {
   });
 
   it('shows "no encontrada" for a token the server does not recognize', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(404, { error: 'Quote not found' }));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(404, { error: { code: 'QUOTE_NOT_FOUND', message: 'Cotización no encontrada' } })
+    );
 
     render(<PublicQuotePage />);
 
@@ -85,7 +87,9 @@ describe('PublicQuotePage (/q/[token])', () => {
   });
 
   it('shows a load error, not a demo quote, when the server fails', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(500, { error: 'boom' }));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(500, { error: { code: 'QUOTE_FETCH_FAILED', message: 'boom' } })
+    );
 
     render(<PublicQuotePage />);
 

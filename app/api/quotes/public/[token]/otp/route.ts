@@ -7,6 +7,7 @@ import {
   reserveOtpSend,
   type OtpLedgerClient,
 } from '@/lib/otpRateLimit';
+import { publicApiError } from '@/lib/publicApiError';
 
 /**
  * Issues an OTP for a quote signature.
@@ -33,9 +34,10 @@ export async function POST(
   const { token } = await params;
 
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      { error: 'La firma digital no está disponible en modo demo' },
-      { status: 503 }
+    return publicApiError(
+      503,
+      'BACKEND_NOT_CONFIGURED',
+      'La firma digital no está disponible en modo demo'
     );
   }
 
@@ -50,41 +52,39 @@ export async function POST(
       .maybeSingle();
 
     if (fetchError || !quote) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+      return publicApiError(404, 'QUOTE_NOT_FOUND', 'Cotización no encontrada');
     }
 
     if (quote.client_otp_verified) {
-      return NextResponse.json(
-        { error: 'Esta cotización ya fue firmada' },
-        { status: 409 }
-      );
+      return publicApiError(409, 'QUOTE_ALREADY_SIGNED', 'Esta cotización ya fue firmada');
     }
 
     if (!['sent', 'accepted'].includes(quote.status)) {
-      return NextResponse.json(
-        { error: 'Esta cotización no está disponible para firma' },
-        { status: 409 }
+      return publicApiError(
+        409,
+        'QUOTE_NOT_SIGNABLE',
+        'Esta cotización no está disponible para firma'
       );
     }
 
     if (quote.client_otp_sent_at) {
       const elapsed = Date.now() - new Date(quote.client_otp_sent_at).getTime();
       if (elapsed < RESEND_COOLDOWN_MS) {
-        return NextResponse.json(
-          {
-            error: 'Espere unos segundos antes de solicitar otro código',
-            retry_after_seconds: Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000),
-          },
-          { status: 429 }
+        return publicApiError(
+          429,
+          'OTP_RESEND_COOLDOWN',
+          'Espere unos segundos antes de solicitar otro código',
+          { retry_after_seconds: Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000) }
         );
       }
     }
 
     const phone = quote.clients?.phone;
     if (!phone) {
-      return NextResponse.json(
-        { error: 'El cliente no tiene un número de teléfono registrado' },
-        { status: 422 }
+      return publicApiError(
+        422,
+        'CLIENT_PHONE_MISSING',
+        'El cliente no tiene un número de teléfono registrado'
       );
     }
 
@@ -92,9 +92,10 @@ export async function POST(
     // client — never from anything the (unauthenticated) caller sent.
     const recipient = normalizeOtpRecipient(phone);
     if (!recipient) {
-      return NextResponse.json(
-        { error: 'El teléfono registrado del cliente no es un número válido' },
-        { status: 422 }
+      return publicApiError(
+        422,
+        'CLIENT_PHONE_INVALID',
+        'El teléfono registrado del cliente no es un número válido'
       );
     }
 
@@ -107,14 +108,13 @@ export async function POST(
     });
 
     if (!reservation.allowed) {
-      return NextResponse.json(
-        {
-          error: reservation.error,
-          ...(reservation.retryAfterSeconds !== undefined
-            ? { retry_after_seconds: reservation.retryAfterSeconds }
-            : {}),
-        },
-        { status: 429 }
+      return publicApiError(
+        429,
+        'OTP_RATE_LIMITED',
+        reservation.error,
+        reservation.retryAfterSeconds !== undefined
+          ? { retry_after_seconds: reservation.retryAfterSeconds }
+          : undefined
       );
     }
 
@@ -130,9 +130,10 @@ export async function POST(
     const delivery = await deliverOtp(phone, code);
 
     if (!delivery.delivered) {
-      return NextResponse.json(
-        { error: delivery.error || 'No se pudo enviar el código de verificación' },
-        { status: 502 }
+      return publicApiError(
+        502,
+        'OTP_DELIVERY_FAILED',
+        delivery.error || 'No se pudo enviar el código de verificación'
       );
     }
 
@@ -151,9 +152,10 @@ export async function POST(
     if (updateError) {
       // The code is on the signer's handset but was never stored, so it will
       // not verify. Say so honestly rather than reporting the send as done.
-      return NextResponse.json(
-        { error: 'No se pudo registrar el código enviado. Solicite uno nuevo.' },
-        { status: 500 }
+      return publicApiError(
+        500,
+        'OTP_STORE_FAILED',
+        'No se pudo registrar el código enviado. Solicite uno nuevo.'
       );
     }
 
@@ -166,9 +168,10 @@ export async function POST(
       ...(delivery.devCode && !isDeliveryConfigured() ? { dev_code: delivery.devCode } : {}),
     });
   } catch {
-    return NextResponse.json(
-      { error: 'Failed to issue verification code' },
-      { status: 500 }
+    return publicApiError(
+      500,
+      'OTP_ISSUE_FAILED',
+      'No se pudo generar el código de verificación. Intente de nuevo.'
     );
   }
 }

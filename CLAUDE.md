@@ -84,6 +84,15 @@ engineering journal.
    unauthenticated caller.
 6. Never hardcode a domain or origin — use `getAppBaseUrl()` / `getAssetUrl()` from `lib/url.ts`.
    The domain is `businesshelper.app`; `.mx` was never registered (issue #36 is the cautionary tale).
+7. **Public routes** (`/api/quotes/public/*`, `/api/receivables/public/*`) build every error
+   through `publicApiError()` from `lib/publicApiError.ts` — same `{ error: { code, message } }`
+   envelope, Spanish message safe to render verbatim, machine state in `code`, body siblings
+   (`retry_after_seconds`, `attempts`, `remaining`, `expired`) passed via its `extra` arg.
+   Consumers read `error.message` and branch on `error.code`; `data?.error || fallback` renders
+   `[object Object]` against the envelope. Before #65 these three routes had four shapes between
+   them, several in English, shown to the tenant's *client* mid-signature.
+   `tests/unit/publicErrorEnvelope.test.ts` fails the build on a bare-string body, a sibling
+   `code`, or an English message.
 
 ## Hard rules — every change, any size
 
