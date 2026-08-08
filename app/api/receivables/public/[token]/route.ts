@@ -51,7 +51,11 @@ export async function GET(
     const { data: quote, error } = await (supabase as any)
       .from('quotes')
       .select(
-        'id, title, contracts(id, title, milestones(id, label, amount, due_date, status)), clients(name), organizations(name, bank_name, bank_clabe, bank_account_holder)'
+        // contracts must be hinted by FK column: quotes↔contracts are joined by
+        // two foreign keys (contracts.quote_id and quotes.converted_contract_id),
+        // and PostgREST answers an unhinted embed with PGRST201 — which made this
+        // handler 404 for every token ever issued (#79, confirmed live 2026-08-08).
+        'id, title, contracts!quote_id(id, title, milestones(id, label, amount, due_date, status)), clients(name), organizations(name, bank_name, bank_clabe, bank_account_holder)'
       )
       .eq('public_token', token)
       .maybeSingle();
@@ -138,7 +142,7 @@ export async function POST(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: quote, error: fetchError } = await (supabase as any)
       .from('quotes')
-      .select('id, contracts(id, milestones(id))')
+      .select('id, contracts!quote_id(id, milestones(id))')
       .eq('public_token', token)
       .maybeSingle();
 
