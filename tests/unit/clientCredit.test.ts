@@ -17,6 +17,20 @@ describe('B2B Client Trade Credit & SAT PPD/CPP Invoicing Engine', () => {
     expect(summary.isOverLimit).toBe(false);
   });
 
+  it('counts a payer-declared marked_paid as still owed — only owner confirmation releases credit', () => {
+    // `marked_paid` is set by the unauthenticated public portal on the payer's
+    // own declaration. Treating it as settled would let a client free their
+    // credit line by declaring transfers the owner never received.
+    const client = { id: 'c_1', credit_limit: 50000, credit_days: 30, credit_status: 'active' as const };
+    const receivables = [
+      { clientId: 'c_1', amount: 20000, status: 'marked_paid' },
+      { clientId: 'c_1', amount: 10000, status: 'confirmed' },
+    ];
+    const summary = calculateClientCreditSummary(client, receivables);
+    expect(summary.usedCredit).toBe(20000);
+    expect(summary.availableCredit).toBe(30000);
+  });
+
   it('should flag when quote total exceeds available credit', () => {
     const res = validateQuoteCreditLimit(30000, 20000, 'active');
     expect(res.isAllowed).toBe(true);

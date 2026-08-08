@@ -3,8 +3,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Client } from '@/types';
 import { track } from '@/lib/analytics';
+import { isClientDemoMode } from '@/lib/clientDemoMode';
 
-// Mock initial data for Don Roberto & Demo mode
+// Demo-mode fixtures. Reachable ONLY behind isClientDemoMode(): they used to be
+// the fallback for any API failure — and for a real tenant with zero clients,
+// because the fetch treated an empty list as "no answer" — so a new tenant's
+// directory opened with three invented companies (#93/#96 audit).
 const INITIAL_DEMO_CLIENTS: Client[] = [
   {
     id: 'client-demo-1',
@@ -73,35 +77,40 @@ export function useClients() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Fetch clients from API or localStorage fallback
+  /**
+   * Real tenants get the server's answer — including an empty list, which is a
+   * real answer — or an error. The localStorage/demo path exists only for the
+   * demo deployment: falling into it on a failed fetch showed a real tenant
+   * three invented clients (#93/#96), and `error` was never assigned at all
+   * (#97), so no page could have told them.
+   */
   const fetchClients = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const res = await fetch('/api/clients');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.clients && Array.isArray(data.clients) && data.clients.length > 0) {
+
+    if (!isClientDemoMode()) {
+      try {
+        const res = await fetch('/api/clients');
+        const data = await res.json().catch(() => null);
+        if (res.ok && Array.isArray(data?.clients)) {
           setClients(data.clients);
-          setLoading(false);
-          return;
+        } else {
+          setError(data?.error?.message || 'No se pudieron cargar tus clientes.');
         }
+      } catch {
+        setError('No se pudieron cargar tus clientes. Revisa tu conexión.');
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      // Fall through to localStorage / demo fallback
+      return;
     }
 
-    // LocalStorage / Demo Fallback
+    // Demo deployment: localStorage keeps the sandbox interactive.
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setClients(parsed);
-        } else {
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_CLIENTS));
-          setClients(INITIAL_DEMO_CLIENTS);
-        }
+      const parsed = saved ? JSON.parse(saved) : null;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setClients(parsed);
       } else {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_CLIENTS));
         setClients(INITIAL_DEMO_CLIENTS);
@@ -117,8 +126,9 @@ export function useClients() {
     fetchClients();
   }, [fetchClients]);
 
-  // Sync state to local storage helper
+  // Persists the demo sandbox only; a real tenant's data lives on the server.
   const syncLocalStorage = (updated: Client[]) => {
+    if (!isClientDemoMode()) return;
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
@@ -126,9 +136,36 @@ export function useClients() {
     }
   };
 
+  async function readErrorMessage(res: Response, fallback: string): Promise<string> {
+    const data = await res.json().catch(() => null);
+    return data?.error?.message || fallback;
+  }
+
+  // Every mutation: demo mode mutates the sandbox locally; a real tenant gets
+  // the server row on success and a thrown error on failure. The old shape fell
+  // back to a local mutation when the API failed, so a rejected write still
+  // appeared in the directory (#33's class on the client CRUD).
   const addClient = async (
     clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'health_score' | 'organization_id'>
   ): Promise<Client> => {
+    if (!isClientDemoMode()) {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(clientData),
+      });
+      if (!res.ok) {
+        throw new Error(await readErrorMessage(res, 'No se pudo guardar el cliente.'));
+      }
+      const saved = await res.json();
+      if (!saved?.id) throw new Error('No se pudo guardar el cliente.');
+      // Only real writes count toward the funnel; the demo path below is
+      // fiction and would pollute it.
+      track('client_created', { organization_id: saved.organization_id });
+      setClients((prev) => [saved, ...prev]);
+      return saved;
+    }
+
     const newClient: Client = {
       ...clientData,
       id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -137,60 +174,28 @@ export function useClients() {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-
-    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || !process.env.NEXT_PUBLIC_SUPABASE_URL || (typeof window !== 'undefined' && localStorage.getItem('business_helper_sandbox') === 'true');
-
-    // Try API only when not in demo/sandbox mode
-    if (!isDemoMode) {
-      try {
-        const res = await fetch('/api/clients', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(clientData),
-        });
-
-        if (res.ok) {
-          const saved = await res.json();
-          if (saved && saved.id) {
-            // Only real writes count toward the funnel; the demo/local path
-            // below is fiction and would pollute it.
-            track('client_created', { organization_id: saved.organization_id });
-            setClients((prev) => [saved, ...prev]);
-            return saved;
-          }
-        }
-      } catch {
-        // Fallback to local state mutation
-      }
-    }
-
     setClients((prev) => {
       const next = [newClient, ...prev];
       syncLocalStorage(next);
       return next;
     });
-
     return newClient;
   };
 
   const updateClient = async (id: string, clientData: Partial<Client>): Promise<Client> => {
-    // Try API
-    try {
+    if (!isClientDemoMode()) {
       const res = await fetch(`/api/clients/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(clientData),
       });
-
-      if (res.ok) {
-        const updated = await res.json();
-        if (updated && updated.id) {
-          setClients((prev) => prev.map((c) => (c.id === id ? updated : c)));
-          return updated;
-        }
+      if (!res.ok) {
+        throw new Error(await readErrorMessage(res, 'No se pudieron guardar los cambios del cliente.'));
       }
-    } catch {
-      // Fallback
+      const updated = await res.json();
+      if (!updated?.id) throw new Error('No se pudieron guardar los cambios del cliente.');
+      setClients((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      return updated;
     }
 
     let updatedClient: Client | undefined;
@@ -211,10 +216,11 @@ export function useClients() {
   };
 
   const deleteClient = async (id: string): Promise<void> => {
-    try {
-      await fetch(`/api/clients/${id}`, { method: 'DELETE' });
-    } catch {
-      // Fallback
+    if (!isClientDemoMode()) {
+      const res = await fetch(`/api/clients/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        throw new Error(await readErrorMessage(res, 'No se pudo eliminar el cliente.'));
+      }
     }
 
     setClients((prev) => {

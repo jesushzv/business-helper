@@ -9,9 +9,25 @@ interface OrgProfileCardProps {
   settings: OrganizationSettings;
   onSave: (updated: Partial<OrganizationSettings>) => Promise<boolean>;
   saving: boolean;
+  /** Only the owner can PATCH the organization; others see the data read-only. */
+  canEdit: boolean;
 }
 
-export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({ settings, onSave, saving }) => {
+// Stored as the SAT code; the label is presentation only. The old select
+// persisted the whole display string, which is not what a CFDI wants.
+const REGIMENES_FISCALES = [
+  { code: '601', label: '601 — General de Ley Personas Morales' },
+  { code: '626', label: '626 — Régimen Simplificado de Confianza (RESICO)' },
+  { code: '612', label: '612 — Personas Físicas con Actividades Empresariales' },
+  { code: '605', label: '605 — Sueldos y Salarios' },
+];
+
+export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
+  settings,
+  onSave,
+  saving,
+  canEdit,
+}) => {
   const [formData, setFormData] = useState<OrganizationSettings>(settings);
   const [rfcError, setRfcError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<boolean>(false);
@@ -74,7 +90,8 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({ settings, onSave
             value={formData.name}
             onChange={handleChange}
             required
-            className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px]"
+            disabled={!canEdit}
+            className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px] disabled:opacity-60"
           />
         </div>
 
@@ -88,8 +105,9 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({ settings, onSave
               name="rfc"
               value={formData.rfc}
               onChange={handleChange}
-              placeholder="DNO850101HD9"
-              className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px] uppercase font-mono"
+              placeholder="XAXX010101000"
+              disabled={!canEdit}
+              className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px] uppercase font-mono disabled:opacity-60"
             />
             {rfcError && (
               <p className="mt-1 flex items-center gap-1 text-xs text-rose-400">
@@ -110,7 +128,8 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({ settings, onSave
               onChange={handleChange}
               maxLength={5}
               placeholder="64000"
-              className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px]"
+              disabled={!canEdit}
+              className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px] disabled:opacity-60"
             />
           </div>
         </div>
@@ -124,12 +143,19 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({ settings, onSave
               name="regimen_fiscal"
               value={formData.regimen_fiscal}
               onChange={handleChange}
-              className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px]"
+              disabled={!canEdit}
+              className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px] disabled:opacity-60"
             >
-              <option value="601 — General de Ley Personas Morales" className="bg-slate-900 text-white">601 — General de Ley Personas Morales</option>
-              <option value="626 — Régimen Simplificado de Confianza (RESICO)" className="bg-slate-900 text-white">626 — RESICO</option>
-              <option value="612 — Personas Físicas con Actividades Empresariales" className="bg-slate-900 text-white">612 — Actividades Empresariales</option>
-              <option value="605 — Sueldos y Salarios" className="bg-slate-900 text-white">605 — Sueldos y Salarios</option>
+              {formData.regimen_fiscal === '' && (
+                <option value="" className="bg-slate-900 text-white">
+                  Selecciona tu régimen
+                </option>
+              )}
+              {REGIMENES_FISCALES.map((r) => (
+                <option key={r.code} value={r.code} className="bg-slate-900 text-white">
+                  {r.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -142,21 +168,28 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({ settings, onSave
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              placeholder="8115551234"
-              className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px]"
+              placeholder="10 dígitos, ej. 8112345678"
+              disabled={!canEdit}
+              className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px] disabled:opacity-60"
             />
           </div>
         </div>
 
         <div className="pt-2">
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold px-6 py-3.5 text-sm shadow-md transition-all disabled:opacity-50"
-          >
-            <Save className="h-4 w-4" />
-            <span>{saving ? 'Guardando...' : 'Guardar Cambios de Empresa'}</span>
-          </button>
+          {canEdit ? (
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold px-6 py-3.5 text-sm shadow-md transition-all disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              <span>{saving ? 'Guardando...' : 'Guardar Cambios de Empresa'}</span>
+            </button>
+          ) : (
+            <p className="text-xs font-medium text-slate-400">
+              Solo el propietario del negocio puede editar estos datos.
+            </p>
+          )}
         </div>
       </form>
     </div>

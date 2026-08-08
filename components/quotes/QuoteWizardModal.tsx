@@ -34,8 +34,11 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   );
   const [notes, setNotes] = useState<string>('');
 
+  // Starts empty on purpose: the old prefill ('Suministro de Materiales de
+  // Obra', $15,000) passed step-2 validation untouched, so an owner who only
+  // typed a title sent their client a real quote for goods they don't sell (#93).
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: 'Suministro de Materiales de Obra', quantity: 1, unit_price: 15000, sat_code: '30111500', unit: 'E48' },
+    { description: '', quantity: 1, unit_price: 0, sat_code: '30111500', unit: 'E48' },
   ]);
 
   const [applyIva, setApplyIva] = useState<boolean>(true);

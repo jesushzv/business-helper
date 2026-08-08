@@ -78,7 +78,9 @@ export default function PublicPayPortalPage() {
     }
   }, [token]);
 
-  const branding = getOrganizationBranding({ companyName: milestone?.org_name || 'Business Helper Demo' });
+  // No org name → the neutral platform default, never an invented "Demo"
+  // company on the screen where a client is about to transfer money (#93).
+  const branding = getOrganizationBranding({ companyName: milestone?.org_name || undefined });
   const cssVars = generateThemeCssVariables(branding);
 
   const handleCopyClabe = () => {
@@ -183,15 +185,25 @@ export default function PublicPayPortalPage() {
 
   if (!milestone) {
     const bankDetailsMissing = loadErrorCode === 'ORG_BANK_DETAILS_MISSING';
+    // Every payable milestone is already declared or confirmed — a valid link,
+    // not a broken one. Saying "no existe" here would tell a payer who already
+    // transferred that their cobro vanished.
+    const alreadyRecorded = loadErrorCode === 'PAYMENT_ALREADY_RECORDED';
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 text-center max-w-md text-white">
           <h2 className="text-xl font-bold text-white">
-            {bankDetailsMissing ? 'Pago No Disponible Por El Momento' : 'Enlace de Pago No Encontrado'}
+            {bankDetailsMissing
+              ? 'Pago No Disponible Por El Momento'
+              : alreadyRecorded
+              ? 'Este Cobro Ya Fue Registrado'
+              : 'Enlace de Pago No Encontrado'}
           </h2>
           <p className="text-sm text-slate-400 mt-2">
             {bankDetailsMissing
               ? 'El negocio aún no ha configurado su cuenta bancaria para recibir pagos SPEI. Contacte a su proveedor para completar el pago.'
+              : alreadyRecorded
+              ? 'El comprobante de este cobro ya fue enviado o el pago ya fue confirmado. Si tienes dudas, contacta directamente al negocio.'
               : 'La clave o ficha de cobro no existe o ha expirado.'}
           </p>
         </div>
@@ -252,9 +264,13 @@ export default function PublicPayPortalPage() {
               <ShieldCheck className="w-5 h-5 text-indigo-400" />
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">Datos para Transferencia SPEI</span>
             </div>
-            <span className="text-xs font-bold bg-indigo-900/80 border border-indigo-500/30 px-2.5 py-1 rounded-full text-indigo-200">
-              {milestone.bank_name || 'BBVA México'}
-            </span>
+            {/* No bank on file → no badge. The fallback here used to invent
+                "BBVA México" for whatever account the CLABE actually belongs to. */}
+            {milestone.bank_name && (
+              <span className="text-xs font-bold bg-indigo-900/80 border border-indigo-500/30 px-2.5 py-1 rounded-full text-indigo-200">
+                {milestone.bank_name}
+              </span>
+            )}
           </div>
 
           <div className="space-y-3 pt-2">

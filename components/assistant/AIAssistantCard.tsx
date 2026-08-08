@@ -5,7 +5,7 @@ import { useAIAssistant } from '@/lib/hooks/useAIAssistant';
 import { Bot, Send, Sparkles, MessageSquare, ArrowRight, DollarSign, Info, AlertCircle } from 'lucide-react';
 
 const SUGGESTED_QUERIES = [
-  '¿Cuánto me debe Grupo Salinas?',
+  '¿Qué cliente me debe más?',
   '¿Cuáles pagos vencen hoy?',
   '¿Qué clientes tienen facturas pendientes?',
   '¿Cuánto hemos cobrado este mes?'

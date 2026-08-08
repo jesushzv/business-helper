@@ -180,10 +180,14 @@ pair, plus a third builder #73 did not list). `tests/unit/url.test.ts` fails the
 `lib/*.ts` module regains a literal app origin.
 
 **`milestones` has no `public_token` column.** The token reaches a milestone through
-`contract.quote_id → quotes.public_token`, so any query behind a share action must embed it — and
-that embed **needs an FK hint**, `quotes!quote_id(...)`: `quotes` and `contracts` are joined by *two*
-foreign keys (`contracts.quote_id` and `quotes.converted_contract_id`), which makes an unhinted
-embed ambiguous. A share action whose row has no token must offer **no link at all** — the
+`contract.quote_id → quotes.public_token`, so any query behind a share action must embed it —
+and that embed **needs an FK hint**, `quotes!quote_id(...)`: `quotes` and `contracts` are joined by
+*two* foreign keys (`contracts.quote_id` and `quotes.converted_contract_id`), which makes an
+unhinted embed ambiguous. This is not theoretical: production PostgREST answers the unhinted form
+with `300 PGRST201`, which is how **every `/pay/` link 404'd from the day the route shipped**
+(#79, confirmed live 2026-08-08). `tests/unit/postgrestEmbedHints.test.ts` scans every
+`.select()` in `app/` and `lib/` and fails the build on an unhinted quotes↔contracts embed, in
+either direction. A share action whose row has no token must offer **no link at all**; the
 placeholder tokens (`'demo'`, `'demo_token'`) that used to fill that gap rendered as live links to
 `/pay/demo`.
 
@@ -279,8 +283,32 @@ not actually earned. It has shipped here at least eight times.
   Check `git log --oneline -1` against the expected HEAD before writing anything.
 - **Commit (or copy to scratch) before planting a violation to verify a red test.** The
   plant-then-remove step rule 7 requires has a trap: `git checkout <file>` to remove the plant
-  restores the *last commit*, wiping every uncommitted change to that file with it. Remove plants by
-  reversing the exact edit, or plant only in files whose real changes are already committed.
+  restores the *last commit*, wiping every uncommitted change to that file with it. Remove plants
+  by reversing the exact edit, or plant only in files whose real changes are already committed.
+- **A session with the Supabase connector can run "needs a deployment" checks itself — don't park
+  them on the founder.** Live schema/grants come from `execute_sql` against `pg_catalog` /
+  `information_schema`; migrations apply via `apply_migration` (which keeps the ledger); and even
+  PostgREST behavior is reachable from inside the database — `CREATE EXTENSION http`, call the
+  project's own `/rest/v1/` with `http_get()` (pass the anon key as an `apikey=` query param),
+  `DROP EXTENSION` after. The shell cannot reach `*.supabase.co` (network policy), which is why
+  the in-database route exists. #79 sat "unverifiable" for a day of sessions that had this
+  capability the whole time. Confirm every claim by reading the catalog back, never by exit code.
+- **Before writing a client `fetch`, grep the route file for the export of that HTTP method.**
+  `useOrganizationSettings` PUT against a route exporting only GET/PATCH/POST — every save a 405,
+  swallowed by `.catch(() => {})`, reported as success (#95). A method mismatch is the quietest
+  fabricated-success there is: no test that mocks `fetch` can see it. The same grep takes seconds:
+  `grep "export async function" app/api/<route>/route.ts`.
+- **The demo persona lives behind `isClientDemoMode()` and nowhere else.** "Don Roberto" /
+  "Distribuidora del Norte" / RFC `DNO850101…` shipped hardcoded in the header, sidebar, dashboard
+  greeting and three client-facing WhatsApp builders (#93). Identity in chrome comes from
+  `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in `lib/whatsappLink.ts`
+  (org name as a parameter — never a literal, and omit the signature when unknown).
+  `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak and keeps the file allowlist;
+  extending the allowlist requires the string to actually sit behind a demo gate.
+- **localStorage is demo-sandbox state, never a real tenant's store.** Real tenants read the API
+  (an empty list is a real answer), see errors as errors, and their mutations apply the server row
+  or throw. Seeding fixtures into localStorage on a failed fetch is how a new tenant's directory
+  opened with three invented companies (#93/#96 audit; same class as #33/#50/#58).
 
 ## GitHub conventions
 

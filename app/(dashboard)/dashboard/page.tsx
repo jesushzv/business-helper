@@ -5,12 +5,18 @@ import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { DollarSign, Plus } from 'lucide-react';
 import { useDashboardAnalytics } from '@/lib/hooks/useDashboardAnalytics';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
 import { FinancialOverviewCards } from '@/components/dashboard/FinancialOverviewCards';
 import { CashFlowForecastCard } from '@/components/dashboard/CashFlowForecastCard';
 import { TopClientsCard } from '@/components/dashboard/TopClientsCard';
 
 export default function DashboardPage() {
   const { metrics, topClients, cashFlowForecast, loading } = useDashboardAnalytics();
+  const { org, user } = useCurrentOrg();
+
+  // Greet whoever we actually know — first name, business name, or nobody.
+  // "¡Hola, Don Roberto!" used to greet every real owner (#93).
+  const greetName = user?.name?.trim().split(/\s+/)[0] || org?.name || null;
 
   return (
     <div className="min-h-screen pb-16">
@@ -25,7 +31,7 @@ export default function DashboardPage() {
                 Panel de Administración
               </span>
               <h2 className="mt-2.5 text-2xl font-black tracking-tight sm:text-3xl text-white">
-                ¡Hola, Don Roberto!
+                {greetName ? `¡Hola, ${greetName}!` : '¡Hola!'}
               </h2>
               <p className="mt-1 max-w-xl text-xs font-medium text-slate-300 sm:text-sm">
                 Resumen ejecutivo de ingresos, cuentas por cobrar, flujo de efectivo y clientes clave.

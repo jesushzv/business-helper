@@ -75,7 +75,7 @@ until checked against source. This memo does that check; §06 records the method
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **722 tests / 87 files**, `npx vitest run` (2026-08-08) — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **774 tests / 94 files**, `npx vitest run` (2026-08-08) — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -145,14 +145,20 @@ frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08
 
 | # | Item | Tracked |
 |:--|:---|:---|
-| 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants). All four confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path, which needs the founder. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
+| 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path, which needs the founder. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
 | 2 | **Configure one OTP channel.** Twilio SMS: fastest to provision, no business-verification wait, and at pilot volume the premium over WhatsApp is a few dollars a month. Set `OTP_DELIVERY_CHANNEL=sms`, then verify a real code lands on a real handset and cannot be replayed. Per-recipient rate limiting is already in place (#20). Without this no quote can be signed at all, so it gates the end-to-end check for everything else. | [#2](https://github.com/jesushzv/business-helper/issues/2) |
 | 3 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 | 4 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
 | 5 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
-| 6 | **Verify whether the public `/pay/` route can resolve anything at all.** `quotes` and `contracts` are joined by two foreign keys, and both selects in `app/api/receivables/public/[token]/route.ts` embed `contracts` under `quotes` unhinted. If PostgREST answers PGRST201 there, `error` is truthy and every payment link 404s for every tenant — which would mean the page has never worked, consistent with row 5's live check never having been run. Ranked here, not lower, because it would invalidate row 5 and the whole SPEI half of the loop; ranked below the credential rows because confirming it needs the deployed environment row 1 gates. A 5-minute curl settles it. **Re-checked against source on 2026-08-08 @ `a378c7e`: both selects (lines 54 and 141) are still unhinted, so PR #80 did not reach this route** — it fixed the authenticated path, where `app/api/receivables/route.ts:46` now reads `quotes!quote_id(public_token)` correctly. The source-level premise of this issue therefore still holds; whether PostgREST actually returns PGRST201 remains unverified, because only a deployed database can answer that. | [#79](https://github.com/jesushzv/business-helper/issues/79) |
-| 7 | **Stop `useQuotes` asserting a contract that was never created.** `convertToContract` flipped status locally and announced "convertida a contrato con 2 hitos de cobranza" whether or not the route succeeded — the #33 defect on the step that opens the receivable. Promoted from unranked on 2026-08-07. | [#59](https://github.com/jesushzv/business-helper/issues/59) |
-| 8 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking of the six: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+| 6 | **The UX-audit trio: demo identity, fabricated settings save, fabricated client history.** All three fixed in code on 2026-08-08 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): real org/user identity in chrome and outbound WhatsApp with a logout that finally exists (#93); Ajustes reads and writes the real organization row instead of localStorage + a 405 (#95); client detail derives its financial modules from real rows behind a three-state loading gate (#96). Each stays open on its deployed-verification exit criterion — one pass through a real tenant's dashboard, Ajustes save, and a client page covers all three. | [#93](https://github.com/jesushzv/business-helper/issues/93) · [#95](https://github.com/jesushzv/business-helper/issues/95) · [#96](https://github.com/jesushzv/business-helper/issues/96) |
+| 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+
+**Resolved off this table on 2026-08-08:** [#79](https://github.com/jesushzv/business-helper/issues/79)
+— the PGRST201 prediction was **confirmed against live PostgREST** (every `/pay/` link had 404'd
+since the route existed) and both embeds are hinted, with a scan test pinning the pattern; closes
+with the PR. [#76](https://github.com/jesushzv/business-helper/issues/76) — closed; live
+`aclexplode` sweep ran clean. [#59](https://github.com/jesushzv/business-helper/issues/59) —
+closed as already-done (PR #75).
 
 **Cleared since this section was first written** (2026-08-07, all verified closed on the tracker):
 [#33](https://github.com/jesushzv/business-helper/issues/33) payment confirmation (PR #55) ·
@@ -162,13 +168,11 @@ frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08
 fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
 
 > [!NOTE]
-> **Rows 1–6 and 8 need the founder; row 7 needs an agent.** Row 5 moved across on
-> 2026-08-07: its code half is done, and what is left is a live check. Row 6 (added 2026-08-08)
-> is the same shape — an agent wrote the analysis and the fix, but only a deployed database can
-> say whether the defect is real. The founder rows are credentials, accounts, a real handset and
-> a real card — no PR can close them. They do not block the agent rows, so the two tracks run in
-> parallel, which is most of the slack left in a September date that decision 5 fixed at full
-> scope.
+> **Every remaining row needs the founder.** As of 2026-08-08 there is no open P0 whose next step
+> an agent can take: rows 1–4 and 7 are credentials, accounts, a real handset and a real card;
+> rows 5 and 6 are code that is done and waiting on one pass through a real deployment. The
+> agent-closable items (#59, #76, #79, and the code halves of #93/#95/#96) have all been taken.
+> The founder rows do not block each other, and row 6's walkthrough can piggyback on row 5's.
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without
@@ -295,7 +299,7 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 722 tests / 87 files as of 2026-08-08
+npx vitest run                 # 774 tests / 94 files as of 2026-08-08
                                # (earlier counts, and what each pass verified, are in the frozen
                                #  log at docs/99-archive/status-log-2026-08.md)
 npm run typecheck

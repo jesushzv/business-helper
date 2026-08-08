@@ -1,11 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Plus, Bell, Zap, Layers } from 'lucide-react';
+import { Plus, Zap, Layers, LogOut, UserCircle2 } from 'lucide-react';
 import { isDemoModeActive } from '@/lib/demoUtils';
 import { FeatureTierComparisonModal } from '@/components/features/FeatureTierComparisonModal';
 import { getAssetUrl } from '@/lib/url';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
+
+/** "Ferretería La Central" → "FL"; a single word yields its first letter. */
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return words
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+}
 
 interface HeaderProps {
   onNewClient?: () => void;
@@ -16,10 +27,29 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton }) => {
   const [isDemo, setIsDemo] = useState(false);
   const [isTierModalOpen, setIsTierModalOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const { org, user, loading: orgLoading, signOut } = useCurrentOrg();
 
   useEffect(() => {
     setIsDemo(isDemoModeActive());
   }, []);
+
+  useEffect(() => {
+    if (!isProfileOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [isProfileOpen]);
+
+  // Who to show: the person when known, otherwise the business, otherwise
+  // neutral chrome. Never the demo persona for a real tenant (#93).
+  const displayName = user?.name || user?.email || org?.name || null;
+  const secondaryLine = user?.name || user?.email ? org?.name || null : null;
 
   return (
     <>
@@ -74,22 +104,55 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton
             </button>
           )}
 
-          <button
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-            aria-label="Notificaciones"
-          >
-            <Bell className="h-4 w-4" />
-          </button>
+          {/* User Profile Menu. The notifications bell that used to sit here
+              had no onClick on any screen — removed until it does something. */}
+          <div className="relative" ref={profileRef}>
+            <button
+              onClick={() => setIsProfileOpen((open) => !open)}
+              aria-label="Mi cuenta"
+              aria-expanded={isProfileOpen}
+              className="flex h-10 items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-2.5 py-1 transition-colors hover:bg-slate-800"
+            >
+              {orgLoading ? (
+                <div className="h-7 w-7 animate-pulse rounded-lg bg-slate-800" />
+              ) : displayName ? (
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 font-extrabold text-emerald-400 text-xs border border-emerald-500/30">
+                  {initialsOf(displayName)}
+                </div>
+              ) : (
+                <UserCircle2 className="h-7 w-7 text-slate-400" />
+              )}
+              {displayName && (
+                <div className="hidden text-left md:block">
+                  <p className="max-w-[140px] truncate text-xs font-bold leading-none text-white">
+                    {displayName}
+                  </p>
+                  {secondaryLine && (
+                    <p className="max-w-[140px] truncate text-[10px] text-slate-400">{secondaryLine}</p>
+                  )}
+                </div>
+              )}
+            </button>
 
-          {/* User Profile Badge */}
-          <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-2.5 py-1">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 font-extrabold text-emerald-400 text-xs border border-emerald-500/30">
-              DR
-            </div>
-            <div className="hidden text-left md:block">
-              <p className="text-xs font-bold leading-none text-white">Don Roberto</p>
-              <p className="text-[10px] text-slate-400">Distribuidora Norte</p>
-            </div>
+            {isProfileOpen && (
+              <div className="absolute right-0 top-12 z-50 w-52 rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-2xl">
+                {displayName && (
+                  <div className="border-b border-slate-800 px-3 pb-2 pt-1">
+                    <p className="truncate text-xs font-bold text-white">{displayName}</p>
+                    {user?.email && (
+                      <p className="truncate text-[10px] text-slate-400">{user.email}</p>
+                    )}
+                  </div>
+                )}
+                <button
+                  onClick={signOut}
+                  className="mt-1 flex min-h-[44px] w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                >
+                  <LogOut className="h-4 w-4 text-rose-400" />
+                  <span>Cerrar sesión</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>

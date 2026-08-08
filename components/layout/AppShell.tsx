@@ -23,6 +23,13 @@ import {
 import { DemoBanner } from '@/components/demo/DemoBanner';
 import { SettlementAccountBanner } from '@/components/settlement/SettlementAccountBanner';
 import { FeatureTierComparisonModal } from '@/components/features/FeatureTierComparisonModal';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
+
+const TIER_BADGES: Record<string, string> = {
+  inicial: 'INICIAL',
+  negocio: 'NEGOCIO',
+  empresa: 'EMPRESA',
+};
 import { isDemoModeActive } from '@/lib/demoUtils';
 import { getAssetUrl } from '@/lib/url';
 
@@ -55,6 +62,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTierModalOpen, setIsTierModalOpen] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
+  const { org, loading: orgLoading } = useCurrentOrg();
 
   useEffect(() => {
     setIsDemo(isDemoModeActive());
@@ -116,18 +124,32 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           </button>
         </nav>
 
-        {/* Footer Org Badge */}
-        <div className="border-t border-slate-800/80 p-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-white">Distribuidora del Norte</p>
-              <span className="rounded-md bg-emerald-950 px-1.5 py-0.5 text-[9px] font-black text-emerald-400 border border-emerald-500/30">
-                PRO
-              </span>
+        {/* Footer Org Badge — the tenant's real organization, or nothing.
+            This card hardcoded the demo tenant (and an invented "PRO" tier)
+            for every real business (#93). */}
+        {(orgLoading || org) && (
+          <div className="border-t border-slate-800/80 p-4">
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3">
+              {orgLoading ? (
+                <div className="h-8 w-full animate-pulse rounded-lg bg-slate-800/70" />
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-xs font-bold text-white">{org?.name}</p>
+                    {org?.subscription_tier && (
+                      <span className="rounded-md bg-emerald-950 px-1.5 py-0.5 text-[9px] font-black text-emerald-400 border border-emerald-500/30">
+                        {TIER_BADGES[org.subscription_tier]}
+                      </span>
+                    )}
+                  </div>
+                  {org?.rfc && (
+                    <p className="mt-0.5 text-[10px] text-slate-400">RFC: {org.rfc}</p>
+                  )}
+                </>
+              )}
             </div>
-            <p className="mt-0.5 text-[10px] text-slate-400">RFC: DNO850101HD9</p>
           </div>
-        </div>
+        )}
       </aside>
 
       {/* Main Content Area */}
@@ -199,7 +221,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-white">Menú Principal</h3>
-                  <p className="text-xs text-slate-400">Distribuidora del Norte • MX</p>
+                  {org?.name && <p className="truncate text-xs text-slate-400">{org.name}</p>}
                 </div>
               </div>
               <button

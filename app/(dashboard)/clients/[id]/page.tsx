@@ -8,7 +8,10 @@ import { HealthScoreMeter } from '@/components/clients/HealthScoreMeter';
 import { ActivityTimeline } from '@/components/clients/ActivityTimeline';
 import { ClientFormModal } from '@/components/clients/ClientFormModal';
 import { useClients } from '@/lib/hooks/useClients';
-import { generateWhatsAppLink } from '@/lib/whatsappLink';
+import { useQuotes } from '@/lib/hooks/useQuotes';
+import { useReceivables } from '@/lib/hooks/useReceivables';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
+import { generateWhatsAppLink, buildClientGreeting } from '@/lib/whatsappLink';
 import { formatClientActivity } from '@/lib/clientActivity';
 import { calculateClientCreditSummary } from '@/lib/clientCredit';
 import {
@@ -29,18 +32,56 @@ import { Client } from '@/types';
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { getClientById, updateClient, deleteClient } = useClients();
+  const { getClientById, updateClient, deleteClient, loading, error } = useClients();
+  const { quotes } = useQuotes();
+  const { receivables } = useReceivables();
+  const { org } = useCurrentOrg();
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   const client = getClientById(id);
+
+  // Three states, not two: until the directory has loaded, an unmatched id
+  // means "still loading", not "deleted". The old page rendered "Cliente no
+  // encontrado — fue eliminado" on every cold load while the fetch was in
+  // flight (#96).
+  if (!client && loading) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Detalle de Cliente" />
+        <div className="space-y-6 px-4 py-6 md:px-8">
+          <div className="h-40 w-full animate-pulse rounded-3xl border border-slate-800 bg-slate-900/60" />
+          <div className="h-64 w-full animate-pulse rounded-3xl border border-slate-800 bg-slate-900/60" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!client && error) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Detalle de Cliente" />
+        <div className="px-4 py-12 text-center md:px-8">
+          <h3 className="text-xl font-bold text-white">No se pudo cargar el cliente</h3>
+          <p className="mt-2 text-xs text-slate-400">{error}</p>
+          <Link
+            href="/clients"
+            className="mt-6 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-xs"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Volver al Directorio</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!client) {
     return (
       <div className="min-h-screen">
         <Header title="Detalle de Cliente" />
         <div className="px-4 py-12 text-center md:px-8">
-          <h3 className="text-xl font-bold text-gray-900">Cliente no encontrado</h3>
-          <p className="mt-2 text-xs text-gray-500">El cliente solicitado no existe o fue eliminado.</p>
+          <h3 className="text-xl font-bold text-white">Cliente no encontrado</h3>
+          <p className="mt-2 text-xs text-slate-400">No encontramos este cliente en tu directorio.</p>
           <Link
             href="/clients"
             className="mt-6 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-xs"
@@ -64,49 +105,21 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
-  const waMessage = `Hola ${client.contact_name || client.name}, un gusto saludarte de Distribuidora del Norte.`;
+  const waMessage = buildClientGreeting(client.contact_name || client.name, org?.name);
   const whatsappUrl = generateWhatsAppLink(client.phone, waMessage);
 
-  // Mock activity history feed
-  const mockQuotes = [
-    {
-      id: 'q-101',
-      title: 'Cotización Materiales Obra Civil',
-      status: 'accepted',
-      total_amount: 45000,
-      created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ];
+  // The tenant's real rows, scoped to this client. An empty timeline and a
+  // zero-utilization credit meter are honest; the fixtures that used to fill
+  // them fed "Crédito Utilizado" with a $45,000 fiction on the page where the
+  // owner decides whether to extend more credit (#96).
+  const clientQuotes = quotes.filter((q) => q.client_id === client.id);
+  const clientMilestones = receivables.filter((m) => m.client_id === client.id);
 
-  const mockContracts = [
-    {
-      id: 'c-101',
-      title: 'Contrato Suministro de Bloques y Varilla',
-      status: 'accepted',
-      total_amount: 45000,
-      created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ];
-
-  const mockMilestones = [
-    {
-      id: 'm-101',
-      label: 'Anticipo 50% Obra Civil',
-      status: 'confirmed',
-      amount: 22500,
-      due_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      confirmed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'm-102',
-      label: 'Liquidación Final 50%',
-      status: 'pending',
-      amount: 22500,
-      due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ];
-
-  const activityFeed = formatClientActivity(mockQuotes, mockContracts, mockMilestones);
+  const activityFeed = formatClientActivity(
+    clientQuotes,
+    [],
+    clientMilestones as unknown as Array<Record<string, unknown>>
+  );
 
   return (
     <div className="min-h-screen pb-16">
@@ -207,11 +220,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Left Column: SAT Tax Profile & Health Score */}
           <div className="space-y-6">
-            <HealthScoreMeter score={client.health_score ?? 100} milestones={mockMilestones} />
+            <HealthScoreMeter score={client.health_score ?? 100} milestones={clientMilestones} />
 
             {/* B2B Credit Utilization Card */}
             {(() => {
-              const creditSummary = calculateClientCreditSummary(client, mockMilestones);
+              const creditSummary = calculateClientCreditSummary(client, clientMilestones);
               return (
                 <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl text-white">
                   <div className="flex items-center justify-between">

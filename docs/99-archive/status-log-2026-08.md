@@ -338,3 +338,67 @@ is still dialed as +52. #40 called that out as a decision rather than a fix; fil
 **Code, verified by `typecheck` + `lint` + 703 vitest tests / 86 files + `next build`. Against
 mocked providers — no message was sent to a real handset.**
 
+### Update 2026-08-08 ~22:00 UTC — #79 confirmed live and fixed; the UX-audit P0 trio (#93/#95/#96); #76 closed
+
+**#79 is no longer a prediction.** This session had the Supabase connector, so the live check the
+issue was parked on finally ran — from *inside* the database (`CREATE EXTENSION http`, four
+`http_get()` calls against the project's own PostgREST endpoint, `DROP EXTENSION`, zero residue),
+because the sandbox's network policy blocks shell HTTP to `*.supabase.co`. Result: **both unhinted
+embeds answer `300 PGRST201`**, naming exactly the two predicted FKs. Every `/pay/[token]` GET and
+POST has taken the 404 branch since the route existed — the payment page has never worked for any
+tenant. The fix (hint by FK column, `contracts!quote_id`) was verified to resolve past embed
+parsing against the same live PostgREST, and `tests/unit/postgrestEmbedHints.test.ts` now scans
+every `.select()` in `app/` and `lib/` for an unhinted quotes↔contracts embed (shown red on a
+plant). The `clients/[id]` embeds were checked in the same pass: unambiguous, no change needed.
+
+**#76 closed.** The remaining item was the live `aclexplode` sweep; it ran against production.
+Folio RPCs show `postgres, service_role` only; `user_organization_ids` is the documented
+exemption; the one new hit (`rls_auto_enable`) returns `event_trigger` and cannot be invoked
+through PostgREST — inert, Supabase-managed.
+
+**The UX-audit trio (#93/#95/#96) — all three fixed in code:**
+
+- **#95:** `useOrganizationSettings` seeded the demo tenant into every visitor's localStorage,
+  never called `GET /api/organization`, and saved with a **PUT the route does not implement** —
+  every save this hook ever made was a silent 405 converted into "guardado correctamente". It now
+  fetches on mount, saves via PATCH (extended to accept the profile fields; still owner-scoped),
+  applies the server row, and surfaces failures. `regimen_fiscal` is stored as the SAT code, not
+  the display label. `organizations.phone` exists now (`20260809000000_organization_phone.sql` —
+  **applied to production and confirmed in `information_schema`**; also the column #44 needs).
+  Branding fields with no column (color, tagline, currency) are disabled as "muy pronto" instead
+  of fabricating a save — the persistence feature is filed as
+  [#107](https://github.com/jesushzv/business-helper/issues/107).
+- **#93:** `useCurrentOrg` (new) feeds Header, AppShell, the dashboard greeting and the WhatsApp
+  greeting builders with the real org + auth user; demo identity only behind `isClientDemoMode()`.
+  One `buildClientGreeting()` replaces three disagreeing hardcoded greetings. The profile badge is
+  now a menu with **Cerrar sesión** (there was no logout anywhere); the dead notifications bell is
+  removed. The quote wizard starts with an empty line item; the pay page no longer invents
+  "BBVA México" or "Business Helper Demo". `tests/unit/demoIdentityLeak.test.ts` pins the identity
+  strings to demo-gated files (shown red on a plant).
+- **#96:** the client detail page has a three-state loading gate (no more false "Cliente no
+  encontrado" on every cold load) and derives the activity timeline, health meter and credit
+  summary from the tenant's real quotes/receivables instead of an unconditional $45,000 fixture.
+  `useClients` was the enabler and got the honesty pass: demo fixtures/localStorage only behind
+  `isClientDemoMode()`, an empty list is a real answer, mutations apply the server row or throw,
+  and `error` is finally assigned (#97 item 4 — the page-level halves of #97 remain open).
+
+**Post-review hardening in the same PR.** The `database-reviewer` and `money-path-reviewer`
+subagents ran on the full diff. Applied from their findings: a non-empty régimen that yields no SAT
+code (or a four-digit one) now 400s instead of silently nulling/truncating a CFDI field; logo URLs
+must be https; the PATCH response returns an explicit column list instead of `*`; the public payment
+route's GET and POST now share one earliest-payable-milestone predicate, answer 409
+`PAYMENT_ALREADY_RECORDED` when nothing is payable, and the guarded write can never move a
+`confirmed` milestone backwards (that logic had never run — it was unreachable behind the #79 404);
+and `calculateClientCreditSummary` keeps counting a payer-declared `marked_paid` as owed, so a
+client cannot free their own credit line by declaring transfers the owner never confirmed. Filed
+rather than fixed: #107 (branding fields with no columns), #108 (health-score prop shadows the real
+milestones; unknown renders as 100), #109 (decision: unique `owner_id` or true multi-org).
+
+**Verified by `typecheck` + `lint` (0 warnings) + 774 vitest tests / 94 files + `next build`, and
+by the live PostgREST/catalog checks described above. The UI fixes are against mocked `fetch` — the
+three issues stay open on their deployed-verification exit criteria (`Refs`), while #79's exit
+criterion was the live check itself, which ran (`Closes`). Coverage moved **down** against
+`origin/main` (statements 79.52% → 76.71%, branches 70.44% → 67.91%, functions 80.12% → 73.40%,
+lines 81.20% → 78.41%): the branch adds ~750 statements of chrome/UI whose presentational branches
+are not individually asserted; the honesty-critical paths all are. Still under the 85/85/80/80 gate
+CI does not run (#51).**
