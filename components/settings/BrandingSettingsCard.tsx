@@ -14,8 +14,10 @@ interface BrandingSettings {
 
 interface BrandingSettingsCardProps {
   settings: BrandingSettings;
-  onSave: (updated: Record<string, unknown>) => Promise<boolean>;
+  onSave: (updated: { logo_url: string | null }) => Promise<boolean>;
   saving?: boolean;
+  /** Only the owner can PATCH the organization; others see the data read-only. */
+  canEdit: boolean;
 }
 
 const PRESET_COLORS = [
@@ -26,7 +28,7 @@ const PRESET_COLORS = [
   { name: 'Negro Elegante', hex: '#0f172a' },
 ];
 
-export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSettingsCardProps) {
+export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: BrandingSettingsCardProps) {
   const branding = getOrganizationBranding({
     primaryColor: settings?.primary_color || '#2563eb',
     logoUrl: settings?.logo_url,
@@ -40,14 +42,13 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
   const [defaultCurrency, setDefaultCurrency] = useState<'MXN' | 'USD'>(settings?.default_currency === 'USD' ? 'USD' : 'MXN');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Only the logo has a server column today. Color, tagline and currency have
+  // nowhere to persist — the old card "saved" them into a request the server
+  // ignored and reported success (#95); they are disabled until the feature
+  // lands rather than pretending. Tracked in the branding-persistence issue.
   const handleSaveBranding = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await onSave({
-      primary_color: primaryColor,
-      logo_url: logoUrl || null,
-      tagline: tagline || null,
-      default_currency: defaultCurrency,
-    });
+    const success = await onSave({ logo_url: logoUrl.trim() || null });
     if (success) {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -71,9 +72,17 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
       </div>
 
       <form onSubmit={handleSaveBranding} className="space-y-6">
-        {/* Primary Theme Color Palette */}
+        {/* Primary Theme Color Palette — preview only until persistence lands */}
         <div>
-          <label className="block text-sm font-bold text-slate-300 mb-2">Color Principal de Marca</label>
+          <label className="block text-sm font-bold text-slate-300 mb-2">
+            Color Principal de Marca{' '}
+            <span className="ml-1 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Muy pronto
+            </span>
+          </label>
+          <p className="mb-2 text-xs text-slate-500">
+            Vista previa disponible; guardar el color, el lema y la divisa estará disponible muy pronto.
+          </p>
           <div className="flex flex-wrap items-center gap-3">
             {PRESET_COLORS.map((color) => (
               <button
@@ -104,7 +113,8 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
                 placeholder="https://ejemplo.com/logo.png"
-                className="w-full min-h-[48px] px-4 pl-11 rounded-2xl border border-slate-800 bg-slate-950/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
+                disabled={!canEdit}
+                className="w-full min-h-[48px] px-4 pl-11 rounded-2xl border border-slate-800 bg-slate-950/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-60"
               />
               <ImageIcon className="w-5 h-5 text-slate-500 absolute left-3.5 top-3.5" />
             </div>
@@ -116,8 +126,9 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
               type="text"
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
-              placeholder="Soluciones de construcción y logística"
-              className="w-full min-h-[48px] px-4 rounded-2xl border border-slate-800 bg-slate-950/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
+              placeholder="Muy pronto"
+              disabled
+              className="w-full min-h-[48px] px-4 rounded-2xl border border-slate-800 bg-slate-950/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-60"
             />
           </div>
         </div>
@@ -175,16 +186,22 @@ export function BrandingSettingsCard({ settings, onSave, saving }: BrandingSetti
           </span>
         </div>
 
-        {/* Submit Button */}
+        {/* Submit Button — saves the logo, the only branding field with a server home */}
         <div className="flex items-center justify-end gap-3 pt-2">
-          {saveSuccess && <span className="text-xs font-bold text-emerald-400">¡Personalización guardada con éxito!</span>}
-          <button
-            type="submit"
-            disabled={saving}
-            className="min-h-[48px] px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl text-sm shadow-md transition-all active:scale-95 disabled:opacity-50"
-          >
-            {saving ? 'Guardando...' : 'Guardar Cambios de Marca'}
-          </button>
+          {saveSuccess && <span className="text-xs font-bold text-emerald-400">Logotipo guardado con éxito.</span>}
+          {canEdit ? (
+            <button
+              type="submit"
+              disabled={saving}
+              className="min-h-[48px] px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl text-sm shadow-md transition-all active:scale-95 disabled:opacity-50"
+            >
+              {saving ? 'Guardando...' : 'Guardar Logotipo'}
+            </button>
+          ) : (
+            <p className="text-xs font-medium text-slate-400">
+              Solo el propietario del negocio puede editar estos datos.
+            </p>
+          )}
         </div>
       </form>
     </div>

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess, requireUser, isDemoDeployment } from '@/lib/apiAuth';
 import { normalizeClabe, isValidClabeLength } from '@/lib/clabe';
+import { validateRFC } from '@/lib/rfcValidator';
+import { normalizeClientPhone } from '@/lib/phoneValidator';
 
 export async function GET() {
   // No backend means no tenant data; the demo organization is honest here.
@@ -54,15 +56,23 @@ export async function GET() {
 }
 
 /**
- * Updates the organization's SPEI settlement account.
+ * Updates the organization's profile and/or SPEI settlement account.
  *
- * The public payment page reads these values per quote; until an org sets them
- * it has no CLABE and that page refuses to render payment instructions rather
- * than falling back to a shared account (the previous behaviour).
+ * Two payload families, validated independently so a profile save is never
+ * rejected for a missing CLABE and a bank save keeps its exact prior contract:
+ * - bank: `bankName`, `bankClabe`, `bankAccountHolder` (all-or-nothing, as before)
+ * - profile: `name`, `rfc`, `regimenFiscal`, `codigoPostal`, `phone`, `logoUrl`
+ *   (each optional; only provided keys are written) — added for #95, which found
+ *   the settings page saving with a PUT this route never implemented.
+ *
+ * The public payment page reads the bank values per quote; until an org sets
+ * them it has no CLABE and that page refuses to render payment instructions
+ * rather than falling back to a shared account (the previous behaviour).
  *
  * Scoped to an organization the caller owns: without the owner_id filter the
  * target would effectively be caller-supplied, letting one tenant redirect
- * another tenant's incoming payments.
+ * another tenant's incoming payments (and the profile fields feed CFDI 4.0
+ * stamping, so they get the same protection).
  */
 export async function PATCH(request: Request) {
   const auth = await requireUser();
@@ -73,36 +83,124 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { bankName, bankClabe, bankAccountHolder } = body;
 
-    const clabe = typeof bankClabe === 'string' ? normalizeClabe(bankClabe) : '';
+    const update: Record<string, unknown> = {};
 
-    if (!isValidClabeLength(clabe)) {
+    const hasBankPayload =
+      bankName !== undefined || bankClabe !== undefined || bankAccountHolder !== undefined;
+
+    if (hasBankPayload) {
+      const clabe = typeof bankClabe === 'string' ? normalizeClabe(bankClabe) : '';
+
+      if (!isValidClabeLength(clabe)) {
+        return NextResponse.json(
+          { error: { code: 'INVALID_CLABE', message: 'La CLABE debe tener exactamente 18 dígitos' } },
+          { status: 400 }
+        );
+      }
+
+      if (!bankName || typeof bankName !== 'string' || !bankName.trim()) {
+        return NextResponse.json(
+          { error: { code: 'INVALID_INPUT', message: 'El nombre del banco es obligatorio' } },
+          { status: 400 }
+        );
+      }
+
+      update.bank_name = bankName.trim();
+      update.bank_clabe = clabe;
+      update.bank_account_holder =
+        typeof bankAccountHolder === 'string' && bankAccountHolder.trim()
+          ? bankAccountHolder.trim()
+          : null;
+    }
+
+    if (body.name !== undefined) {
+      if (typeof body.name !== 'string' || !body.name.trim()) {
+        return NextResponse.json(
+          { error: { code: 'INVALID_INPUT', message: 'El nombre del negocio es obligatorio' } },
+          { status: 400 }
+        );
+      }
+      update.name = body.name.trim();
+    }
+
+    if (body.rfc !== undefined) {
+      const rfc = typeof body.rfc === 'string' ? body.rfc.trim().toUpperCase() : '';
+      if (rfc) {
+        const check = validateRFC(rfc);
+        if (!check.isValid) {
+          return NextResponse.json(
+            { error: { code: 'INVALID_RFC', message: check.error || 'El RFC no es válido' } },
+            { status: 400 }
+          );
+        }
+        update.rfc = rfc;
+      } else {
+        update.rfc = null;
+      }
+    }
+
+    if (body.regimenFiscal !== undefined) {
+      // Stored as the SAT code; old clients sent display labels like
+      // '601 — General de Ley Personas Morales'.
+      const code = /^(\d{3})/.exec(
+        typeof body.regimenFiscal === 'string' ? body.regimenFiscal.trim() : ''
+      );
+      update.regimen_fiscal = code ? code[1] : null;
+    }
+
+    if (body.codigoPostal !== undefined) {
+      const cp = typeof body.codigoPostal === 'string' ? body.codigoPostal.trim() : '';
+      if (cp && !/^\d{5}$/.test(cp)) {
+        return NextResponse.json(
+          { error: { code: 'INVALID_INPUT', message: 'El código postal debe tener 5 dígitos' } },
+          { status: 400 }
+        );
+      }
+      update.codigo_postal = cp || null;
+    }
+
+    if (body.phone !== undefined) {
+      const raw = typeof body.phone === 'string' ? body.phone.trim() : '';
+      if (raw) {
+        const normalized = normalizeClientPhone(raw);
+        if (normalized.error || !normalized.value) {
+          return NextResponse.json(
+            {
+              error: {
+                code: 'INVALID_PHONE',
+                message:
+                  'El teléfono de contacto debe ser un número mexicano de 10 dígitos, por ejemplo 8112345678.',
+              },
+            },
+            { status: 400 }
+          );
+        }
+        update.phone = normalized.value;
+      } else {
+        update.phone = null;
+      }
+    }
+
+    if (body.logoUrl !== undefined) {
+      update.logo_url =
+        typeof body.logoUrl === 'string' && body.logoUrl.trim() ? body.logoUrl.trim() : null;
+    }
+
+    if (Object.keys(update).length === 0) {
       return NextResponse.json(
-        { error: { code: 'INVALID_CLABE', message: 'La CLABE debe tener exactamente 18 dígitos' } },
+        { error: { code: 'INVALID_INPUT', message: 'No hay datos que guardar' } },
         { status: 400 }
       );
     }
 
-    if (!bankName || typeof bankName !== 'string' || !bankName.trim()) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'El nombre del banco es obligatorio' } },
-        { status: 400 }
-      );
-    }
+    update.updated_at = new Date().toISOString();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from('organizations')
-      .update({
-        bank_name: bankName.trim(),
-        bank_clabe: clabe,
-        bank_account_holder:
-          typeof bankAccountHolder === 'string' && bankAccountHolder.trim()
-            ? bankAccountHolder.trim()
-            : null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(update)
       .eq('owner_id', userId)
-      .select('id, name, bank_name, bank_clabe, bank_account_holder')
+      .select('*')
       .maybeSingle();
 
     if (error) {

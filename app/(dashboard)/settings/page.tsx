@@ -10,7 +10,13 @@ import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard
 import { PacConnectionCard } from '@/components/settings/PacConnectionCard';
 
 export default function SettingsPage() {
-  const { settings, subscriptionStatusInfo, updateSettings, loading, saving } = useOrganizationSettings();
+  const { settings, role, subscriptionStatusInfo, updateSettings, loading, saving, error } =
+    useOrganizationSettings();
+
+  // PATCH /api/organization is scoped by owner_id, so offering the form to a
+  // manager or member would let them submit into a guaranteed failure (#64's
+  // corollary). They see the data read-only instead.
+  const canEdit = role === 'owner';
 
   const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
 
@@ -55,11 +61,28 @@ export default function SettingsPage() {
 
       <div className="px-4 py-6 md:px-8 space-y-8">
         {loading ? (
-          <div className="h-64 w-full animate-pulse rounded-3xl bg-gray-100" />
+          <div className="h-64 w-full animate-pulse rounded-3xl bg-slate-800/60" />
+        ) : !settings ? (
+          // Loading is over and there is no organization to show: say so
+          // instead of rendering the demo tenant's data as if it were theirs.
+          <div className="p-6 rounded-3xl border border-rose-500/30 bg-rose-950/80 text-rose-200 text-sm font-medium">
+            {error || 'No se pudo cargar la información de tu negocio. Intenta de nuevo más tarde.'}
+          </div>
         ) : (
           <>
+            {error && (
+              <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-950/80 text-rose-300 text-sm font-medium">
+                {error}
+              </div>
+            )}
+
             {/* Organization Profile Settings */}
-            <OrgProfileCard settings={settings} onSave={updateSettings} saving={saving} />
+            <OrgProfileCard
+              settings={settings}
+              onSave={updateSettings}
+              saving={saving}
+              canEdit={canEdit}
+            />
 
             {/* SPEI Settlement Account */}
             <BankAccountCard />
@@ -68,7 +91,12 @@ export default function SettingsPage() {
             <PacConnectionCard />
 
             {/* White-Labeling & Branding Settings */}
-            <BrandingSettingsCard settings={settings} onSave={updateSettings} saving={saving} />
+            <BrandingSettingsCard
+              settings={settings}
+              onSave={updateSettings}
+              saving={saving}
+              canEdit={canEdit}
+            />
 
             {checkoutError && (
               <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-950/80 text-rose-300 text-sm font-medium">
