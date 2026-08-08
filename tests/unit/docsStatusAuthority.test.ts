@@ -121,3 +121,77 @@ describe('rule 2 — volatile numbers live only in the authority', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Rule 3 — the authority stays small enough that reading it is cheap.
+ *
+ * `docs/STATUS.md` reached 47 KB (~13,000 tokens) by 2026-08-08, 59% of it a chronological
+ * append-only log: nine dated "Update ... drafted, pending merge" entries, every one of which had
+ * merged by the time anyone read them. Size was not the real cost — drift was. A document nobody
+ * can hold in their head stops being checked, and the anti-drift document had itself drifted.
+ *
+ * Cleaning it up once fixes nothing: the behaviour that grew it is the same behaviour the process
+ * asks for ("update the memo when you finish work"). This budget is what makes the archive step
+ * non-optional. When it trips, the fix is to move settled history to `docs/99-archive/`, not to
+ * raise the number.
+ */
+const SIZE_BUDGETS: Array<{ file: string; maxBytes: number; guidance: string }> = [
+  {
+    file: AUTHORITY,
+    maxBytes: 32_000,
+    guidance:
+      'Move settled history — anything describing work that has merged — into docs/99-archive/ ' +
+      '(see status-log-2026-08.md for the pattern: move entries verbatim, leave a table of what ' +
+      'landed with the commit for each). Keep this file describing the CURRENT state only.',
+  },
+  {
+    file: 'CLAUDE.md',
+    maxBytes: 26_000,
+    guidance:
+      'This file loads at the start of every session, so every byte is paid on every task. It grew ' +
+      'by accreting one incident narrative per PR. Before adding another, prune: a rule backed by a ' +
+      'SCANNING gate (one that fails on the next occurrence anywhere in the tree, e.g. url.test.ts, ' +
+      'securityDefinerGrants.test.ts, this file) needs only to state the rule and name the test — ' +
+      'the test does the convincing. A rule with only a regression test, or none, keeps its full ' +
+      'narrative, because there the prose is the only thing standing between an agent and the defect.',
+  },
+];
+
+describe('rule 3 — the always-read documents stay within budget', () => {
+  it.each(SIZE_BUDGETS)('$file is under $maxBytes bytes', ({ file, maxBytes, guidance }) => {
+    const bytes = Buffer.byteLength(read(file), 'utf-8');
+
+    expect(
+      bytes,
+      `${file} is ${bytes} bytes, over its ${maxBytes}-byte budget (~${Math.round(bytes / 3.6)} tokens, ` +
+        `paid on every session that reads it).\n\n${guidance}\n\n` +
+        `Raising this number is the wrong fix unless you can say what new content earns permanent residence.`
+    ).toBeLessThanOrEqual(maxBytes);
+  });
+});
+
+/**
+ * Rule 4 — the authority states current state, not a changelog.
+ *
+ * The specific shape that grew this file was a dated `### Update <date>` heading appended per PR.
+ * Each was accurate when written and wrong within days, because nothing ever went back to mark them
+ * merged. Prose like "*Updated 2026-08-07 — three rows cleared*" inside a section is fine; it edits
+ * the current state. A dated heading is not — it starts a log.
+ */
+const UPDATE_LOG_HEADING = /^#{2,4}\s+Update\s+\d{4}-\d{2}-\d{2}/gm;
+
+describe('rule 4 — the authority is not an append-only log', () => {
+  it('has no dated "Update <date>" headings', () => {
+    const body = read(AUTHORITY);
+    const found = [...body.matchAll(UPDATE_LOG_HEADING)].map((m) => m[0].trim());
+
+    expect(
+      found,
+      `${AUTHORITY} has dated update headings, which is how it reached 47 KB before:\n` +
+        found.map((f) => `  ${f}`).join('\n') +
+        `\n\nA dated heading starts a changelog. Fold what is still true into the current-state ` +
+        `sections, and put the narrative in docs/99-archive/ where it is frozen and exempt from ` +
+        `this suite. Undated prose noting when something changed is fine.`
+    ).toEqual([]);
+  });
+});
