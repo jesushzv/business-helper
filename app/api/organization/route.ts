@@ -144,7 +144,9 @@ export async function PATCH(request: Request) {
       // '601 — General de Ley Personas Morales'. A non-empty value that yields
       // no code is a 400, not a silent NULL — this field feeds CFDI 4.0.
       const raw = typeof body.regimenFiscal === 'string' ? body.regimenFiscal.trim() : '';
-      const code = /^(\d{3})/.exec(raw);
+      // Exactly three digits, alone or followed by a label separator — a
+      // boundary-less match would silently truncate '6012' to a different code.
+      const code = /^(\d{3})(?:\s*[—–-]|$)/.exec(raw);
       if (raw && !code) {
         return NextResponse.json(
           { error: { code: 'INVALID_INPUT', message: 'El régimen fiscal no es válido' } },

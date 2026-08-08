@@ -71,6 +71,12 @@ describe('PATCH /api/organization — profile payload (#95)', () => {
     expect(updateCalls).toHaveLength(0);
   });
 
+  it('rejects a four-digit régimen instead of truncating it to a different code', async () => {
+    const res = await PATCH(patchRequest({ regimenFiscal: '6012' }));
+    expect(res.status).toBe(400);
+    expect(updateCalls).toHaveLength(0);
+  });
+
   it('rejects an invalid RFC with the Spanish envelope', async () => {
     const res = await PATCH(patchRequest({ rfc: 'NOPE' }));
     expect(res.status).toBe(400);

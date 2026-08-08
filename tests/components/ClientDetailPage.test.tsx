@@ -49,12 +49,18 @@ function jsonResponse(status: number, body: unknown): Response {
 
 const fetchMock = vi.fn<typeof fetch>();
 
-function answerApis({ clients }: { clients: Promise<Response> | Response }) {
+function answerApis({
+  clients,
+  receivables = [],
+}: {
+  clients: Promise<Response> | Response;
+  receivables?: unknown[];
+}) {
   fetchMock.mockImplementation(async (input) => {
     const url = String(input);
     if (url.startsWith('/api/clients')) return clients;
     if (url.startsWith('/api/quotes')) return jsonResponse(200, { quotes: [] });
-    if (url.startsWith('/api/receivables')) return jsonResponse(200, { receivables: [] });
+    if (url.startsWith('/api/receivables')) return jsonResponse(200, { receivables });
     if (url.startsWith('/api/organization')) {
       return jsonResponse(200, {
         organization: { id: 'org-real-1', name: 'Ferretería La Central' },
@@ -141,5 +147,41 @@ describe('real financial data (#96)', () => {
 
     // Empty history is reported as empty, not filled with fiction.
     expect(screen.getByText(/0 Eventos/)).toBeTruthy();
+  });
+
+  it('counts this client’s owed milestones and ignores other clients’ (the #78 mapping, pinned)', async () => {
+    answerApis({
+      clients: jsonResponse(200, { clients: [SERVER_CLIENT] }),
+      // Server-shaped rows: client arrives nested under contracts, the way
+      // /api/receivables actually returns it — toMilestoneWithClient flattens.
+      receivables: [
+        {
+          id: 'm-1',
+          contract_id: 'c-1',
+          organization_id: 'org-real-1',
+          label: 'Anticipo',
+          amount: 5000,
+          due_date: '2026-09-01',
+          status: 'pending',
+          contracts: { id: 'c-1', title: 'Obra', clients: { id: 'client-real-1', name: 'Aceros del Bajío S.A. de C.V.' } },
+        },
+        {
+          id: 'm-2',
+          contract_id: 'c-2',
+          organization_id: 'org-real-1',
+          label: 'Otro cliente',
+          amount: 7000,
+          due_date: '2026-09-01',
+          status: 'pending',
+          contracts: { id: 'c-2', title: 'Otra obra', clients: { id: 'client-other', name: 'Otro S.A.' } },
+        },
+      ],
+    });
+    renderPage();
+
+    await screen.findAllByText('Aceros del Bajío S.A. de C.V.');
+    // Only this client's pending milestone consumes credit: $5,000, not $12,000.
+    expect(screen.getByText('$5,000 MXN')).toBeTruthy();
+    expect(screen.queryByText('$12,000 MXN')).toBeNull();
   });
 });

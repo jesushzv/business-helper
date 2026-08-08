@@ -28,15 +28,20 @@ export function calculateClientCreditSummary(
 
   const clientId = client?.id;
 
-  // Credit is consumed by receivables that are still owed — a confirmed payment
-  // has already settled and must not count against the limit.
+  // Credit is consumed by receivables that are still owed. Only an
+  // owner-CONFIRMED payment releases it: `marked_paid` is the payer's own
+  // unverified declaration on the public portal, so counting it as settled
+  // would let a client free their whole credit line by declaring transfers the
+  // owner never received (money-path review of #96). Whether a declared
+  // payment should ever release credit early is a product decision; the
+  // fail-closed default is no.
   const activeReceivables = receivables.filter((r) => {
     const rClientId = r.clientId || r.client_id;
     if (clientId && rClientId && rClientId !== clientId) {
       return false;
     }
     const st = (r.status || '').toLowerCase();
-    return st === 'pending' || st === 'requested';
+    return st === 'pending' || st === 'requested' || st === 'marked_paid';
   });
 
   const usedCredit = activeReceivables.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
