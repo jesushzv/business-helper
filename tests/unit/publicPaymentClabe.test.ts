@@ -68,7 +68,10 @@ describe('public payment details — organization CLABE', () => {
     const body = await res.json();
 
     expect(res.status).toBe(409);
-    expect(body.code).toBe('ORG_BANK_DETAILS_MISSING');
+    // Inside the envelope since #65 — it used to sit as a sibling of `error`,
+    // the one public body with a fourth shape.
+    expect(body.error.code).toBe('ORG_BANK_DETAILS_MISSING');
+    expect(body.error.message).toContain('cuenta bancaria');
     // Nothing resembling an account number may reach the payer.
     expect(JSON.stringify(body)).not.toMatch(/\d{18}/);
   });

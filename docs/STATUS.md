@@ -311,6 +311,30 @@ precede it with `DROP POLICY IF EXISTS`, as `20260808030000` does for its own st
 **What #62 still wants:** its fourth exit criterion is one live request against each affected
 route. Schema is no longer the blocker; the routes have not been exercised.
 
+### Update 2026-08-08 — public error envelopes (#65), drafted, pending merge
+
+**The three public routes now answer one shape: `{ error: { code, message } }`, Spanish.**
+Before this, `app/api/quotes/public/[token]`, its `/otp` sibling and
+`app/api/receivables/public/[token]` used four shapes between them, several in English ("Quote
+not found", "Failed to issue verification code") — served to the tenant's *client* mid-signature
+or mid-payment. All error bodies now flow through `lib/publicApiError.ts`; body siblings the
+consumers read as data (`retry_after_seconds`, `attempts`, `remaining`, `expired`) survive
+unchanged. `ORG_BANK_DETAILS_MISSING` moved inside the envelope, and `/pay/[token]` now branches
+on it to tell the payer the truth (business has no CLABE yet) instead of "el enlace no existe".
+
+**Two consumer defects fixed in the same PR.** `OtpSignatureModal` read `data?.error` as a string
+(would have rendered `[object Object]`); the pay page's submit handler ignored the POST response
+entirely and reported success even from its `catch` — a payer could see a confirmation for a
+declaration the API rejected (#33's shape). It now surfaces `error.message`, and the simulated
+demo submission sits behind `isClientDemoMode()` only. The remaining honesty gap — the receipt
+file itself is never uploaded, a `blob:` URL is stored — is filed as
+[#85](https://github.com/jesushzv/business-helper/issues/85).
+
+**Code, verified by `typecheck` + `lint` (22 pre-existing warnings, 0 errors, no delta — the
+debt clears in #83) + 700 vitest tests / 85 files + `next build`. Against mocked services; the
+new `tests/unit/publicErrorEnvelope.test.ts` scans were shown to fail on planted violations
+before being trusted.**
+
 ---
 
 ## 03 Priority Stack

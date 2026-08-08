@@ -436,9 +436,11 @@ describe('the OTP route wires the limit in', () => {
     expect(routeSource).toContain('client_otp_sent_at');
   });
 
-  it('answers over-cap requests with the existing 429 shape', () => {
+  it('answers over-cap requests with 429 and keeps retry_after_seconds as a body sibling', () => {
     expect(routeSource).toContain('retry_after_seconds: reservation.retryAfterSeconds');
-    expect(routeSource).toMatch(/reservation\.allowed[\s\S]{0,600}status: 429/);
+    // The envelope moved to publicApiError(429, 'OTP_RATE_LIMITED', …) in #65;
+    // the status is its first argument now, not a NextResponse init literal.
+    expect(routeSource).toMatch(/reservation\.allowed[\s\S]{0,600}publicApiError\(\s*429,\s*'OTP_RATE_LIMITED'/);
   });
 });
 
