@@ -5,6 +5,21 @@
  * a pre-filled direct WhatsApp wa.me URL for 1-tap messaging.
  */
 
+/**
+ * The one greeting every client-facing WhatsApp message opens with.
+ *
+ * Three components used to hardcode their own copies signed by the demo
+ * tenant ("un gusto saludarte de Distribuidora del Norte", "le saluda Don
+ * Roberto") — sent to real tenants' clients, in two disagreeing registers
+ * (#93). The organization name is a parameter; when it is unknown the
+ * greeting simply omits the signature instead of inventing one.
+ */
+export function buildClientGreeting(clientName: string, orgName?: string | null): string {
+  const name = clientName.trim();
+  const org = orgName?.trim();
+  return org ? `Hola ${name}, le saluda ${org}.` : `Hola ${name}.`;
+}
+
 export function generateWhatsAppLink(phone: string | null | undefined, text?: string): string {
   if (!phone) return '';
 

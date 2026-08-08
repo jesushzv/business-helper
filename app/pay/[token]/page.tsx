@@ -78,7 +78,9 @@ export default function PublicPayPortalPage() {
     }
   }, [token]);
 
-  const branding = getOrganizationBranding({ companyName: milestone?.org_name || 'Business Helper Demo' });
+  // No org name → the neutral platform default, never an invented "Demo"
+  // company on the screen where a client is about to transfer money (#93).
+  const branding = getOrganizationBranding({ companyName: milestone?.org_name || undefined });
   const cssVars = generateThemeCssVariables(branding);
 
   const handleCopyClabe = () => {
@@ -252,9 +254,13 @@ export default function PublicPayPortalPage() {
               <ShieldCheck className="w-5 h-5 text-indigo-400" />
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">Datos para Transferencia SPEI</span>
             </div>
-            <span className="text-xs font-bold bg-indigo-900/80 border border-indigo-500/30 px-2.5 py-1 rounded-full text-indigo-200">
-              {milestone.bank_name || 'BBVA México'}
-            </span>
+            {/* No bank on file → no badge. The fallback here used to invent
+                "BBVA México" for whatever account the CLABE actually belongs to. */}
+            {milestone.bank_name && (
+              <span className="text-xs font-bold bg-indigo-900/80 border border-indigo-500/30 px-2.5 py-1 rounded-full text-indigo-200">
+                {milestone.bank_name}
+              </span>
+            )}
           </div>
 
           <div className="space-y-3 pt-2">

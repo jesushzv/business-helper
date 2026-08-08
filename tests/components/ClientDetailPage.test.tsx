@@ -1,0 +1,145 @@
+import React, { Suspense } from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import ClientDetailPage from '@/app/(dashboard)/clients/[id]/page';
+import { __resetCurrentOrgCacheForTests } from '@/lib/hooks/useCurrentOrg';
+
+/**
+ * #96 — the client detail page must derive its financial modules from the
+ * tenant's real rows and must not flash "Cliente no encontrado" while loading.
+ *
+ * The old page fed hardcoded mockQuotes/mockContracts/mockMilestones — with no
+ * demo gate — into the activity timeline, the health meter and the credit
+ * summary, so "Crédito Utilizado" showed a $45,000 fiction for every real
+ * client. And it never read `loading`, so until the directory fetch resolved,
+ * every cold load claimed the client "no existe o fue eliminado".
+ */
+
+const mockPush = vi.fn();
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
+const SERVER_CLIENT = {
+  id: 'client-real-1',
+  organization_id: 'org-real-1',
+  name: 'Aceros del Bajío S.A. de C.V.',
+  contact_name: 'Ing. Laura Peña',
+  email: 'lpena@acerosbajio.mx',
+  phone: '4771234567',
+  rfc: 'ABA050505XX1',
+  regimen_fiscal: '601',
+  codigo_postal: '37000',
+  cfdi_use: 'G03',
+  notes: null,
+  health_score: 90,
+  credit_limit: 80000,
+  credit_days: 30,
+  credit_status: 'active',
+  created_at: '2026-08-01T00:00:00Z',
+  updated_at: '2026-08-01T00:00:00Z',
+};
+
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+const fetchMock = vi.fn<typeof fetch>();
+
+function answerApis({ clients }: { clients: Promise<Response> | Response }) {
+  fetchMock.mockImplementation(async (input) => {
+    const url = String(input);
+    if (url.startsWith('/api/clients')) return clients;
+    if (url.startsWith('/api/quotes')) return jsonResponse(200, { quotes: [] });
+    if (url.startsWith('/api/receivables')) return jsonResponse(200, { receivables: [] });
+    if (url.startsWith('/api/organization')) {
+      return jsonResponse(200, {
+        organization: { id: 'org-real-1', name: 'Ferretería La Central' },
+        role: 'owner',
+      });
+    }
+    return jsonResponse(404, {});
+  });
+}
+
+function renderPage() {
+  // React's use() unwraps an already-fulfilled promise synchronously when the
+  // status/value fields are present; a bare Promise.resolve suspends the tree
+  // for the whole test instead.
+  const params = Promise.resolve({ id: 'client-real-1' }) as Promise<{ id: string }> & {
+    status: string;
+    value: { id: string };
+  };
+  params.status = 'fulfilled';
+  params.value = { id: 'client-real-1' };
+
+  return render(
+    <Suspense fallback={null}>
+      <ClientDetailPage params={params} />
+    </Suspense>
+  );
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  fetchMock.mockReset();
+  vi.stubGlobal('fetch', fetchMock);
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
+  __resetCurrentOrgCacheForTests();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+describe('loading gate', () => {
+  it('never claims "Cliente no encontrado" while the directory is still loading', async () => {
+    // The clients fetch never resolves within this test.
+    answerApis({ clients: new Promise<Response>(() => {}) });
+    renderPage();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(screen.queryByText(/Cliente no encontrado/i)).toBeNull();
+    expect(screen.queryByText(/fue eliminado/i)).toBeNull();
+  });
+
+  it('says "no encontrado" only after the directory resolved without the client', async () => {
+    answerApis({ clients: jsonResponse(200, { clients: [] }) });
+    renderPage();
+
+    expect(await screen.findByText(/Cliente no encontrado/i)).toBeTruthy();
+    // The copy no longer asserts a deletion the app cannot know about.
+    expect(screen.queryByText(/fue eliminado/i)).toBeNull();
+  });
+
+  it('shows an error state, not "no encontrado", when the directory fetch failed', async () => {
+    answerApis({ clients: jsonResponse(500, { error: { message: 'boom' } }) });
+    renderPage();
+
+    expect(await screen.findByText(/No se pudo cargar el cliente/i)).toBeTruthy();
+    expect(screen.queryByText(/Cliente no encontrado/i)).toBeNull();
+  });
+});
+
+describe('real financial data (#96)', () => {
+  it('renders zero credit utilization and an empty timeline for a client with no rows', async () => {
+    answerApis({ clients: jsonResponse(200, { clients: [SERVER_CLIENT] }) });
+    renderPage();
+
+    expect((await screen.findAllByText('Aceros del Bajío S.A. de C.V.')).length).toBeGreaterThan(0);
+
+    // The credit meter derives from the tenant's (empty) receivables — the old
+    // page showed $22,500 used from the fixture milestones here.
+    expect(screen.getByText('$0 MXN')).toBeTruthy();
+    expect(screen.queryByText(/45,000|22,500/)).toBeNull();
+    expect(screen.queryByText(/Anticipo 50% Obra Civil/)).toBeNull();
+    expect(screen.queryByText(/Cotización Materiales Obra Civil/)).toBeNull();
+
+    // Empty history is reported as empty, not filled with fiction.
+    expect(screen.getByText(/0 Eventos/)).toBeTruthy();
+  });
+});

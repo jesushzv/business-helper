@@ -4,13 +4,15 @@ import React from 'react';
 import Link from 'next/link';
 import { Award, MessageSquare, ArrowUpRight } from 'lucide-react';
 import { TopClientRevenue } from '@/lib/dashboardAnalytics';
-import { generateWhatsAppLink } from '@/lib/whatsappLink';
+import { generateWhatsAppLink, buildClientGreeting } from '@/lib/whatsappLink';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
 
 interface TopClientsCardProps {
   topClients: TopClientRevenue[];
 }
 
 export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients }) => {
+  const { org } = useCurrentOrg();
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
@@ -59,7 +61,7 @@ export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients }) =>
             const badge = getHealthBadge(client.health_score);
             const waLink = generateWhatsAppLink(
               client.phone,
-              `Hola ${client.contact_name || client.name}, le saluda Don Roberto. Le escribo para darle seguimiento a nuestros servicios.`
+              `${buildClientGreeting(client.contact_name || client.name, org?.name)} Le escribo para darle seguimiento a nuestros servicios.`
             );
 
             return (

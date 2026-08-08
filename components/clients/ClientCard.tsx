@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { MessageSquare, Phone, Building2, UserCheck, ChevronRight } from 'lucide-react';
 import { Client } from '@/types';
 import { HealthScoreMeter } from './HealthScoreMeter';
-import { generateWhatsAppLink } from '@/lib/whatsappLink';
+import { generateWhatsAppLink, buildClientGreeting } from '@/lib/whatsappLink';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
 
 interface ClientCardProps {
   client: Client;
@@ -13,7 +14,8 @@ interface ClientCardProps {
 }
 
 export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
-  const waMessage = `Hola ${client.contact_name || client.name}, un gusto saludarte de Distribuidora del Norte.`;
+  const { org } = useCurrentOrg();
+  const waMessage = buildClientGreeting(client.contact_name || client.name, org?.name);
   const whatsappUrl = generateWhatsAppLink(client.phone, waMessage);
 
   return (
