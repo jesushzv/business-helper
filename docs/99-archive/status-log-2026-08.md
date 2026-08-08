@@ -382,7 +382,23 @@ through PostgREST — inert, Supabase-managed.
   `isClientDemoMode()`, an empty list is a real answer, mutations apply the server row or throw,
   and `error` is finally assigned (#97 item 4 — the page-level halves of #97 remain open).
 
-**Verified by `typecheck` + `lint` (0 warnings) + 739 vitest tests / 91 files + `next build`, and
+**Post-review hardening in the same PR.** The `database-reviewer` and `money-path-reviewer`
+subagents ran on the full diff. Applied from their findings: a non-empty régimen that yields no SAT
+code (or a four-digit one) now 400s instead of silently nulling/truncating a CFDI field; logo URLs
+must be https; the PATCH response returns an explicit column list instead of `*`; the public payment
+route's GET and POST now share one earliest-payable-milestone predicate, answer 409
+`PAYMENT_ALREADY_RECORDED` when nothing is payable, and the guarded write can never move a
+`confirmed` milestone backwards (that logic had never run — it was unreachable behind the #79 404);
+and `calculateClientCreditSummary` keeps counting a payer-declared `marked_paid` as owed, so a
+client cannot free their own credit line by declaring transfers the owner never confirmed. Filed
+rather than fixed: #107 (branding fields with no columns), #108 (health-score prop shadows the real
+milestones; unknown renders as 100), #109 (decision: unique `owner_id` or true multi-org).
+
+**Verified by `typecheck` + `lint` (0 warnings) + 774 vitest tests / 94 files + `next build`, and
 by the live PostgREST/catalog checks described above. The UI fixes are against mocked `fetch` — the
 three issues stay open on their deployed-verification exit criteria (`Refs`), while #79's exit
-criterion was the live check itself, which ran (`Closes`).**
+criterion was the live check itself, which ran (`Closes`). Coverage moved **down** against
+`origin/main` (statements 79.52% → 76.71%, branches 70.44% → 67.91%, functions 80.12% → 73.40%,
+lines 81.20% → 78.41%): the branch adds ~750 statements of chrome/UI whose presentational branches
+are not individually asserted; the honesty-critical paths all are. Still under the 85/85/80/80 gate
+CI does not run (#51).**

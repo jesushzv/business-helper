@@ -75,7 +75,7 @@ until checked against source. This memo does that check; §06 records the method
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **722 tests / 87 files**, `npx vitest run` (2026-08-08) — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **774 tests / 94 files**, `npx vitest run` (2026-08-08) — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -299,7 +299,7 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 722 tests / 87 files as of 2026-08-08
+npx vitest run                 # 774 tests / 94 files as of 2026-08-08
                                # (earlier counts, and what each pass verified, are in the frozen
                                #  log at docs/99-archive/status-log-2026-08.md)
 npm run typecheck
