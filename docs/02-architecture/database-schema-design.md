@@ -414,6 +414,34 @@ ON quotes FOR SELECT TO anon
 USING (public_token IS NOT NULL);
 ```
 
+### `SECURITY DEFINER` Functions — Grants Must Name the Roles
+
+A `SECURITY DEFINER` function in `public` runs with its owner's privileges, outside RLS, and
+PostgREST publishes every executable `public` function at `/rest/v1/rpc/<name>`. Locking one down
+takes an explicit per-role revoke:
+
+```sql
+REVOKE EXECUTE ON FUNCTION public.my_function(uuid, text) FROM anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.my_function(uuid, text) TO service_role;
+```
+
+`REVOKE ALL ON FUNCTION … FROM PUBLIC` **does not achieve this.** Supabase grants `EXECUTE` on
+functions created in `public` to `anon` and `authenticated` as *named roles*, and revoking the
+implicit `PUBLIC` grant leaves a role-specific grant untouched. Both folio RPCs shipped callable by
+any signed-in user this way (#76).
+
+`tests/unit/securityDefinerGrants.test.ts` fails the build on a `SECURITY DEFINER` function in
+`public` with no per-role revoke. It reads migration files, so it catches an unsafe migration at
+authoring time — it cannot see the live database, and the grants that matter are the ones in
+production.
+
+**One documented exemption: `user_organization_ids()`.** It must keep its `authenticated` grant.
+RLS policy expressions are evaluated as the querying role, and twelve policies call
+`SELECT public.user_organization_ids()`; revoking it would make every authenticated read fail with
+`permission denied for function`. It is also the safe shape — no parameters, body filtered on
+`auth.uid()` — so a direct RPC call returns only the caller's own memberships. The exploitable
+shape is a function that takes a tenant id as an *argument*, which is what the folio RPCs did.
+
 ### Audit Logging
 
 Every state transition (`quote_created`, `contract_signed`, `payment_confirmed`, `cfdi_issued`) inserts an immutable record into `audit_logs` capturing `organization_id`, `actor`, `action`, `ip`, and timestamp.
