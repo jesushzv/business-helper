@@ -256,6 +256,19 @@ placeholder tokens (`'demo'`, `'demo_token'`) that used to fill that gap rendere
   and each has shipped here (#44, #78). Absent is absent: render the disabled control and **name the
   specific record the tenant must fix**, because a missing CLABE reported as a missing phone number
   sends them to edit the wrong thing.
+- **A public page may simulate a mutation's success only behind `isClientDemoMode()`, short-circuited
+  *before* the fetch — never as a fallback in a `catch`.** A catch-fallback turns every real
+  tenant's network failure into a fake confirmation: `/pay/[token]`'s submit handler did exactly
+  this ("Demo fallback success", fixed in #86), showing a payer "Comprobante enviado correctamente"
+  for a declaration the API rejected. Same defect class as #33, one layer up.
+- **In a remote session, local `main` can be stale — cut branches from `origin/main` after an
+  explicit `git fetch origin main`.** A fresh container's local `main` here pointed at a commit
+  from *before the entire issue tracker existed*; a branch cut from it silently rebuilds weeks-old
+  code. Check `git log --oneline -1` against the expected HEAD before writing anything.
+- **Commit (or copy to scratch) before planting a violation to verify a red test.** The
+  plant-then-remove step rule 7 requires has a trap: `git checkout <file>` to remove the plant
+  restores the *last commit*, wiping every uncommitted change to that file with it. Remove plants
+  by reversing the exact edit, or plant only in files whose real changes are already committed.
 
 ## GitHub conventions
 
