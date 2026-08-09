@@ -14,6 +14,7 @@ export default function ReceivablesPage() {
     filteredReceivables,
     summary,
     loading,
+    error,
     statusFilter,
     setStatusFilter,
     searchQuery,
@@ -89,9 +90,23 @@ export default function ReceivablesPage() {
         </div>
       </div>
 
-      {/* Receivables List Grid */}
+      {/* Receivables List Grid. Three states, not two (#97): a failed fetch
+          must never render "todas tus cuentas están al día" — a factual claim
+          about money the app cannot back while holding an error. */}
       {loading ? (
         <div className="p-12 text-center text-slate-400 font-medium">Cargando cuentas por cobrar...</div>
+      ) : error ? (
+        <div className="bg-rose-950/60 rounded-3xl border border-rose-500/30 p-12 text-center space-y-3">
+          <Wallet className="w-12 h-12 text-rose-400 mx-auto" />
+          <h3 className="text-lg font-bold text-white">No pudimos cargar tu cobranza</h3>
+          <p className="text-sm text-rose-200 max-w-sm mx-auto">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="min-h-[48px] px-6 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-sm font-bold text-white transition-all active:scale-95"
+          >
+            Reintentar
+          </button>
+        </div>
       ) : filteredReceivables.length === 0 ? (
         <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-12 text-center space-y-3 text-white">
           <Wallet className="w-12 h-12 text-slate-600 mx-auto" />

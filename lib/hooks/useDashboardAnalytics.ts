@@ -17,9 +17,9 @@ import { useQuotes } from './useQuotes';
 import { useReceivables } from './useReceivables';
 
 export function useDashboardAnalytics() {
-  const { clients, loading: clientsLoading } = useClients();
-  const { quotes, loading: quotesLoading } = useQuotes();
-  const { receivables, loading: receivablesLoading } = useReceivables();
+  const { clients, loading: clientsLoading, error: clientsError } = useClients();
+  const { quotes, loading: quotesLoading, error: quotesError } = useQuotes();
+  const { receivables, loading: receivablesLoading, error: receivablesError } = useReceivables();
 
   const [apiAnalytics, setApiAnalytics] = useState<{
     metrics: BusinessMetrics;
@@ -29,21 +29,23 @@ export function useDashboardAnalytics() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch API analytics if available
+  // The server's aggregate view, when it answers. A failure is recorded, not
+  // swallowed (#97): the locally computed numbers below remain a legitimate
+  // fallback — they derive from the sub-hooks' real rows — but the dashboard
+  // must be able to say the server disagreed instead of silently diverging.
   const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const res = await fetch('/api/dashboard/analytics');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.metrics && data.topClients && data.cashFlowForecast) {
-          setApiAnalytics(data);
-        }
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.metrics && data?.topClients && data?.cashFlowForecast) {
+        setApiAnalytics(data);
+      } else {
+        setError('No pudimos actualizar tus números desde el servidor.');
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn('API Analytics fetch warning (fallback to computed local state):', message);
+    } catch {
+      setError('No pudimos actualizar tus números desde el servidor.');
     } finally {
       setLoading(false);
     }
@@ -140,14 +142,22 @@ export function useDashboardAnalytics() {
   const topClients = hasApiData && apiAnalytics ? apiAnalytics.topClients : computedTopClients;
   const cashFlowForecast = hasApiData && apiAnalytics ? apiAnalytics.cashFlowForecast : computedCashFlowForecast;
 
-  const isInitialLoading = (clientsLoading || quotesLoading || receivablesLoading) && loading;
+  // Loading until every source has answered: the old `(a || b || c) && loading`
+  // cleared the skeleton the moment the analytics fetch resolved, flashing $0
+  // KPI cards while the sub-hooks were still in flight (#97).
+  const isInitialLoading = clientsLoading || quotesLoading || receivablesLoading || loading;
+
+  // A failed sub-hook read means the computed numbers are missing real rows —
+  // "$0 por cobrar" derived from an errored fetch is the same false claim one
+  // layer down.
+  const combinedError = error || receivablesError || quotesError || clientsError;
 
   return {
     metrics,
     topClients,
     cashFlowForecast,
     loading: isInitialLoading,
-    error,
+    error: combinedError,
     refreshAnalytics: fetchAnalytics,
   };
 }

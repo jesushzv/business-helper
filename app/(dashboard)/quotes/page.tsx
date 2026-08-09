@@ -13,6 +13,7 @@ export default function QuotesPage() {
     quotes,
     filteredQuotes,
     loading,
+    error,
     statusFilter,
     setStatusFilter,
     searchQuery,
@@ -135,9 +136,22 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* Quotes Grid */}
+      {/* Quotes Grid. Three states, not two (#97): a failed fetch must not
+          greet a tenant who has quotes with the create-your-first-quote CTA. */}
       {loading ? (
         <div className="p-12 text-center text-slate-400 font-medium">Cargando cotizaciones...</div>
+      ) : error ? (
+        <div className="bg-rose-950/60 rounded-3xl border border-rose-500/30 p-12 text-center space-y-3">
+          <Clock className="w-12 h-12 text-rose-400 mx-auto" />
+          <h3 className="text-lg font-bold text-white">No pudimos cargar tus cotizaciones</h3>
+          <p className="text-sm text-rose-200 max-w-sm mx-auto">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="min-h-[48px] px-6 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-sm font-bold text-white transition-all active:scale-95"
+          >
+            Reintentar
+          </button>
+        </div>
       ) : filteredQuotes.length === 0 ? (
         <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-12 text-center space-y-3 text-white">
           <Clock className="w-12 h-12 text-slate-600 mx-auto" />
