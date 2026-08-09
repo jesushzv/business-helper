@@ -15,9 +15,13 @@ import { signStripePayload } from '@/lib/stripeWebhook';
  *      dashboard and to `npm run verify:webhook`.
  *   2. An UPDATE that matches no row must not be reported as processed.
  *      Supabase returns `{ error: null }` for an UPDATE that changed nothing,
- *      so a well-formed organization uuid that exists in Stripe's metadata but
- *      not in this database produced 200 `{ processed }` for a tier change that
- *      was never written (hard rule 1).
+ *      so the route would answer 200 `{ processed }` for a tier change never
+ *      written (hard rule 1). Scope, stated honestly: the obvious path — a
+ *      well-formed uuid belonging to no row here — is already closed by the FK
+ *      on `stripe_webhook_events.organization_id` (verified live 2026-08-09),
+ *      which fails the claim insert first. What remains is the deletion race,
+ *      where `ON DELETE SET NULL` leaves the claim standing. These cases drive
+ *      the branch directly rather than reproducing that race.
  */
 
 const SECRET = 'whsec_test_secret_for_route';
@@ -187,8 +191,9 @@ describe('#63 — accepted *and processed* means a row actually changed', () => 
   });
 
   it('refuses with 404 when the update matched no row, instead of reporting success', async () => {
-    // A well-formed uuid that exists in Stripe's metadata but in no row here —
-    // a staging secret pointed at the wrong database, or a deleted tenant.
+    // The organization was deleted after the claim insert succeeded; the FK is
+    // ON DELETE SET NULL, so the ledger row survives and the UPDATE matches
+    // nothing.
     scenario.updatedRows = [];
 
     const body = subscriptionEvent('evt_ghost_org');

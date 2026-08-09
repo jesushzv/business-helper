@@ -262,9 +262,9 @@ not actually earned. It has shipped here at least eight times.
   `/rest/v1/rpc/<name>` outside RLS (#76 — unlimited folio minting). Always
   `REVOKE EXECUTE ON FUNCTION public.f(<signature>) FROM anon, authenticated;`.
   **A `.update()`/`.delete()` matching zero rows returns `{ error: null }`** — chain `.select('id')`
-  and check the array whenever the response tells anyone it worked, or a well-formed id belonging to
-  no row reports success for a write that never happened (#63: the Stripe webhook answered
-  `200 { processed }` for a tier change it never applied, and Stripe stopped retrying).
+  and check the array whenever the response tells anyone it worked, or an id belonging to no row
+  reports success for a write that never happened (#63). An FK elsewhere may already close the
+  common path; keep the invariant local anyway, and say which one is actually load-bearing.
   `tests/unit/securityDefinerGrants.test.ts` fails the build on a new one without it, and holds the
   single deliberate exemption (`user_organization_ids()` — RLS policies call it as the querying
   role, so revoking it breaks every policy). That test reads migration *files*; the live grants

@@ -112,13 +112,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo registrar el evento' }, { status: 500 });
     }
 
-    // `.select('id')` is not decoration. Without it an UPDATE that matches zero
-    // rows — an organization_id that is a well-formed UUID but belongs to no
-    // row in *this* deployment's database — comes back `{ error: null }`, and
-    // the route answered 200 `{ processed }` for a subscription change it never
-    // wrote. Stripe stopped retrying, the tenant was never upgraded, and the
-    // only record of it said success (hard rule 1; found while wiring up #63's
-    // "accepted and processed" check, which would have passed against it).
+    // `.select('id')` is not decoration: without it, an UPDATE matching zero
+    // rows comes back `{ error: null }` and this route would answer 200
+    // `{ processed }` for a subscription change it never wrote.
+    //
+    // How narrow that is, stated honestly. The obvious path — an organization_id
+    // that is a well-formed uuid but belongs to no row here — cannot reach this
+    // point: `stripe_webhook_events.organization_id` carries an FK to
+    // `organizations(id)` (verified live on the production database, 2026-08-09),
+    // so the claim insert above fails first with 23503 and returns 500. What is
+    // left is the deletion race — the organization disappears between the claim
+    // and this UPDATE — where `ON DELETE SET NULL` leaves the claim row standing
+    // and the UPDATE silently matches nothing.
+    //
+    // Worth the two words anyway: it makes the invariant local instead of
+    // resting on a constraint declared in another file, and the failure it
+    // guards against is the one class this repo keeps shipping (hard rule 1).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: updatedRows, error: updateError } = await (supabase as any)
       .from('organizations')
