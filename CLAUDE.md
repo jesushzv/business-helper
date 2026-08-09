@@ -84,9 +84,8 @@ project; agents author most PRs and the issue tracker doubles as the engineering
    `publicApiError()` — same envelope, Spanish message safe to render verbatim, machine state in
    `code`, siblings (`retry_after_seconds`, `attempts`, `remaining`, `expired`) via its `extra` arg.
    Consumers read `error.message` and branch on `error.code`; `data?.error || fallback` renders
-   `[object Object]` against the envelope (#65 — these routes had four shapes, some English, shown
-   to the tenant's *client* mid-signature). `tests/unit/publicErrorEnvelope.test.ts` fails the build
-   on a bare-string body, a sibling `code`, or an English message.
+   `[object Object]` against the envelope (#65). `tests/unit/publicErrorEnvelope.test.ts` fails the
+   build on a bare-string body, a sibling `code`, or an English message.
 
 ## Hard rules — every change, any size
 
@@ -160,8 +159,8 @@ SPEI to the org's CLABE. Deep dive: `docs/02-architecture/cfdi_integration_archi
 `quotes.public_token` — the payment route looks the quote up and walks to its contract and
 milestones. So a `/pay/` link is **never** built from a milestone or contract id (#72 was that bug,
 a 404 in front of a paying client). `getQuotePublicUrl()` / `getPaymentPublicUrl()` in `lib/url.ts`
-are the only builders — never a literal origin, which has shipped four times (#36, #47, #73's pair,
-plus one #73 missed). `tests/unit/url.test.ts` fails the build on a literal app origin in `lib/*.ts`.
+are the only builders — never a literal origin, which has shipped four times (#36, #47, #73 ×2).
+`tests/unit/url.test.ts` fails the build on a literal app origin in `lib/*.ts`.
 
 **`milestones` has no `public_token` column.** It reaches a milestone via
 `contract.quote_id → quotes.public_token`, and that embed **needs the FK hint**
@@ -277,7 +276,9 @@ not earned. It has shipped here at least eight times.
   credential are out of reach; schema, grants, constraints, PostgREST **and the deployed app
   itself** are not — send an `@supabase/ssr` cookie on `extensions.http(('PATCH','https://…'))`
   (recipe in #129). The shell's `403` on the app domain is not the last word: #95 sat three weeks
-  on that.
+  on that. **Nor is GoTrue** — `/auth/v1/settings?apikey=<anon>` returns the `external` provider
+  map, `/auth/v1/authorize?provider=…` the user's error, and `auth.identities` who has *ever*
+  signed in that way; #48 sat two days on it.
 - **Never edit a migration after it has been applied anywhere.** `ADD COLUMN IF NOT EXISTS` is
   idempotent but not convergent, and `db:migrate` skips files the ledger lists — an edited file
   leaves repo and production silently disagreeing. Reconcile the live DB explicitly (an `ALTER`
@@ -305,11 +306,10 @@ not earned. It has shipped here at least eight times.
   refuse `DEFAULT 0`/`'active'` — the #64 tri-state rule at the column — and keep such columns
   independent in the form: coupling `credit_status` to `credit_limit` discarded an owner blocking a
   defaulting client.
-- **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93 — it shipped
-  hardcoded in the chrome and three client-facing WhatsApp builders). Chrome identity comes from
-  `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in `lib/whatsappLink.ts` (org
-  name as a parameter, signature omitted when unknown). `tests/unit/demoIdentityLeak.test.ts` fails
-  the build on a leak and keeps the allowlist.
+- **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93). Chrome identity
+  comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
+  `lib/whatsappLink.ts` (org name as a parameter, signature omitted when unknown).
+  `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak and keeps the allowlist.
 - **localStorage is demo-sandbox state, never a real tenant's store.** Real tenants read the API
   (an empty list is a real answer), see errors as errors, and their mutations apply the server row
   or throw. Seeding fixtures on a failed fetch is how a new tenant's directory opened with three

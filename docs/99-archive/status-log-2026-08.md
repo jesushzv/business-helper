@@ -453,6 +453,7 @@ tests but unasserted presentational branches. Still under the 85/85/80/80 gate C
 *Moved 2026-08-09 when `docs/STATUS.md` hit its 32 KB budget. Every row was settled history by
 then; it is reproduced verbatim because five of its six commit SHAs are recorded nowhere else.*
 
+
 *Every row below is merged to `main` — the commit is the verification, checked with `git log` on
 2026-08-08. The reasoning for each change, and what was checked against what, is preserved in the
 frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).*
@@ -473,3 +474,4 @@ frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08
 > suite against **mocked** providers. Not one constitutes a live third-party round-trip. The P0 items
 > in §03 that need a real handset, a real card, a real PAC stamp or a deployed database are untouched
 > by all of it — merging is not verification.
+

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Lock, Mail, ArrowRight, AlertCircle, Sparkles, Eye, EyeOff, Phone } from 'lucide-react';
 import { validatePhone } from '@/lib/phoneValidator';
+import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
+import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,6 +34,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const phoneResult = phone ? validatePhone(phone) : { isValid: false, phone: '' };
+
+  /**
+   * Whether the Auth server actually accepts Google (#48). `false` hides the
+   * button; `null` (unknown) leaves it, because hiding a working sign-in on a
+   * failed read would lock out anyone whose only account is a Google one.
+   */
+  const googleEnabled = useOAuthProviderEnabled('google');
 
   // /auth/callback bounces back here with ?error=oauth when the code exchange
   // failed — without this, the user just sees the login form again with no
@@ -74,8 +83,28 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     setError(null);
+
+    /**
+     * Ask before navigating. `signInWithOAuth` assigns `window.location` and
+     * returns `error: null` unconditionally, so a disabled provider is never
+     * reported back here — the browser simply leaves for GoTrue's raw English
+     * JSON error on a supabase.co origin (#48). Once we navigate there is no
+     * message we can show, which is why this check happens first.
+     *
+     * `googleEnabled` is already known in the common case; the fallback read
+     * covers the window before the hook has answered, and the `null` (unknown)
+     * result proceeds rather than blocking.
+     */
+    const available = googleEnabled ?? (await fetchOAuthProviderEnabled('google'));
+    if (available === false) {
+      setError('Por ahora no es posible entrar con Google. Usa tu correo y contraseña.');
+      return;
+    }
+
     try {
       const supabase = createClient();
+      // Kept as a guard for errors the SDK *can* report (a failure to persist
+      // the PKCE verifier, say). It cannot fire for a disabled provider.
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -117,7 +146,10 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Social Login Button */}
+          {/* Social Login Button — hidden outright when the Auth server has
+              told us it will not accept Google (#48). An unknown answer keeps
+              it: see useOAuthProviderEnabled for why that direction is safe. */}
+          {googleEnabled !== false && (
           <div className="mb-6">
             <button
               type="button"
@@ -154,6 +186,7 @@ export default function LoginPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Email / Phone Method Selector */}
           <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 mb-6">
