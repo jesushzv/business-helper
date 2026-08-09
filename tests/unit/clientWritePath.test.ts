@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 /**
  * The clients write path — pinned after #96's deployed verification found it
@@ -167,6 +169,45 @@ describe('POST /api/clients persists the whole form (#96)', () => {
     expect(res.status).toBe(400);
     expect(insertCalls).toHaveLength(0);
   });
+
+  /**
+   * Validation used to coerce with `Number()` to decide, then persist the raw
+   * value — so each of these passed the route and failed at the column as an
+   * opaque 500 ("No se pudo crear el cliente"), with nothing telling the owner
+   * their number was too large or malformed. Same shape as the #40 phone bug.
+   */
+  it('rejects values that would fail at the column, with a Spanish reason', async () => {
+    for (const bad of [
+      { credit_limit: '' },
+      { credit_limit: '   ' },
+      { credit_limit: true },
+      { credit_limit: [] },
+      { credit_limit: 10_000_000_000 }, // over numeric(12,2)
+      { credit_days: 2_147_483_648 }, // over int4
+      { credit_days: 1.5 },
+      { credit_days: '' },
+    ]) {
+      insertCalls.length = 0;
+      const res = await POST(postRequest(formPayload(bad)));
+      expect(res.status, JSON.stringify(bad)).toBe(400);
+      const body = await res.json();
+      expect(body.error.message).toMatch(/crédito|plazo/i);
+      expect(insertCalls, JSON.stringify(bad)).toHaveLength(0);
+    }
+  });
+
+  it('stores a numeric-string limit as a number, not as the string', async () => {
+    await POST(postRequest(formPayload({ credit_limit: '80000', credit_days: '30' })));
+    expect(insertCalls[0].credit_limit).toBe(80000);
+    expect(insertCalls[0].credit_days).toBe(30);
+  });
+
+  it('lets the column default supply cfdi_use rather than writing NULL over it', async () => {
+    // An explicit null overrides a column DEFAULT; cfdi_use feeds CFDI
+    // stamping, so a NULL here resurfaces as an invoice that cannot be issued.
+    await POST(postRequest(formPayload({ cfdi_use: null })));
+    expect(insertCalls[0]).not.toHaveProperty('cfdi_use');
+  });
 });
 
 describe('PUT /api/clients/[id] persists the whole form (#96)', () => {
@@ -198,6 +239,16 @@ describe('PUT /api/clients/[id] persists the whole form (#96)', () => {
     expect(updateCalls[0]).not.toHaveProperty('name');
   });
 
+  it('does not rename the client to the literal string "null"', async () => {
+    // `String(null).trim()` is the truthy string "null", so the old guard let
+    // a `{"name": null}` body through and renamed the client to "null".
+    for (const name of [null, 0, false]) {
+      updateCalls.length = 0;
+      await PUT(putRequest({ name, notes: 'x' }), { params });
+      expect(updateCalls[0], String(name)).not.toHaveProperty('name');
+    }
+  });
+
   it('can retire a credit line back to unassigned', async () => {
     await PUT(putRequest({ credit_limit: null, credit_days: null, credit_status: null }), {
       params,
@@ -217,11 +268,36 @@ describe('PUT /api/clients/[id] persists the whole form (#96)', () => {
 });
 
 describe('the writable list covers what the form sends', () => {
+  /**
+   * Read out of the modal source, not out of the fixture above.
+   *
+   * A previous version of this test iterated `Object.keys(formPayload())` — a
+   * hand-maintained local object — while claiming to fail the build if the form
+   * grew a field the routes drop. It could not: if ClientFormModal grew a key,
+   * the fixture would not, and the test stayed green. That is an assertion that
+   * cannot fail for the reason it names (CLAUDE.md rule 7).
+   */
+  function keysClientFormModalSubmits(): string[] {
+    const src = readFileSync(join(process.cwd(), 'components/clients/ClientFormModal.tsx'), 'utf8');
+    const call = src.slice(src.indexOf('await onSave({'));
+    const body = call.slice(0, call.indexOf('\n      });'));
+    return [...body.matchAll(/^\s{8}([a-z_]+):/gm)].map((m) => m[1]);
+  }
+
+  it('reads a non-trivial key set out of the modal (guards the guard)', () => {
+    const keys = keysClientFormModalSubmits();
+    // If the parse silently matched nothing, every assertion below would pass
+    // vacuously — the exact failure mode this test exists to prevent.
+    expect(keys.length).toBeGreaterThanOrEqual(10);
+    expect(keys).toContain('regimen_fiscal');
+    expect(keys).toContain('credit_limit');
+  });
+
   it('every key ClientFormModal submits is writable', async () => {
     const { CLIENT_WRITABLE_FIELDS } = await import('@/lib/apiAuth');
     // Fails the build if the form grows a field the routes silently drop —
     // the exact shape of this defect.
-    for (const key of Object.keys(formPayload())) {
+    for (const key of keysClientFormModalSubmits()) {
       expect(CLIENT_WRITABLE_FIELDS, `${key} is submitted but not writable`).toContain(key);
     }
   });

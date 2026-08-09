@@ -106,10 +106,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // An explicit null would override the column's 'G03' default; omitting the
+    // key lets the default apply. cfdi_use feeds CFDI stamping, so a NULL here
+    // resurfaces later as an invoice that cannot be issued.
+    if (fields.cfdi_use === null) delete fields.cfdi_use;
+
     const { data: newClient, error } = await supabase
       .from('clients')
       .insert({
         ...fields,
+        ...credit.values,
         organization_id: organizationId,
         name: name.trim(),
         phone: phoneNormalized.value,

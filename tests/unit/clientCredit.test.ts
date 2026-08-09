@@ -113,6 +113,34 @@ describe('an unconfigured credit line reads as unknown, not as zero', () => {
     expect(res.warningMessage).toBeNull();
   });
 
+  it('treats a status without a limit as a real decision, not as unconfigured', () => {
+    // The two columns are independent. An owner who blocks a defaulting client
+    // without ever setting a limit has decided something; keying isConfigured
+    // off the limit alone hid that block behind "sin línea de crédito" while
+    // the quote wizard still refused the sale.
+    const summary = calculateClientCreditSummary(
+      { id: 'c_1', credit_limit: null, credit_status: 'blocked' },
+      receivables
+    );
+    expect(summary.isConfigured).toBe(true);
+    expect(summary.hasLimit).toBe(false);
+    expect(summary.status).toBe('blocked');
+    expect(validateQuoteCreditLimit(100, summary.availableCredit, summary.status).isAllowed).toBe(
+      false
+    );
+  });
+
+  it('does not call a stored limit with no status "Activo"', () => {
+    const summary = calculateClientCreditSummary(
+      { id: 'c_1', credit_limit: 50000, credit_status: null },
+      receivables
+    );
+    expect(summary.hasLimit).toBe(true);
+    // The badge is rendered from `status`; null must stay null so the UI can
+    // omit it rather than fall through to a green default.
+    expect(summary.status).toBeNull();
+  });
+
   it('keeps blocking a blocked client once a policy exists', () => {
     const summary = calculateClientCreditSummary(
       { id: 'c_1', credit_limit: 10000, credit_status: 'blocked' },

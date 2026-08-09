@@ -193,16 +193,6 @@ export interface ReceivableMutationOutcome {
   complementError?: { code: string; message: string } | null;
 }
 
-/**
- * The one case where a local-only write is legitimate: the deployment has no
- * backend at all (the static marketing demo). requireOrgAccess() signals it
- * with exactly this status and code; anything else is a real failure.
- */
-function isDemoBackendResponse(status: number, data: unknown): boolean {
-  const err = (data as { error?: { code?: string } } | null)?.error;
-  return status === 503 && err?.code === 'BACKEND_NOT_CONFIGURED';
-}
-
 function errorMessage(data: unknown, fallback: string): string {
   const err = (data as { error?: string | { message?: string } } | null)?.error;
   if (typeof err === 'string') return err;
@@ -346,7 +336,13 @@ export function useReceivables() {
       };
     }
 
-    if (isDemoBackendResponse(res.status, data)) {
+    // Only the sandbox may confirm a payment the server did not record. This
+    // used to key off a 503 BACKEND_NOT_CONFIGURED instead, which a real
+    // deployment also returns when its server-side Supabase config is broken —
+    // so a misconfigured production wrote "confirmed" with a locally minted
+    // timestamp for a payment nobody had received. Demo detection is the
+    // build-time signal, never a response code (CLAUDE.md).
+    if (isClientDemoMode()) {
       const updated = applyRowUpdate(id, {
         status: 'confirmed',
         transferred_amount: transferredAmount,
@@ -383,7 +379,7 @@ export function useReceivables() {
 
     const body = await res.json().catch(() => null);
 
-    if (res.ok || isDemoBackendResponse(res.status, body)) {
+    if (res.ok || isClientDemoMode()) {
       const updated = applyRowUpdate(id, changes);
       if (!updated) return { success: false, error: 'Hito de pago no encontrado' };
       return { success: true, milestone: updated };

@@ -74,6 +74,13 @@ export interface ClientCreditSummary {
    * green "Activo" badge — a decision the owner never made (#96).
    */
   isConfigured: boolean;
+  /**
+   * Whether a spending limit specifically is on file. Narrower than
+   * `isConfigured`, which is also true for a status-only decision (a client
+   * blocked before any line was assigned). Utilization, available credit and
+   * the progress bar are only meaningful when this is true.
+   */
+  hasLimit: boolean;
   totalLimit: number;
   usedCredit: number;
   availableCredit: number;

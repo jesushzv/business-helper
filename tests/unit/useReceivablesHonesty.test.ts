@@ -152,12 +152,35 @@ describe('confirmPayment honesty', () => {
     expect(result.current.receivables[0].status).toBe('confirmed');
   });
 
-  it('allows the local-only update on the demo deployment (503 BACKEND_NOT_CONFIGURED)', async () => {
+  it('refuses to confirm locally on a 503 once a backend is configured', async () => {
+    // This used to succeed: a 503 BACKEND_NOT_CONFIGURED authorized a local
+    // "confirmed" with a locally minted timestamp. But a real deployment
+    // returns that same code when its *server-side* Supabase config is broken,
+    // so a misconfigured production reported payments as received that nobody
+    // had received. Demo detection is the build-time signal, never a response
+    // code (CLAUDE.md).
     const { result } = await mountHook();
     fetchMock.mockResolvedValueOnce(
       jsonResponse(503, {
         error: { code: 'BACKEND_NOT_CONFIGURED', message: 'Esta operación requiere una base de datos configurada' },
       })
+    );
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.confirmPayment('m-1', 500);
+    });
+
+    expect(outcome).toMatchObject({ success: false });
+    expect(result.current.receivables[0].status).toBe('marked_paid');
+    expect(result.current.receivables[0].confirmed_at).toBeNull();
+  });
+
+  it('still allows the sandbox to confirm locally', async () => {
+    const { result } = await mountHook();
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(503, { error: { code: 'BACKEND_NOT_CONFIGURED', message: 'sin base de datos' } })
     );
 
     let outcome;

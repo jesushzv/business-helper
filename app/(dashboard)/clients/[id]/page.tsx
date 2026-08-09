@@ -34,7 +34,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const router = useRouter();
   const { getClientById, updateClient, deleteClient, loading, error } = useClients();
   const { quotes } = useQuotes();
-  const { receivables } = useReceivables();
+  // The financial modules below are only as trustworthy as this read. A failed
+  // or in-flight receivables fetch yields `[]`, which would render as
+  // "Crédito Utilizado $0 / Disponible $50,000" — a confident zero on the
+  // screen where the owner decides whether to extend more credit (#96).
+  const {
+    receivables,
+    loading: receivablesLoading,
+    error: receivablesError,
+  } = useReceivables();
   const { org } = useCurrentOrg();
   const [isEditOpen, setIsEditOpen] = useState(false);
 
@@ -114,6 +122,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   // owner decides whether to extend more credit (#96).
   const clientQuotes = quotes.filter((q) => q.client_id === client.id);
   const clientMilestones = receivables.filter((m) => m.client_id === client.id);
+
+  // Three states, not two: an empty list means "this client owes nothing" only
+  // once the read actually succeeded. Until then it means "we do not know yet".
+  const balanceKnown = !receivablesLoading && !receivablesError;
 
   const activityFeed = formatClientActivity(
     clientQuotes,
@@ -234,10 +246,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       <h3 className="text-base font-extrabold text-white">Línea de Crédito B2B</h3>
                       <p className="mt-0.5 text-xs text-slate-400">Condiciones de pago y saldo utilizado</p>
                     </div>
-                    {/* No badge at all when nothing is configured. A green
-                        "Activo" over an unassessed client is a decision the
-                        owner never made (#96). */}
-                    {creditSummary.isConfigured && (
+                    {/* Gated on the status itself, not on whether a limit
+                        exists: those are independent columns, so gating on the
+                        limit would render a green "Activo" for a stored NULL
+                        status — the same fabrication one field over (#96). */}
+                    {creditSummary.status !== null && (
                       <span className={`rounded-xl px-3 py-1 text-xs font-bold border ${
                         creditSummary.status === 'blocked'
                           ? 'bg-rose-950/80 text-rose-400 border-rose-500/30'
@@ -259,7 +272,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                           en <span className="font-bold text-slate-300">Editar</span>.
                         </p>
                       </div>
-                      {creditSummary.usedCredit > 0 && (
+                      {balanceKnown && creditSummary.usedCredit > 0 && (
                         <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
                           <span className="font-semibold text-slate-400">Saldo Pendiente de Cobro</span>
                           <span className="font-bold text-amber-400 font-mono">
@@ -273,16 +286,35 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       <div className="mt-4 space-y-3">
                         <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
                           <span className="font-semibold text-slate-400">Límite de Crédito Autorizado</span>
-                          <span className="font-bold text-white font-mono">${creditSummary.totalLimit.toLocaleString('es-MX')} MXN</span>
+                          <span className="font-bold text-white font-mono">
+                            {creditSummary.hasLimit
+                              ? `$${creditSummary.totalLimit.toLocaleString('es-MX')} MXN`
+                              : 'Sin definir'}
+                          </span>
                         </div>
+                        {/* Every figure below is derived from the receivables
+                            read. While it is in flight or failed, the honest
+                            answer is "no lo sabemos" — a $0 utilizado against a
+                            full available line is the fabrication this page
+                            exists to remove (#96). */}
                         <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
                           <span className="font-semibold text-slate-400">Crédito Utilizado (Cuentas Activas)</span>
-                          <span className="font-bold text-amber-400 font-mono">${creditSummary.usedCredit.toLocaleString('es-MX')} MXN</span>
+                          <span className="font-bold text-amber-400 font-mono">
+                            {balanceKnown
+                              ? `$${creditSummary.usedCredit.toLocaleString('es-MX')} MXN`
+                              : '—'}
+                          </span>
                         </div>
-                        <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
-                          <span className="font-semibold text-slate-400">Crédito Disponible</span>
-                          <span className="font-bold text-emerald-400 font-mono">${creditSummary.availableCredit.toLocaleString('es-MX')} MXN</span>
-                        </div>
+                        {creditSummary.hasLimit && (
+                          <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                            <span className="font-semibold text-slate-400">Crédito Disponible</span>
+                            <span className="font-bold text-emerald-400 font-mono">
+                              {balanceKnown
+                                ? `$${creditSummary.availableCredit.toLocaleString('es-MX')} MXN`
+                                : '—'}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
                           <span className="font-semibold text-slate-400">Plazo de Pago (Días)</span>
                           <span className="font-bold text-indigo-400">
@@ -295,8 +327,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         </div>
                       </div>
 
+                      {!balanceKnown && (
+                        <p className="mt-3 text-xs font-medium text-slate-400">
+                          {receivablesLoading
+                            ? 'Calculando el saldo del cliente…'
+                            : 'No pudimos calcular el saldo de este cliente. Revisa tu conexión y vuelve a intentar.'}
+                        </p>
+                      )}
+
                       {/* Credit Utilization Bar */}
-                      {creditSummary.totalLimit > 0 && (
+                      {balanceKnown && creditSummary.hasLimit && creditSummary.totalLimit > 0 && (
                         <div className="mt-4">
                           <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1.5">
                             <span>Uso de Línea</span>

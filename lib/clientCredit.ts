@@ -28,18 +28,25 @@ export function calculateClientCreditSummary(
   // chose. Only a stored number counts as configured (#64's tri-state rule
   // applied to a column; #96 is where the collapsed version shipped).
   const rawLimit = client?.credit_limit;
-  const isConfigured =
+  const hasLimit =
     rawLimit !== null && rawLimit !== undefined && Number.isFinite(Number(rawLimit));
 
-  const totalLimit = isConfigured ? Math.max(0, Number(rawLimit)) : 0;
+  const status = client?.credit_status ?? null;
+
+  // A status counts as configuration on its own. The two columns are
+  // independent, so an owner who blocked a client without ever setting a limit
+  // has made a real decision — keying `isConfigured` off the limit alone hid
+  // that block behind "sin línea de crédito asignada" while the quote wizard
+  // still refused the sale, leaving two screens disagreeing.
+  const isConfigured = hasLimit || status !== null;
+
+  const totalLimit = hasLimit ? Math.max(0, Number(rawLimit)) : 0;
 
   const rawDays = client?.credit_days;
   const creditDays =
     rawDays === null || rawDays === undefined || !Number.isFinite(Number(rawDays))
       ? null
       : Math.max(0, Number(rawDays));
-
-  const status = client?.credit_status ?? null;
 
   const clientId = client?.id;
 
@@ -63,15 +70,16 @@ export function calculateClientCreditSummary(
   // still reported — the UI just must not frame it as utilization of a line
   // that does not exist.
   const usedCredit = activeReceivables.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
-  const availableCredit = isConfigured ? Math.max(0, totalLimit - usedCredit) : 0;
-  const isOverLimit = isConfigured && totalLimit > 0 && usedCredit > totalLimit;
+  const availableCredit = hasLimit ? Math.max(0, totalLimit - usedCredit) : 0;
+  const isOverLimit = hasLimit && totalLimit > 0 && usedCredit > totalLimit;
   const utilizationPercentage =
-    isConfigured && totalLimit > 0
+    hasLimit && totalLimit > 0
       ? Math.min(100, Math.round((usedCredit / totalLimit) * 100))
       : 0;
 
   return {
     isConfigured,
+    hasLimit,
     totalLimit,
     usedCredit,
     availableCredit,

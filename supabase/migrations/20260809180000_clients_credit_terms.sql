@@ -29,23 +29,23 @@ ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS credit_status text;
 
 -- Money and terms cannot be negative. NULL still passes: these constrain the
 -- configured values, they do not force configuration.
-ALTER TABLE public.clients DROP CONSTRAINT IF EXISTS clients_credit_limit_non_negative;
+ALTER TABLE public.clients DROP CONSTRAINT IF EXISTS chk_client_credit_limit_non_negative;
 ALTER TABLE public.clients
-  ADD CONSTRAINT clients_credit_limit_non_negative
+  ADD CONSTRAINT chk_client_credit_limit_non_negative
   CHECK (credit_limit IS NULL OR credit_limit >= 0);
 
-ALTER TABLE public.clients DROP CONSTRAINT IF EXISTS clients_credit_days_non_negative;
+ALTER TABLE public.clients DROP CONSTRAINT IF EXISTS chk_client_credit_days_non_negative;
 ALTER TABLE public.clients
-  ADD CONSTRAINT clients_credit_days_non_negative
+  ADD CONSTRAINT chk_client_credit_days_non_negative
   CHECK (credit_days IS NULL OR credit_days >= 0);
 
 -- The status vocabulary is enforced in the database, not only in TypeScript:
 -- the summary branches on it to decide whether new quotes are allowed at all
 -- (lib/clientCredit.ts validateQuoteCreditLimit), so an unrecognised value
 -- must not be storable.
-ALTER TABLE public.clients DROP CONSTRAINT IF EXISTS clients_credit_status_valid;
+ALTER TABLE public.clients DROP CONSTRAINT IF EXISTS chk_client_credit_status_valid;
 ALTER TABLE public.clients
-  ADD CONSTRAINT clients_credit_status_valid
+  ADD CONSTRAINT chk_client_credit_status_valid
   CHECK (credit_status IS NULL OR credit_status IN ('active', 'suspended', 'blocked'));
 
 COMMENT ON COLUMN public.clients.credit_limit IS

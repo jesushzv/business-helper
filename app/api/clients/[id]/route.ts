@@ -103,11 +103,14 @@ export async function PUT(
 
     const updates: Record<string, unknown> = {
       ...fields,
+      ...credit.values,
       updated_at: new Date().toISOString(),
     };
-    // A blank name would rename the client to nothing; leave the stored one.
-    if (name === undefined || !String(name).trim()) delete updates.name;
-    else updates.name = String(name).trim();
+    // Leave the stored name alone unless the caller sent a usable one. The
+    // typeof guard matters: `String(null).trim()` is the truthy string "null",
+    // so a `{"name": null}` body used to rename the client to "null".
+    if (typeof name !== 'string' || !name.trim()) delete updates.name;
+    else updates.name = name.trim();
     if (phone !== undefined) updates.phone = phoneNormalized.value;
     if (rfc !== undefined) updates.rfc = rfc ? String(rfc).toUpperCase().trim() : null;
 

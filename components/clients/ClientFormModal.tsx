@@ -44,8 +44,8 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [codigoPostal, setCodigoPostal] = useState('');
   const [cfdiUse, setCfdiUse] = useState('G03');
   const [creditLimit, setCreditLimit] = useState<number | ''>('');
-  const [creditDays, setCreditDays] = useState<number>(0);
-  const [creditStatus, setCreditStatus] = useState<'active' | 'suspended' | 'blocked'>('active');
+  const [creditDays, setCreditDays] = useState<number | ''>('');
+  const [creditStatus, setCreditStatus] = useState<'' | 'active' | 'suspended' | 'blocked'>('');
   const [notes, setNotes] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -62,8 +62,8 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setCodigoPostal(initialClient.codigo_postal || '');
       setCfdiUse(initialClient.cfdi_use || 'G03');
       setCreditLimit(initialClient.credit_limit ?? '');
-      setCreditDays(initialClient.credit_days ?? 0);
-      setCreditStatus(initialClient.credit_status || 'active');
+      setCreditDays(initialClient.credit_days ?? '');
+      setCreditStatus(initialClient.credit_status || '');
       setNotes(initialClient.notes || '');
     } else {
       setName('');
@@ -75,8 +75,8 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setCodigoPostal('');
       setCfdiUse('G03');
       setCreditLimit('');
-      setCreditDays(0);
-      setCreditStatus('active');
+      setCreditDays('');
+      setCreditStatus('');
       setNotes('');
     }
     setError(null);
@@ -113,14 +113,19 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         regimen_fiscal: regimenFiscal || null,
         codigo_postal: codigoPostal.trim() || null,
         cfdi_use: cfdiUse,
-        // Blank means "no credit line assigned", not "assigned a limit of
-        // zero" — the column is nullable precisely so the detail page can tell
-        // those apart instead of showing every client a green "Activo" over
-        // $0 (#96). Terms and status only travel with a limit.
-        credit_limit: creditLimit !== '' ? Number(creditLimit) : null,
-        credit_days: creditLimit !== '' ? Number(creditDays) : null,
-        credit_status: creditLimit !== '' ? creditStatus : null,
-        notes: notes.trim() || undefined,
+        // Blank means "not assigned", not "assigned a value of zero" — the
+        // columns are nullable precisely so the detail page can tell those
+        // apart instead of showing every client a green "Activo" over $0 (#96).
+        //
+        // The three are independent on purpose. Coupling status and plazo to
+        // the limit discarded the most important credit decision there is:
+        // an owner cutting off a defaulting client picks "Bloqueado" and
+        // clears the limit, and the block would never persist while the modal
+        // closed reporting success.
+        credit_limit: creditLimit === '' ? null : Number(creditLimit),
+        credit_days: creditDays === '' ? null : Number(creditDays),
+        credit_status: creditStatus || null,
+        notes: notes.trim() || null,
       });
       onClose();
     } catch (err: unknown) {
@@ -344,9 +349,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 <label className="block text-xs font-bold text-slate-300">Plazo de Crédito (Días)</label>
                 <select
                   value={creditDays}
-                  onChange={(e) => setCreditDays(Number(e.target.value))}
+                  onChange={(e) => setCreditDays(e.target.value === '' ? '' : Number(e.target.value))}
                   className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
                 >
+                  <option value="" className="bg-slate-900 text-white">Sin definir</option>
                   <option value={0} className="bg-slate-900 text-white">0 días (Contado)</option>
                   <option value={7} className="bg-slate-900 text-white">7 días</option>
                   <option value={15} className="bg-slate-900 text-white">15 días</option>
@@ -362,9 +368,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 <label className="block text-xs font-bold text-slate-300">Estatus de Crédito</label>
                 <select
                   value={creditStatus}
-                  onChange={(e) => setCreditStatus(e.target.value as 'active' | 'suspended' | 'blocked')}
+                  onChange={(e) => setCreditStatus(e.target.value as '' | 'active' | 'suspended' | 'blocked')}
                   className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
                 >
+                  <option value="" className="bg-slate-900 text-white">Sin asignar</option>
                   <option value="active" className="bg-slate-900 text-emerald-400">Activo (Crédito Permitido)</option>
                   <option value="suspended" className="bg-slate-900 text-amber-400">Suspendido (Requiere Revisión)</option>
                   <option value="blocked" className="bg-slate-900 text-rose-400">Bloqueado (Solo Contado)</option>

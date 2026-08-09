@@ -232,38 +232,88 @@ export const CLIENT_WRITABLE_FIELDS = [
 
 export const CREDIT_STATUS_VALUES = ['active', 'suspended', 'blocked'] as const;
 
+/** `numeric(12,2)` — anything larger is a numeric field overflow at the column. */
+const CREDIT_LIMIT_MAX = 9_999_999_999.99;
+/** int4 — anything larger is "integer out of range" at the column. */
+const CREDIT_DAYS_MAX = 2_147_483_647;
+
 /**
- * Validates the trade-credit terms on a client write.
+ * Validates the trade-credit terms on a client write, returning the values to
+ * store.
  *
- * The columns are deliberately nullable — NULL means "no credit line has ever
+ * It returns the coerced numbers rather than a bare ok/not-ok, because
+ * validating a coercion and then persisting the *original* is its own defect:
+ * `""`, `true` and `[]` all satisfy `Number(x) >= 0` and then fail at the
+ * column as an opaque 500, and a limit above the numeric(12,2) ceiling did the
+ * same. That is the #40 shape — a correctable typo surfacing as a server
+ * error — so the bounds are checked here, against the real column limits, and
+ * the caller writes what this returns.
+ *
+ * The columns are deliberately nullable: NULL means "no credit line has ever
  * been configured", which the UI renders as unknown rather than as an
- * authorized limit of zero. So `null` is accepted here and passed through;
- * only a value that is present and wrong is rejected. Rejecting at the route
- * turns a DB CHECK violation (an opaque 500) into a Spanish 400 that names the
- * field.
+ * authorized zero. `null` is therefore a valid value, not a missing one.
  */
 export function validateCreditTerms(
   fields: Record<string, unknown>
-): { ok: true } | { ok: false; message: string } {
-  if (fields.credit_limit !== undefined && fields.credit_limit !== null) {
-    const limit = Number(fields.credit_limit);
-    if (!Number.isFinite(limit) || limit < 0) {
-      return { ok: false, message: 'El límite de crédito debe ser un monto mayor o igual a cero.' };
+): { ok: true; values: Record<string, unknown> } | { ok: false; message: string } {
+  const values: Record<string, unknown> = {};
+
+  if ('credit_limit' in fields) {
+    const raw = fields.credit_limit;
+    if (raw === null) {
+      values.credit_limit = null;
+    } else {
+      if (typeof raw !== 'number' && typeof raw !== 'string') {
+        return { ok: false, message: 'El límite de crédito debe ser un monto en pesos.' };
+      }
+      const limit = Number(raw);
+      if (String(raw).trim() === '' || !Number.isFinite(limit) || limit < 0) {
+        return { ok: false, message: 'El límite de crédito debe ser un monto mayor o igual a cero.' };
+      }
+      if (limit > CREDIT_LIMIT_MAX) {
+        return {
+          ok: false,
+          message: 'El límite de crédito excede el máximo permitido de $9,999,999,999.99 MXN.',
+        };
+      }
+      values.credit_limit = limit;
     }
   }
 
-  if (fields.credit_days !== undefined && fields.credit_days !== null) {
-    const days = Number(fields.credit_days);
-    if (!Number.isInteger(days) || days < 0) {
-      return { ok: false, message: 'El plazo de pago debe ser un número de días mayor o igual a cero.' };
+  if ('credit_days' in fields) {
+    const raw = fields.credit_days;
+    if (raw === null) {
+      values.credit_days = null;
+    } else {
+      if (typeof raw !== 'number' && typeof raw !== 'string') {
+        return { ok: false, message: 'El plazo de pago debe ser un número de días.' };
+      }
+      const days = Number(raw);
+      if (String(raw).trim() === '' || !Number.isInteger(days) || days < 0) {
+        return {
+          ok: false,
+          message: 'El plazo de pago debe ser un número de días mayor o igual a cero.',
+        };
+      }
+      if (days > CREDIT_DAYS_MAX) {
+        return { ok: false, message: 'El plazo de pago excede el máximo permitido.' };
+      }
+      values.credit_days = days;
     }
   }
 
-  if (fields.credit_status !== undefined && fields.credit_status !== null) {
-    if (!CREDIT_STATUS_VALUES.includes(fields.credit_status as (typeof CREDIT_STATUS_VALUES)[number])) {
+  if ('credit_status' in fields) {
+    const raw = fields.credit_status;
+    if (raw === null) {
+      values.credit_status = null;
+    } else if (
+      !CREDIT_STATUS_VALUES.includes(raw as (typeof CREDIT_STATUS_VALUES)[number])
+    ) {
       return { ok: false, message: 'El estado de crédito no es válido.' };
+    } else {
+      values.credit_status = raw;
     }
   }
 
-  return { ok: true };
+  return { ok: true, values };
 }
