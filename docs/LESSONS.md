@@ -161,7 +161,9 @@ not earned. It has shipped here at least eight times.
   credential are out of reach; schema, grants, constraints, PostgREST **and the deployed app
   itself** are not — send an `@supabase/ssr` cookie on `extensions.http(('PATCH','https://…'))`
   (recipe in #129). The shell's `403` on the app domain is not the last word: #95 sat three weeks
-  on that.
+  on that. **Nor is GoTrue** — `/auth/v1/settings?apikey=<anon>` returns the `external` provider
+  map, `/auth/v1/authorize?provider=…` the user's error, and `auth.identities` who has *ever*
+  signed in that way; #48 sat two days on it.
 - **A shared always-read document with no headroom manufactures merge conflicts** (#135). Adding a
   line forces compressing an unrelated paragraph, two sessions compress the same paragraph two ways,
   and the cheap resolution drops one side's lesson under a green build. Lessons live here, not in

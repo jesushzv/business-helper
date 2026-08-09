@@ -453,6 +453,7 @@ tests but unasserted presentational branches. Still under the 85/85/80/80 gate C
 *Moved 2026-08-09 when `docs/STATUS.md` hit its 32 KB budget. Every row was settled history by
 then; it is reproduced verbatim because five of its six commit SHAs are recorded nowhere else.*
 
+
 *Every row below is merged to `main` — the commit is the verification, checked with `git log` on
 2026-08-08. The reasoning for each change, and what was checked against what, is preserved in the
 frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).*
@@ -473,3 +474,25 @@ frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08
 > suite against **mocked** providers. Not one constitutes a live third-party round-trip. The P0 items
 > in §03 that need a real handset, a real card, a real PAC stamp or a deployed database are untouched
 > by all of it — merging is not verification.
+
+---
+
+## #95's production verification (2026-08-09)
+
+*Moved from `docs/STATUS.md` on 2026-08-09 (PR #137) when the file hit its 32 KB budget. #95 is
+closed and the checks are settled; reproduced verbatim because the transcript is recorded nowhere
+else. For live status read [`../STATUS.md`](../STATUS.md).*
+
+**#95's save verified against production on 2026-08-09.** The shell in a remote session cannot
+reach `businesshelper.app` (egress policy), so the checks ran from inside the database over the
+`http` extension — the same in-Postgres route CLAUDE.md documents for `*.supabase.co`. Against
+`https://businesshelper.app`: `PUT /api/organization` → **405** (the method the old hook used, so
+every save in its history was exactly this), `PATCH` → **401** unauthenticated, `GET` → **401**
+unauthenticated with no demo fallback. Then a throwaway tenant was created, signed in through
+GoTrue, and its cookie used for a real round trip: `POST` created the organization, `GET` returned
+that row plus `role: "owner"`, `PATCH` with `{"phone":"81 1234 5678", …}` returned **200** and the
+`organizations` row read back as `phone = 8112345678` — normalized, persisted, in production
+Postgres. Invalid input surfaced as an error, not a success: `INVALID_RFC` and `INVALID_PHONE`,
+both 400 with Spanish messages. The throwaway user and organization were deleted; the account is
+back to its single real user and organization. Not covered: a non-owner's read-only view, which
+needs a second account and stays pinned by unit tests only.

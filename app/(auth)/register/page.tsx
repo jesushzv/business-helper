@@ -8,6 +8,8 @@ import { Building2, Lock, Mail, ArrowRight, AlertCircle, Sparkles, FileText, Pho
 import { validateRFC } from '@/lib/rfcValidator';
 import { validatePhone } from '@/lib/phoneValidator';
 import { track } from '@/lib/analytics';
+import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
+import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 
 const REGIMENES_FISCALES = [
   { code: '601', label: '601 - General de Ley Personas Morales' },
@@ -48,10 +50,32 @@ function RegisterFormContent() {
   const rfcResult = rfc ? validateRFC(rfc) : { isValid: false, type: null };
   const phoneResult = phone ? validatePhone(phone) : { isValid: false, phone: '' };
 
+  /**
+   * Whether the Auth server accepts Google (#48). `false` hides the button
+   * rather than offering a control that dead-ends off-site; `null` (unknown)
+   * leaves it alone and claims nothing.
+   */
+  const googleEnabled = useOAuthProviderEnabled('google');
+
   const handleGoogleRegister = async () => {
     setError(null);
+
+    /**
+     * Ask before navigating — see the twin handler in the login page and
+     * `lib/authProviders.ts`. `signInWithOAuth` cannot report a disabled
+     * provider: it assigns `window.location` and returns `error: null`, so
+     * without this check the user leaves for GoTrue's raw English JSON error
+     * and never comes back (#48).
+     */
+    const available = googleEnabled ?? (await fetchOAuthProviderEnabled('google'));
+    if (available === false) {
+      setError('Por ahora no es posible registrarte con Google. Completa el formulario para crear tu cuenta.');
+      return;
+    }
+
     try {
       const supabase = createClient();
+      // Guards errors the SDK *can* report; never a disabled provider.
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -154,7 +178,9 @@ function RegisterFormContent() {
             </div>
           )}
 
-          {/* Social Register Button */}
+          {/* Social Register Button — hidden outright when the Auth server has
+              told us it will not accept Google (#48). Unknown keeps it. */}
+          {googleEnabled !== false && (
           <div className="mb-6">
             <button
               type="button"
@@ -191,6 +217,7 @@ function RegisterFormContent() {
               </div>
             </div>
           </div>
+          )}
 
           <form className="space-y-5" onSubmit={handleRegister}>
             {/* Business Name */}
