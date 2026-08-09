@@ -147,8 +147,11 @@ CREATE TABLE IF NOT EXISTS public.contracts (
 );
 
 -- Foreign Key circular reference resolution for quotes -> contracts
-ALTER TABLE public.quotes 
-  ADD CONSTRAINT fk_quotes_converted_contract 
+-- (drop-first so the file is idempotent, per convention — verified in CI, #35)
+ALTER TABLE public.quotes
+  DROP CONSTRAINT IF EXISTS fk_quotes_converted_contract;
+ALTER TABLE public.quotes
+  ADD CONSTRAINT fk_quotes_converted_contract
   FOREIGN KEY (converted_contract_id) REFERENCES public.contracts(id) ON DELETE SET NULL;
 
 -- Table 7: milestones
@@ -226,18 +229,23 @@ CREATE INDEX IF NOT EXISTS idx_clients_name_trgm
 -- 04. Automated Updated At Triggers
 -- ----------------------------------------------------------------------------
 
+DROP TRIGGER IF EXISTS set_organizations_updated_at ON public.organizations;
 CREATE TRIGGER set_organizations_updated_at BEFORE UPDATE ON public.organizations
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS set_clients_updated_at ON public.clients;
 CREATE TRIGGER set_clients_updated_at BEFORE UPDATE ON public.clients
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS set_products_updated_at ON public.products;
 CREATE TRIGGER set_products_updated_at BEFORE UPDATE ON public.products
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS set_quotes_updated_at ON public.quotes;
 CREATE TRIGGER set_quotes_updated_at BEFORE UPDATE ON public.quotes
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS set_contracts_updated_at ON public.contracts;
 CREATE TRIGGER set_contracts_updated_at BEFORE UPDATE ON public.contracts
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -264,6 +272,7 @@ ALTER TABLE public.csd_credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- 1. Organizations Policy
+DROP POLICY IF EXISTS "Users can access owned or member organizations" ON public.organizations;
 CREATE POLICY "Users can access owned or member organizations"
 ON public.organizations FOR ALL TO authenticated
 USING (
@@ -271,6 +280,7 @@ USING (
 );
 
 -- 2. Organization Members Policy
+DROP POLICY IF EXISTS "Members can view co-members in their org" ON public.organization_members;
 CREATE POLICY "Members can view co-members in their org"
 ON public.organization_members FOR ALL TO authenticated
 USING (
@@ -278,6 +288,7 @@ USING (
 );
 
 -- 3. Clients Policy
+DROP POLICY IF EXISTS "Tenant members access organization clients" ON public.clients;
 CREATE POLICY "Tenant members access organization clients"
 ON public.clients FOR ALL TO authenticated
 USING (
@@ -285,6 +296,7 @@ USING (
 );
 
 -- 4. Products Policy
+DROP POLICY IF EXISTS "Tenant members access organization products" ON public.products;
 CREATE POLICY "Tenant members access organization products"
 ON public.products FOR ALL TO authenticated
 USING (
@@ -292,28 +304,33 @@ USING (
 );
 
 -- 5. Quotes Policy (Authenticated Members + Public Token Read)
+DROP POLICY IF EXISTS "Tenant members access organization quotes" ON public.quotes;
 CREATE POLICY "Tenant members access organization quotes"
 ON public.quotes FOR ALL TO authenticated
 USING (
   organization_id IN (SELECT public.user_organization_ids())
 );
 
+DROP POLICY IF EXISTS "Public read quotes via public_token" ON public.quotes;
 CREATE POLICY "Public read quotes via public_token"
 ON public.quotes FOR SELECT TO anon
 USING (public_token IS NOT NULL);
 
 -- 6. Contracts Policy (Authenticated Members + Public Read)
+DROP POLICY IF EXISTS "Tenant members access organization contracts" ON public.contracts;
 CREATE POLICY "Tenant members access organization contracts"
 ON public.contracts FOR ALL TO authenticated
 USING (
   organization_id IN (SELECT public.user_organization_ids())
 );
 
+DROP POLICY IF EXISTS "Public read contracts for OTP signing" ON public.contracts;
 CREATE POLICY "Public read contracts for OTP signing"
 ON public.contracts FOR SELECT TO anon
 USING (status IN ('sent', 'client_signed', 'accepted'));
 
 -- 7. Milestones Policy
+DROP POLICY IF EXISTS "Tenant members access organization milestones" ON public.milestones;
 CREATE POLICY "Tenant members access organization milestones"
 ON public.milestones FOR ALL TO authenticated
 USING (
@@ -321,6 +338,7 @@ USING (
 );
 
 -- 8. CSD Credentials Policy (Restricted to Owner/Accountant)
+DROP POLICY IF EXISTS "Tenant members access organization CSD credentials" ON public.csd_credentials;
 CREATE POLICY "Tenant members access organization CSD credentials"
 ON public.csd_credentials FOR ALL TO authenticated
 USING (
@@ -328,6 +346,7 @@ USING (
 );
 
 -- 9. Audit Logs Policy
+DROP POLICY IF EXISTS "Tenant members access organization audit logs" ON public.audit_logs;
 CREATE POLICY "Tenant members access organization audit logs"
 ON public.audit_logs FOR ALL TO authenticated
 USING (

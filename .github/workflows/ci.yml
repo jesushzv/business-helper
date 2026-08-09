@@ -58,6 +58,37 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder-url.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
 
+  migration-verify:
+    name: Migrations against real Postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Every migration promise — RLS posture, grants, CHECK constraints,
+    # idempotency — is a property of the resulting database, not of the SQL
+    # file (#35). This applies the full set twice to a throwaway Postgres 16
+    # and asserts those properties; a migration that re-opens anon access to a
+    # tenant table fails here instead of in production.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply twice and assert
+        run: scripts/ci-verify-migrations.sh
+        env:
+          DATABASE_URL: postgres://postgres:ci@localhost:5432/postgres
+
   migration-guard:
     name: Migration ordering reminder
     runs-on: ubuntu-latest
