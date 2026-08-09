@@ -448,10 +448,11 @@ tests but unasserted presentational branches. Still under the 85/85/80/80 gate C
 
 ---
 
-## Recently landed (2026-08-07 → 2026-08-08)
+## Recently landed (2026-08-07 → 2026-08-08) — moved here from `docs/STATUS.md`
 
-*Moved verbatim out of `docs/STATUS.md` on 2026-08-09 to keep that file describing current state
-only, per the size-budget guidance in `tests/unit/docsStatusAuthority.test.ts`.*
+*Moved 2026-08-09 when `docs/STATUS.md` hit its 32 KB budget. Every row was settled history by
+then; it is reproduced verbatim because five of its six commit SHAs are recorded nowhere else.*
+
 
 *Every row below is merged to `main` — the commit is the verification, checked with `git log` on
 2026-08-08. The reasoning for each change, and what was checked against what, is preserved in the
@@ -474,4 +475,3 @@ frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08
 > in §03 that need a real handset, a real card, a real PAC stamp or a deployed database are untouched
 > by all of it — merging is not verification.
 
----
