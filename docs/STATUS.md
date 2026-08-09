@@ -142,6 +142,11 @@ frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08
 > only the staging-checklist residue. Verify this table against
 > `is:issue is:open label:P0` before trusting it — the list is ordered by dependency, not
 > just severity, and rows drop off as they close.
+>
+> That check is not ceremonial: on 2026-08-09 the query returned **11** open P0s against
+> **9** covered here — #48 had been P0-labelled and absent since the table was written, and
+> #122 was filed after it. Both are now rows 8 and 9. A table that asserts its own
+> completeness is the one most worth re-deriving.
 
 | # | Item | Tracked |
 |:--|:---|:---|
@@ -152,6 +157,8 @@ frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08
 | 5 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
 | 6 | **The UX-audit trio: demo identity, fabricated settings save, fabricated client history.** All three fixed in code on 2026-08-08 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): real org/user identity in chrome and outbound WhatsApp with a logout that finally exists (#93); Ajustes reads and writes the real organization row instead of localStorage + a 405 (#95); client detail derives its financial modules from real rows behind a three-state loading gate (#96). Each stays open on its deployed-verification exit criterion — one pass through a real tenant's dashboard, Ajustes save, and a client page covers all three. | [#93](https://github.com/jesushzv/business-helper/issues/93) · [#95](https://github.com/jesushzv/business-helper/issues/95) · [#96](https://github.com/jesushzv/business-helper/issues/96) |
 | 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+| 8 | **Enable the Google provider, then sign in once for real.** Read live from GoTrue on 2026-08-09: `external.google` is `false` and `auth.identities` holds one row, `provider=email` — no Google sign-in has ever succeeded. The dead end is no longer the 404 the issue title describes (the callback route landed in #57); with the provider off, `signInWithOAuth` navigates the browser to GoTrue's raw English JSON on a `supabase.co` origin. Pending merge (2026-08-09): the button is now gated on a live `/auth/v1/settings` read, so it is hidden while the provider is off and returns by itself when it is enabled — no deploy needed. What remains is founder-only: a Google Cloud OAuth client, the provider toggle, `https://businesshelper.app/auth/callback` on the redirect allow-list, and one real sign-up. Steps in [`deployment.md`](deployment.md) §04. | [#48](https://github.com/jesushzv/business-helper/issues/48) |
+| 9 | **Decide what the "Teléfono / WhatsApp" login tab should be, then make it that.** Three independent reasons it cannot succeed today — provider off (`external.phone: false`, same live read as row 8), no phone identity is ever created (`signUp` writes the number to `raw_user_meta_data`), and the value passed is bare 10 digits, not E.164. The user is told their password is wrong. Option C in the issue (remove the tab) is agent-closable today and strictly better than shipping it; A (WhatsApp OTP login) is the real fix and needs a decision plus provider credentials. | [#122](https://github.com/jesushzv/business-helper/issues/122) |
 
 **Resolved off this table on 2026-08-08:** [#79](https://github.com/jesushzv/business-helper/issues/79)
 — the PGRST201 prediction was **confirmed against live PostgREST** (every `/pay/` link had 404'd
@@ -168,11 +175,14 @@ closed as already-done (PR #75).
 fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
 
 > [!NOTE]
-> **Every remaining row needs the founder.** As of 2026-08-08 there is no open P0 whose next step
-> an agent can take: rows 1–4 and 7 are credentials, accounts, a real handset and a real card;
-> rows 5 and 6 are code that is done and waiting on one pass through a real deployment. The
-> agent-closable items (#59, #76, #79, and the code halves of #93/#95/#96) have all been taken.
-> The founder rows do not block each other, and row 6's walkthrough can piggyback on row 5's.
+> **Almost every remaining row needs the founder.** Rows 1–4 and 7 are credentials, accounts, a
+> real handset and a real card; rows 5, 6 and 8 are code that is done and waiting on one pass
+> through a real deployment. The agent-closable items (#59, #76, #79, the code halves of
+> #93/#95/#96, and the provider gate in row 8) have been taken. **Row 9 is the exception** — the
+> product decision on the phone-login tab is open, and option C is one an agent can execute the
+> moment it is chosen. The founder rows do not block each other, and row 6's walkthrough can
+> piggyback on row 5's; rows 8 and 9 are both Supabase Auth dashboard work and can be done in one
+> sitting.
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without

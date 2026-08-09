@@ -62,6 +62,20 @@ describe('GET /auth/callback', () => {
     expect(exchangeCodeForSession).not.toHaveBeenCalled();
   });
 
+  it('returns a user who declined consent to a clean login form, not an error', async () => {
+    // The provider sends `error=access_denied` when the user presses Cancel on
+    // the consent screen. Reporting "no se pudo completar" for a deliberate
+    // choice states a failure that never happened.
+    const res = await GET(callbackRequest('?error=access_denied&error_description=User+denied'));
+    expect(redirectTarget(res)).toBe('https://app.example.com/login');
+    expect(exchangeCodeForSession).not.toHaveBeenCalled();
+  });
+
+  it('still reports an error for provider failures other than a declined consent', async () => {
+    const res = await GET(callbackRequest('?error=server_error'));
+    expect(redirectTarget(res)).toBe('https://app.example.com/login?error=oauth');
+  });
+
   it('redirects to login with an error when the code exchange fails', async () => {
     exchangeCodeForSession.mockResolvedValue({ error: { message: 'bad code' } });
     const res = await GET(callbackRequest('?code=abc'));

@@ -26,6 +26,14 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
   const next = safeNextPath(searchParams.get('next'));
 
+  // A user who declines on the provider's consent screen comes back here with
+  // `error=access_denied` and no code. That is a choice, not a failure —
+  // telling them "no se pudo completar" would be reporting an error that never
+  // happened. Return them to a clean login form instead.
+  if (searchParams.get('error') === 'access_denied') {
+    return NextResponse.redirect(`${origin}/login`);
+  }
+
   if (!isSupabaseConfigured() || !code) {
     return NextResponse.redirect(`${origin}/login?error=oauth`);
   }

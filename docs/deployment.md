@@ -119,6 +119,42 @@ graph TD
   - `customer.subscription.deleted`
 - Copy Signing Secret into Vercel `STRIPE_WEBHOOK_SECRET`.
 
+### Google Sign-In (`Continuar con Google`)
+
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+This is a **Supabase dashboard action, not a code change** — the app side (the
+`/auth/callback` route handler, the landing logic, the funnel event) already ships. Whether the
+button appears at all is decided at runtime by asking the Auth server, so nothing here needs a
+deploy: enabling the provider makes the button reappear on the next page load, and disabling it
+makes it vanish again.
+
+1. **Google Cloud Console** → *APIs & Services* → *Credentials* → create an **OAuth 2.0 Client ID**
+   (type: *Web application*). Authorized redirect URI:
+   `https://<project-ref>.supabase.co/auth/v1/callback` — the *Supabase* callback, not the app's.
+2. **Supabase Dashboard** → *Authentication* → *Providers* → **Google**: enable it and paste the
+   client ID and secret.
+3. **Supabase Dashboard** → *Authentication* → *URL Configuration* → **Redirect URLs**: add
+   `https://businesshelper.app/auth/callback`. `redirectTo` is built from
+   `window.location.origin`, so every additional origin you want Google sign-in on — each Vercel
+   preview host included — needs its own entry or the consent screen rejects the request.
+
+**Confirm it took**, without opening a browser — this is the same read the app makes:
+
+```bash
+curl -s "https://<project-ref>.supabase.co/auth/v1/settings?apikey=<anon-key>" | jq .external.google
+```
+
+`true` means the Auth server will accept the provider. While it is `false`, the app hides the
+button rather than offering a control that dead-ends: `signInWithOAuth` navigates the browser
+before it can report anything, so a disabled provider used to land the user on GoTrue's raw
+English JSON error (`"Unsupported provider: provider is not enabled"`) on a `supabase.co`
+origin, with no way back. See `lib/authProviders.ts`.
+
+A `true` here still is not a working sign-in — only one real Google sign-up on the deployed site
+proves the redirect allow-list and the client credentials are right. That round-trip is what
+[#48](https://github.com/jesushzv/business-helper/issues/48) is waiting on.
+
 ---
 
 ## 05 Step 4: Post-Deployment Smoke Test & Verification
