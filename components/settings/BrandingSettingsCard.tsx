@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Palette, Check, Image as ImageIcon } from 'lucide-react';
 import { getOrganizationBranding, generateThemeCssVariables } from '@/lib/branding';
 
@@ -41,6 +41,13 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
   const [tagline, setTagline] = useState<string>(settings?.tagline || '');
   const [defaultCurrency, setDefaultCurrency] = useState<'MXN' | 'USD'>(settings?.default_currency === 'USD' ? 'USD' : 'MXN');
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Same reason as OrgProfileCard: the server trims the logo URL and rejects a
+  // non-https one, and the hook then applies the row it returned. Without this
+  // the field keeps the typed string under "Logotipo guardado con éxito".
+  useEffect(() => {
+    setLogoUrl(settings?.logo_url || '');
+  }, [settings?.logo_url]);
 
   // Only the logo has a server column today. Color, tagline and currency have
   // nowhere to persist — the old card "saved" them into a request the server

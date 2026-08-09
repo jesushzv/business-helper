@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Building2, Save, CheckCircle2, AlertCircle } from 'lucide-react';
 import { OrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 import { validateRFC } from '@/lib/rfcValidator';
@@ -31,6 +31,17 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
   const [formData, setFormData] = useState<OrganizationSettings>(settings);
   const [rfcError, setRfcError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<boolean>(false);
+
+  // The hook replaces `settings` with the row the server returned, and the
+  // server normalizes: '81 1234 5678' is stored as '8112345678', an RFC is
+  // upper-cased, a régimen label is reduced to its SAT code. Seeding this form
+  // once left the typed text on screen next to "se guardaron correctamente",
+  // showing the tenant a value the database does not hold — verified against
+  // production while closing #95. `settings` only changes identity when the
+  // hook applies a server row, so typing never trips this.
+  useEffect(() => {
+    setFormData(settings);
+  }, [settings]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
