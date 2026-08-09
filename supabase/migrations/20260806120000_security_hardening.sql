@@ -67,8 +67,18 @@ ALTER TABLE public.contracts
   ADD COLUMN IF NOT EXISTS client_otp_sent_at timestamptz;
 
 -- Any code already sitting in the plaintext column is unrecoverable as a hash
--- and must not survive the migration. Clearing it forces a fresh, hashed issue.
-UPDATE public.contracts SET client_otp_code = NULL WHERE client_otp_code IS NOT NULL;
+-- and must not survive the migration. Clearing it forces a fresh, hashed
+-- issue. Guarded so a re-apply after the column is gone is a no-op (#35).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'contracts' AND column_name = 'client_otp_code'
+  ) THEN
+    UPDATE public.contracts SET client_otp_code = NULL WHERE client_otp_code IS NOT NULL;
+  END IF;
+END
+$$;
 ALTER TABLE public.contracts DROP COLUMN IF EXISTS client_otp_code;
 
 -- ----------------------------------------------------------------------------

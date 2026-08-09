@@ -48,7 +48,8 @@ function demoQuote(token: string) {
     status: 'sent',
     valid_until: '2026-08-30',
     notes: 'Entrega directa en obra en 48 horas hábiles tras recibir anticipo del 50%.',
-    public_token: token || 'demo-token',
+    // The route always has a token from its own params; echo it verbatim.
+    public_token: token,
     contract_hash: null,
     accepted_at: null,
     created_at: new Date().toISOString(),
@@ -72,7 +73,9 @@ export async function GET(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: quote, error } = await (supabase as any)
       .from('quotes')
-      .select(`${PUBLIC_QUOTE_COLUMNS}, clients(name, contact_name), organizations(name, logo_url)`)
+      // The org phone powers the client-facing "Solicitar Cambios" button
+      // (#44): it must reach the vendor who sent the quote, never a fallback.
+      .select(`${PUBLIC_QUOTE_COLUMNS}, clients(name, contact_name), organizations(name, logo_url, phone)`)
       .eq('public_token', token)
       .maybeSingle();
 

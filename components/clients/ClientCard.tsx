@@ -42,7 +42,8 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
               )}
             </div>
           </div>
-          <HealthScoreMeter score={client.health_score ?? 100} compact />
+          {/* No invented 100 for an unknown score (#108) */}
+          <HealthScoreMeter score={client.health_score ?? undefined} compact />
         </div>
 
         {/* SAT Tax Meta & B2B Credit Badge */}

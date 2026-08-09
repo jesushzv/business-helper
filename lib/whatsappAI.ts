@@ -57,7 +57,8 @@ export function sanitizeAIQuery(query: string = '', maxLength: number = 300): st
 }
 
 export function validateAIQuota(tierKey: string = 'demo', currentUsage: number = 0): AIQuotaResult {
-  const normalizedTier = (tierKey || 'demo').toLowerCase();
+  // 'demo' here is a quota tier key, not an identifier a tenant can tap.
+  const normalizedTier = tierKey ? tierKey.toLowerCase() : 'demo';
   const limit = TIER_AI_QUOTAS[normalizedTier] ?? TIER_AI_QUOTAS.demo;
 
   if (currentUsage >= limit) {

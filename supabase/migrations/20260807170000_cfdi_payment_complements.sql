@@ -138,6 +138,7 @@ REVOKE ALL ON public.cfdi_payment_complements FROM anon;
 
 -- Same tenant scoping as `milestones`, which is what these rows hang off. The
 -- routes filter by organization_id as well; RLS is the backstop.
+DROP POLICY IF EXISTS "Tenant members access organization payment complements" ON public.cfdi_payment_complements;
 CREATE POLICY "Tenant members access organization payment complements"
 ON public.cfdi_payment_complements FOR ALL TO authenticated
 USING (

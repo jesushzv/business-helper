@@ -55,6 +55,7 @@ ALTER TABLE public.pac_connections ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON public.pac_connections FROM anon;
 
+DROP POLICY IF EXISTS "Organization owners manage their PAC connection" ON public.pac_connections;
 CREATE POLICY "Organization owners manage their PAC connection"
 ON public.pac_connections FOR ALL TO authenticated
 USING (

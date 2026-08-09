@@ -3,6 +3,8 @@ import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/ser
 import { generateOTP, hashOTP, otpExpiryDate, OTP_TTL_SECONDS } from '@/lib/otpSeal';
 import { deliverOtp, getDeliveryChannel, isDeliveryConfigured } from '@/lib/otpDelivery';
 import {
+  checkResendBackoff,
+  markOtpSendDeliveryFailed,
   normalizeOtpRecipient,
   reserveOtpSend,
   type OtpLedgerClient,
@@ -18,14 +20,14 @@ import { publicApiError } from '@/lib/publicApiError';
  * client's registered phone. The response never carries the code in
  * production, so requesting one grants the caller nothing.
  *
- * Issuance is bounded twice over. The cooldown below paces one quote; the
- * ledger in lib/otpRateLimit caps what a phone number can be sent in an hour,
- * no matter how many quotes — and therefore how many valid public tokens —
- * point at it.
+ * Issuance is bounded by the ledger in lib/otpRateLimit, keyed on the phone
+ * the database holds — no matter how many quotes, and therefore how many valid
+ * public tokens, point at it: an escalating resend backoff (30s doubling),
+ * an hourly cap, a daily cap, and a per-quote lifetime cap that counts only
+ * delivered codes. The flat per-quote 30s cooldown that used to live here was
+ * replaced by the backoff in #22 — same first step, but the gap widens with
+ * each send instead of treating a signer's first resend like a pump's tenth.
  */
-
-/** Minimum gap between issues for the same quote, to blunt SMS-pumping. */
-const RESEND_COOLDOWN_MS = 30 * 1000;
 
 export async function POST(
   request: Request,
@@ -67,18 +69,6 @@ export async function POST(
       );
     }
 
-    if (quote.client_otp_sent_at) {
-      const elapsed = Date.now() - new Date(quote.client_otp_sent_at).getTime();
-      if (elapsed < RESEND_COOLDOWN_MS) {
-        return publicApiError(
-          429,
-          'OTP_RESEND_COOLDOWN',
-          'Espere unos segundos antes de solicitar otro código',
-          { retry_after_seconds: Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000) }
-        );
-      }
-    }
-
     const phone = quote.clients?.phone;
     if (!phone) {
       return publicApiError(
@@ -97,6 +87,20 @@ export async function POST(
         'CLIENT_PHONE_INVALID',
         'El teléfono registrado del cliente no es un número válido'
       );
+    }
+
+    // Pacing first (#22): after n sends this hour the next needs a 30s·2^(n-1)
+    // gap, keyed on the phone like every other bound. Replaces the flat
+    // per-quote cooldown, which treated a signer's first resend and a pump's
+    // tenth identically.
+    const backoff = await checkResendBackoff(supabase as unknown as OtpLedgerClient, {
+      phoneE164: recipient,
+    });
+
+    if (!backoff.allowed) {
+      return publicApiError(429, 'OTP_RESEND_COOLDOWN', backoff.error, {
+        retry_after_seconds: backoff.retryAfterSeconds,
+      });
     }
 
     // Claimed before the code is minted: over-cap requests must not rotate the
@@ -130,6 +134,16 @@ export async function POST(
     const delivery = await deliverOtp(phone, code);
 
     if (!delivery.delivered) {
+      // The provider failed, so this send keeps throttling the phone (hourly
+      // and daily slots stay spent) but stops counting against the quote's
+      // lifetime budget — an outage must not make a quote permanently
+      // unsignable (#60).
+      if (reservation.sendId) {
+        await markOtpSendDeliveryFailed(
+          supabase as unknown as OtpLedgerClient,
+          reservation.sendId
+        );
+      }
       return publicApiError(
         502,
         'OTP_DELIVERY_FAILED',

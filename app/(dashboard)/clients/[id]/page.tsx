@@ -220,7 +220,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Left Column: SAT Tax Profile & Health Score */}
           <div className="space-y-6">
-            <HealthScoreMeter score={client.health_score ?? 100} milestones={clientMilestones} />
+            {/* Real payment history drives the meter; the stored column is the
+                fallback, and unknown renders as unknown (#108). */}
+            <HealthScoreMeter score={client.health_score ?? undefined} milestones={clientMilestones} />
 
             {/* B2B Credit Utilization Card */}
             {(() => {

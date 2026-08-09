@@ -30,9 +30,9 @@ export function isValidClabeLength(raw: string): boolean {
  * mod 10, and the check digit is 10 minus the sum mod 10.
  *
  * This catches transpositions and single-digit typos that a length check
- * cannot. It is currently advisory in the UI only — the server still accepts
- * any 18 digits, because tightening that is a deliberate call rather than a
- * silent one. See the tracker for the decision issue.
+ * cannot. Enforced by `PATCH /api/organization` since #66 (decided
+ * 2026-08-08): the CLABE routes real transfers, so a checksum failure is a
+ * 400 at save time rather than a misdirected payment later.
  */
 export function hasValidClabeCheckDigit(raw: string): boolean {
   const digits = normalizeClabe(raw);

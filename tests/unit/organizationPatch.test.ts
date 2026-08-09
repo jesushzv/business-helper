@@ -113,11 +113,23 @@ describe('PATCH /api/organization — bank payload keeps its contract', () => {
     expect(body.error.code).toBe('INVALID_CLABE');
   });
 
-  it('still saves a valid bank payload', async () => {
+  it('rejects an 18-digit CLABE whose check digit fails (#66)', async () => {
+    // Same digits as the valid fixture below with the checksum broken: a
+    // single-digit typo in the account a tenant's clients wire money to.
     const res = await PATCH(
       patchRequest({ bankName: 'BBVA', bankClabe: '012180001234567897', bankAccountHolder: 'X' })
     );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe('INVALID_CLABE');
+    expect(updateCalls).toHaveLength(0);
+  });
+
+  it('still saves a valid bank payload', async () => {
+    const res = await PATCH(
+      patchRequest({ bankName: 'BBVA', bankClabe: '012180001234567899', bankAccountHolder: 'X' })
+    );
     expect(res.status).toBe(200);
-    expect(updateCalls[0]).toMatchObject({ bank_name: 'BBVA', bank_clabe: '012180001234567897' });
+    expect(updateCalls[0]).toMatchObject({ bank_name: 'BBVA', bank_clabe: '012180001234567899' });
   });
 });

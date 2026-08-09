@@ -5,9 +5,24 @@ import { useProducts } from '@/lib/hooks/useProducts';
 import { Package, Search, Plus, Trash2, Tag, DollarSign, CheckCircle2 } from 'lucide-react';
 
 export function ProductCatalogCard() {
-  const { products, searchTerm, setSearchTerm, addProduct, deleteProduct, error } = useProducts();
+  const {
+    products,
+    allProducts,
+    searchTerm,
+    setSearchTerm,
+    addProduct,
+    deleteProduct,
+    error,
+    legacyLocalProducts,
+    importLegacyProducts,
+  } = useProducts();
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [formSuccess, setFormSuccess] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+  // Two-step delete: first tap arms the confirmation, second tap deletes.
+  // The old one-tap delete removed a catalog row irreversibly (#98).
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [importing, setImporting] = useState<boolean>(false);
 
   // New product form state
   const [name, setName] = useState('');
@@ -17,29 +32,53 @@ export function ProductCatalogCard() {
   const [satCode, setSatCode] = useState('84111506');
   const [stockQuantity, setStockQuantity] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     setFormSuccess(false);
+    setSaving(true);
 
-    const res = addProduct({
-      name,
-      description,
-      unit_price: Number(unitPrice),
-      unit,
-      sat_product_code: satCode,
-      stock_quantity: stockQuantity ? Number(stockQuantity) : null
-    });
+    try {
+      const res = await addProduct({
+        name,
+        description,
+        unit_price: Number(unitPrice),
+        unit,
+        sat_product_code: satCode,
+        stock_quantity: stockQuantity ? Number(stockQuantity) : null
+      });
 
-    if (res.success) {
-      setFormSuccess(true);
-      setName('');
-      setDescription('');
-      setUnitPrice('');
-      setStockQuantity('');
-      setTimeout(() => {
-        setShowAddModal(false);
-        setFormSuccess(false);
-      }, 1000);
+      if (res.success) {
+        setFormSuccess(true);
+        setName('');
+        setDescription('');
+        setUnitPrice('');
+        setStockQuantity('');
+        setTimeout(() => {
+          setShowAddModal(false);
+          setFormSuccess(false);
+        }, 1000);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirmingDeleteId !== id) {
+      setConfirmingDeleteId(id);
+      return;
+    }
+    setConfirmingDeleteId(null);
+    await deleteProduct(id);
+  };
+
+  const handleImportLegacy = async () => {
+    setImporting(true);
+    try {
+      await importLegacyProducts();
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -64,6 +103,33 @@ export function ProductCatalogCard() {
           Nuevo Concepto
         </button>
       </div>
+
+      {/* Errors surface here, at card level — the modal-only display meant a
+          failed delete had no surface to appear on (#98). */}
+      {error && !showAddModal && (
+        <div className="p-4 bg-rose-950/80 border border-rose-500/30 text-rose-300 rounded-2xl text-sm font-medium">
+          {error}
+        </div>
+      )}
+
+      {/* Catalog rows saved when this UI was localStorage-only exist on this
+          device alone; offer to upload them rather than silently discard. */}
+      {legacyLocalProducts.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-amber-950/60 border border-amber-500/30 rounded-2xl">
+          <p className="text-sm font-medium text-amber-200">
+            Tienes {legacyLocalProducts.length}{' '}
+            {legacyLocalProducts.length === 1 ? 'producto guardado' : 'productos guardados'} solo en
+            este dispositivo. Súbelos a tu cuenta para usarlos desde cualquier equipo.
+          </p>
+          <button
+            onClick={handleImportLegacy}
+            disabled={importing}
+            className="min-h-[48px] px-5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50 text-sm shrink-0"
+          >
+            {importing ? 'Subiendo...' : 'Subir a mi cuenta'}
+          </button>
+        </div>
+      )}
 
       {/* Search Input */}
       <div className="relative">
@@ -109,21 +175,45 @@ export function ProductCatalogCard() {
                 )}
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+            <div className="mt-4 pt-3 border-t border-slate-800 flex justify-end gap-2">
+              {confirmingDeleteId === product.id && (
+                <button
+                  onClick={() => setConfirmingDeleteId(null)}
+                  className="min-h-[44px] px-3 text-slate-300 text-sm font-medium rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+              )}
               <button
-                onClick={() => product.id && deleteProduct(product.id)}
-                className="min-h-[44px] px-3 text-slate-400 hover:text-rose-400 text-sm font-medium flex items-center gap-1 rounded-lg hover:bg-rose-950/30 transition-colors"
+                onClick={() => product.id && handleDelete(product.id)}
+                className={`min-h-[44px] px-3 text-sm font-medium flex items-center gap-1 rounded-lg transition-colors ${
+                  confirmingDeleteId === product.id
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white font-bold'
+                    : 'text-slate-400 hover:text-rose-400 hover:bg-rose-950/30'
+                }`}
                 title="Eliminar concepto"
               >
                 <Trash2 className="w-4 h-4" />
-                Eliminar
+                {confirmingDeleteId === product.id ? '¿Eliminar definitivamente?' : 'Eliminar'}
               </button>
             </div>
           </div>
         ))}
       </div>
 
-      {products.length === 0 && (
+      {/* Two different facts (#98): an empty catalog invites a first product;
+          a search with no matches must say that, not claim the catalog is empty. */}
+      {products.length === 0 && allProducts.length > 0 && (
+        <div className="bg-slate-900/90 p-12 rounded-2xl border border-dashed border-slate-800 text-center">
+          <Search className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-white">Sin resultados para “{searchTerm}”</h3>
+          <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
+            Revisa la búsqueda o límpiala para ver tu catálogo completo.
+          </p>
+        </div>
+      )}
+
+      {allProducts.length === 0 && !error && (
         <div className="bg-slate-900/90 p-12 rounded-2xl border border-dashed border-slate-800 text-center">
           <Package className="w-12 h-12 text-slate-600 mx-auto mb-3" />
           <h3 className="text-lg font-semibold text-white">No hay productos en el catálogo</h3>
@@ -222,17 +312,32 @@ export function ProductCatalogCard() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Clave Producto SAT *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="84111506"
-                  value={satCode}
-                  onChange={(e) => setSatCode(e.target.value)}
-                  className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-base"
-                />
-                <p className="text-xs text-slate-400 mt-1">Por defecto: 84111506 (Servicios de facturación)</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Clave Producto SAT *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="84111506"
+                    value={satCode}
+                    onChange={(e) => setSatCode(e.target.value)}
+                    className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-base"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Por defecto: 84111506 (Servicios de facturación)</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Existencias (opcional)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="Vacío para servicios"
+                    value={stockQuantity}
+                    onChange={(e) => setStockQuantity(e.target.value)}
+                    className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-base"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Solo para productos físicos con inventario</p>
+                </div>
               </div>
 
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-800">
@@ -245,9 +350,10 @@ export function ProductCatalogCard() {
                 </button>
                 <button
                   type="submit"
-                  className="min-h-[48px] px-6 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl active:scale-95 transition-all text-base shadow-md"
+                  disabled={saving}
+                  className="min-h-[48px] px-6 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl active:scale-95 transition-all text-base shadow-md disabled:opacity-50"
                 >
-                  Guardar en Catálogo
+                  {saving ? 'Guardando...' : 'Guardar en Catálogo'}
                 </button>
               </div>
             </form>

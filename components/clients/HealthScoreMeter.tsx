@@ -12,8 +12,37 @@ interface HealthScoreMeterProps {
 
 export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propScore, milestones, compact = false }) => {
   const [showModal, setShowModal] = useState(false);
-  const result = milestones ? calculateClientHealthScore(milestones) : null;
-  const score = propScore ?? result?.score ?? 100;
+
+  // Precedence (#108): a score derived from real payment history beats the
+  // stored column — the old order was reversed, so the milestones callers
+  // passed never affected the displayed number. And unknown is unknown: a
+  // client with no signal renders "Sin historial", never 100 "Excelente",
+  // because this meter sits on the surface where credit is decided.
+  const derived =
+    milestones && milestones.length > 0 ? calculateClientHealthScore(milestones) : null;
+  const score = derived?.score ?? propScore ?? null;
+
+  if (score === null) {
+    return compact ? (
+      <span className="inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-xs font-bold text-slate-400">
+        <HelpCircle className="h-3.5 w-3.5" />
+        <span>Sin historial</span>
+      </span>
+    ) : (
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl backdrop-blur-xl text-white">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/60 text-slate-400">
+            <HelpCircle className="h-5 w-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">Health Score Financiero</h4>
+            <p className="text-sm font-extrabold text-white">Sin historial de pagos</p>
+            <p className="text-xs text-slate-400">Se calculará con los primeros cobros de este cliente.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   let rating = 'Excelente';
   let badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';

@@ -11,7 +11,7 @@ import { CashFlowForecastCard } from '@/components/dashboard/CashFlowForecastCar
 import { TopClientsCard } from '@/components/dashboard/TopClientsCard';
 
 export default function DashboardPage() {
-  const { metrics, topClients, cashFlowForecast, loading } = useDashboardAnalytics();
+  const { metrics, topClients, cashFlowForecast, loading, error } = useDashboardAnalytics();
   const { org, user } = useCurrentOrg();
 
   // Greet whoever we actually know — first name, business name, or nobody.
@@ -57,6 +57,15 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* A failed read renders as a warning, never as silently-wrong KPIs:
+            "$0 por cobrar" computed from an errored fetch is a false claim
+            about money (#97). */}
+        {!loading && error && (
+          <div className="flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-950/60 p-4 text-sm font-medium text-amber-200">
+            <span>{error} Los números pueden estar incompletos.</span>
+          </div>
+        )}
 
         {/* Real-time Executive Financial KPI Cards */}
         {loading ? (

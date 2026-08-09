@@ -5,10 +5,16 @@ import { join } from 'path';
 import {
   OTP_PHONE_WINDOW_MS,
   OTP_PHONE_WINDOW_MAX_SENDS,
+  OTP_PHONE_DAY_MAX_SENDS,
   OTP_QUOTE_LIFETIME_MAX_SENDS,
+  OTP_RESEND_BACKOFF_BASE_MS,
+  OTP_RESEND_BACKOFF_MAX_MS,
   checkOtpSendAllowance,
+  checkResendBackoff,
   evaluatePhoneWindow,
   evaluateQuoteLifetime,
+  evaluateResendBackoff,
+  markOtpSendDeliveryFailed,
   normalizeOtpRecipient,
   recordOtpSend,
   reserveOtpSend,
@@ -33,6 +39,7 @@ interface LedgerRow {
   quote_id: string | null;
   channel: string | null;
   created_at: string;
+  delivery_failed?: boolean;
 }
 
 type LedgerSeed = Omit<LedgerRow, 'id'> & { id?: string };
@@ -44,7 +51,11 @@ type LedgerSeed = Omit<LedgerRow, 'id'> & { id?: string };
  */
 function fakeLedger(seed: LedgerSeed[] = [], failOn?: 'select' | 'insert') {
   let sequence = 0;
-  const rows: LedgerRow[] = seed.map((row) => ({ ...row, id: row.id ?? `seed-${sequence++}` }));
+  const rows: LedgerRow[] = seed.map((row) => ({
+    delivery_failed: false,
+    ...row,
+    id: row.id ?? `seed-${sequence++}`,
+  }));
   const state = { rows, inserts: 0 };
 
   const client: OtpLedgerClient = {
@@ -60,8 +71,14 @@ function fakeLedger(seed: LedgerSeed[] = [], failOn?: 'select' | 'insert') {
             String((row as unknown as Record<string, unknown>)[column] ?? '');
 
           const query = {
-            eq(column: string, value: string) {
-              filters.push((row) => read(row, column) === value);
+            eq(column: string, value: string | boolean) {
+              filters.push((row) => {
+                const held = (row as unknown as Record<string, unknown>)[column];
+                // Boolean columns default in SQL, not in the fake: an absent
+                // delivery_failed reads as false, as the real table would.
+                if (typeof value === 'boolean') return Boolean(held) === value;
+                return read(row, column) === value;
+              });
               return query;
             },
             gte(column: string, value: string) {
@@ -112,6 +129,7 @@ function fakeLedger(seed: LedgerSeed[] = [], failOn?: 'select' | 'insert') {
             quote_id: row.quote_id === null ? null : String(row.quote_id),
             channel: row.channel === null || row.channel === undefined ? null : String(row.channel),
             created_at: NOW.toISOString(),
+            delivery_failed: false,
           };
 
           return {
@@ -129,6 +147,18 @@ function fakeLedger(seed: LedgerSeed[] = [], failOn?: 'select' | 'insert') {
                   return Promise.resolve({ data: inserted, error: null });
                 },
               };
+            },
+          };
+        },
+
+        update(values: Record<string, unknown>) {
+          return {
+            eq(column: string, value: string) {
+              const target = state.rows.find(
+                (row) => String((row as unknown as Record<string, unknown>)[column]) === value
+              );
+              if (target) Object.assign(target, values);
+              return Promise.resolve({ error: null });
             },
           };
         },
@@ -269,7 +299,7 @@ describe('reserveOtpSend — the limit is the phone, not the quote', () => {
       now: NOW,
     });
 
-    expect(other).toEqual({ allowed: true });
+    expect(other).toMatchObject({ allowed: true });
   });
 
   it('lets a phone through again once the window has rolled', async () => {
@@ -282,9 +312,9 @@ describe('reserveOtpSend — the limit is the phone, not the quote', () => {
     }));
     const { client } = fakeLedger(spent);
 
-    expect(await reserveOtpSend(client, { phoneE164, quoteId: 'q-new', now: NOW })).toEqual({
-      allowed: true,
-    });
+    expect(
+      await reserveOtpSend(client, { phoneE164, quoteId: 'q-new', now: NOW })
+    ).toMatchObject({ allowed: true });
   });
 
   it('caps one quote over its lifetime even while the phone has budget left', async () => {
@@ -306,9 +336,9 @@ describe('reserveOtpSend — the limit is the phone, not the quote', () => {
     expect(state.inserts).toBe(0);
 
     // A different quote for the same client is unaffected by that quote's cap.
-    expect(await reserveOtpSend(client, { phoneE164, quoteId: 'quote-2', now: NOW })).toEqual({
-      allowed: true,
-    });
+    expect(
+      await reserveOtpSend(client, { phoneE164, quoteId: 'quote-2', now: NOW })
+    ).toMatchObject({ allowed: true });
   });
 
   it('does not consume budget when it denies', async () => {
@@ -408,6 +438,169 @@ describe('ledger failures fail closed', () => {
   });
 });
 
+
+describe('evaluateResendBackoff — the gap widens with each send (#22)', () => {
+  function secondsAgo(seconds: number): string {
+    return new Date(NOW.getTime() - seconds * 1000).toISOString();
+  }
+
+  it('never delays the first send of the hour', () => {
+    expect(evaluateResendBackoff([], NOW)).toEqual({ allowed: true });
+    expect(evaluateResendBackoff([minutesAgo(61)], NOW)).toEqual({ allowed: true });
+  });
+
+  it('requires 30s after the first send and doubles from there', () => {
+    // One send, 10s ago: 20s left of the 30s base gap.
+    const first = evaluateResendBackoff([secondsAgo(10)], NOW);
+    expect(first.allowed).toBe(false);
+    if (first.allowed) return;
+    expect(first.scope).toBe('backoff');
+    expect(first.retryAfterSeconds).toBe(20);
+
+    // Two sends, latest 40s ago: the second resend needs 60s, so 20s remain.
+    const second = evaluateResendBackoff([secondsAgo(300), secondsAgo(40)], NOW);
+    expect(second.allowed).toBe(false);
+    if (second.allowed) return;
+    expect(second.retryAfterSeconds).toBe(20);
+
+    // Same history but the gap fully served: allowed.
+    expect(evaluateResendBackoff([secondsAgo(300), secondsAgo(61)], NOW)).toEqual({
+      allowed: true,
+    });
+  });
+
+  it('caps the gap so a signer is never told to wait longer than the ceiling', () => {
+    const many = Array.from({ length: 12 }, (_, i) => secondsAgo(120 + i));
+    const decision = evaluateResendBackoff(many, NOW);
+    expect(decision.allowed).toBe(false);
+    if (decision.allowed) return;
+    expect(decision.retryAfterSeconds).toBeLessThanOrEqual(
+      Math.ceil(OTP_RESEND_BACKOFF_MAX_MS / 1000)
+    );
+  });
+
+  it('reads the ledger through checkResendBackoff', async () => {
+    const phoneE164 = '+528115559988';
+    const { client } = fakeLedger([
+      { phone_e164: phoneE164, quote_id: 'q-1', channel: 'sms', created_at: NOW.toISOString() },
+    ]);
+
+    const decision = await checkResendBackoff(client, { phoneE164, now: NOW });
+    expect(decision.allowed).toBe(false);
+    if (decision.allowed) return;
+    expect(decision.scope).toBe('backoff');
+    expect(decision.retryAfterSeconds).toBe(Math.ceil(OTP_RESEND_BACKOFF_BASE_MS / 1000));
+  });
+});
+
+describe('daily cap — the hourly window alone permits a slow drip (#22)', () => {
+  const phoneE164 = '+528115559988';
+
+  /** Sends spread so no hour holds more than 2 — invisible to the hourly cap. */
+  function drip(count: number) {
+    return Array.from({ length: count }, (_, i) => ({
+      phone_e164: phoneE164,
+      quote_id: `q-${i}`,
+      channel: 'sms',
+      created_at: minutesAgo(40 * (i + 1)),
+    }));
+  }
+
+  it('denies the send after the daily cap with a retry that waits for the day window', async () => {
+    const { client } = fakeLedger(drip(OTP_PHONE_DAY_MAX_SENDS));
+
+    const decision = await checkOtpSendAllowance(client, { phoneE164, quoteId: 'q-new', now: NOW });
+    expect(decision.allowed).toBe(false);
+    if (decision.allowed) return;
+    expect(decision.scope).toBe('phone_day');
+    expect(decision.retryAfterSeconds).toBeGreaterThan(0);
+  });
+
+  it('allows below the daily cap even when the drip is steady', async () => {
+    const { client } = fakeLedger(drip(OTP_PHONE_DAY_MAX_SENDS - 1));
+
+    expect(
+      await checkOtpSendAllowance(client, { phoneE164, quoteId: 'q-new', now: NOW })
+    ).toEqual({ allowed: true });
+  });
+
+  it('reserveOtpSend releases a slot that loses the race against the daily cap', async () => {
+    const { client, state } = fakeLedger(drip(OTP_PHONE_DAY_MAX_SENDS));
+
+    const decision = await reserveOtpSend(client, { phoneE164, quoteId: 'q-new', now: NOW });
+    expect(decision.allowed).toBe(false);
+    if (decision.allowed) return;
+    expect(decision.scope).toBe('phone_day');
+    expect(state.rows).toHaveLength(OTP_PHONE_DAY_MAX_SENDS);
+  });
+});
+
+describe('a failed delivery releases the lifetime slot but keeps throttling the phone (#60)', () => {
+  const phoneE164 = '+528115559988';
+
+  it('marks the row instead of deleting it', async () => {
+    const { client, state } = fakeLedger();
+
+    const decision = await reserveOtpSend(client, { phoneE164, quoteId: 'q-1', now: NOW });
+    expect(decision.allowed).toBe(true);
+    if (!decision.allowed) return;
+    expect(decision.sendId).toBeTruthy();
+
+    await markOtpSendDeliveryFailed(client, decision.sendId!);
+
+    expect(state.rows).toHaveLength(1);
+    expect(state.rows[0].delivery_failed).toBe(true);
+  });
+
+  it('ten failed deliveries no longer make the quote permanently unsignable', async () => {
+    // The lifetime cap's worth of failures, aged out of the hourly window so
+    // only the lifetime cap could deny.
+    const failures = Array.from({ length: OTP_QUOTE_LIFETIME_MAX_SENDS }, (_, i) => ({
+      phone_e164: phoneE164,
+      quote_id: 'quote-1',
+      channel: 'sms',
+      created_at: minutesAgo(120 + i),
+      delivery_failed: true,
+    }));
+    const { client } = fakeLedger(failures);
+
+    expect(
+      await checkOtpSendAllowance(client, { phoneE164, quoteId: 'quote-1', now: NOW })
+    ).toEqual({ allowed: true });
+  });
+
+  it('failed sends still count against the hourly window — a broken provider stays throttled', async () => {
+    const failures = Array.from({ length: OTP_PHONE_WINDOW_MAX_SENDS }, (_, i) => ({
+      phone_e164: phoneE164,
+      quote_id: `q-${i}`,
+      channel: 'sms',
+      created_at: minutesAgo(5 + i),
+      delivery_failed: true,
+    }));
+    const { client } = fakeLedger(failures);
+
+    const decision = await checkOtpSendAllowance(client, { phoneE164, quoteId: 'q-new', now: NOW });
+    expect(decision.allowed).toBe(false);
+    if (decision.allowed) return;
+    expect(decision.scope).toBe('phone');
+  });
+
+  it('delivered sends still spend the lifetime budget as before', async () => {
+    const delivered = Array.from({ length: OTP_QUOTE_LIFETIME_MAX_SENDS }, (_, i) => ({
+      phone_e164: phoneE164,
+      quote_id: 'quote-1',
+      channel: 'sms',
+      created_at: minutesAgo(120 + i),
+    }));
+    const { client } = fakeLedger(delivered);
+
+    const decision = await checkOtpSendAllowance(client, { phoneE164, quoteId: 'quote-1', now: NOW });
+    expect(decision.allowed).toBe(false);
+    if (decision.allowed) return;
+    expect(decision.scope).toBe('quote');
+  });
+});
+
 describe('the OTP route wires the limit in', () => {
   const routeSource = readFileSync(
     join(process.cwd(), 'app/api/quotes/public/[token]/otp/route.ts'),
@@ -431,9 +624,21 @@ describe('the OTP route wires the limit in', () => {
     expect(routeSource).toContain('phoneE164: recipient');
   });
 
-  it('keeps the per-quote cooldown as well as the new bound', () => {
-    expect(routeSource).toContain('RESEND_COOLDOWN_MS');
-    expect(routeSource).toContain('client_otp_sent_at');
+  it('paces resends through the ledger backoff, not a flat per-quote cooldown (#22)', () => {
+    // The old constant is gone; pacing is per-phone and escalates.
+    expect(routeSource).not.toContain('RESEND_COOLDOWN_MS');
+    expect(routeSource).toContain('checkResendBackoff');
+
+    const backoffAt = routeSource.indexOf('checkResendBackoff(');
+    const reserveAt = routeSource.indexOf('reserveOtpSend(');
+    expect(backoffAt).toBeGreaterThan(-1);
+    expect(backoffAt).toBeLessThan(reserveAt);
+  });
+
+  it('flags a failed delivery so the quote lifetime slot is released (#60)', () => {
+    expect(routeSource).toMatch(
+      /!delivery\.delivered[\s\S]{0,600}markOtpSendDeliveryFailed\([\s\S]{0,200}reservation\.sendId/
+    );
   });
 
   it('answers over-cap requests with 429 and keeps retry_after_seconds as a body sibling', () => {

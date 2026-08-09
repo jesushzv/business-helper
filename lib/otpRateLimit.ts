@@ -31,14 +31,38 @@ export const OTP_PHONE_WINDOW_MS = 60 * 60 * 1000;
 export const OTP_PHONE_WINDOW_MAX_SENDS = 5;
 
 /**
+ * The daily layer on top of the hourly one (#22): 5/hour sustained is 120
+ * messages a day to one handset — billable, and past what any signer needs.
+ * The figure is convention (Twilio's guidance suggests 10–20), not a standard;
+ * revisit against real traffic once a provider is live.
+ */
+export const OTP_PHONE_DAY_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const OTP_PHONE_DAY_MAX_SENDS = 15;
+
+/**
+ * Escalating resend backoff (#22), keyed on the phone like every other bound
+ * here: the flat 30s cooldown treated a signer's first resend and a pump's
+ * tenth identically. The gap doubles per send already inside the hourly
+ * window — 30s, 60s, 120s, … — so a batch signer barely notices while a drip
+ * hits a widening wall. Capped so a legitimate signer is never told to wait
+ * longer than the hourly window itself would impose.
+ */
+export const OTP_RESEND_BACKOFF_BASE_MS = 30 * 1000;
+export const OTP_RESEND_BACKOFF_MAX_MS = 15 * 60 * 1000;
+
+/**
  * Codes a single quote may ever issue. The hourly phone cap alone still lets a
  * quote drip out codes indefinitely; this bounds the total.
+ *
+ * Counts only sends that reached the provider successfully: a delivery
+ * failure releases this slot (while keeping its hourly one), so an outage
+ * cannot permanently exhaust a quote (#60).
  */
 export const OTP_QUOTE_LIFETIME_MAX_SENDS = 10;
 
 export const OTP_SEND_LOG_TABLE = 'otp_send_log';
 
-export type OtpRateLimitScope = 'phone' | 'quote';
+export type OtpRateLimitScope = 'phone' | 'phone_day' | 'backoff' | 'quote';
 
 export interface OtpRateLimitDenial {
   allowed: false;
@@ -51,7 +75,16 @@ export interface OtpRateLimitDenial {
   retryAfterSeconds?: number;
 }
 
-export type OtpRateLimitDecision = { allowed: true } | OtpRateLimitDenial;
+export type OtpRateLimitDecision =
+  | {
+      allowed: true;
+      /**
+       * The ledger row backing an allowed reservation, so the route can flag
+       * it when the provider later fails (#60). Absent from read-only checks.
+       */
+      sendId?: string;
+    }
+  | OtpRateLimitDenial;
 
 /**
  * Resolves a stored phone to the single form used as the limit key.
@@ -64,18 +97,33 @@ export function normalizeOtpRecipient(phone: string | null | undefined): string 
   return /^\+[0-9]{10,15}$/.test(e164) ? e164 : null;
 }
 
+interface PhoneWindowOptions {
+  windowMs?: number;
+  maxSends?: number;
+  scope?: OtpRateLimitScope;
+  error?: string;
+}
+
 /**
- * Decides on a phone's hourly budget given the sends already recorded for it.
+ * Decides on a phone's rolling-window budget given the sends already recorded
+ * for it. Defaults describe the hourly window; the daily cap reuses the same
+ * arithmetic with its own bounds (#22).
  *
  * Pure, so the window arithmetic is testable without a database, and shared by
  * both the pre-insert check and the post-insert race check.
  */
 export function evaluatePhoneWindow(
   sentAt: readonly string[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  {
+    windowMs = OTP_PHONE_WINDOW_MS,
+    maxSends = OTP_PHONE_WINDOW_MAX_SENDS,
+    scope = 'phone',
+    error = 'Se enviaron demasiados códigos a este número. Intente de nuevo más tarde.',
+  }: PhoneWindowOptions = {}
 ): OtpRateLimitDecision {
   const nowMs = now.getTime();
-  const windowStart = nowMs - OTP_PHONE_WINDOW_MS;
+  const windowStart = nowMs - windowMs;
 
   // `>=` rather than `>`, to match the `gte` the ledger query filters on: the
   // ranking in reserveOtpSend is computed over SQL-filtered rows and the denial
@@ -86,20 +134,55 @@ export function evaluatePhoneWindow(
     .filter((ms) => Number.isFinite(ms) && ms >= windowStart)
     .sort((a, b) => a - b);
 
-  if (inWindow.length < OTP_PHONE_WINDOW_MAX_SENDS) {
+  if (inWindow.length < maxSends) {
     return { allowed: true };
   }
 
   // A slot opens once enough of the oldest sends have aged out to drop the
   // count below the cap. With n sends recorded that is the (n - cap + 1)-th
   // oldest, i.e. index n - cap.
-  const freesAt = inWindow[inWindow.length - OTP_PHONE_WINDOW_MAX_SENDS] + OTP_PHONE_WINDOW_MS;
+  const freesAt = inWindow[inWindow.length - maxSends] + windowMs;
 
   return {
     allowed: false,
-    scope: 'phone',
-    error: 'Se enviaron demasiados códigos a este número. Intente de nuevo más tarde.',
+    scope,
+    error,
     retryAfterSeconds: Math.max(1, Math.ceil((freesAt - nowMs) / 1000)),
+  };
+}
+
+/**
+ * Paces resends to one phone with a doubling gap (#22): after n sends inside
+ * the hourly window the next needs base·2^(n-1) since the most recent, capped
+ * at OTP_RESEND_BACKOFF_MAX_MS. First send of the hour is never delayed.
+ */
+export function evaluateResendBackoff(
+  sentAt: readonly string[],
+  now: Date = new Date()
+): OtpRateLimitDecision {
+  const nowMs = now.getTime();
+  const windowStart = nowMs - OTP_PHONE_WINDOW_MS;
+
+  const inWindow = sentAt
+    .map((iso) => new Date(iso).getTime())
+    .filter((ms) => Number.isFinite(ms) && ms >= windowStart)
+    .sort((a, b) => a - b);
+
+  if (inWindow.length === 0) return { allowed: true };
+
+  const requiredGapMs = Math.min(
+    OTP_RESEND_BACKOFF_BASE_MS * 2 ** (inWindow.length - 1),
+    OTP_RESEND_BACKOFF_MAX_MS
+  );
+  const readyAt = inWindow[inWindow.length - 1] + requiredGapMs;
+
+  if (nowMs >= readyAt) return { allowed: true };
+
+  return {
+    allowed: false,
+    scope: 'backoff',
+    error: 'Espere un momento antes de solicitar otro código.',
+    retryAfterSeconds: Math.max(1, Math.ceil((readyAt - nowMs) / 1000)),
   };
 }
 
@@ -130,7 +213,7 @@ interface LedgerResult {
 
 /** The subset of the Supabase query builder this module uses. */
 export interface OtpLedgerQuery extends PromiseLike<LedgerResult> {
-  eq(column: string, value: string): OtpLedgerQuery;
+  eq(column: string, value: string | boolean): OtpLedgerQuery;
   gte(column: string, value: string): OtpLedgerQuery;
   order(column: string, options: { ascending: boolean }): OtpLedgerQuery;
 }
@@ -142,6 +225,9 @@ export interface OtpLedgerClient {
       select(columns: string): {
         single(): PromiseLike<{ data: OtpSendLogRow | null; error: unknown }>;
       };
+    };
+    update(values: Record<string, unknown>): {
+      eq(column: string, value: string): PromiseLike<{ error: unknown }>;
     };
     delete(): {
       eq(column: string, value: string): PromiseLike<{ error: unknown }>;
@@ -165,17 +251,21 @@ function ledgerError(operation: string, error: unknown): Error {
 }
 
 /**
- * The sends to `phoneE164` still inside the rolling window, oldest first.
+ * The sends to `phoneE164` inside the last `windowMs`, oldest first.
  *
  * `id` breaks ties on `created_at` so the ordering is total — `reserveOtpSend`
  * relies on every invocation agreeing on which rows hold the window's slots.
+ * Failed deliveries are included on purpose: the phone windows exist to
+ * throttle what the provider is asked to send, and a provider erroring on
+ * every call must not become an unmetered loop.
  */
 async function readPhoneWindow(
   client: OtpLedgerClient,
   phoneE164: string,
-  now: Date
+  now: Date,
+  windowMs: number = OTP_PHONE_WINDOW_MS
 ): Promise<OtpSendLogRow[]> {
-  const windowStart = new Date(now.getTime() - OTP_PHONE_WINDOW_MS).toISOString();
+  const windowStart = new Date(now.getTime() - windowMs).toISOString();
 
   const { data, error } = await client
     .from(OTP_SEND_LOG_TABLE)
@@ -190,29 +280,77 @@ async function readPhoneWindow(
   return data || [];
 }
 
-/** How many codes this quote has issued over its whole life. */
+/**
+ * How many codes this quote has issued over its whole life — counting only
+ * deliveries that succeeded. A provider failure flags its row instead of
+ * deleting it, so the hourly/daily throttles keep seeing it while this cap
+ * does not (#60).
+ */
 async function readQuoteSendCount(client: OtpLedgerClient, quoteId: string): Promise<number> {
   const { count, error } = await client
     .from(OTP_SEND_LOG_TABLE)
     .select('id', { count: 'exact', head: true })
-    .eq('quote_id', quoteId);
+    .eq('quote_id', quoteId)
+    .eq('delivery_failed', false);
 
   if (error) throw ledgerError('quote count read', error);
 
   return count ?? 0;
 }
 
-/** Reads both budgets without consuming either. Exported for diagnostics and tests. */
+/** Splits a day-window read into the subset also inside the hourly window. */
+function hourSubset(rows: OtpSendLogRow[], now: Date): OtpSendLogRow[] {
+  const hourStart = now.getTime() - OTP_PHONE_WINDOW_MS;
+  return rows.filter((row) => {
+    const ms = new Date(row.created_at).getTime();
+    return Number.isFinite(ms) && ms >= hourStart;
+  });
+}
+
+/**
+ * The pacing check (#22), run by the route before it reserves a slot.
+ *
+ * Separate from the caps on purpose: backoff is best-effort pacing (two truly
+ * concurrent requests may both clear it), while the caps in reserveOtpSend
+ * settle races on the ledger and are the hard bound. Folding pacing into the
+ * reservation would make the race settlement ambiguous about which rule it is
+ * enforcing.
+ */
+export async function checkResendBackoff(
+  client: OtpLedgerClient,
+  { phoneE164, now = new Date() }: Pick<OtpSendContext, 'phoneE164' | 'now'>
+): Promise<OtpRateLimitDecision> {
+  const window = await readPhoneWindow(client, phoneE164, now);
+  return evaluateResendBackoff(
+    window.map((row) => row.created_at),
+    now
+  );
+}
+
+/** Reads every cap without consuming any. Exported for diagnostics and tests. */
 export async function checkOtpSendAllowance(
   client: OtpLedgerClient,
   { phoneE164, quoteId, now = new Date() }: OtpSendContext
 ): Promise<OtpRateLimitDecision> {
-  const window = await readPhoneWindow(client, phoneE164, now);
-  const phoneDecision = evaluatePhoneWindow(
-    window.map((row) => row.created_at),
-    now
+  // One read covers both phone windows: the hourly rows are a subset of the
+  // daily ones.
+  const dayWindow = await readPhoneWindow(client, phoneE164, now, OTP_PHONE_DAY_WINDOW_MS);
+  const hourTimes = hourSubset(dayWindow, now).map((row) => row.created_at);
+
+  const hourly = evaluatePhoneWindow(hourTimes, now);
+  if (!hourly.allowed) return hourly;
+
+  const daily = evaluatePhoneWindow(
+    dayWindow.map((row) => row.created_at),
+    now,
+    {
+      windowMs: OTP_PHONE_DAY_WINDOW_MS,
+      maxSends: OTP_PHONE_DAY_MAX_SENDS,
+      scope: 'phone_day',
+      error: 'Este número alcanzó el límite diario de códigos. Intente de nuevo mañana.',
+    }
   );
-  if (!phoneDecision.allowed) return phoneDecision;
+  if (!daily.allowed) return daily;
 
   return evaluateQuoteLifetime(await readQuoteSendCount(client, quoteId));
 }
@@ -245,6 +383,28 @@ async function releaseOtpSend(client: OtpLedgerClient, id: string): Promise<void
 }
 
 /**
+ * Flags a reserved send whose delivery failed at the provider (#60).
+ *
+ * Deliberately an update, not a delete: the row keeps holding its hourly and
+ * daily slots (a broken provider stays throttled) while dropping out of the
+ * quote's lifetime count (that budget is for codes that reached someone).
+ * Throws on a ledger error — the route treats the send as failed either way,
+ * and a quote whose slot could not be released is the visible-and-recoverable
+ * direction to fail in.
+ */
+export async function markOtpSendDeliveryFailed(
+  client: OtpLedgerClient,
+  id: string
+): Promise<void> {
+  const { error } = await client
+    .from(OTP_SEND_LOG_TABLE)
+    .update({ delivery_failed: true })
+    .eq('id', id);
+
+  if (error) throw ledgerError('delivery-failure flag', error);
+}
+
+/**
  * Claims a slot in both budgets, returning the decision the route should act on.
  *
  * The slot is claimed *before* the code is minted and delivered, so a send that
@@ -270,29 +430,58 @@ export async function reserveOtpSend(
 
   const claimed = await recordOtpSend(client, context);
 
-  const window = await readPhoneWindow(client, context.phoneE164, now);
-  const rank = window.findIndex((row) => row.id === claimed.id);
+  const dayWindow = await readPhoneWindow(
+    client,
+    context.phoneE164,
+    now,
+    OTP_PHONE_DAY_WINDOW_MS
+  );
+  const dayRank = dayWindow.findIndex((row) => row.id === claimed.id);
+  const hourWindow = hourSubset(dayWindow, now);
+  const hourRank = hourWindow.findIndex((row) => row.id === claimed.id);
 
-  if (rank === -1) {
+  if (dayRank === -1 || hourRank === -1) {
     // The row we just wrote is not in the window we just read, so the ranking
     // cannot be trusted — and neither can any budget derived from it. The
     // plausible cause is clock skew between this function and the database
     // wide enough to place `created_at` outside `windowStart`, which would
     // quietly disable the limit for every caller rather than just this one.
-    // Fail closed and make it visible, in keeping with the rest of the module.
+    // Fail closed and make it visible, in keeping with the rest of the module —
+    // and without handing the slot back, because refusing to send is the point.
     throw new Error(
       `otp_send_log ranking failed: row ${claimed.id} absent from its own window`
     );
   }
 
-  if (rank >= OTP_PHONE_WINDOW_MAX_SENDS) {
+  if (hourRank >= OTP_PHONE_WINDOW_MAX_SENDS || dayRank >= OTP_PHONE_DAY_MAX_SENDS) {
     await releaseOtpSend(client, claimed.id);
 
-    return evaluatePhoneWindow(
-      window.filter((row) => row.id !== claimed.id).map((row) => row.created_at),
+    const others = dayWindow.filter((row) => row.id !== claimed.id);
+    const hourlyDenial = evaluatePhoneWindow(
+      hourSubset(others, now).map((row) => row.created_at),
       now
+    );
+    if (!hourlyDenial.allowed) return hourlyDenial;
+
+    const dailyDenial = evaluatePhoneWindow(
+      others.map((row) => row.created_at),
+      now,
+      {
+        windowMs: OTP_PHONE_DAY_WINDOW_MS,
+        maxSends: OTP_PHONE_DAY_MAX_SENDS,
+        scope: 'phone_day',
+        error: 'Este número alcanzó el límite diario de códigos. Intente de nuevo mañana.',
+      }
+    );
+    if (!dailyDenial.allowed) return dailyDenial;
+
+    // The rank said over-cap but neither window agrees after excluding our
+    // row — the reservation was already released, so allowing here would
+    // authorize a send the ledger no longer records. Fail closed and loudly.
+    throw new Error(
+      `otp_send_log ranking failed: row ${claimed.id} over-cap by rank but not by window`
     );
   }
 
-  return { allowed: true };
+  return { allowed: true, sendId: claimed.id };
 }

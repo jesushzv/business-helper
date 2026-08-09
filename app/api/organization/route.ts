@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess, requireUser, isDemoDeployment } from '@/lib/apiAuth';
-import { normalizeClabe, isValidClabeLength } from '@/lib/clabe';
+import { normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
 
@@ -94,6 +94,23 @@ export async function PATCH(request: Request) {
       if (!isValidClabeLength(clabe)) {
         return NextResponse.json(
           { error: { code: 'INVALID_CLABE', message: 'La CLABE debe tener exactamente 18 dígitos' } },
+          { status: 400 }
+        );
+      }
+
+      // Enforced server-side since #66 (decided 2026-08-08): this is the
+      // account a tenant's clients wire real money to, and the checksum
+      // catches the transposition and single-digit typos a length check
+      // cannot. Rejecting here beats a misdirected SPEI transfer later.
+      if (!hasValidClabeCheckDigit(clabe)) {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'INVALID_CLABE',
+              message:
+                'La CLABE no parece válida. Revísala dígito por dígito tal como aparece en tu banco.',
+            },
+          },
           { status: 400 }
         );
       }
