@@ -17,6 +17,7 @@ export interface Database {
           regimen_fiscal: string | null;
           codigo_postal: string | null;
           logo_url: string | null;
+          phone: string | null;
           industry: string | null;
           owner_id: string;
           stripe_customer_id: string | null;
@@ -40,6 +41,7 @@ export interface Database {
           regimen_fiscal?: string | null;
           codigo_postal?: string | null;
           logo_url?: string | null;
+          phone?: string | null;
           industry?: string | null;
           owner_id: string;
           stripe_customer_id?: string | null;
@@ -63,6 +65,7 @@ export interface Database {
           regimen_fiscal?: string | null;
           codigo_postal?: string | null;
           logo_url?: string | null;
+          phone?: string | null;
           industry?: string | null;
           owner_id?: string;
           stripe_customer_id?: string | null;

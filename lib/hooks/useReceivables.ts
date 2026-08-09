@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MilestoneItem, calculateReceivablesSummary, ReceivablesSummary } from '../receivablesCalculator';
+import { isClientDemoMode } from '../clientDemoMode';
 
 export interface MilestoneWithClient extends MilestoneItem {
   client_id?: string;
@@ -192,16 +193,6 @@ export interface ReceivableMutationOutcome {
   complementError?: { code: string; message: string } | null;
 }
 
-/**
- * The one case where a local-only write is legitimate: the deployment has no
- * backend at all (the static marketing demo). requireOrgAccess() signals it
- * with exactly this status and code; anything else is a real failure.
- */
-function isDemoBackendResponse(status: number, data: unknown): boolean {
-  const err = (data as { error?: { code?: string } } | null)?.error;
-  return status === 503 && err?.code === 'BACKEND_NOT_CONFIGURED';
-}
-
 function errorMessage(data: unknown, fallback: string): string {
   const err = (data as { error?: string | { message?: string } } | null)?.error;
   if (typeof err === 'string') return err;
@@ -226,34 +217,34 @@ export function useReceivables() {
     setLoading(true);
     setError(null);
 
-    try {
-      const res = await fetch('/api/receivables');
-      const data = await res.json().catch(() => null);
+    // A real tenant never sees the fixtures below, whatever happens to the
+    // request. The old shape wrapped the fetch in a bare `catch` that fell
+    // through to the localStorage block, so a single dropped connection — the
+    // normal case on the 3G phone this product is built for — filled Cobranza
+    // with ~$145,000 owed by three companies that do not exist, left `error`
+    // null so no screen could say otherwise, and fed the same invented
+    // milestones into the client detail page's credit meter (#96, same class
+    // as #33/#50/#58).
+    if (!isClientDemoMode()) {
+      try {
+        const res = await fetch('/api/receivables');
+        const data = await res.json().catch(() => null);
 
-      if (res.ok && Array.isArray(data?.receivables)) {
-        // The server's answer is the answer — including an empty list. A real
-        // tenant with zero receivables must see zero, not the demo fixtures
-        // (which previously claimed money owed by clients that do not exist).
-        // Mapped, not assigned raw: the client, contract and quote token the UI
-        // reads arrive nested under `contracts`.
-        setReceivables(data.receivables.map(toMilestoneWithClient));
+        if (res.ok && Array.isArray(data?.receivables)) {
+          setReceivables(data.receivables.map(toMilestoneWithClient));
+        } else {
+          setError(errorMessage(data, 'No se pudieron cargar tus cobros'));
+        }
+      } catch {
+        setError('No se pudieron cargar tus cobros. Revisa tu conexión.');
+      } finally {
         setLoading(false);
-        return;
       }
-
-      if (!isDemoBackendResponse(res.status, data)) {
-        // A configured backend answered with a failure. Falling back to demo
-        // data here would present fiction as fact; report it instead.
-        setError(errorMessage(data, 'No se pudieron cargar tus cobros'));
-        setLoading(false);
-        return;
-      }
-      // 503 BACKEND_NOT_CONFIGURED: static demo deployment, fall through.
-    } catch {
-      // Network failure — the local cache is the best truth available, and on
-      // the demo deployment it is the only persistence there is.
+      return;
     }
 
+    // Demo deployment: localStorage keeps the sandbox interactive across
+    // reloads, and is the only persistence there is.
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
@@ -279,7 +270,11 @@ export function useReceivables() {
     fetchReceivables();
   }, [fetchReceivables]);
 
+  // Persists the demo sandbox only. A real tenant's cobros live on the server;
+  // mirroring them here also seeded the stale snapshot that the fixture
+  // fallback used to read back as if it were current (#96).
   const syncLocalStorage = (updated: MilestoneWithClient[]) => {
+    if (!isClientDemoMode()) return;
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
@@ -341,7 +336,13 @@ export function useReceivables() {
       };
     }
 
-    if (isDemoBackendResponse(res.status, data)) {
+    // Only the sandbox may confirm a payment the server did not record. This
+    // used to key off a 503 BACKEND_NOT_CONFIGURED instead, which a real
+    // deployment also returns when its server-side Supabase config is broken —
+    // so a misconfigured production wrote "confirmed" with a locally minted
+    // timestamp for a payment nobody had received. Demo detection is the
+    // build-time signal, never a response code (CLAUDE.md).
+    if (isClientDemoMode()) {
       const updated = applyRowUpdate(id, {
         status: 'confirmed',
         transferred_amount: transferredAmount,
@@ -378,7 +379,7 @@ export function useReceivables() {
 
     const body = await res.json().catch(() => null);
 
-    if (res.ok || isDemoBackendResponse(res.status, body)) {
+    if (res.ok || isClientDemoMode()) {
       const updated = applyRowUpdate(id, changes);
       if (!updated) return { success: false, error: 'Hito de pago no encontrado' };
       return { success: true, milestone: updated };
@@ -422,6 +423,9 @@ export function useReceivables() {
   }, [receivables, statusFilter, searchQuery, todayStr]);
 
   const resetDemoReceivables = useCallback(() => {
+    // Named "demo" but ungated, so wiring it to any button would have written
+    // fixtures straight into a real tenant's list.
+    if (!isClientDemoMode()) return;
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_RECEIVABLES));
     setReceivables(INITIAL_DEMO_RECEIVABLES);
   }, []);

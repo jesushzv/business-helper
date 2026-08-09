@@ -22,9 +22,31 @@ export function calculateClientCreditSummary(
   client?: ClientCreditInput | null,
   receivables: MilestoneRecordInput[] = []
 ): ClientCreditSummary {
-  const totalLimit = Math.max(0, Number(client?.credit_limit) || 0);
-  const creditDays = Number(client?.credit_days) || 0;
-  const status = client?.credit_status || 'active';
+  // Unknown is not zero. `credit_limit` is nullable with no default, so a
+  // client nobody has assessed must not read as one deliberately authorized for
+  // $0 — and its status must not read as a green "Activo" the owner never
+  // chose. Only a stored number counts as configured (#64's tri-state rule
+  // applied to a column; #96 is where the collapsed version shipped).
+  const rawLimit = client?.credit_limit;
+  const hasLimit =
+    rawLimit !== null && rawLimit !== undefined && Number.isFinite(Number(rawLimit));
+
+  const status = client?.credit_status ?? null;
+
+  // A status counts as configuration on its own. The two columns are
+  // independent, so an owner who blocked a client without ever setting a limit
+  // has made a real decision — keying `isConfigured` off the limit alone hid
+  // that block behind "sin línea de crédito asignada" while the quote wizard
+  // still refused the sale, leaving two screens disagreeing.
+  const isConfigured = hasLimit || status !== null;
+
+  const totalLimit = hasLimit ? Math.max(0, Number(rawLimit)) : 0;
+
+  const rawDays = client?.credit_days;
+  const creditDays =
+    rawDays === null || rawDays === undefined || !Number.isFinite(Number(rawDays))
+      ? null
+      : Math.max(0, Number(rawDays));
 
   const clientId = client?.id;
 
@@ -44,13 +66,20 @@ export function calculateClientCreditSummary(
     return st === 'pending' || st === 'requested' || st === 'marked_paid';
   });
 
+  // Money actually owed is a real fact whether or not a limit was set, so it is
+  // still reported — the UI just must not frame it as utilization of a line
+  // that does not exist.
   const usedCredit = activeReceivables.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
-  const availableCredit = Math.max(0, totalLimit - usedCredit);
-  const isOverLimit = totalLimit > 0 && usedCredit > totalLimit;
+  const availableCredit = hasLimit ? Math.max(0, totalLimit - usedCredit) : 0;
+  const isOverLimit = hasLimit && totalLimit > 0 && usedCredit > totalLimit;
   const utilizationPercentage =
-    totalLimit > 0 ? Math.min(100, Math.round((usedCredit / totalLimit) * 100)) : 0;
+    hasLimit && totalLimit > 0
+      ? Math.min(100, Math.round((usedCredit / totalLimit) * 100))
+      : 0;
 
   return {
+    isConfigured,
+    hasLimit,
     totalLimit,
     usedCredit,
     availableCredit,
@@ -64,8 +93,16 @@ export function calculateClientCreditSummary(
 export function validateQuoteCreditLimit(
   quoteTotal: number,
   availableCredit: number,
-  creditStatus: 'active' | 'suspended' | 'blocked' = 'active'
+  creditStatus: 'active' | 'suspended' | 'blocked' | null = 'active'
 ): { isAllowed: boolean; isExceeding: boolean; warningMessage: string | null } {
+  // No credit line configured: there is no limit to exceed and no restriction
+  // the owner has declared, so quoting proceeds without inventing a warning.
+  // Permissive is the safe direction for unknown here — this gate only advises,
+  // it is not the enforcement point for anything.
+  if (creditStatus === null) {
+    return { isAllowed: true, isExceeding: false, warningMessage: null };
+  }
+
   if (creditStatus === 'blocked') {
     return {
       isAllowed: false,

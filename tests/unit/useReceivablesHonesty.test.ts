@@ -38,12 +38,18 @@ beforeEach(() => {
   localStorage.clear();
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
+  // Without this the whole file tests nothing it claims to: `isClientDemoMode()`
+  // keys off NEXT_PUBLIC_SUPABASE_URL, which Vitest leaves unset, so every
+  // "real tenant" assertion below would actually be exercising the demo
+  // sandbox branch (the CLAUDE.md Vitest trap).
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
   // Initial load: the API returns one live row for a configured backend.
   fetchMock.mockResolvedValueOnce(jsonResponse(200, { receivables: [SERVER_ROW] }));
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 async function mountHook() {
@@ -146,12 +152,35 @@ describe('confirmPayment honesty', () => {
     expect(result.current.receivables[0].status).toBe('confirmed');
   });
 
-  it('allows the local-only update on the demo deployment (503 BACKEND_NOT_CONFIGURED)', async () => {
+  it('refuses to confirm locally on a 503 once a backend is configured', async () => {
+    // This used to succeed: a 503 BACKEND_NOT_CONFIGURED authorized a local
+    // "confirmed" with a locally minted timestamp. But a real deployment
+    // returns that same code when its *server-side* Supabase config is broken,
+    // so a misconfigured production reported payments as received that nobody
+    // had received. Demo detection is the build-time signal, never a response
+    // code (CLAUDE.md).
     const { result } = await mountHook();
     fetchMock.mockResolvedValueOnce(
       jsonResponse(503, {
         error: { code: 'BACKEND_NOT_CONFIGURED', message: 'Esta operación requiere una base de datos configurada' },
       })
+    );
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.confirmPayment('m-1', 500);
+    });
+
+    expect(outcome).toMatchObject({ success: false });
+    expect(result.current.receivables[0].status).toBe('marked_paid');
+    expect(result.current.receivables[0].confirmed_at).toBeNull();
+  });
+
+  it('still allows the sandbox to confirm locally', async () => {
+    const { result } = await mountHook();
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(503, { error: { code: 'BACKEND_NOT_CONFIGURED', message: 'sin base de datos' } })
     );
 
     let outcome;
@@ -222,7 +251,36 @@ describe('fetchReceivables honesty', () => {
     expect(result.current.error).toBe('boom');
   });
 
-  it('falls back to demo fixtures only for the unconfigured-backend deployment', async () => {
+  /**
+   * The defect this pins (#96 verification): the fetch used to sit inside a
+   * bare `catch` that fell through to seeding INITIAL_DEMO_RECEIVABLES into
+   * localStorage. A real tenant who lost their connection for one request —
+   * routine on the 3G phone this product targets — was shown ~$145,000 owed by
+   * three companies that do not exist, with `error` left null so no screen
+   * could contradict it, and those same invented milestones fed the client
+   * detail page's "Crédito Utilizado" meter.
+   *
+   * The file already claimed to cover this: the test below used to be titled
+   * "falls back to demo fixtures ONLY for the unconfigured-backend deployment"
+   * while never once rejecting the fetch. The "only" was asserted nowhere.
+   */
+  it('surfaces a network failure as an error and never as demo fixtures', async () => {
+    fetchMock.mockReset();
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    const { result } = renderHook(() => useReceivables());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.receivables).toEqual([]);
+    expect(result.current.error).toBeTruthy();
+    // The specific fiction that used to appear here.
+    expect(JSON.stringify(result.current.receivables)).not.toContain('Construcciones Maya');
+    expect(localStorage.getItem('business_helper_receivables_v1')).toBeNull();
+  });
+
+  it('does not fall back to fixtures on a 503 either, once a backend is configured', async () => {
+    // A hook cannot use BACKEND_NOT_CONFIGURED to authorize fixtures: demo
+    // detection is the build-time signal, not a response code (CLAUDE.md).
     fetchMock.mockReset();
     fetchMock.mockResolvedValueOnce(
       jsonResponse(503, { error: { code: 'BACKEND_NOT_CONFIGURED', message: 'sin base de datos' } })
@@ -231,7 +289,35 @@ describe('fetchReceivables honesty', () => {
     const { result } = renderHook(() => useReceivables());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
+    expect(result.current.receivables).toEqual([]);
+    expect(result.current.error).toBe('sin base de datos');
+  });
+
+  it('does not mirror a real tenant\'s rows into localStorage', async () => {
+    const { result } = await mountHook();
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ...SERVER_ROW, status: 'marked_paid' }));
+
+    await act(async () => {
+      await result.current.uploadSpeiProof('m-1', {
+        receipt_url: 'https://example.com/r.pdf',
+        tracking_reference: 'SPEI123',
+      });
+    });
+
+    // The mirror was also the stale snapshot the fixture fallback read back.
+    expect(localStorage.getItem('business_helper_receivables_v1')).toBeNull();
+  });
+
+  it('serves the sandbox its fixtures when the build has no Supabase URL', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    fetchMock.mockReset();
+
+    const { result } = renderHook(() => useReceivables());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
     expect(result.current.receivables.length).toBeGreaterThan(0);
     expect(result.current.receivables[0].organization_id).toBe('org-demo-1');
+    // The demo deployment must not be blanked by the gate above.
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
