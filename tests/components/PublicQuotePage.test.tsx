@@ -74,6 +74,30 @@ describe('PublicQuotePage (/q/[token])', () => {
     expect(document.body.innerHTML).not.toContain('8115551234');
   });
 
+  it('offers "Solicitar Cambios" only when the vendor has a WhatsApp on record, aimed at that number (#44)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        ...REAL_QUOTE,
+        organizations: { ...REAL_QUOTE.organizations, phone: '8187654321' },
+      })
+    );
+    render(<PublicQuotePage />);
+
+    const button = await screen.findByText(/Solicitar Cambios por WhatsApp/i);
+    const link = button.closest('a');
+    expect(link?.getAttribute('href')).toContain('wa.me/528187654321');
+    // The hardcoded number every tenant's clients used to be routed to.
+    expect(link?.getAttribute('href')).not.toContain('8115551234');
+  });
+
+  it('renders no change-request button at all when the vendor has no phone — absent is absent (#44)', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, REAL_QUOTE));
+    render(<PublicQuotePage />);
+
+    await screen.findByText(/Aceptar y Firmar/i);
+    expect(screen.queryByText(/Solicitar Cambios/i)).toBeNull();
+  });
+
   it('shows "no encontrada" for a token the server does not recognize', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(404, { error: { code: 'QUOTE_NOT_FOUND', message: 'Cotización no encontrada' } })

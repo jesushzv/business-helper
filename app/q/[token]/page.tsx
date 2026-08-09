@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { OtpSignatureModal } from '@/components/quotes/OtpSignatureModal';
 import { getOrganizationBranding, generateThemeCssVariables } from '@/lib/branding';
-import { ShieldCheck, CheckCircle, Calendar, Building, Sparkles } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Calendar, Building, Sparkles, MessageSquare } from 'lucide-react';
+import { generateWhatsAppLink } from '@/lib/whatsappLink';
 
 /**
  * Public quote portal — what the client opens from the WhatsApp link.
@@ -34,7 +35,7 @@ interface PublicQuote {
   contract_hash: string | null;
   accepted_at: string | null;
   clients?: { name: string | null; contact_name: string | null } | null;
-  organizations?: { name: string | null; logo_url: string | null } | null;
+  organizations?: { name: string | null; logo_url: string | null; phone?: string | null } | null;
 }
 
 export default function PublicQuotePage() {
@@ -250,12 +251,24 @@ export default function PublicQuotePage() {
                 <ShieldCheck className="w-6 h-6" />
                 <span>Aceptar y Firmar Cotización</span>
               </button>
-              {/*
-                The "Solicitar Cambios por WhatsApp" button that used to render
-                here pointed every tenant's clients at one hardcoded number
-                (#44). It returns when organizations carry a contact phone the
-                API can expose.
-              */}
+              {/* Change requests go to the vendor's own WhatsApp — the button
+                  that used to live here pointed every tenant's clients at one
+                  hardcoded number (#44). No org phone on record → no button:
+                  absent is absent. */}
+              {quote.organizations?.phone && (
+                <a
+                  href={generateWhatsAppLink(
+                    quote.organizations.phone,
+                    `Hola, quisiera solicitar un cambio en la cotización "${quote.title}".`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full min-h-[48px] px-6 py-3.5 border border-slate-700 bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-slate-200 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  <MessageSquare className="w-5 h-5 text-emerald-400" />
+                  <span>Solicitar Cambios por WhatsApp</span>
+                </a>
+              )}
             </div>
           )}
         </div>
