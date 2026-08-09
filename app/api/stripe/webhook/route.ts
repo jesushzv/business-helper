@@ -39,7 +39,20 @@ export async function POST(request: Request) {
     );
 
     if (!verification.valid) {
-      // 400 with no detail about which check failed.
+      // A missing endpoint secret is this deployment's fault, not the caller's.
+      // Answering it with the same 400 as a forged request made the two
+      // indistinguishable: Stripe's dashboard reported "invalid signature" for
+      // an endpoint that had no secret to check against, and `verify:webhook`
+      // scored a reject-everything endpoint as four passing checks (#63).
+      // 503 also matches the service-role branch below and hard rule 3.
+      if (verification.code === 'NOT_CONFIGURED') {
+        return NextResponse.json(
+          { error: 'Verificación de webhook no configurada' },
+          { status: 503 }
+        );
+      }
+
+      // 400 with no detail about which of the request-side checks failed.
       return NextResponse.json({ error: 'Firma de webhook inválida' }, { status: 400 });
     }
 
@@ -99,15 +112,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo registrar el evento' }, { status: 500 });
     }
 
+    // `.select('id')` is not decoration. Without it an UPDATE that matches zero
+    // rows — an organization_id that is a well-formed UUID but belongs to no
+    // row in *this* deployment's database — comes back `{ error: null }`, and
+    // the route answered 200 `{ processed }` for a subscription change it never
+    // wrote. Stripe stopped retrying, the tenant was never upgraded, and the
+    // only record of it said success (hard rule 1; found while wiring up #63's
+    // "accepted and processed" check, which would have passed against it).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase as any)
+    const { data: updatedRows, error: updateError } = await (supabase as any)
       .from('organizations')
       .update({
         subscription_tier: handled.tierId,
         subscription_status: handled.status,
         updated_at: new Date().toISOString()
       })
-      .eq('id', organizationId);
+      .eq('id', organizationId)
+      .select('id');
+
+    if (!updateError && (!updatedRows || updatedRows.length === 0)) {
+      // Release the claim: nothing was applied, so a redelivery must not be
+      // deduplicated against this attempt.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('stripe_webhook_events').delete().eq('id', eventId);
+
+      // 404 rather than 200: Stripe's dashboard is the only place this is
+      // visible, and a green delivery for an unapplied tier change is the
+      // failure we are trying to make impossible.
+      return NextResponse.json(
+        { error: 'La organización del evento no existe en esta base de datos' },
+        { status: 404 }
+      );
+    }
 
     if (updateError) {
       // Release the claim so Stripe's retry can reprocess rather than being

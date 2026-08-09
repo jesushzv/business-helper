@@ -151,7 +151,7 @@ frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08
 | 4 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
 | 5 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
 | 6 | **The UX-audit trio: demo identity, fabricated settings save, fabricated client history.** All three fixed in code on 2026-08-08 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): real org/user identity in chrome and outbound WhatsApp with a logout that finally exists (#93); Ajustes reads and writes the real organization row instead of localStorage + a 405 (#95); client detail derives its financial modules from real rows behind a three-state loading gate (#96). Each stays open on its deployed-verification exit criterion — one pass through a real tenant's dashboard, Ajustes save, and a client page covers all three. | [#93](https://github.com/jesushzv/business-helper/issues/93) · [#95](https://github.com/jesushzv/business-helper/issues/95) · [#96](https://github.com/jesushzv/business-helper/issues/96) |
-| 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+| 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that remain — a signed event is applied to a real row, and its redelivery is not — need a database, so they need a staging deployment; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route reported `200 { processed }` for an UPDATE that matched no row. Least blocking of the P0s: it protects a path a SPEI-first pilot may barely exercise. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
 **Resolved off this table on 2026-08-08:** [#79](https://github.com/jesushzv/business-helper/issues/79)
 — the PGRST201 prediction was **confirmed against live PostgREST** (every `/pay/` link had 404'd
@@ -168,10 +168,11 @@ closed as already-done (PR #75).
 fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
 
 > [!NOTE]
-> **Every remaining row needs the founder.** As of 2026-08-08 there is no open P0 whose next step
-> an agent can take: rows 1–4 and 7 are credentials, accounts, a real handset and a real card;
-> rows 5 and 6 are code that is done and waiting on one pass through a real deployment. The
-> agent-closable items (#59, #76, #79, and the code halves of #93/#95/#96) have all been taken.
+> **Every remaining row needs the founder.** As of 2026-08-09 there is no open P0 whose next step
+> an agent can take: rows 1–4 are credentials, accounts, a real handset and a real card; rows 5,
+> 6 and 7 are code that is done and waiting on one pass through a real deployment. The
+> agent-closable items (#59, #76, #79, the code halves of #93/#95/#96, and row 7's local
+> six-of-eight round-trip) have all been taken.
 > The founder rows do not block each other, and row 6's walkthrough can piggyback on row 5's.
 
 > [!IMPORTANT]
