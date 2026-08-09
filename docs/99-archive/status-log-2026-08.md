@@ -402,3 +402,47 @@ criterion was the live check itself, which ran (`Closes`). Coverage moved **down
 lines 81.20% → 78.41%): the branch adds ~750 statements of chrome/UI whose presentational branches
 are not individually asserted; the honesty-critical paths all are. Still under the 85/85/80/80 gate
 CI does not run (#51).**
+
+### Update 2026-08-09 — the non-P0 bulk pass (#22/#60, #35, #44, #66, #97, #98, #106, #108), drafted, pending merge
+
+Same method as the P0 pass the day before: re-derive the open set from the tracker, take everything
+agent-actionable, leave decisions as decisions. Two were decision-gated and the founder chose live
+in-session: **#60** (a provider failure releases the quote's lifetime OTP slot while keeping the
+hourly/daily throttle — option 1) and **#66** (the CLABE check digit is enforced server-side).
+
+- **#22 + #60 (OTP):** per-phone doubling backoff (30s → 60s → 120s…, 15-min ceiling) replaces the
+  flat per-quote cooldown; a 15/day rolling cap layers over 5/hour; `otp_send_log.delivery_failed`
+  flags provider failures so the lifetime cap counts only delivered codes. **The migration is NOT
+  yet applied to production** — the Supabase connector began requiring approval mid-session — and
+  without the column OTP issuance fails closed, so it must be applied before or with the merge.
+- **#35 (CI):** the `migration-verify` job applies every migration twice to a real Postgres 16
+  under a faithful Supabase shim (API roles, `auth.uid()`, `storage.buckets`, and the
+  default-privilege auto-grants that were #76's trap), seeds a tenant, and asserts: anon denied or
+  zero rows on every tenant table, service_role functional, the OTP phone CHECK, `aclexplode`
+  grant posture on a live catalog, RLS enabled everywhere. Verified locally on a throwaway
+  cluster; shown red against a planted anon-leak migration. Double-apply surfaced 16
+  non-idempotent statements (bare `CREATE POLICY`/`CREATE TRIGGER`, an unguarded `ADD CONSTRAINT`,
+  an `UPDATE` on a dropped column) — all guarded now, so the idempotency convention is finally a
+  tested property.
+- **#97:** failed reads render as failures — error states with retry on the quotes and receivables
+  pages, a warning strip over the dashboard KPIs, `useDashboardAnalytics` finally assigns `error`
+  and its skeleton holds until every source answers.
+- **#98:** the product catalog reads and writes `/api/products` (new org-scoped DELETE route);
+  demo fixtures/localStorage behind `isClientDemoMode()`; two-step delete confirmation, submit
+  guard, the stock input, split empty states; rows stranded in localStorage from the pre-server
+  era get a one-tap import instead of silent loss.
+- **#44 (final third):** the public quote page's "Solicitar Cambios" button returns, aimed at the
+  vendor's own `organizations.phone`; no phone → no button. Re-derived the `8115551234` set: only
+  demo-gated fixtures, a placeholder and comments remain.
+- **#108:** the health meter prefers the milestone-derived score, and unknown renders "Sin
+  historial de pagos" — never 100 "Excelente" — on the credit-decision surface.
+- **#106:** the placeholder-identifier scanner joins the FK-hint scanner (#110); it caught and
+  cleared two latent hits on arrival. Both halves of #106 now exist.
+
+**Verified by `typecheck` + `lint` (0 warnings) + 813 vitest tests / 98 files + `next build`, plus
+the local Postgres runs above. Coverage vs `main`: statements 76.71% → 74.73%, branches
+67.91% → 66.22%, functions 73.40% → 67.87%, lines 78.41% → 76.55% — down again, same shape as the
+P0 pass: new UI surface (error states, catalog card, health-meter states) with behavior-level
+tests but unasserted presentational branches. Still under the 85/85/80/80 gate CI does not run
+(#51, which grows more relevant with each pass).**
+

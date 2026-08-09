@@ -75,7 +75,7 @@ until checked against source. This memo does that check; §06 records the method
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **774 tests / 94 files**, `npx vitest run` (2026-08-08) — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **813 tests / 98 files**, `npx vitest run` (2026-08-09, non-P0 bulk branch) — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -102,7 +102,7 @@ that were blocking. What remains is configuration and one real transaction, not 
 | ~~**#3** / PR #23 — real CFDI via PAC~~ | ✅ Merged. `lib/pacClient.ts` stamps for real; `simulateInvoiceStamping()` and its "graceful fallback" are both gone. | Cleared |
 | ~~**#17** / PR #20 — OTP rate limit per phone~~ | ✅ Merged. Issuance is now capped on the recipient phone across quotes. | Cleared |
 | ~~Complemento de Pago~~ | ✅ Merged (#29) — filed when a PPD milestone is confirmed. Was P2. | Cleared |
-| **#22** — OTP escalating backoff + daily cap | Not started. Hardening on top of #17. | No — can trail launch |
+| ~~**#22** — OTP escalating backoff + daily cap~~ | ✅ In the non-P0 bulk PR (2026-08-09, pending merge): per-phone doubling backoff replaces the flat cooldown, 15/day cap, and a provider failure no longer burns a quote's lifetime budget (#60, decided: release). | Cleared on merge |
 
 ### Recently landed (2026-08-07 → 2026-08-08)
 
@@ -195,8 +195,12 @@ fixture quote for every token (PR #57) — never listed as a P0 and worse than s
   CI was silently absent on PR #28 for ten hours across four pushes while Vercel and GitGuardian reported
   green, so the PR looked checked. The cause is still unexplained — which is the argument for a rule that
   fails closed rather than one that depends on understanding it.
-- **OTP escalating backoff + daily cap** (#22) — without it, a pilot user legitimately signing several
-  quotes in one sitting can lock themselves out against the flat 5/hour window.
+- ~~**OTP escalating backoff + daily cap** (#22).~~ **In the 2026-08-09 non-P0 bulk PR (pending
+  merge)** — per-phone doubling backoff (30s → 60s → 120s…, 15-min ceiling), a 15/day rolling cap,
+  and #60's decision implemented: a provider failure keeps throttling the phone but releases the
+  quote's lifetime slot, so ten outages can no longer make a quote permanently unsignable.
+  **Carries migration `20260809120000_otp_send_delivery_failed.sql`, NOT yet applied to
+  production** — apply before or with the merge (hard rule 6) or OTP issuance 500s.
 - **One real production smoke test:** register → quote → WhatsApp send → OTP sign → SPEI upload → confirm.
 - **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
@@ -214,8 +218,14 @@ fixture quote for every token (PR #57) — never listed as a P0 and worse than s
   the accountant export omits complementos ([#31](https://github.com/jesushzv/business-helper/issues/31)),
   and one stamped in error cannot be cancelled ([#30](https://github.com/jesushzv/business-helper/issues/30)).
   *(Filing on PPD confirmation itself landed in #29.)*
-- Migrations never execute against a real Postgres in CI, so RLS, grants and CHECK constraints are
-  unverifiable ([#35](https://github.com/jesushzv/business-helper/issues/35)).
+- ~~Migrations never execute against a real Postgres in CI
+  ([#35](https://github.com/jesushzv/business-helper/issues/35)).~~ **In the 2026-08-09 non-P0 bulk
+  PR (pending merge):** CI's `migration-verify` job applies the full set twice to Postgres 16 under
+  a faithful Supabase shim (including the default-privilege auto-grants — the #76 trap), seeds a
+  tenant, and asserts anon isolation, service_role access, the OTP phone CHECK, SECURITY DEFINER
+  grants via `aclexplode`, and RLS-on-every-table. Shown red against a planted anon leak. Making
+  double-apply pass surfaced 16 non-idempotent statements, all fixed. Requiring the check in
+  branch protection remains #38.
 - `parseNaturalLanguageQuery` is keyword matching rather than a model. It now reports `engine: 'rules'`
   instead of implying otherwise, so it is honest but not intelligent. Degrades gracefully; does not gate launch.
 - Animated demo video — storyboarded in [`demo_video_storyboard.md`](03-product-specs/demo_video_storyboard.md), not produced.
@@ -299,7 +309,7 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 774 tests / 94 files as of 2026-08-08
+npx vitest run                 # 813 tests / 98 files as of 2026-08-09
                                # (earlier counts, and what each pass verified, are in the frozen
                                #  log at docs/99-archive/status-log-2026-08.md)
 npm run typecheck
