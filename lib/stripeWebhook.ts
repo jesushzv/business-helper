@@ -8,8 +8,26 @@ import crypto from 'crypto';
  * drag the builtin — and this verification logic — into the browser bundle.
  */
 
+/**
+ * Why the failure is machine-readable and not just a Spanish string:
+ *
+ * `NOT_CONFIGURED` is a property of *this deployment* — the endpoint secret was
+ * never set — while every other code is a property of the *request*. Collapsing
+ * them into one 400 made a misconfigured deployment indistinguishable from a
+ * forged request, both in Stripe's dashboard and to `npm run verify:webhook`:
+ * an endpoint that rejects literally everything passed all four of the script's
+ * rejection checks (#63).
+ */
+export type StripeSignatureFailure =
+  | 'NOT_CONFIGURED'
+  | 'MISSING_SIGNATURE'
+  | 'MALFORMED_SIGNATURE'
+  | 'STALE_TIMESTAMP'
+  | 'INVALID_SIGNATURE';
+
 export interface StripeSignatureResult {
   valid: boolean;
+  code?: StripeSignatureFailure;
   error?: string;
 }
 
@@ -40,11 +58,19 @@ export function verifyStripeWebhookSignature(
   nowMs: number = Date.now()
 ): StripeSignatureResult {
   if (!secret) {
-    return { valid: false, error: 'STRIPE_WEBHOOK_SECRET no está configurado' };
+    return {
+      valid: false,
+      code: 'NOT_CONFIGURED',
+      error: 'STRIPE_WEBHOOK_SECRET no está configurado',
+    };
   }
 
   if (!signatureHeader) {
-    return { valid: false, error: 'Falta el encabezado Stripe-Signature' };
+    return {
+      valid: false,
+      code: 'MISSING_SIGNATURE',
+      error: 'Falta el encabezado Stripe-Signature',
+    };
   }
 
   // Header form: t=1614556800,v1=<hex>,v1=<hex>,v0=<hex>
@@ -62,17 +88,29 @@ export function verifyStripeWebhookSignature(
   }
 
   if (!timestamp || signatures.length === 0) {
-    return { valid: false, error: 'Encabezado Stripe-Signature con formato inválido' };
+    return {
+      valid: false,
+      code: 'MALFORMED_SIGNATURE',
+      error: 'Encabezado Stripe-Signature con formato inválido',
+    };
   }
 
   const timestampSeconds = Number(timestamp);
   if (!Number.isFinite(timestampSeconds)) {
-    return { valid: false, error: 'Marca de tiempo inválida en Stripe-Signature' };
+    return {
+      valid: false,
+      code: 'MALFORMED_SIGNATURE',
+      error: 'Marca de tiempo inválida en Stripe-Signature',
+    };
   }
 
   const ageSeconds = Math.abs(nowMs / 1000 - timestampSeconds);
   if (ageSeconds > toleranceSeconds) {
-    return { valid: false, error: 'La marca de tiempo del webhook está fuera de tolerancia' };
+    return {
+      valid: false,
+      code: 'STALE_TIMESTAMP',
+      error: 'La marca de tiempo del webhook está fuera de tolerancia',
+    };
   }
 
   const expected = crypto
@@ -91,7 +129,7 @@ export function verifyStripeWebhookSignature(
   });
 
   if (!matched) {
-    return { valid: false, error: 'Firma de webhook inválida' };
+    return { valid: false, code: 'INVALID_SIGNATURE', error: 'Firma de webhook inválida' };
   }
 
   return { valid: true };
