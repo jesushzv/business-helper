@@ -78,8 +78,11 @@ export async function POST(request: Request) {
       );
     }
 
+    // `handleStripeWebhookEvent` returns null rather than the old 'org_demo'
+    // stand-in when the event carries no organization, so absence and a
+    // malformed id are the same rejection here.
     const organizationId = handled.organizationId;
-    if (!organizationId || organizationId === 'org_demo' || !UUID_PATTERN.test(organizationId)) {
+    if (!organizationId || !UUID_PATTERN.test(organizationId)) {
       return NextResponse.json(
         { error: 'El evento no identifica una organización válida' },
         { status: 400 }
@@ -112,6 +115,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo registrar el evento' }, { status: 500 });
     }
 
+    // The status is always known; the tier is not. An event carrying neither
+    // `metadata.tier_id` nor a price id this deployment has mapped used to
+    // resolve to 'negocio' by default, which wrote a tier nobody bought over
+    // the organization. When the tier is unknown the status still applies and
+    // the existing tier is left untouched.
+    const update: Record<string, unknown> = {
+      subscription_status: handled.status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (handled.tierId) {
+      update.subscription_tier = handled.tierId;
+    } else {
+      console.error(
+        `[stripe] event ${eventId} (${handled.eventType}) names no attributable tier; ` +
+          'applying status only. Check STRIPE_PRICE_* against the price on the subscription.'
+      );
+    }
+
     // `.select('id')` is not decoration: without it, an UPDATE matching zero
     // rows comes back `{ error: null }` and this route would answer 200
     // `{ processed }` for a subscription change it never wrote.
@@ -131,11 +153,7 @@ export async function POST(request: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: updatedRows, error: updateError } = await (supabase as any)
       .from('organizations')
-      .update({
-        subscription_tier: handled.tierId,
-        subscription_status: handled.status,
-        updated_at: new Date().toISOString()
-      })
+      .update(update)
       .eq('id', organizationId)
       .select('id');
 

@@ -90,6 +90,7 @@ graph TD
      - `STRIPE_PRICE_INICIAL`: Exact Stripe Price ID for Inicial tier
      - `STRIPE_PRICE_NEGOCIO`: Exact Stripe Price ID for Negocio tier
      - `STRIPE_PRICE_EMPRESA`: Exact Stripe Price ID for Empresa tier
+     - **Verify before charging anyone**: `npm run verify:stripe` with the same variables exported locally. It reads the account and every price back from Stripe and fails if the account cannot take charges, a price id does not exist in that mode, or a tier bills an amount the pricing page does not advertise. Every request it makes is a GET, so it is safe against the live account. A tier with no Price ID cannot be sold at all — checkout answers `503 STRIPE_PRICE_NOT_CONFIGURED`.
    - **OTP Delivery (Required for e-signature)**:
      - `OTP_DELIVERY_CHANNEL`: `sms` or `whatsapp`. Unset fails closed in production — the signing flow returns 502.
      - For `sms`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER`
@@ -264,6 +265,34 @@ placeholder URL for the "upgrade" button to open. Required variables:
 The subscription tier is written **only** by the signature-verified webhook. The
 settings screen no longer sets it locally, so a deployment with a secret key but
 no webhook secret will take payments without upgrading the account.
+
+**Each price id is required, and there is no default.** These variables used to
+fall back to invented ids (`price_negocio_599_mxn`), so an unmapped tier posted
+a price no Stripe account has and failed with the same message a Stripe outage
+produces. An unset tier now answers `503 STRIPE_PRICE_NOT_CONFIGURED` and logs
+the variable to set. In the other direction, a price id pointed at the wrong
+tier charges the wrong amount and looks successful everywhere — run the
+preflight before a card is involved:
+
+```bash
+STRIPE_SECRET_KEY=sk_live_… \
+STRIPE_PRICE_INICIAL=price_… STRIPE_PRICE_NEGOCIO=price_… STRIPE_PRICE_EMPRESA=price_… \
+NEXT_PUBLIC_APP_URL=https://businesshelper.app \
+npm run verify:stripe
+```
+
+It checks, against the real account: the key is accepted, `charges_enabled` and
+`payouts_enabled` are true, every tier's price exists and is active, is in MXN
+at the amount the pricing page advertises, recurs monthly, is in the same
+live/test mode as the key, no two tiers share a price id, and a webhook endpoint
+is registered for `NEXT_PUBLIC_APP_URL` subscribing to the four events the route
+handles. It is read-only — unlike `verify:webhook` below, it is safe against
+production. The webhook **signing secret** cannot be read back from the Stripe
+API, so `npm run verify:webhook` is still what proves that half.
+
+A passing run does not mean money has moved. Live mode is done when a real card
+has been charged end to end, the subscription appears on the organization, and
+the webhook that recorded it passed signature verification.
 
 **Checklist:**
 - [ ] Selecting a plan in `/settings` opens a `checkout.stripe.com` session and, after a test card, the tier changes via the webhook — not before
