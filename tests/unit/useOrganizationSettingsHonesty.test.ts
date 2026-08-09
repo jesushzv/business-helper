@@ -195,6 +195,27 @@ describe('toOrganizationSettings', () => {
    * STRIPE_PLANS, and mapping it to `'inicial'` told every organization that
    * has never checked out it was on the $299/mes plan.
    */
+  /**
+   * The database accepts the seven statuses Stripe reports (widened in
+   * 20260806120000_security_hardening.sql). Collapsing the four it did not
+   * recognise into 'active' badged a tenant Stripe had stopped collecting from
+   * as "Activo".
+   */
+  it('passes the subscription status through instead of rounding it up to active', () => {
+    for (const status of ['unpaid', 'incomplete', 'incomplete_expired', 'trialing']) {
+      expect(
+        toOrganizationSettings({ ...SERVER_ROW, subscription_status: status })
+          .subscription_status
+      ).toBe(status);
+    }
+    expect(
+      toOrganizationSettings({ ...SERVER_ROW, subscription_status: 'past_due' })
+        .subscription_status
+    ).toBe('past_due');
+    // Absent is the one case that gets a default, and it stays the old one.
+    expect(toOrganizationSettings({ id: 'x', name: 'y' }).subscription_status).toBe('active');
+  });
+
   it('reports no tier at all when the row names no paid plan', () => {
     expect(toOrganizationSettings({ id: 'org-x', name: 'Real' }).subscription_tier).toBeNull();
     expect(

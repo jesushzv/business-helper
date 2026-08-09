@@ -22,7 +22,16 @@ export interface OrganizationSettings {
    * subscribe button because it read them as already subscribed.
    */
   subscription_tier: 'inicial' | 'negocio' | 'empresa' | null;
-  subscription_status: 'active' | 'past_due' | 'canceled';
+  /**
+   * Passed through verbatim from the row; `validateSubscriptionStatus` is the
+   * only thing that interprets it. The narrow `'active' | 'past_due' |
+   * 'canceled'` union this used to be predated the constraint widening in
+   * `20260806120000_security_hardening.sql`, which accepts the four extra
+   * statuses Stripe actually reports — so `unpaid`, `incomplete` and
+   * `incomplete_expired` all fell through to `'active'` and a tenant Stripe
+   * had stopped collecting from was badged "Activo".
+   */
+  subscription_status: string;
 }
 
 export type OrganizationRole = 'owner' | 'manager' | 'member';
@@ -68,7 +77,7 @@ export function toOrganizationSettings(row: Record<string, unknown>): Organizati
     logo_url: typeof row.logo_url === 'string' && row.logo_url ? row.logo_url : null,
     subscription_tier:
       tier === 'inicial' || tier === 'negocio' || tier === 'empresa' ? tier : null,
-    subscription_status: status === 'past_due' || status === 'canceled' ? status : 'active',
+    subscription_status: typeof status === 'string' && status ? status : 'active',
   };
 }
 
