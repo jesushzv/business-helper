@@ -16,6 +16,7 @@
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry-run",
     "verify:webhook": "node scripts/verify-stripe-webhook.mjs",
+    "verify:stripe": "node scripts/verify-stripe-live.mjs",
     "verify:otp": "node scripts/verify-otp-delivery.mjs"
   },
   "dependencies": {
