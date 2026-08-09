@@ -44,7 +44,7 @@ engineering journal.
 | `npm run test:coverage` | Coverage gate: 85% lines/statements, 80% functions/branches |
 | `npm run test:e2e` | Playwright (not run in CI — treat e2e claims as unverified) |
 | `npm run db:migrate` / `db:migrate:dry` | Apply `supabase/migrations/` — **migrations are manual, never automatic** |
-| `npm run verify:webhook` | Stripe webhook signature verification check |
+| `npm run verify:otp` / `verify:stripe` / `verify:webhook` | Preflights that call the **real** provider — the only thing that satisfies hard rule #2. First two are read-only (`verify:stripe` is safe against live); **`verify:webhook` sends real events — never point it at production.** Run the one matching your diff and say so |
 
 - **Node 22 required** for the test suite (jsdom 30 / undici 8; on Node 20 the suite reports "no
   tests" instead of failing).
@@ -54,7 +54,9 @@ engineering journal.
 - **`npm run test:coverage` currently fails on `main`** — the 85/85/80/80 thresholds are aspirational
   and CI does not run them ([#51](https://github.com/jesushzv/business-helper/issues/51));
   `docs/STATUS.md` carries the live figures. Judge your change on the **delta**, not the absolute:
-  measure on a stashed tree (`git stash -u`) and again with your work, and say which way it moved.
+  measure a baseline and then your work, and say which way it moved. `git stash -u` only covers
+  *uncommitted* work — once committed it measures nothing; use
+  `git worktree add /tmp/base origin/main && ln -s "$PWD/node_modules" /tmp/base/node_modules`.
   Do not "fix" a red coverage run you did not cause, and do not report the gate as passing.
 - Quality gate before any commit: `npm run typecheck && npm run lint && npx vitest run` (plus
   `npm run build` for structural changes — Vitest strips TS annotations, so only `tsc`/`build`
@@ -92,8 +94,7 @@ engineering journal.
    Spanish message safe to render verbatim, machine state in `code`, body siblings
    (`retry_after_seconds`, `attempts`, `remaining`, `expired`) passed via its `extra` arg.
    Consumers read `error.message` and branch on `error.code`; `data?.error || fallback` renders
-   `[object Object]` against the envelope. Before #65 these three routes had four shapes between
-   them, several in English, shown to the tenant's *client* mid-signature.
+   `[object Object]` against the envelope (#65).
    `tests/unit/publicErrorEnvelope.test.ts` fails the build on a bare-string body, a sibling `code`,
    or an English message.
 
@@ -135,17 +136,13 @@ engineering journal.
   and anything touching money, fiscal documents, auth, or OTP. Before writing SQL or Supabase
   calls, verify field names against `docs/02-architecture/database-schema-design.md`.
 - **The `@agent` names in that playbook are mostly not executable — the loop itself is.** The nine
-  agents named in `ecc-execution-playbook.md` §03 and `MASTER_PROMPT.md` §06 come from the
-  third-party "Everything Claude Code" suite, which was never installed. What exists here:
-  Two roles are defined for real in `.claude/agents/`, chosen because they cover the two defect
-  classes this repo has actually produced (#35 unverified migrations; the CFDI simulation incident
-  and #33 fabricated state):
-  - ✅ **`database-reviewer`** subagent — run on any diff touching migrations, RLS, or query patterns.
-  - ✅ **`money-path-reviewer`** subagent — run on any diff touching payments, CFDI, Stripe, folios,
-    receivables.
-  - `@planner`/`@architect` → the `Plan` subagent; `@security-reviewer` → `/security-review`;
-    `@code-reviewer` → `/code-review`; `@tdd-guide`/`@build-error-resolver`/`@e2e-runner` → no
-    equivalent, perform the step directly.
+  agents in `ecc-execution-playbook.md` §03 / `MASTER_PROMPT.md` §06 come from the third-party
+  "Everything Claude Code" suite, never installed. Real, in `.claude/agents/`:
+  - ✅ **`database-reviewer`** — any diff touching migrations, RLS, or query patterns.
+  - ✅ **`money-path-reviewer`** — any diff touching payments, CFDI, Stripe, folios, receivables.
+  - `@planner`/`@architect` → `Plan` subagent; `@security-reviewer` → `/security-review`;
+    `@code-reviewer` → `/code-review`; the rest → perform the step directly.
+  When a session is told not to spawn subagents, do the equivalent pass inline and say so.
 - **Light path** for small fixes, copy, and docs: make the change, add/update a test, run the
   quality gate. No spec-doc ceremony required.
 - The hard rules above and the quality gate are non-negotiable at every size.
@@ -172,24 +169,25 @@ payments arrive by SPEI transfer to the org's CLABE. Deep dive:
 
 **One token, two public pages.** `/q/[token]` (signing) and `/pay/[token]` (payment) both resolve
 `quotes.public_token` — the payment route looks the quote up and walks to its contract and
-milestones. So a `/pay/` link is **never** built from a milestone or contract id; a builder that
-does produces a 404 in front of a paying client (#72 was that bug). Build both links through
-`lib/url.ts` — `getQuotePublicUrl()` and `getPaymentPublicUrl()` are the only two builders — never
-from a literal origin: the hardcoded-domain defect has now shipped four times (#36, #47, and #73's
-pair, plus a third builder #73 did not list). `tests/unit/url.test.ts` fails the build if any
-`lib/*.ts` module regains a literal app origin.
+milestones. So a `/pay/` link is **never** built from a milestone or contract id — that produces a
+404 in front of a paying client (#72). `getQuotePublicUrl()` / `getPaymentPublicUrl()` in
+`lib/url.ts` are the only two builders, and never from a literal origin: the hardcoded-domain defect
+has shipped four times (#36, #47, #73's pair plus a third builder #73 did not list).
+`tests/unit/url.test.ts` fails the build on a literal app origin in `lib/*.ts`.
 
 **`milestones` has no `public_token` column.** The token reaches a milestone through
 `contract.quote_id → quotes.public_token`, so any query behind a share action must embed it —
-and that embed **needs an FK hint**, `quotes!quote_id(...)`: `quotes` and `contracts` are joined by
-*two* foreign keys (`contracts.quote_id` and `quotes.converted_contract_id`), which makes an
-unhinted embed ambiguous. This is not theoretical: production PostgREST answers the unhinted form
-with `300 PGRST201`, which is how **every `/pay/` link 404'd from the day the route shipped**
-(#79, confirmed live 2026-08-08). `tests/unit/postgrestEmbedHints.test.ts` scans every
-`.select()` in `app/` and `lib/` and fails the build on an unhinted quotes↔contracts embed, in
-either direction. A share action whose row has no token must offer **no link at all**; the
-placeholder tokens (`'demo'`, `'demo_token'`) that used to fill that gap rendered as live links to
-`/pay/demo`.
+and that embed **needs an FK hint**, `quotes!quote_id(...)`: two foreign keys join the tables
+(`contracts.quote_id`, `quotes.converted_contract_id`), so an unhinted embed is ambiguous and
+production PostgREST answers `300 PGRST201` — how every `/pay/` link 404'd from the day the route
+shipped (#79, confirmed live 2026-08-08). `tests/unit/postgrestEmbedHints.test.ts` scans every
+`.select()` in `app/` and `lib/`, both directions. A share action whose row has no token offers
+**no link at all**.
+
+**A tier has four names** — page `starter`/`pro`/`business`, `tierFeaturesData.ts`
+`inicial`/`pro`/`enterprise`, DB `inicial`/`negocio`/`empresa`, Stripe an opaque Price id. Map them
+only through `normalizeTierKey()` (`null` for unknown, so a charge path refuses instead of
+downgrading — #68); `tests/unit/stripePriceMap.test.ts` holds a price to one number.
 
 ## Docs router
 
@@ -225,16 +223,25 @@ not actually earned. It has shipped here at least eight times.
   `id || 'demo_token'`, `phone || '8115551234'` each render as a live, tappable control. Absent is
   absent — render the **disabled** control and **name the specific record** the tenant must fix; a
   missing CLABE reported as a missing phone number sends them to edit the wrong thing.
+  **A provider-issued id is the same defect without the demo costume** (#68), which is why the
+  `'demo'` scanner never saw `process.env.STRIPE_PRICE_NEGOCIO || 'price_negocio_599_mxn'`: posting
+  an invented Price id fails with the *same* message a Stripe outage produces, so a misconfiguration
+  and an incident became indistinguishable. Resolve from the environment, return `null`, make the
+  caller name the variable. `tests/unit/stripePriceMap.test.ts` scans for `price_*` literals.
 - **An all-optional interface cannot tell you a mapping is missing** (#78). `MilestoneWithClient`
-  declares every client/contract field optional, so `useReceivables` assigning raw API rows into it
-  was not a type error — and the only thing ever populating those fields was the demo fixtures in
-  the same file, so every real tenant got `undefined` across the board. Two habits close this: when
-  a hook's shape is flatter than the API's, the flattening is a **named exported function with its
-  own test** (`toMilestoneWithClient`); and when fixtures and server rows share a type, assert
-  against a **server-shaped** row, never only a fixture. Required fields beat optional-everything.
+  made every client field optional, so `useReceivables` assigning raw API rows was not a type error
+  — and only the demo fixtures ever populated them, leaving every real tenant `undefined`. Two
+  habits: when a hook's shape is flatter than the API's, the flattening is a **named exported
+  function with its own test** (`toMilestoneWithClient`); and when fixtures and server rows share a
+  type, assert against a **server-shaped** row. Required fields beat optional-everything.
 
 ### Client/server state
 
+- **Never read `process.env` into a module-level constant** (#68). Wrong three ways at once: frozen
+  at import so `vi.stubEnv` does nothing; `undefined` in any client bundle importing the module for
+  a non-`NEXT_PUBLIC_` variable (`STRIPE_PLANS` is imported by a settings component — the browser
+  only ever saw the placeholder); and no seam to test the unset case. Read it inside a function
+  taking `env: Record<string, string | undefined> = process.env` last — tests pass a literal object.
 - **Demo-mode detection differs by side.** Collection GET routes answer the demo deployment with
   200 + empty lists, so a client hook can NOT use `503 BACKEND_NOT_CONFIGURED` to decide when demo
   fixtures are legitimate — that code only appears on authenticated/mutating paths. Hooks gate on
@@ -259,18 +266,17 @@ not actually earned. It has shipped here at least eight times.
   implicit `PUBLIC` grant leaves those standing, and PostgREST serves the function at
   `/rest/v1/rpc/<name>` outside RLS (#76 — unlimited folio minting). Always
   `REVOKE EXECUTE ON FUNCTION public.f(<signature>) FROM anon, authenticated;`.
-  `tests/unit/securityDefinerGrants.test.ts` fails the build on a new one without it, and holds the
-  single deliberate exemption (`user_organization_ids()` — RLS policies call it as the querying
-  role, so revoking it breaks every policy). That test reads migration *files*; the live grants
-  still need the `aclexplode` query in #76.
+  `tests/unit/securityDefinerGrants.test.ts` holds the single deliberate exemption
+  (`user_organization_ids()` — RLS policies call it as the querying role). It reads migration
+  *files*; live grants still need the `aclexplode` query in #76.
 
 ### Tooling and process traps
 
-- The lint gate is real: `next lint --max-warnings=0`, debt cleared to zero. Any new warning fails
-  `npm run lint`, and therefore `npm test` and CI. The 14 `<img>` sites carry scoped, per-site
-  `eslint-disable-next-line` comments with reasons (SVG logos: permanent; PNG screenshots: until the
-  `next/image` migration in [#82](https://github.com/jesushzv/business-helper/issues/82)). Don't add
-  a new bare `<img>`; don't widen a scoped disable to file level.
+- The lint gate is real: `next lint --max-warnings=0`, debt at zero, so any new warning fails
+  `npm run lint`, `npm test` and CI. Existing `<img>` sites carry scoped per-site
+  `eslint-disable-next-line` comments with reasons (SVG logos permanent; PNGs until the
+  `next/image` migration, [#82](https://github.com/jesushzv/business-helper/issues/82)). Don't add
+  a bare `<img>`; don't widen a scoped disable to file level.
 - CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38). After
   opening a PR, verify the `CI` check actually ran; absence looks identical to passing.
 - E2E exists but is not in CI; never cite Playwright results you didn't run.
@@ -281,10 +287,9 @@ not actually earned. It has shipped here at least eight times.
   explicit `git fetch origin main`.** A fresh container's local `main` here pointed at a commit from
   *before the entire issue tracker existed*; a branch cut from it silently rebuilds weeks-old code.
   Check `git log --oneline -1` against the expected HEAD before writing anything.
-- **Commit (or copy to scratch) before planting a violation to verify a red test.** The
-  plant-then-remove step rule 7 requires has a trap: `git checkout <file>` to remove the plant
-  restores the *last commit*, wiping every uncommitted change to that file with it. Remove plants
-  by reversing the exact edit, or plant only in files whose real changes are already committed.
+- **Commit (or copy to scratch) before planting a violation to verify a red test.** Rule 7's
+  plant-then-remove has a trap: `git checkout <file>` restores the *last commit*, wiping every
+  uncommitted change to that file. Reverse the exact edit instead.
 - **A session with the Supabase connector can run "needs a deployment" checks itself — don't park
   them on the founder.** Live schema/grants come from `execute_sql` against `pg_catalog` /
   `information_schema`; migrations apply via `apply_migration` (which keeps the ledger); and even
@@ -298,13 +303,12 @@ not actually earned. It has shipped here at least eight times.
   swallowed by `.catch(() => {})`, reported as success (#95). A method mismatch is the quietest
   fabricated-success there is: no test that mocks `fetch` can see it. The same grep takes seconds:
   `grep "export async function" app/api/<route>/route.ts`.
-- **The demo persona lives behind `isClientDemoMode()` and nowhere else.** "Don Roberto" /
-  "Distribuidora del Norte" / RFC `DNO850101…` shipped hardcoded in the header, sidebar, dashboard
-  greeting and three client-facing WhatsApp builders (#93). Identity in chrome comes from
-  `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in `lib/whatsappLink.ts`
-  (org name as a parameter — never a literal, and omit the signature when unknown).
-  `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak and keeps the file allowlist;
-  extending the allowlist requires the string to actually sit behind a demo gate.
+- **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93 — it had shipped
+  hardcoded in the header, sidebar, dashboard greeting and three WhatsApp builders). Identity in
+  chrome comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
+  `lib/whatsappLink.ts` (org name as a parameter, signature omitted when unknown).
+  `tests/unit/demoIdentityLeak.test.ts` keeps the allowlist; extending it requires the string to
+  actually sit behind a demo gate.
 - **localStorage is demo-sandbox state, never a real tenant's store.** Real tenants read the API
   (an empty list is a real answer), see errors as errors, and their mutations apply the server row
   or throw. Seeding fixtures into localStorage on a failed fetch is how a new tenant's directory
@@ -317,12 +321,10 @@ not actually earned. It has shipped here at least eight times.
   steps, and a fix sketch — see #36/#39/#40 for the house style. The tracker is the journal; write
   issues so a future session needs no other context.
 - **An issue's enumeration is a starting point, not an inventory — re-run the search that produced
-  it.** #73 listed *two* builders with a hardcoded origin; there were three (`lib/whatsappReminder.ts`
-  was missed). #46's lint count was wrong three times; #64's body described two holes and its comment
-  a third state. These lists go stale the moment a PR moves code, and a fix scoped to the list leaves
-  the remainder in place *looking* closed. Re-derive the set with a grep you can paste into the PR,
-  and if your count differs from the issue's, **say so explicitly** rather than quietly fixing more
-  than was asked. (The same applies to any tally quoted in a doc: count the whole output yourself.)
+  it.** #73 listed *two* builders with a hardcoded origin; there were three. #46's lint count was
+  wrong three times. These lists go stale the moment a PR moves code, and a fix scoped to the list
+  leaves the remainder *looking* closed. Re-derive the set with a grep you can paste into the PR,
+  and if your count differs, **say so explicitly**. (Same for any tally quoted in a doc.)
 - **`Closes #N` claims the issue's *exit criteria* are met — not that you wrote the code.** When
   those criteria name a deployed behaviour (a real OAuth round-trip, a live PAC stamp, a code on a
   real handset), the issue stays open after merge: write `Refs #N` instead and say in the PR what
