@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { requireOrgAccess } from '@/lib/apiAuth';
+import {
+  requireOrgAccess,
+  pickFields,
+  validateCreditTerms,
+  CLIENT_WRITABLE_FIELDS,
+} from '@/lib/apiAuth';
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
 
@@ -57,7 +62,16 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, contactName, email, phone, rfc, regimenFiscal, codigoPostal, cfdiUse, notes } = body;
+    // Picked by column name, not hand-destructured into camelCase: the four
+    // fiscal/contact fields the old destructuring named were never present on
+    // the body the form sends, so editing régimen fiscal, código postal, uso de
+    // CFDI or contact name was a silent no-op reported as saved (#96).
+    const fields = pickFields<Record<string, unknown>>(body, CLIENT_WRITABLE_FIELDS);
+    const { name, rfc, phone } = fields as {
+      name?: unknown;
+      rfc?: unknown;
+      phone?: unknown;
+    };
 
     if (rfc && typeof rfc === 'string' && rfc.trim()) {
       const v = validateRFC(rfc.trim());
@@ -79,16 +93,26 @@ export async function PUT(
       );
     }
 
-    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    if (name !== undefined && String(name).trim()) updates.name = String(name).trim();
-    if (contactName !== undefined) updates.contact_name = contactName;
-    if (email !== undefined) updates.email = email;
+    const credit = validateCreditTerms(fields);
+    if (!credit.ok) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_CREDIT_TERMS', message: credit.message } },
+        { status: 400 }
+      );
+    }
+
+    const updates: Record<string, unknown> = {
+      ...fields,
+      ...credit.values,
+      updated_at: new Date().toISOString(),
+    };
+    // Leave the stored name alone unless the caller sent a usable one. The
+    // typeof guard matters: `String(null).trim()` is the truthy string "null",
+    // so a `{"name": null}` body used to rename the client to "null".
+    if (typeof name !== 'string' || !name.trim()) delete updates.name;
+    else updates.name = name.trim();
     if (phone !== undefined) updates.phone = phoneNormalized.value;
     if (rfc !== undefined) updates.rfc = rfc ? String(rfc).toUpperCase().trim() : null;
-    if (regimenFiscal !== undefined) updates.regimen_fiscal = regimenFiscal;
-    if (codigoPostal !== undefined) updates.codigo_postal = codigoPostal;
-    if (cfdiUse !== undefined) updates.cfdi_use = cfdiUse;
-    if (notes !== undefined) updates.notes = notes;
 
     const { data: updated, error } = await supabase
       .from('clients')
