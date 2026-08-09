@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { STRIPE_PLANS, normalizeTierKey, StripeTierId } from '@/lib/stripe';
+import {
+  STRIPE_PLANS,
+  STRIPE_FOLIO_PACKS,
+  TIER_PRICE_ENV_VARS,
+  FOLIO_PACK_PRICE_ENV_VARS,
+  normalizeTierKey,
+  StripeTierId,
+} from '@/lib/stripe';
 import { APP_TIERS } from '@/lib/tierFeaturesData';
 
 /**
@@ -135,5 +142,80 @@ describe('no Stripe Price id is ever hardcoded (#68)', () => {
     expect(PRICE_LITERAL.test("const label = 'precio_total';")).toBe(false);
     expect(PRICE_LITERAL.test('const key = "STRIPE_PRICE_NEGOCIO";')).toBe(false);
     expect(PRICE_LITERAL.test('acc.price_total = subtotal + iva;')).toBe(false);
+  });
+});
+
+/**
+ * `scripts/verify-stripe-live.mjs` is plain JS run by node, so it restates the
+ * amounts and variable names it checks against Stripe. A restatement that
+ * drifts verifies the wrong thing while reporting a pass — the failure mode of
+ * every duplicated table in this repo — so the copy is asserted here.
+ */
+describe('the verify:stripe script checks the prices the app actually sells (#68)', () => {
+  const script = readSource('scripts/verify-stripe-live.mjs');
+
+  function tableEntries(constName: string): Array<{ id: string; envVars: string[]; amountMxn: number }> {
+    const block = script.match(new RegExp(`const ${constName} = \\[([\\s\\S]*?)\\n\\];`));
+    if (!block) return [];
+
+    return [
+      ...block[1].matchAll(
+        /\{\s*id:\s*'([a-z_0-9]+)',\s*envVars:\s*\[([^\]]*)\],\s*amountMxn:\s*(\d+)\s*\}/g
+      ),
+    ].map((match) => ({
+      id: match[1],
+      envVars: [...match[2].matchAll(/'([A-Z_0-9]+)'/g)].map((v) => v[1]),
+      amountMxn: Number(match[3]),
+    }));
+  }
+
+  it('its tier table matches STRIPE_PLANS and the price variables', () => {
+    const entries = tableEntries('EXPECTED_TIERS');
+    expect(entries).toHaveLength(Object.keys(STRIPE_PLANS).length);
+
+    for (const entry of entries) {
+      const tierId = entry.id as StripeTierId;
+      expect(STRIPE_PLANS[tierId], `unknown tier "${entry.id}"`).toBeDefined();
+      expect(entry.amountMxn, `tier "${entry.id}"`).toBe(STRIPE_PLANS[tierId].price);
+      expect(entry.envVars, `tier "${entry.id}"`).toEqual(TIER_PRICE_ENV_VARS[tierId]);
+    }
+  });
+
+  it('its folio pack table matches STRIPE_FOLIO_PACKS', () => {
+    const entries = tableEntries('EXPECTED_PACKS');
+    expect(entries).toHaveLength(Object.keys(STRIPE_FOLIO_PACKS).length);
+
+    for (const entry of entries) {
+      const pack = STRIPE_FOLIO_PACKS[entry.id];
+      expect(pack, `unknown pack "${entry.id}"`).toBeDefined();
+      expect(entry.amountMxn, `pack "${entry.id}"`).toBe(pack.price);
+      expect(entry.envVars, `pack "${entry.id}"`).toEqual(
+        FOLIO_PACK_PRICE_ENV_VARS[entry.id as keyof typeof FOLIO_PACK_PRICE_ENV_VARS]
+      );
+    }
+  });
+
+  it('it requires exactly the events the webhook route handles', () => {
+    const scriptEvents = [
+      ...(script.match(/const REQUIRED_EVENTS = \[([\s\S]*?)\n\];/)?.[1] ?? '').matchAll(/'([\w.]+)'/g),
+    ].map((m) => m[1]);
+
+    const routeEvents = [
+      ...(readSource('app/api/stripe/webhook/route.ts').match(
+        /const HANDLED_EVENTS = new Set\(\[([\s\S]*?)\n\]\);/
+      )?.[1] ?? '').matchAll(/'([\w.]+)'/g),
+    ].map((m) => m[1]);
+
+    expect(routeEvents.length).toBeGreaterThan(0);
+    expect(scriptEvents.sort()).toEqual(routeEvents.sort());
+  });
+
+  it('it never falls back to a hardcoded app origin', () => {
+    // #36/#47/#73: the hardcoded-domain defect has shipped four times. The
+    // webhook-endpoint check is skipped when NEXT_PUBLIC_APP_URL is unset
+    // rather than guessing a host and reporting on the wrong deployment.
+    // The usage example in the header comment may name the domain; code may not.
+    const code = script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+    expect(code).not.toMatch(/businesshelper\.(app|mx)/);
   });
 });
