@@ -56,9 +56,18 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-slate-400">Estado:</span>
-          <span className={`rounded-full border px-3 py-1 text-xs font-extrabold ${statusInfo.badgeColor}`}>
-            {statusInfo.badgeText}
-          </span>
+          {settings.subscription_tier ? (
+            <span className={`rounded-full border px-3 py-1 text-xs font-extrabold ${statusInfo.badgeColor}`}>
+              {statusInfo.badgeText}
+            </span>
+          ) : (
+            // `subscription_status` defaults to 'active' in the database, so an
+            // organization that has never checked out would otherwise be
+            // badged "Activo" with no plan behind it.
+            <span className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-extrabold text-slate-300">
+              Sin plan contratado
+            </span>
+          )}
         </div>
       </div>
 

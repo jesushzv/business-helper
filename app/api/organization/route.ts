@@ -31,7 +31,18 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: organization, error } = await (supabase as any)
       .from('organizations')
-      .select('*')
+      // Explicit for the same reason PATCH is (see its comment): this row is
+      // growing CFDI and billing columns, and `*` shipped `owner_id`,
+      // `stripe_customer_id`, `stripe_subscription_id` and
+      // `facturapi_organization_id` to the browser for no consumer's benefit —
+      // and would ship the next sensitive column added here without a diff to
+      // review. Every field below has a caller: onboarding resume, the settings
+      // profile and branding cards, the bank card, the settlement-account gate
+      // and the app-shell identity.
+      .select(
+        'id, name, rfc, regimen_fiscal, codigo_postal, phone, logo_url, industry, ' +
+          'subscription_tier, subscription_status, bank_name, bank_clabe, bank_account_holder'
+      )
       .eq('id', organizationId)
       .maybeSingle();
 

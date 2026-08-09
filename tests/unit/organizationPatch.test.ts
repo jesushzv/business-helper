@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PATCH } from '@/app/api/organization/route';
+import { GET, PATCH } from '@/app/api/organization/route';
+import { requireOrgAccess } from '@/lib/apiAuth';
 
 /**
  * #95 — PATCH /api/organization grew a profile payload (name, rfc,
@@ -102,6 +103,68 @@ describe('PATCH /api/organization — profile payload (#95)', () => {
     const res = await PATCH(patchRequest({}));
     expect(res.status).toBe(400);
     expect(updateCalls).toHaveLength(0);
+  });
+});
+
+describe('GET /api/organization — the browser gets the columns it needs and no others', () => {
+  const ROW = { id: 'org-1', name: 'Ferretería La Central' };
+  let selectedColumns = '';
+
+  beforeEach(() => {
+    selectedColumns = '';
+    vi.mocked(requireOrgAccess).mockResolvedValue({
+      ok: true,
+      ctx: {
+        userId: 'user-1',
+        organizationId: 'org-1',
+        role: 'owner',
+        supabase: {
+          from: () => ({
+            select: (columns: string) => {
+              selectedColumns = columns;
+              return { eq: () => ({ maybeSingle: async () => ({ data: ROW, error: null }) }) };
+            },
+          }),
+        },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+  });
+
+  it('names its columns instead of selecting *', async () => {
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect(selectedColumns).not.toBe('*');
+    // Every field a client of this route reads today.
+    for (const column of [
+      'id',
+      'name',
+      'rfc',
+      'regimen_fiscal',
+      'codigo_postal',
+      'phone',
+      'logo_url',
+      'industry',
+      'subscription_tier',
+      'subscription_status',
+      'bank_name',
+      'bank_clabe',
+      'bank_account_holder',
+    ]) {
+      expect(selectedColumns.split(/\s*,\s*/)).toContain(column);
+    }
+  });
+
+  it('does not ship billing- or PAC-linkage columns no client reads', async () => {
+    await GET();
+    for (const column of [
+      'owner_id',
+      'stripe_customer_id',
+      'stripe_subscription_id',
+      'facturapi_organization_id',
+    ]) {
+      expect(selectedColumns).not.toContain(column);
+    }
   });
 });
 
