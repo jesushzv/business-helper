@@ -91,9 +91,8 @@ engineering journal.
    Spanish message safe to render verbatim, machine state in `code`, body siblings
    (`retry_after_seconds`, `attempts`, `remaining`, `expired`) passed via its `extra` arg.
    Consumers read `error.message` and branch on `error.code`; `data?.error || fallback` renders
-   `[object Object]` against the envelope (#65 — these routes had four shapes, some English, shown
-   to the tenant's *client* mid-signature). `tests/unit/publicErrorEnvelope.test.ts` fails the build
-   on a bare-string body, a sibling `code`, or an English message.
+   `[object Object]` against the envelope (#65). `tests/unit/publicErrorEnvelope.test.ts` fails the
+   build on a bare-string body, a sibling `code`, or an English message.
 
 ## Hard rules — every change, any size
 
@@ -132,13 +131,12 @@ engineering journal.
   → implement + security review → verify + doc sync) for new features, schema/migration changes,
   and anything touching money, fiscal documents, auth, or OTP. Verify field names against the live
   catalog before writing SQL — `database-schema-design.md` has been wrong about columns (#96).
-- **The `@agent` names in that playbook are mostly not executable — the loop itself is.** The nine
-  agents named in `ecc-execution-playbook.md` §03 and `MASTER_PROMPT.md` §06 come from the
-  third-party "Everything Claude Code" suite, which was never installed. Only two are real, in
-  `.claude/agents/`, covering the defect classes this repo actually produces — and both earn their
-  keep: on #96 they caught a discarded credit block and a $0-utilization-on-failed-read:
+- **The `@agent` names in that playbook are mostly not executable — the loop itself is.** They come
+  from the third-party "Everything Claude Code" suite, never installed. Only two are real, in
+  `.claude/agents/`, and both earn their keep (on #96 they caught a discarded credit block and a
+  $0-utilization-on-failed-read):
   - ✅ **`database-reviewer`** — any diff touching migrations, RLS, or query patterns.
-  - ✅ **`money-path-reviewer`** — any diff touching payments, CFDI, Stripe, folios, receivables.
+  - ✅ **`money-path-reviewer`** — payments, CFDI, Stripe, folios, receivables.
   - `@planner`/`@architect` → the `Plan` subagent; `@security-reviewer` → `/security-review`;
     `@code-reviewer` → `/code-review`; the rest → perform the step directly.
 - **Light path** for small fixes, copy and docs: make the change, add/update a test, run the
@@ -169,15 +167,14 @@ SPEI to the org's CLABE. Deep dive: `docs/02-architecture/cfdi_integration_archi
 milestones. So a `/pay/` link is **never** built from a milestone or contract id (#72 was that bug,
 a 404 in front of a paying client). `getQuotePublicUrl()` / `getPaymentPublicUrl()` in `lib/url.ts`
 are the only two builders — never a literal origin, a defect that has shipped four times (#36, #47,
-#73's pair, plus one #73 missed). `tests/unit/url.test.ts` fails the build on a literal app origin
-in any `lib/*.ts`.
+#73 ×2). `tests/unit/url.test.ts` fails the build on a literal app origin in any `lib/*.ts`.
 
 **`milestones` has no `public_token` column.** It reaches a milestone via
 `contract.quote_id → quotes.public_token`, and that embed **needs the FK hint**
-`quotes!quote_id(...)` — `quotes` and `contracts` are joined by two FKs, so an unhinted embed gets
+`quotes!quote_id(...)` — two FKs join `quotes` and `contracts`, so an unhinted embed gets
 `300 PGRST201` live, which 404'd every `/pay/` link from the day the route shipped (#79).
-`tests/unit/postgrestEmbedHints.test.ts` scans every `.select()` and fails the build on an unhinted
-quotes↔contracts embed. A share action whose row has no token offers **no link at all**.
+`tests/unit/postgrestEmbedHints.test.ts` scans every `.select()` and fails the build on one. A
+share action whose row has no token offers **no link at all**.
 
 ## Docs router
 
@@ -256,7 +253,8 @@ not earned. It has shipped here at least eight times.
   reasons (SVG logos permanent; PNGs until the `next/image` migration, #82). Don't add a bare
   `<img>`; don't widen a scoped disable to file level.
 - CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38).
-  After opening a PR, verify the `CI` check ran; absence looks identical to passing.
+  After opening a PR, verify the `CI` check ran; absence looks identical to passing. Recurred on
+  #130; a later push fired it, so push again rather than wait.
 - E2E is not in CI; never cite Playwright results you didn't run.
 - Docs drift is a known failure mode (the roadmap once claimed 100% complete while core
   integrations were simulated). Where a doc contradicts the code, the code wins — fix it same-PR.
@@ -280,6 +278,11 @@ not earned. It has shipped here at least eight times.
   columns the shipped code read from. Ask which *layer* a claim lives in before calling it
   founder-blocked — schema, grants, constraints and PostgREST are all reachable here; only the
   browser session and the real credential are not.
+  **GoTrue too — "is provider X enabled?" is not a dashboard question.**
+  `http_get('<project>/auth/v1/settings?apikey=<anon>')` returns the `external` map;
+  `/auth/v1/authorize?provider=…` returns the error the user would hit; `auth.identities` says
+  whether anyone has *ever* signed in that way. #48 item 1 sat unanswered two days — the answer
+  turned it from founder-blocked into a live UI defect fixed that session, and found #122.
 - **Never edit a migration after it has been applied anywhere.** `ADD COLUMN IF NOT EXISTS` is
   idempotent but not convergent, and `db:migrate` skips files the ledger lists — an edited file
   leaves repo and production silently disagreeing. Reconcile the live DB explicitly (an `ALTER`
@@ -304,14 +307,12 @@ not earned. It has shipped here at least eight times.
   refuse `DEFAULT 0`/`'active'` — the #64 tri-state rule at the column — and keep such columns
   independent in the form: coupling `credit_status` to `credit_limit` silently discarded an owner
   blocking a defaulting client.
-- **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93 — it shipped
-  hardcoded in the chrome and three client-facing WhatsApp builders). Identity in chrome comes from
-  `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in `lib/whatsappLink.ts` (org
-  name as a parameter, signature omitted when unknown). `tests/unit/demoIdentityLeak.test.ts` fails
-  the build on a leak and keeps the allowlist.
-- **localStorage is demo-sandbox state, never a real tenant's store.** Real tenants read the API
-  (an empty list is a real answer), see errors as errors, and their mutations apply the server row
-  or throw. Seeding fixtures into localStorage on a failed fetch is how a new tenant's directory
+- **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93). Identity in chrome
+  comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
+  `lib/whatsappLink.ts` (org name as a parameter, signature omitted when unknown).
+  `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak and keeps the allowlist.
+- **localStorage is demo-sandbox state, never a real tenant's store.** An empty list is a real
+  answer. Seeding fixtures into localStorage on a failed fetch is how a new tenant's directory
   opened with three invented companies (#93/#96 audit; same class as #33/#50/#58).
   **The bare `catch` around the fetch is where it hides**: `useReceivables` fell through to the
   fixtures on any network error, so one dropped request filled Cobranza with ~$145,000 owed by
