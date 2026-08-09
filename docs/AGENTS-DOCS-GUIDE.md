@@ -9,7 +9,7 @@
 >
 > This guide organizes the complete documentation suite for **Business Helper** into logical subdirectories and establishes exact protocols for when human developers and autonomous AI coding agents (AGY, Claude, Cursor) should read or update each document.
 >
-> **The agent operating rules live in [`CLAUDE.md`](../CLAUDE.md) at the repository root** (consolidated 2026-08-07 from this file's §"Mandatory Operating Rules", `.agents/AGENTS.md`, and parts of `MASTER_PROMPT.md`). This guide remains the doc *index*; `CLAUDE.md` is the doc *authority*.
+> **The agent operating rules live in [`CLAUDE.md`](../CLAUDE.md) at the repository root, together with [`docs/LESSONS.md`](LESSONS.md)** — `CLAUDE.md` is the authority for rules, `LESSONS.md` for the defect classes this repo produces; both are read at the start of every session. (`CLAUDE.md` was consolidated 2026-08-07 from this file's §"Mandatory Operating Rules", `.agents/AGENTS.md`, and parts of `MASTER_PROMPT.md`; the lesson catalogue was split out of it 2026-08-09 — see #135.) This guide remains the doc *index*; `CLAUDE.md` and `LESSONS.md` are the doc *authority*.
 
 ---
 
@@ -44,6 +44,11 @@ business-helper/docs/
 ├── STATUS.md                            # ★★ THE SINGLE SOURCE OF TRUTH for status, priority
 │                                        #    and the launch gate. No other doc may assert these.
 │                                        #    Enforced by tests/unit/docsStatusAuthority.test.ts
+│
+├── LESSONS.md                           # ★★ PART OF THE AGENT OPERATING AUTHORITY, with
+│                                        #    CLAUDE.md. The defect classes this repo produces.
+│                                        #    New lessons go here, not in CLAUDE.md (#135).
+│                                        #    Enforced by tests/unit/lessonsCatalogue.test.ts
 │
 ├── 04-execution-testing/                # Launch & Quality Assurance
 │   ├── ecc-execution-playbook.md        # ECC Agent 4-phase sprint execution playbook
@@ -99,6 +104,7 @@ These were deleted as redundant or spent; git history retains them.
 | Task / Persona Goal | Primary Document to Read | Secondary Support |
 |:---|:---|:---|
 | **★ Asking "is this ready to launch?" or "what is actually done?"** | [`docs/STATUS.md`](../docs/STATUS.md) | [`security-p0-remediation.md`](../docs/security-p0-remediation.md) |
+| **★ Writing any code — what has already gone wrong here** | [`docs/LESSONS.md`](../docs/LESSONS.md) | [`CLAUDE.md`](../CLAUDE.md) |
 | **Executing a sprint task or building a feature with ECC** | [`ecc-execution-playbook.md`](../docs/04-execution-testing/ecc-execution-playbook.md) | [`feature_implementation_spec.md`](../docs/03-product-specs/feature_implementation_spec.md) |
 | **Architecting a new feature or database table** | [`database-schema-design.md`](../docs/02-architecture/database-schema-design.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
 | **Implementing a single feature or UI component** | [`feature_implementation_spec.md`](../docs/03-product-specs/feature_implementation_spec.md) | [`user-personas.md`](../docs/01-strategy/user-personas.md) |

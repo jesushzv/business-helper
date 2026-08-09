@@ -20,6 +20,9 @@ import { join, relative, sep } from 'path';
 
 const ROOT = join(__dirname, '..', '..');
 const AUTHORITY = join('docs', 'STATUS.md');
+/** The other always-read document: CLAUDE.md's defect-class catalogue, split out in #135.
+ *  Its content is guarded by tests/unit/lessonsCatalogue.test.ts; its size, here. */
+const LESSONS = join('docs', 'LESSONS.md');
 const MARKER = '<!-- STATUS-AUTHORITY: docs/STATUS.md -->';
 
 /** Reference material that describes mechanism, not state. Templates are fill-in forms; the
@@ -146,16 +149,39 @@ const SIZE_BUDGETS: Array<{ file: string; maxBytes: number; guidance: string }> 
   },
   {
     file: 'CLAUDE.md',
-    maxBytes: 26_000,
+    maxBytes: 18_000,
     guidance:
-      'This file loads at the start of every session, so every byte is paid on every task. It grew ' +
-      'by accreting one incident narrative per PR. Before adding another, prune: a rule backed by a ' +
-      'SCANNING gate (one that fails on the next occurrence anywhere in the tree, e.g. url.test.ts, ' +
+      'This file loads at the start of every session, so every byte is paid on every task. It holds ' +
+      'RULES; the defect-class catalogue it used to carry now lives in docs/LESSONS.md (#135) — a ' +
+      'new lesson belongs there, and this budget is deliberately too tight to take it back. If a ' +
+      'CONVENTION genuinely changed, pay for it by pruning: a rule backed by a SCANNING gate (one ' +
+      'that fails on the next occurrence anywhere in the tree, e.g. url.test.ts, ' +
       'securityDefinerGrants.test.ts, this file) needs only to state the rule and name the test — ' +
-      'the test does the convincing. A rule with only a regression test, or none, keeps its full ' +
-      'narrative, because there the prose is the only thing standing between an agent and the defect.',
+      'the test does the convincing.',
+  },
+  {
+    file: LESSONS,
+    maxBytes: 16_000,
+    guidance:
+      'The defect-class catalogue. It is meant to grow — that is why it has headroom — but not ' +
+      'without bound. When this trips: retire lessons a scanning gate now covers (state the rule, ' +
+      'name the test, delete the narrative, and follow lessonsCatalogue.test.ts\'s RETIRED ' +
+      'protocol), or move settled history to docs/99-archive/. A lesson with only a regression ' +
+      'test, or none, keeps its full narrative — there the prose is the only thing standing ' +
+      'between an agent and the defect.',
   },
 ];
+
+/**
+ * The combined ceiling, stated once so the split cannot quietly become a doubling.
+ *
+ * This was a single 26,000-byte budget on CLAUDE.md. Splitting the catalogue out (#135) is not a
+ * licence to spend twice as much: the two files together get 32 KB (~8,900 tokens), an explicit
+ * ~6 KB rise bought for one reason — a document at 99.9% of its budget forces every session that
+ * adds a line to compress unrelated prose, which is how three concurrent PRs came to conflict on
+ * paragraphs none of them meant to change. Headroom is the fix; this is the bound on it.
+ */
+const COMBINED_BUDGET_BYTES = 32_000;
 
 describe('rule 3 — the always-read documents stay within budget', () => {
   it.each(SIZE_BUDGETS)('$file is under $maxBytes bytes', ({ file, maxBytes, guidance }) => {
@@ -167,6 +193,20 @@ describe('rule 3 — the always-read documents stay within budget', () => {
         `paid on every session that reads it).\n\n${guidance}\n\n` +
         `Raising this number is the wrong fix unless you can say what new content earns permanent residence.`
     ).toBeLessThanOrEqual(maxBytes);
+  });
+
+  it(`CLAUDE.md + ${LESSONS} together are under ${COMBINED_BUDGET_BYTES} bytes`, () => {
+    const files = ['CLAUDE.md', LESSONS];
+    const total = files.reduce((sum, f) => sum + Buffer.byteLength(read(f), 'utf-8'), 0);
+
+    expect(
+      total,
+      `The always-read set is ${total} bytes (${files
+        .map((f) => `${f} ${Buffer.byteLength(read(f), 'utf-8')}`)
+        .join(', ')}), over the ${COMBINED_BUDGET_BYTES}-byte combined budget.\n\n` +
+        `Both files are loaded on every task, so this total — not either file alone — is what each ` +
+        `session pays. Prune before you raise it.`
+    ).toBeLessThanOrEqual(COMBINED_BUDGET_BYTES);
   });
 });
 
