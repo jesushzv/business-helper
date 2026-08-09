@@ -18,8 +18,8 @@ times. Superseded dashboards live in `docs/99-archive/` and are never updated.
 **Business Helper** ([businesshelper.app](https://businesshelper.app)) is a mobile-first B2B SaaS
 for Mexican SMBs: an integrated **Quote → Contract (OTP e-signature) → Pay (SPEI) → Confirm**
 cash-flow loop, with SAT CFDI 4.0 electronic invoicing. All user-facing copy is Mexican Spanish.
-This is a solo-founder project; agents author most PRs, and the issue tracker doubles as the
-engineering journal.
+Solo-founder project; agents author most PRs and the issue tracker doubles as the engineering
+journal.
 
 ## Stack (verified against `package.json` — some docs still say "Next.js 16"; 15 is what's pinned)
 
@@ -30,7 +30,7 @@ engineering journal.
   - Facturapi PAC (CFDI) → `lib/pacClient.ts`, `lib/facturapi.ts`
   - Twilio / Meta WhatsApp → `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`
   - Gemini → `lib/whatsappAI.ts` (the NL query parser is rules-based, `engine: 'rules'`)
-- **Error monitoring is NOT live.** `lib/sentry.ts` is a console shim; nothing transmits anywhere.
+- **Error monitoring is NOT live.** `lib/sentry.ts` is a console shim; nothing transmits.
 
 ## Commands
 
@@ -46,11 +46,10 @@ engineering journal.
 | `npm run db:migrate` / `db:migrate:dry` | Apply `supabase/migrations/` — **migrations are manual, never automatic** |
 | `npm run verify:webhook` | Stripe webhook signature verification check |
 
-- **Node 22 required** for the test suite (jsdom 30 / undici 8; on Node 20 the suite reports "no
-  tests" instead of failing).
+- **Node 22 required** for the test suite (on Node 20 it reports "no tests" instead of failing).
 - **A fresh clone has no `node_modules` — run `npm ci` first.** Without it `npm run typecheck` emits
   ~200 `TS2307: Cannot find module 'vitest'` errors that read exactly like your change broke the
-  build. Nothing in the error text says "install your dependencies."
+  build. Nothing in the text says "install your dependencies."
 - **`npm run test:coverage` currently fails on `main`** — the 85/85/80/80 thresholds are aspirational
   and CI does not run them ([#51](https://github.com/jesushzv/business-helper/issues/51));
   `docs/STATUS.md` carries the live figures. Judge your change on the **delta**, not the absolute:
@@ -59,6 +58,7 @@ engineering journal.
 - Quality gate before any commit: `npm run typecheck && npm run lint && npx vitest run` (plus
   `npm run build` for structural changes — Vitest strips TS annotations, so only `tsc`/`build`
   catch interface mismatches).
+
 
 ## Architecture map
 
@@ -79,9 +79,8 @@ engineering journal.
    **Corollary for the UI: never send a user to fix something they lack the write for.** Check who
    the write is scoped to *before* designing the prompt — `PATCH /api/organization` is scoped by
    `owner_id`, so a redirect sending every member to `/onboarding` traps managers and members in a
-   form that 404s (that single fact decided the design of #64). A prompt aimed at the wrong role
-   reads as a bug in the product. `/api/organization` GET returns `role` alongside the organization
-   for exactly this.
+   form that 404s (that fact decided #64's design). A prompt aimed at the wrong role reads as a
+   product bug. `/api/organization` GET returns `role` for exactly this.
 5. Distinguish the two failure worlds: Supabase unconfigured → demo deployment, 503
    `BACKEND_NOT_CONFIGURED`; configured but no session → 401. Never demo data for an
    unauthenticated caller.
@@ -90,12 +89,11 @@ engineering journal.
 7. **Public routes** (`/api/quotes/public/*`, `/api/receivables/public/*`) build every error through
    `publicApiError()` from `lib/publicApiError.ts` — same `{ error: { code, message } }` envelope,
    Spanish message safe to render verbatim, machine state in `code`, body siblings
-   (`retry_after_seconds`, `attempts`, `remaining`, `expired`) passed via its `extra` arg.
-   Consumers read `error.message` and branch on `error.code`; `data?.error || fallback` renders
-   `[object Object]` against the envelope. Before #65 these three routes had four shapes between
-   them, several in English, shown to the tenant's *client* mid-signature.
-   `tests/unit/publicErrorEnvelope.test.ts` fails the build on a bare-string body, a sibling `code`,
-   or an English message.
+   (`retry_after_seconds`, `attempts`, `remaining`, `expired`) via its `extra` arg. Consumers read
+   `error.message` and branch on `error.code`; `data?.error || fallback` renders `[object Object]`.
+   Before #65 these three routes had four shapes between them, several in English, shown to the
+   tenant's *client* mid-signature. `tests/unit/publicErrorEnvelope.test.ts` fails the build on a
+   bare-string body, a sibling `code`, or an English message.
 
 ## Hard rules — every change, any size
 
@@ -125,6 +123,11 @@ engineering journal.
    fabricated ids", "no placeholder tokens" that silently matches nothing is indistinguishable from
    one that passes. Plant a violation, watch it go red, remove it — then commit. The origin scan in
    `tests/unit/url.test.ts` was confirmed this way and names the offending `file: line`.
+   **A plant that stays green indicts the test** — something laundered the difference (an assertion
+   differing only in whitespace passed with the fix reverted: jsdom trims `<input type="url">`).
+   **A grep this file asks you to remember wants to be a test**: `url`, `postgrestEmbedHints`,
+   `securityDefinerGrants`, `demoIdentityLeak`, `placeholderIdentifiers`, `publicErrorEnvelope`,
+   `docsStatusAuthority`, `clientFetchMethods`. Catch a scannable defect class, add the scanner.
 8. **Mexican Spanish, plain language** in all user-facing copy — benefit claims
    ("Evidencia Legal Certificada"), never developer jargon (RLS, sha256, multitenant).
 
@@ -134,23 +137,18 @@ engineering journal.
   → implement + security review → verify + doc sync) for: new features, schema/migration changes,
   and anything touching money, fiscal documents, auth, or OTP. Before writing SQL or Supabase
   calls, verify field names against `docs/02-architecture/database-schema-design.md`.
-- **The `@agent` names in that playbook are mostly not executable — the loop itself is.** The nine
-  agents named in `ecc-execution-playbook.md` §03 and `MASTER_PROMPT.md` §06 come from the
-  third-party "Everything Claude Code" suite, which was never installed. What exists here:
-  Two roles are defined for real in `.claude/agents/`, chosen because they cover the two defect
-  classes this repo has actually produced (#35 unverified migrations; the CFDI simulation incident
-  and #33 fabricated state):
-  - ✅ **`database-reviewer`** subagent — run on any diff touching migrations, RLS, or query patterns.
-  - ✅ **`money-path-reviewer`** subagent — run on any diff touching payments, CFDI, Stripe, folios,
-    receivables.
-  - `@planner`/`@architect` → the `Plan` subagent; `@security-reviewer` → `/security-review`;
-    `@code-reviewer` → `/code-review`; `@tdd-guide`/`@build-error-resolver`/`@e2e-runner` → no
-    equivalent, perform the step directly.
-- **Light path** for small fixes, copy, and docs: make the change, add/update a test, run the
-  quality gate. No spec-doc ceremony required.
-- The hard rules above and the quality gate are non-negotiable at every size.
-- When you finish work that changes what is true about the product, update the launch memo — not
-  the roadmap dashboards — and state what you actually ran.
+- **The `@agent` names in that playbook are not executable — the loop itself is.** The nine come
+  from the third-party "Everything Claude Code" suite, never installed. Real, in `.claude/agents/`,
+  covering the two defect classes this repo actually produces (#35 unverified migrations; the CFDI
+  simulation incident and #33 fabricated state): **`database-reviewer`** on any diff touching
+  migrations, RLS or query patterns, **`money-path-reviewer`** on payments, CFDI, Stripe, folios,
+  receivables. Otherwise: `@planner`/`@architect` → `Plan`; `@security-reviewer` →
+  `/security-review`; `@code-reviewer` → `/code-review`; the rest, do the step directly.
+- **Light path** for small fixes, copy and docs: make the change, add/update a test, run the
+  quality gate. No spec-doc ceremony.
+- The hard rules and the quality gate are non-negotiable at every size.
+- When your work changes what is true about the product, update `docs/STATUS.md` — not the roadmap
+  dashboards — and state what you actually ran.
 
 ## UX constraints (full detail in `MASTER_PROMPT.md` §03 and `docs/01-strategy/user-personas.md`)
 
@@ -211,52 +209,60 @@ placeholder tokens (`'demo'`, `'demo_token'`) that used to fill that gap rendere
 ### Fabricated success — hard rule #1's recurring disguises
 
 Every item below is the same defect: showing a user a success, a value, or a link the system has
-not actually earned. It has shipped here at least eight times.
+not actually earned. It has shipped here at least ten times.
 
-- **Hooks and mutations** (#33 receivables, #50 quote creation, #59 open): every mutation applies
-  the **server row** on success and throws/surfaces on failure — never an optimistic local object
-  left in place. Demo fixtures only behind `isClientDemoMode()`. Pin it with an `*Honesty.test.ts`
-  suite; `tests/unit/useReceivablesHonesty.test.ts` is the template.
+- **Hooks and mutations** (#33, #50, #59): every mutation applies the **server row** on success and
+  throws/surfaces on failure — never an optimistic local object left in place. Demo fixtures only
+  behind `isClientDemoMode()`. Pin with an `*Honesty.test.ts`; `useReceivablesHonesty` is the
+  template.
 - **Public pages may simulate a mutation only behind `isClientDemoMode()`, short-circuited *before*
-  the fetch — never as a fallback in a `catch`** (#58 signing page, #86 `/pay/[token]`). A
-  catch-fallback turns every real tenant's network failure into a fake confirmation: `/pay/[token]`
-  showed a payer "Comprobante enviado correctamente" for a declaration the API had rejected.
-- **Placeholder identifiers are the same rule wearing a UI costume** (#44, #78): `token || 'demo'`,
-  `id || 'demo_token'`, `phone || '8115551234'` each render as a live, tappable control. Absent is
-  absent — render the **disabled** control and **name the specific record** the tenant must fix; a
-  missing CLABE reported as a missing phone number sends them to edit the wrong thing.
-- **An all-optional interface cannot tell you a mapping is missing** (#78). `MilestoneWithClient`
-  declares every client/contract field optional, so `useReceivables` assigning raw API rows into it
-  was not a type error — and the only thing ever populating those fields was the demo fixtures in
-  the same file, so every real tenant got `undefined` across the board. Two habits close this: when
-  a hook's shape is flatter than the API's, the flattening is a **named exported function with its
-  own test** (`toMilestoneWithClient`); and when fixtures and server rows share a type, assert
-  against a **server-shaped** row, never only a fixture. Required fields beat optional-everything.
+  the fetch — never as a `catch` fallback** (#58, #86). A catch-fallback turns every real tenant's
+  network failure into a fake confirmation: `/pay/[token]` told a payer "Comprobante enviado
+  correctamente" for a declaration the API had rejected.
+- **Placeholder identifiers are the same rule in a UI costume** (#44, #78): `token || 'demo'`,
+  `phone || '8115551234'` each render as a live, tappable control. Absent is absent — render the
+  **disabled** control and **name the record** the tenant must fix; a missing CLABE reported as a
+  missing phone sends them to edit the wrong thing.
+- **An all-optional interface cannot tell you a mapping is missing** (#78). Every field of
+  `MilestoneWithClient` was optional, so `useReceivables` assigning raw API rows into it was not a
+  type error — and only the demo fixtures in the same file ever populated them, so real tenants got
+  `undefined` across the board. Two habits: when a hook's shape is flatter than the API's, the
+  flattening is a **named exported function with its own test** (`toMilestoneWithClient`); and when
+  fixtures and server rows share a type, assert against a **server-shaped** row. Required fields
+  beat optional-everything.
+- **Fixing the hook does not fix the form above it** (#95's tail). `useState(prop)` that never
+  re-syncs keeps the typed text after the hook applied the server row — and the server normalizes
+  (`'81 1234 5678'` is stored as `'8112345678'`), so "se guardaron correctamente" sits next to a
+  value the database does not hold. Re-sync on the prop; `OrgProfileCard` is the reference.
+- **A TS union narrower than the column's CHECK rewrites real states into the nearest one you did
+  list.** `subscription_status` kept three values after `20260806120000` widened the constraint to
+  seven, so `unpaid`/`incomplete`/`trialing` all read as **Activo**. Check `pg_get_constraintdef`
+  before narrowing, and again when a migration widens. Converse: `subscription_tier` defaults to
+  `'free'`, which has no plan — mapping it to `'inicial'` billed nobody and disabled that plan's
+  own subscribe button. Unrecognised is `null`, never the nearest option.
 
 ### Client/server state
 
 - **Demo-mode detection differs by side.** Collection GET routes answer the demo deployment with
   200 + empty lists, so a client hook can NOT use `503 BACKEND_NOT_CONFIGURED` to decide when demo
-  fixtures are legitimate — that code only appears on authenticated/mutating paths. Hooks gate on
-  the build-time signal instead: `isClientDemoMode()` in `lib/clientDemoMode.ts` (moved out of
-  `lib/hooks/useQuotes.ts` in #64 once it had three callers; still re-exported there). Getting this
-  wrong either blanks the marketing demo or shows fixtures to real tenants.
+  fixtures are legitimate — that code appears only on authenticated/mutating paths. Hooks gate on
+  the build-time signal instead: `isClientDemoMode()` in `lib/clientDemoMode.ts` (still re-exported
+  from `useQuotes.ts`). Wrong either way: a blank marketing demo, or fixtures for real tenants.
   **In Vitest this signal defaults to *on*** — `NEXT_PUBLIC_SUPABASE_URL` is unset, so any path
   behind it is skipped and a test meant to exercise the real-tenant branch silently asserts nothing.
   Stub it: `vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co')`, and
   `vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')` for the demo case.
-- **A hook that gates a warning or a disabled control needs three states, not two**: `true` /
-  `false` / **`null` = unknown** (still loading, or the read failed). Collapsing unknown into `false`
-  invents a fact — it warns a healthy tenant, or blocks an action, on a network blip; collapsing it
-  into `true` re-opens whatever hole the gate was closing. Never let the client be the only
-  enforcement: gate on the server too, and then the permissive choice for unknown is safe.
-  `lib/hooks/useSettlementAccount.ts` is the reference (#64).
+- **A hook gating a warning or a disabled control needs three states**: `true` / `false` /
+  **`null` = unknown** (loading, or the read failed). Collapsing unknown into `false` invents a fact
+  — it warns a healthy tenant on a network blip; into `true` re-opens the hole the gate closed.
+  Never let the client be the only enforcement: gate on the server too, and the permissive choice
+  for unknown becomes safe. `lib/hooks/useSettlementAccount.ts` is the reference (#64).
 
 ### Database and migrations
 
 - **`REVOKE … FROM PUBLIC` does not lock down a `SECURITY DEFINER` function.** Supabase grants
   `EXECUTE` on `public` functions to `anon` and `authenticated` as *named roles*; revoking the
-  implicit `PUBLIC` grant leaves those standing, and PostgREST serves the function at
+  implicit `PUBLIC` grant leaves those standing and PostgREST serves the function at
   `/rest/v1/rpc/<name>` outside RLS (#76 — unlimited folio minting). Always
   `REVOKE EXECUTE ON FUNCTION public.f(<signature>) FROM anon, authenticated;`.
   `tests/unit/securityDefinerGrants.test.ts` fails the build on a new one without it, and holds the
@@ -267,36 +273,38 @@ not actually earned. It has shipped here at least eight times.
 ### Tooling and process traps
 
 - The lint gate is real: `next lint --max-warnings=0`, debt cleared to zero. Any new warning fails
-  `npm run lint`, and therefore `npm test` and CI. The 14 `<img>` sites carry scoped, per-site
-  `eslint-disable-next-line` comments with reasons (SVG logos: permanent; PNG screenshots: until the
-  `next/image` migration in [#82](https://github.com/jesushzv/business-helper/issues/82)). Don't add
-  a new bare `<img>`; don't widen a scoped disable to file level.
-- CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38). After
+  `npm run lint`, and therefore `npm test` and CI. Existing `<img>` sites carry scoped, per-site
+  `eslint-disable-next-line` comments with reasons (SVG logos permanent; PNG screenshots until
+  [#82](https://github.com/jesushzv/business-helper/issues/82)). Don't add a bare `<img>`; don't
+  widen a scoped disable to file level.
+- CI was **silently absent** on a draft PR for ten hours while Vercel showed green (#38). After
   opening a PR, verify the `CI` check actually ran; absence looks identical to passing.
-- E2E exists but is not in CI; never cite Playwright results you didn't run.
-- Docs drift is a known failure mode here (the roadmap once claimed 100% complete while core
-  integrations were simulated). Where a doc contradicts the code, the code wins — fix the doc in the
-  same PR when cheap.
-- **In a remote session, local `main` can be stale — cut branches from `origin/main` after an
-  explicit `git fetch origin main`.** A fresh container's local `main` here pointed at a commit from
-  *before the entire issue tracker existed*; a branch cut from it silently rebuilds weeks-old code.
-  Check `git log --oneline -1` against the expected HEAD before writing anything.
-- **Commit (or copy to scratch) before planting a violation to verify a red test.** The
-  plant-then-remove step rule 7 requires has a trap: `git checkout <file>` to remove the plant
-  restores the *last commit*, wiping every uncommitted change to that file with it. Remove plants
-  by reversing the exact edit, or plant only in files whose real changes are already committed.
+- E2E is not in CI; never cite Playwright results you didn't run.
+- Docs drift is a known failure mode (the roadmap once claimed 100% complete while core
+  integrations were simulated). Where a doc contradicts the code the code wins — fix it same-PR.
+- **In a remote session local `main` can be stale — `git fetch origin main` before cutting a
+  branch.** A fresh container's `main` once pointed at a commit from *before the issue tracker
+  existed*. Check `git log --oneline -1` first.
+- **Commit before planting a violation to verify a red test.** `git checkout <file>` to remove the
+  plant restores the *last commit*, wiping every uncommitted change to that file. Reverse the exact
+  edit instead, or plant only where the real changes are already committed.
 - **A session with the Supabase connector can run "needs a deployment" checks itself — don't park
   them on the founder.** Live schema/grants come from `execute_sql` against `pg_catalog` /
   `information_schema`; migrations apply via `apply_migration` (which keeps the ledger); and even
   PostgREST behavior is reachable from inside the database — `CREATE EXTENSION http`, call the
   project's own `/rest/v1/` with `http_get()` (pass the anon key as an `apikey=` query param),
   `DROP EXTENSION` after. The shell cannot reach `*.supabase.co` (network policy), which is why
-  the in-database route exists. #79 sat "unverifiable" for a day of sessions that had this
-  capability the whole time. Confirm every claim by reading the catalog back, never by exit code.
-- **Before writing a client `fetch`, grep the route file for the export of that HTTP method.**
-  `useOrganizationSettings` PUT against a route exporting only GET/PATCH/POST — every save a 405,
-  swallowed by `.catch(() => {})`, reported as success (#95). A method mismatch is the quietest
-  fabricated-success there is: no test that mocks `fetch` can see it. The same grep takes seconds:
+  the in-database route exists. Confirm every claim by reading the catalog back, not by exit code.
+  **It also reaches the deployment**, cookie and all, so most "verify against a real deployment"
+  criteria are agent-takeable: ask whether one needs a **human** (handset, card, vendor account,
+  eyes on a rendered page) or only **reach** — only the first is founder work, and the shell's `403`
+  on `businesshelper.app` is not the last word. Recipe and traps: #129. It cannot see
+  client-rendered UI, so say which half you checked. #79 sat "unverifiable" a day and #95 three
+  weeks in sessions that had this all along.
+- **A client `fetch` whose method the route does not export now fails the build**
+  (`clientFetchMethods.test.ts`). `useOrganizationSettings` PUT against a GET/PATCH/POST-only route
+  made every save a 405, swallowed and reported as success (#95) — the quietest fabricated-success
+  there is, since a mocked `fetch` answers whatever the test says. Still grep first:
   `grep "export async function" app/api/<route>/route.ts`.
 - **The demo persona lives behind `isClientDemoMode()` and nowhere else.** "Don Roberto" /
   "Distribuidora del Norte" / RFC `DNO850101…` shipped hardcoded in the header, sidebar, dashboard
@@ -312,28 +320,25 @@ not actually earned. It has shipped here at least eight times.
 
 ## GitHub conventions
 
-- Branch → PR → CI → merge. Conventional commits (`feat(...)`, `fix(...)`, `docs(...)`).
-- Follow-ups discovered mid-task are filed as GitHub issues with `file:line` references, repro
-  steps, and a fix sketch — see #36/#39/#40 for the house style. The tracker is the journal; write
-  issues so a future session needs no other context.
+- Branch → PR → CI → merge. Conventional commits.
+- Follow-ups found mid-task are filed as issues with `file:line`, repro steps and a fix sketch
+  (#36/#39/#40 are the house style). The tracker is the journal — write so a future session needs
+  no other context.
 - **An issue's enumeration is a starting point, not an inventory — re-run the search that produced
-  it.** #73 listed *two* builders with a hardcoded origin; there were three (`lib/whatsappReminder.ts`
-  was missed). #46's lint count was wrong three times; #64's body described two holes and its comment
-  a third state. These lists go stale the moment a PR moves code, and a fix scoped to the list leaves
-  the remainder in place *looking* closed. Re-derive the set with a grep you can paste into the PR,
-  and if your count differs from the issue's, **say so explicitly** rather than quietly fixing more
-  than was asked. (The same applies to any tally quoted in a doc: count the whole output yourself.)
+  it.** #73 listed two hardcoded-origin builders; there were three. #46's lint count was wrong three
+  times; #64's body described two holes and its comment a third. These lists go stale the moment a
+  PR moves code, and a fix scoped to the list leaves the rest *looking* closed. Re-derive the set
+  with a grep you can paste into the PR, and if your count differs, **say so**. Same for any tally
+  quoted in a doc: count the whole output yourself.
 - **`Closes #N` claims the issue's *exit criteria* are met — not that you wrote the code.** When
   those criteria name a deployed behaviour (a real OAuth round-trip, a live PAC stamp, a code on a
   real handset), the issue stays open after merge: write `Refs #N` instead and say in the PR what
   remains and who can do it. #48 was nearly auto-closed by a PR that could not satisfy it. This is
   hard rule #2 applied to the tracker.
-- **Before a PR closes an issue, re-read that issue's body for residue.** Issues here routinely park
-  deferred work under "also worth fixing while in there", and that context dies the moment the issue
-  closes. File each leftover as its own issue and link it from the PR *before* merging — #60 and #61
-  were rescued out of #39 and #50 this way. Where the leftover is a judgment call rather than a
-  defect (loosening an abuse control, changing a lifecycle), file it as a decision with options
-  rather than fixing it in passing.
-- **Closing an issue only partially? Comment to re-scope it.** An issue whose body describes three
-  broken call sites, two now fixed, sends the next session to redo the fixed half. Say what landed,
-  in which PR, and what is left.
+- **Before a PR closes an issue, re-read its body for residue.** Deferred work parked under "also
+  worth fixing while in there" dies with the issue. File each leftover separately and link it from
+  the PR *before* merging — #60/#61 were rescued out of #39/#50 this way. Where the leftover is a
+  judgment call, not a defect, file it as a decision with options rather than fixing it in passing.
+- **Closing an issue only partially? Comment to re-scope it.** A body describing three broken call
+  sites, two now fixed, sends the next session to redo the fixed half. Say what landed, in which
+  PR, and what is left.
