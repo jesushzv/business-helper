@@ -39,7 +39,20 @@ export async function POST(request: Request) {
     );
 
     if (!verification.valid) {
-      // 400 with no detail about which check failed.
+      // A missing endpoint secret is this deployment's fault, not the caller's.
+      // Answering it with the same 400 as a forged request made the two
+      // indistinguishable: Stripe's dashboard reported "invalid signature" for
+      // an endpoint that had no secret to check against, and `verify:webhook`
+      // scored a reject-everything endpoint as four passing checks (#63).
+      // 503 also matches the service-role branch below and hard rule 3.
+      if (verification.code === 'NOT_CONFIGURED') {
+        return NextResponse.json(
+          { error: 'Verificación de webhook no configurada' },
+          { status: 503 }
+        );
+      }
+
+      // 400 with no detail about which of the request-side checks failed.
       return NextResponse.json({ error: 'Firma de webhook inválida' }, { status: 400 });
     }
 
@@ -99,15 +112,47 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo registrar el evento' }, { status: 500 });
     }
 
+    // `.select('id')` is not decoration: without it, an UPDATE matching zero
+    // rows comes back `{ error: null }` and this route would answer 200
+    // `{ processed }` for a subscription change it never wrote.
+    //
+    // How narrow that is, stated honestly. The obvious path — an organization_id
+    // that is a well-formed uuid but belongs to no row here — cannot reach this
+    // point: `stripe_webhook_events.organization_id` carries an FK to
+    // `organizations(id)` (verified live on the production database, 2026-08-09),
+    // so the claim insert above fails first with 23503 and returns 500. What is
+    // left is the deletion race — the organization disappears between the claim
+    // and this UPDATE — where `ON DELETE SET NULL` leaves the claim row standing
+    // and the UPDATE silently matches nothing.
+    //
+    // Worth the two words anyway: it makes the invariant local instead of
+    // resting on a constraint declared in another file, and the failure it
+    // guards against is the one class this repo keeps shipping (hard rule 1).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase as any)
+    const { data: updatedRows, error: updateError } = await (supabase as any)
       .from('organizations')
       .update({
         subscription_tier: handled.tierId,
         subscription_status: handled.status,
         updated_at: new Date().toISOString()
       })
-      .eq('id', organizationId);
+      .eq('id', organizationId)
+      .select('id');
+
+    if (!updateError && (!updatedRows || updatedRows.length === 0)) {
+      // Release the claim: nothing was applied, so a redelivery must not be
+      // deduplicated against this attempt.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('stripe_webhook_events').delete().eq('id', eventId);
+
+      // 404 rather than 200: Stripe's dashboard is the only place this is
+      // visible, and a green delivery for an unapplied tier change is the
+      // failure we are trying to make impossible.
+      return NextResponse.json(
+        { error: 'La organización del evento no existe en esta base de datos' },
+        { status: 404 }
+      );
+    }
 
     if (updateError) {
       // Release the claim so Stripe's retry can reprocess rather than being

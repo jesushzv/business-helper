@@ -8,10 +8,10 @@ document allowed to assert status — done, blocked, priority, the launch gate, 
 coverage. Read it before trusting any "completed" claim. Every other document owns *mechanism* and
 must not assert state; any that mentions status carries
 `<!-- STATUS-AUTHORITY: docs/STATUS.md -->` and points there.
-`tests/unit/docsStatusAuthority.test.ts` fails the build if that slips — and enforces the size
-budget below, whose guidance is: a rule backed by a **scanning gate** states the rule and names the
-test, nothing more. Never restate a test count or coverage figure outside `docs/STATUS.md` — those
-numbers have been wrong five separate times. Superseded dashboards live in `docs/99-archive/`.
+`tests/unit/docsStatusAuthority.test.ts` fails the build if that slips, and enforces the size
+budget below: a rule backed by a **scanning gate** states the rule and names the test, nothing more.
+Never restate a test count or coverage figure outside `docs/STATUS.md` — those numbers have been
+wrong five separate times. Superseded dashboards live in `docs/99-archive/`.
 
 ## What this project is
 
@@ -21,7 +21,7 @@ cash-flow loop, with SAT CFDI 4.0 electronic invoicing. All user-facing copy is 
 This is a solo-founder project; agents author most PRs, and the issue tracker doubles as the
 engineering journal.
 
-## Stack (verified against `package.json` — some docs still say "Next.js 16"; 15 is what's pinned)
+## Stack (some docs still say "Next.js 16"; `package.json` pins 15)
 
 - **Next.js 15** (App Router, RSC), React 19, Tailwind CSS v4, TypeScript strict
 - **Supabase**: Postgres 16 + RLS, Auth (HTTP-only cookies), Storage
@@ -58,7 +58,6 @@ engineering journal.
 - Quality gate before any commit: `npm run typecheck && npm run lint && npx vitest run` (plus
   `npm run build` for structural changes — Vitest strips TS annotations, so only `tsc`/`build`
   catch interface mismatches).
-
 
 ## Architecture map
 
@@ -101,16 +100,16 @@ engineering journal.
    (ID, URL, status) the external service has not confirmed. This is the repo's dominant defect
    class — see **Fabricated success** under Known gotchas for the forms it keeps taking.
 2. **Report status honestly.** A feature is "done" only when its outbound call has executed against
-   the real service at least once. Tests passing against a mocked `fetch` prove the code is correct,
-   not that the integration works — always say which one you verified.
+   the real service at least once. A mocked `fetch` proves the code is correct, not that the
+   integration works — always say which one you verified.
 3. **Fail closed on missing credentials.** Unset provider env vars → explicit 502/503, never a
-   fabricated success (see `lib/otpDelivery.ts` for the reference posture).
+   fabricated success (`lib/otpDelivery.ts` is the reference posture).
 4. **Multi-tenant isolation**: every DB query scoped by `organization_id`.
 5. **Production-first architecture**: build for Vercel + Supabase Cloud + live APIs, not
-   local-only/mock-only setups, unless explicitly told otherwise.
+   local-only/mock-only setups, unless told otherwise.
 6. **Migration ordering**: Vercel auto-deploys `main` and migrations are applied by hand, so the
-   deploy can outrun the schema. A PR carrying a migration must have it applied **before or with**
-   the merge (`npm run db:migrate:dry` first). CI posts a reminder; treat it as a requirement.
+   deploy can outrun the schema. A PR carrying one must have it applied **before or with** the merge
+   (`npm run db:migrate:dry` first). CI's reminder is a requirement, not a note.
 7. **Tests import the `.ts` sources** — never hand-maintained `.js` mirrors (retired in PR #21).
    Every code change ships with corresponding Vitest coverage; keep the 85% gate.
    **Before fixing a bug, grep the suite for the defect's shape — the test that should have caught
@@ -133,14 +132,13 @@ engineering journal.
   catalog before writing SQL — `database-schema-design.md` has been wrong about columns (#96).
 - **The `@agent` names in that playbook are mostly not executable — the loop itself is.** They come
   from the third-party "Everything Claude Code" suite, never installed. Only two are real, in
-  `.claude/agents/`, and both earn their keep (on #96 they caught a discarded credit block and a
-  $0-utilization-on-failed-read):
+  `.claude/agents/`, covering the defect classes this repo actually produces, and both earn their
+  keep:
   - ✅ **`database-reviewer`** — any diff touching migrations, RLS, or query patterns.
   - ✅ **`money-path-reviewer`** — payments, CFDI, Stripe, folios, receivables.
   - `@planner`/`@architect` → the `Plan` subagent; `@security-reviewer` → `/security-review`;
     `@code-reviewer` → `/code-review`; the rest → perform the step directly.
-- **Light path** for small fixes, copy and docs: make the change, add/update a test, run the
-  quality gate. No spec-doc ceremony.
+- **Light path** for small fixes, copy and docs: change, test, quality gate. No spec-doc ceremony.
 - The hard rules above and the quality gate are non-negotiable at every size.
 - When you finish work that changes what is true about the product, update the launch memo — not
   the roadmap dashboards — and state what you actually ran.
@@ -208,8 +206,13 @@ not earned. It has shipped here at least eight times.
   enviado correctamente" for a declaration the API had rejected.
 - **Placeholder identifiers are the same rule in a UI costume** (#44, #78, #96): `token || 'demo'`,
   `regimen_fiscal || '601'` render as a live control or a settled fact. Absent is absent — render
-  the **disabled** control and **name the record** to fix; a missing CLABE reported as a missing
-  phone sends the tenant to edit the wrong thing.
+  the **disabled** control and **name the record** to fix — a missing CLABE reported as a missing
+  phone sends the tenant to the wrong form.
+- **A verification script's exit code is a claim.** `verify:webhook` printed "All 4 checks passed"
+  for a run that skipped the two checks protecting money — and those four passed against an endpoint
+  with *no* secret, which rejects everything (#63; #118 is `verify:otp`'s). Incomplete runs exit
+  non-zero naming what they skipped, no opt-out; negative checks carry a positive control; missing
+  credentials answer 503, not 400.
 - **An all-optional interface cannot tell you a mapping is missing** (#78). `MilestoneWithClient`
   declared every field optional, so assigning raw API rows into it was not a type error — and only
   the demo fixtures ever populated them, so every real tenant got `undefined` throughout. Two
@@ -249,9 +252,9 @@ not earned. It has shipped here at least eight times.
 ### Tooling and process traps
 
 - The lint gate is real: `next lint --max-warnings=0`, debt at zero. Any new warning fails
-  `npm run lint`, `npm test` and CI. The 14 `<img>` sites carry scoped per-site disables with
-  reasons (SVG logos permanent; PNGs until the `next/image` migration, #82). Don't add a bare
-  `<img>`; don't widen a scoped disable to file level.
+  `npm run lint`, `npm test` and CI. Existing `<img>` sites carry scoped per-site disables with
+  reasons (#82 tracks the `next/image` migration). Don't add a bare `<img>`; don't widen a scoped
+  disable to file level.
 - CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38).
   After opening a PR, verify the `CI` check ran; absence looks identical to passing. Recurred on
   #130; a later push fired it, so push again rather than wait.
@@ -270,19 +273,16 @@ not earned. It has shipped here at least eight times.
   PostgREST behavior is reachable from inside the database — `CREATE EXTENSION http`, call the
   project's own `/rest/v1/` with `http_get()` (anon key as an `apikey=` param), `DROP EXTENSION`
   after — the shell cannot reach `*.supabase.co`. #79 sat "unverifiable" for a day of sessions that
-  had this the whole time. Confirm every claim by reading the catalog back, never by exit code —
-  and prove a constraint by making it *reject* something (`DO $$` with
-  `EXCEPTION WHEN check_violation`, plus a NULL insert, probes deleted in the same statement).
+  had this the whole time. Confirm every claim by reading the catalog back, never by exit code, and
+  prove a constraint by making it *reject* something.
   **Run the check especially when it is the only thing left on an issue**: #96 was merged and
   reviewed with just its deployed check outstanding, and running it found a table missing three
-  columns the shipped code read from. Ask which *layer* a claim lives in before calling it
-  founder-blocked — schema, grants, constraints and PostgREST are all reachable here; only the
-  browser session and the real credential are not.
-  **GoTrue too — "is provider X enabled?" is not a dashboard question.**
-  `http_get('<project>/auth/v1/settings?apikey=<anon>')` returns the `external` map;
-  `/auth/v1/authorize?provider=…` returns the error the user would hit; `auth.identities` says
-  whether anyone has *ever* signed in that way. #48 item 1 sat unanswered two days — the answer
-  turned it from founder-blocked into a live UI defect fixed that session, and found #122.
+  columns the shipped code read from. Only the browser session and the real credential are out of
+  reach here; schema, grants, constraints and PostgREST are not — **nor is GoTrue, so "is provider
+  X enabled?" is not a dashboard question.** `http_get('<project>/auth/v1/settings?apikey=<anon>')`
+  returns the `external` map; `/auth/v1/authorize?provider=…` returns the user's error;
+  `auth.identities` says whether anyone has *ever* signed in that way. #48 item 1 sat unanswered
+  two days; the answer turned it into a live UI defect fixed that same session.
 - **Never edit a migration after it has been applied anywhere.** `ADD COLUMN IF NOT EXISTS` is
   idempotent but not convergent, and `db:migrate` skips files the ledger lists — an edited file
   leaves repo and production silently disagreeing. Reconcile the live DB explicitly (an `ALTER`

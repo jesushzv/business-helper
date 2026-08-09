@@ -185,9 +185,47 @@ If this deployment includes the security hardening migration (`20260806120000_se
 ```bash
 WEBHOOK_URL=https://staging.example.com/api/stripe/webhook \
 STRIPE_WEBHOOK_SECRET=whsec_… \
-ORG_ID=<a real organization uuid> \
+ORG_ID=<a real organization uuid in that deployment's database> \
 npm run verify:webhook
 ```
+
+All three variables are required for a complete run. `ORG_ID` is not optional
+convenience: the two checks that need it — a signed subscription event is
+applied, and its redelivery is not applied twice — are the two that protect
+money, and they write to that organization, so use a staging target you are
+willing to change. Without it the script runs the signature checks, prints
+`INCOMPLETE`, and **exits non-zero**; there is no flag to turn that into a pass.
+
+> [!WARNING]
+> **The target allowlist guards the URL, not the database behind it.** The
+> script refuses any host that is not localhost, a `*.vercel.app` preview, or
+> `staging.*`. A Vercel preview is a preview of the *code*: its environment
+> variables come from the same project, and Vercel applies a variable to Preview
+> as well as Production unless it was scoped otherwise. A preview of this repo
+> can therefore hold the production `SUPABASE_SERVICE_ROLE_KEY`, and the two
+> `ORG_ID` checks would write `subscription_tier` and `subscription_status` to a
+> real tenant. Check which Supabase project the target's variables point at
+> before setting `ORG_ID`. The six signature checks write nothing and are safe
+> against any allowlisted target.
+
+What a green run proves, and what it does not:
+
+| Proved | Not proved |
+|:---|:---|
+| The endpoint's `STRIPE_WEBHOOK_SECRET` matches the one you signed with, and valid signatures are accepted | That Stripe itself can reach the endpoint — that is the Dashboard's "Send test webhook", separate from this |
+| Unsigned, wrong-secret, tampered, stale and future-dated requests are all rejected | That live-mode events carry the metadata the route reads (`metadata.organization_id`) — set at Checkout, so it depends on §05c |
+| A signed subscription event is applied to a real row, and a redelivery of it is not applied twice | Anything about the tier the user actually bought — see the price-to-tier mapping in §05c |
+
+The first check is a positive control on purpose. Before it existed, a
+deployment with **no** `STRIPE_WEBHOOK_SECRET` set passed every rejection check,
+because it rejected everything, and the script reported a pass. The endpoint now
+answers `503` rather than `400` when it has no secret to check against, so
+"unconfigured" and "rejected your forgery" are distinguishable — in this script
+and in Stripe's own delivery log.
+
+The script prints a record block on a successful run (target, org, revision,
+timestamp). Paste it into [`STATUS.md`](STATUS.md), which is where a claim about
+what has been verified belongs.
 
 **Remaining checks by hand:**
 - [ ] With the Supabase anon key, `select * from quotes` from a browser console returns zero rows (previously: every tenant's quotes)
