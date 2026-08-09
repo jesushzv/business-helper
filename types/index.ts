@@ -65,11 +65,22 @@ export interface AccountsReceivableSummary {
 }
 
 export interface ClientCreditSummary {
+  /**
+   * Whether a credit line has ever been configured for this client.
+   *
+   * `clients.credit_limit` is nullable and has no default, so "never assessed"
+   * and "assessed at zero" are different facts. Collapsing them let the detail
+   * page show every real client an authorized limit of $0 with a confident
+   * green "Activo" badge — a decision the owner never made (#96).
+   */
+  isConfigured: boolean;
   totalLimit: number;
   usedCredit: number;
   availableCredit: number;
-  creditDays: number;
-  status: 'active' | 'suspended' | 'blocked';
+  /** null when no terms are configured; 0 is a real answer meaning contado. */
+  creditDays: number | null;
+  /** null when no credit line is configured — never defaulted to 'active'. */
+  status: 'active' | 'suspended' | 'blocked' | null;
   isOverLimit: boolean;
   utilizationPercentage: number;
 }

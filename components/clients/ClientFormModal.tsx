@@ -40,7 +40,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [rfc, setRfc] = useState('');
-  const [regimenFiscal, setRegimenFiscal] = useState('601');
+  const [regimenFiscal, setRegimenFiscal] = useState('');
   const [codigoPostal, setCodigoPostal] = useState('');
   const [cfdiUse, setCfdiUse] = useState('G03');
   const [creditLimit, setCreditLimit] = useState<number | ''>('');
@@ -58,7 +58,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setEmail(initialClient.email || '');
       setPhone(initialClient.phone || '');
       setRfc(initialClient.rfc || '');
-      setRegimenFiscal(initialClient.regimen_fiscal || '601');
+      setRegimenFiscal(initialClient.regimen_fiscal || '');
       setCodigoPostal(initialClient.codigo_postal || '');
       setCfdiUse(initialClient.cfdi_use || 'G03');
       setCreditLimit(initialClient.credit_limit ?? '');
@@ -71,7 +71,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setEmail('');
       setPhone('');
       setRfc('');
-      setRegimenFiscal('601');
+      setRegimenFiscal('');
       setCodigoPostal('');
       setCfdiUse('G03');
       setCreditLimit('');
@@ -101,17 +101,25 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
     setError(null);
     try {
       await onSave({
+        // null, not undefined: the write path skips undefined keys so it can
+        // tell "not provided" from "cleared". The form always provides every
+        // field, so a blank one means the user cleared it and must persist as
+        // NULL — sending undefined made clearing a value a silent no-op.
         name: name.trim(),
-        contact_name: contactName.trim() || undefined,
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
-        rfc: rfc.trim().toUpperCase() || undefined,
-        regimen_fiscal: regimenFiscal,
-        codigo_postal: codigoPostal.trim() || undefined,
+        contact_name: contactName.trim() || null,
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        rfc: rfc.trim().toUpperCase() || null,
+        regimen_fiscal: regimenFiscal || null,
+        codigo_postal: codigoPostal.trim() || null,
         cfdi_use: cfdiUse,
-        credit_limit: creditLimit !== '' ? Number(creditLimit) : 0,
-        credit_days: Number(creditDays),
-        credit_status: creditStatus,
+        // Blank means "no credit line assigned", not "assigned a limit of
+        // zero" — the column is nullable precisely so the detail page can tell
+        // those apart instead of showing every client a green "Activo" over
+        // $0 (#96). Terms and status only travel with a limit.
+        credit_limit: creditLimit !== '' ? Number(creditLimit) : null,
+        credit_days: creditLimit !== '' ? Number(creditDays) : null,
+        credit_status: creditLimit !== '' ? creditStatus : null,
         notes: notes.trim() || undefined,
       });
       onClose();
@@ -263,6 +271,13 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 onChange={(e) => setRegimenFiscal(e.target.value)}
                 className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
               >
+                {/* The régimen decides how a CFDI is stamped, so it is the
+                    client's own answer or nothing — the form used to preselect
+                    601 for everyone, which (once saves started persisting)
+                    would stamp a regime the owner never chose (#96). */}
+                <option value="" className="bg-slate-900 text-white">
+                  Selecciona el régimen del cliente
+                </option>
                 {REGIMENES_FISCALES.map((r) => (
                   <option key={r.code} value={r.code} className="bg-slate-900 text-white">
                     {r.label}

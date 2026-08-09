@@ -71,6 +71,12 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
             }`}>
               Crédito: ${(client.credit_limit || 0).toLocaleString('es-MX')} MXN ({client.credit_days || 0}d)
             </span>
+          ) : client.credit_limit === null || client.credit_limit === undefined ? (
+            // No credit line on file. This used to read "Contado (0 días)",
+            // stating payment terms nobody had chosen (#96).
+            <span className="rounded-lg bg-slate-950 px-2.5 py-1 text-slate-500 border border-slate-800">
+              Sin crédito asignado
+            </span>
           ) : (
             <span className="rounded-lg bg-slate-950 px-2.5 py-1 text-slate-400 border border-slate-800">
               Contado (0 días)

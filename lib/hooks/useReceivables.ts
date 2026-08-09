@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MilestoneItem, calculateReceivablesSummary, ReceivablesSummary } from '../receivablesCalculator';
+import { isClientDemoMode } from '../clientDemoMode';
 
 export interface MilestoneWithClient extends MilestoneItem {
   client_id?: string;
@@ -226,34 +227,34 @@ export function useReceivables() {
     setLoading(true);
     setError(null);
 
-    try {
-      const res = await fetch('/api/receivables');
-      const data = await res.json().catch(() => null);
+    // A real tenant never sees the fixtures below, whatever happens to the
+    // request. The old shape wrapped the fetch in a bare `catch` that fell
+    // through to the localStorage block, so a single dropped connection — the
+    // normal case on the 3G phone this product is built for — filled Cobranza
+    // with ~$145,000 owed by three companies that do not exist, left `error`
+    // null so no screen could say otherwise, and fed the same invented
+    // milestones into the client detail page's credit meter (#96, same class
+    // as #33/#50/#58).
+    if (!isClientDemoMode()) {
+      try {
+        const res = await fetch('/api/receivables');
+        const data = await res.json().catch(() => null);
 
-      if (res.ok && Array.isArray(data?.receivables)) {
-        // The server's answer is the answer — including an empty list. A real
-        // tenant with zero receivables must see zero, not the demo fixtures
-        // (which previously claimed money owed by clients that do not exist).
-        // Mapped, not assigned raw: the client, contract and quote token the UI
-        // reads arrive nested under `contracts`.
-        setReceivables(data.receivables.map(toMilestoneWithClient));
+        if (res.ok && Array.isArray(data?.receivables)) {
+          setReceivables(data.receivables.map(toMilestoneWithClient));
+        } else {
+          setError(errorMessage(data, 'No se pudieron cargar tus cobros'));
+        }
+      } catch {
+        setError('No se pudieron cargar tus cobros. Revisa tu conexión.');
+      } finally {
         setLoading(false);
-        return;
       }
-
-      if (!isDemoBackendResponse(res.status, data)) {
-        // A configured backend answered with a failure. Falling back to demo
-        // data here would present fiction as fact; report it instead.
-        setError(errorMessage(data, 'No se pudieron cargar tus cobros'));
-        setLoading(false);
-        return;
-      }
-      // 503 BACKEND_NOT_CONFIGURED: static demo deployment, fall through.
-    } catch {
-      // Network failure — the local cache is the best truth available, and on
-      // the demo deployment it is the only persistence there is.
+      return;
     }
 
+    // Demo deployment: localStorage keeps the sandbox interactive across
+    // reloads, and is the only persistence there is.
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
@@ -279,7 +280,11 @@ export function useReceivables() {
     fetchReceivables();
   }, [fetchReceivables]);
 
+  // Persists the demo sandbox only. A real tenant's cobros live on the server;
+  // mirroring them here also seeded the stale snapshot that the fixture
+  // fallback used to read back as if it were current (#96).
   const syncLocalStorage = (updated: MilestoneWithClient[]) => {
+    if (!isClientDemoMode()) return;
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
@@ -422,6 +427,9 @@ export function useReceivables() {
   }, [receivables, statusFilter, searchQuery, todayStr]);
 
   const resetDemoReceivables = useCallback(() => {
+    // Named "demo" but ungated, so wiring it to any button would have written
+    // fixtures straight into a real tenant's list.
+    if (!isClientDemoMode()) return;
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_RECEIVABLES));
     setReceivables(INITIAL_DEMO_RECEIVABLES);
   }, []);

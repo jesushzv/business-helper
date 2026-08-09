@@ -204,7 +204,17 @@ export const MILESTONE_WRITABLE_FIELDS = [
   'receipt_url',
 ] as const;
 
-/** Columns a client may set on a client record. */
+/**
+ * Columns a client may set on a client record.
+ *
+ * These are the DB column names, which is also the shape ClientFormModal sends.
+ * The two clients routes used to hand-destructure camelCase (`contactName`,
+ * `regimenFiscal`, `codigoPostal`, `cfdiUse`) off a snake_case body, so every
+ * one of those four resolved to `undefined` and was silently dropped on create
+ * and silently skipped on edit — while the save reported success. This list
+ * existed and was unit-tested the whole time; the routes just never used it
+ * (#96 verification).
+ */
 export const CLIENT_WRITABLE_FIELDS = [
   'name',
   'contact_name',
@@ -215,4 +225,45 @@ export const CLIENT_WRITABLE_FIELDS = [
   'codigo_postal',
   'cfdi_use',
   'notes',
+  'credit_limit',
+  'credit_days',
+  'credit_status',
 ] as const;
+
+export const CREDIT_STATUS_VALUES = ['active', 'suspended', 'blocked'] as const;
+
+/**
+ * Validates the trade-credit terms on a client write.
+ *
+ * The columns are deliberately nullable — NULL means "no credit line has ever
+ * been configured", which the UI renders as unknown rather than as an
+ * authorized limit of zero. So `null` is accepted here and passed through;
+ * only a value that is present and wrong is rejected. Rejecting at the route
+ * turns a DB CHECK violation (an opaque 500) into a Spanish 400 that names the
+ * field.
+ */
+export function validateCreditTerms(
+  fields: Record<string, unknown>
+): { ok: true } | { ok: false; message: string } {
+  if (fields.credit_limit !== undefined && fields.credit_limit !== null) {
+    const limit = Number(fields.credit_limit);
+    if (!Number.isFinite(limit) || limit < 0) {
+      return { ok: false, message: 'El límite de crédito debe ser un monto mayor o igual a cero.' };
+    }
+  }
+
+  if (fields.credit_days !== undefined && fields.credit_days !== null) {
+    const days = Number(fields.credit_days);
+    if (!Number.isInteger(days) || days < 0) {
+      return { ok: false, message: 'El plazo de pago debe ser un número de días mayor o igual a cero.' };
+    }
+  }
+
+  if (fields.credit_status !== undefined && fields.credit_status !== null) {
+    if (!CREDIT_STATUS_VALUES.includes(fields.credit_status as (typeof CREDIT_STATUS_VALUES)[number])) {
+      return { ok: false, message: 'El estado de crédito no es válido.' };
+    }
+  }
+
+  return { ok: true };
+}

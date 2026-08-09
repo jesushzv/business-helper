@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { requireOrgAccess, isDemoDeployment } from '@/lib/apiAuth';
+import {
+  requireOrgAccess,
+  isDemoDeployment,
+  pickFields,
+  validateCreditTerms,
+  CLIENT_WRITABLE_FIELDS,
+} from '@/lib/apiAuth';
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
 
@@ -10,6 +16,15 @@ import { normalizeClientPhone } from '@/lib/phoneValidator';
  * but, when there was no session or no organization, returned a fabricated
  * `client-<timestamp>` object with a 201 — so the UI showed a client that had
  * never been stored.
+ *
+ * The body is read through `pickFields` like the quotes and receivables routes,
+ * rather than hand-destructured. The destructuring named camelCase keys
+ * (`contactName`, `regimenFiscal`, `codigoPostal`, `cfdiUse`) that the only
+ * caller never sends — it sends the column names — so all four silently
+ * resolved to undefined and were written as null while the UI reported the
+ * client saved. `regimen_fiscal` and `codigo_postal` are required to stamp a
+ * CFDI, so a client created through the form could never be invoiced (#96
+ * verification).
  */
 
 export async function GET() {
@@ -45,7 +60,12 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, contactName, email, phone, rfc, regimenFiscal, codigoPostal, cfdiUse, notes } = body;
+    const fields = pickFields<Record<string, unknown>>(body, CLIENT_WRITABLE_FIELDS);
+    const { name, rfc, phone } = fields as {
+      name?: unknown;
+      rfc?: unknown;
+      phone?: unknown;
+    };
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json(
@@ -62,6 +82,14 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+    }
+
+    const credit = validateCreditTerms(fields);
+    if (!credit.ok) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_CREDIT_TERMS', message: credit.message } },
+        { status: 400 }
+      );
     }
 
     // The phone is what a signature is later delivered to, so an unusable
@@ -81,16 +109,11 @@ export async function POST(request: Request) {
     const { data: newClient, error } = await supabase
       .from('clients')
       .insert({
+        ...fields,
         organization_id: organizationId,
         name: name.trim(),
-        contact_name: contactName ? String(contactName).trim() : null,
-        email: email ? String(email).trim() : null,
         phone: phoneNormalized.value,
         rfc: rfc ? String(rfc).toUpperCase().trim() : null,
-        regimen_fiscal: regimenFiscal || null,
-        codigo_postal: codigoPostal || null,
-        cfdi_use: cfdiUse || 'G03',
-        notes: notes || null,
         health_score: 100,
       })
       .select()

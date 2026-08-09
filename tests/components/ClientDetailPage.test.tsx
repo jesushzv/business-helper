@@ -185,3 +185,83 @@ describe('real financial data (#96)', () => {
     expect(screen.queryByText('$12,000 MXN')).toBeNull();
   });
 });
+
+/**
+ * The state every real client was actually in (#96 deployed verification).
+ *
+ * `clients.credit_limit` / `credit_days` / `credit_status` were declared in
+ * types/database.ts but no migration had ever created them, so in production
+ * all three read as undefined. The card collapsed that into an authorized limit
+ * of $0 under a green "Activo" badge — terms nobody had set, on the screen
+ * where the owner decides whether to extend more credit.
+ */
+describe('a client with no credit line configured', () => {
+  const UNASSESSED = {
+    ...SERVER_CLIENT,
+    credit_limit: null,
+    credit_days: null,
+    credit_status: null,
+  };
+
+  it('says no credit line is assigned instead of showing a green "Activo" over $0', async () => {
+    answerApis({ clients: jsonResponse(200, { clients: [UNASSESSED] }) });
+    renderPage();
+
+    expect(await screen.findByText(/Sin línea de crédito asignada/i)).toBeTruthy();
+    expect(screen.queryByText('Activo')).toBeNull();
+    expect(screen.queryByText(/Límite de Crédito Autorizado/i)).toBeNull();
+    // "Contado (0 días)" states payment terms the owner never chose.
+    expect(screen.queryByText(/Contado \(0 días\)/i)).toBeNull();
+  });
+
+  it('still shows money genuinely owed, so the balance is not hidden', async () => {
+    answerApis({
+      clients: jsonResponse(200, { clients: [UNASSESSED] }),
+      receivables: [
+        {
+          id: 'm-1',
+          contract_id: 'c-1',
+          organization_id: 'org-real-1',
+          label: 'Anticipo',
+          amount: 5000,
+          due_date: '2026-09-01',
+          status: 'pending',
+          contracts: { id: 'c-1', title: 'Obra', clients: { id: 'client-real-1', name: 'Aceros' } },
+        },
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByText(/Saldo Pendiente de Cobro/i)).toBeTruthy();
+    expect(screen.getByText('$5,000 MXN')).toBeTruthy();
+  });
+});
+
+describe('the SAT fiscal card does not fake a profile the client does not have', () => {
+  it('marks missing régimen and código postal instead of showing 601 / N/A', async () => {
+    answerApis({
+      clients: jsonResponse(200, {
+        clients: [{ ...SERVER_CLIENT, regimen_fiscal: null, codigo_postal: null }],
+      }),
+    });
+    renderPage();
+
+    await screen.findAllByText('Aceros del Bajío S.A. de C.V.');
+    // '601' rendered as a fallback made an unconfigured client look ready to
+    // invoice under someone else's tax regime.
+    expect(screen.queryByText('601')).toBeNull();
+    expect(screen.getAllByText(/Falta capturar/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/no podrás facturarle/i)).toBeTruthy();
+  });
+
+  it('shows the stored values when they exist, with no warning', async () => {
+    answerApis({ clients: jsonResponse(200, { clients: [SERVER_CLIENT] }) });
+    renderPage();
+
+    await screen.findAllByText('Aceros del Bajío S.A. de C.V.');
+    expect(screen.getByText('601')).toBeTruthy();
+    expect(screen.getByText('37000')).toBeTruthy();
+    expect(screen.queryByText(/Falta capturar/i)).toBeNull();
+    expect(screen.queryByText(/no podrás facturarle/i)).toBeNull();
+  });
+});
