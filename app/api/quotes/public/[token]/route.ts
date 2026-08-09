@@ -48,7 +48,8 @@ function demoQuote(token: string) {
     status: 'sent',
     valid_until: '2026-08-30',
     notes: 'Entrega directa en obra en 48 horas hábiles tras recibir anticipo del 50%.',
-    public_token: token || 'demo-token',
+    // The route always has a token from its own params; echo it verbatim.
+    public_token: token,
     contract_hash: null,
     accepted_at: null,
     created_at: new Date().toISOString(),
