@@ -104,28 +104,10 @@ that were blocking. What remains is configuration and one real transaction, not 
 | ~~Complemento de Pago~~ | ✅ Merged (#29) — filed when a PPD milestone is confirmed. Was P2. | Cleared |
 | ~~**#22** — OTP escalating backoff + daily cap~~ | ✅ In the non-P0 bulk PR (2026-08-09, pending merge): per-phone doubling backoff replaces the flat cooldown, 15/day cap, and a provider failure no longer burns a quote's lifetime budget (#60, decided: release). | Cleared on merge |
 
-### Recently landed (2026-08-07 → 2026-08-08)
+### Recently landed
 
-*Every row below is merged to `main` — the commit is the verification, checked with `git log` on
-2026-08-08. The reasoning for each change, and what was checked against what, is preserved in the
-frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).*
-
-| What landed | Issues | PR | Commit |
-|:---|:---|:---|:---|
-| Five fail-loud fixes across auth, onboarding, quotes, OTP and tooling — including `/q/[token]` rendering the client's real quote instead of one hardcoded fixture for every token | #39 #43 #44 #48 #49 #50 #58 | #57 | `4c565ff` |
-| Payment links refused before a CLABE exists — server-side 409, non-dismissable banner, disabled share actions | #64 | #75 | `870090e` |
-| Every `/pay/` link resolvable or none offered — the token comes from `quotes.public_token`, never a milestone or contract id | #72 #73 #74 #78 | #80 | `0a4ddad` |
-| Zero-warning lint gate made real — 22 warnings cleared, `--max-warnings=0` enforced, failure confirmed with a planted warning | #46 | #83 | `64deeef` |
-| One Spanish coded error envelope across the three public routes | #65 | #86 | `c671ce5` |
-| Build fails on a `SECURITY DEFINER` function without a per-role revoke | #76 | #92 | `7d4617d` |
-| `clients.phone` validated server-side on write, failing closed when it cannot be dialed | #40 | #102 | `a378c7e` |
-| Production migrations applied and confirmed by inspecting the live schema (an ops action, no commit) | #62 | — | 2026-08-08 |
-
-> [!IMPORTANT]
-> **What none of the above changed.** Every row was verified by `typecheck` + `lint` + the vitest
-> suite against **mocked** providers. Not one constitutes a live third-party round-trip. The P0 items
-> in §03 that need a real handset, a real card, a real PAC stamp or a deployed database are untouched
-> by all of it — merging is not verification.
+Moved to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-09 —
+settled history, not current state. Eight rows spanning #39–#102 plus the production migrations.
 
 ---
 
