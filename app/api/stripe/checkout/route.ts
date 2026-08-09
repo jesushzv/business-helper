@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
-import { createCheckoutPayload, STRIPE_PLANS } from '@/lib/stripe';
+import { createCheckoutPayload, normalizeTierKey } from '@/lib/stripe';
 import { createCheckoutSession, isStripeConfigured } from '@/lib/stripeClient';
 import { hasCapability } from '@/lib/teamRBAC';
 
@@ -17,6 +17,11 @@ import { hasCapability } from '@/lib/teamRBAC';
  * The tier itself is not granted here. Only the webhook, which verifies
  * Stripe's signature, writes `subscription_tier` — this endpoint has no
  * evidence anyone has paid.
+ *
+ * A tier whose `STRIPE_PRICE_*` variable is unset gets its own 503 naming that
+ * variable, rather than a generic Stripe failure: the payload used to fall back
+ * to an invented price id, so an unmapped tier and a Stripe outage produced the
+ * identical message and nobody could tell which had happened (#68).
  */
 export async function POST(request: Request) {
   const auth = await requireOrgAccess();
@@ -40,8 +45,9 @@ export async function POST(request: Request) {
     const { tierId, returnUrl } = body;
 
     const requestedTier = typeof tierId === 'string' ? tierId : 'negocio';
+    const normalizedTier = normalizeTierKey(requestedTier);
 
-    if (!STRIPE_PLANS[requestedTier]) {
+    if (!normalizedTier) {
       return NextResponse.json(
         { error: { code: 'INVALID_TIER', message: 'Plan de suscripción no válido' } },
         { status: 400 }
@@ -74,11 +80,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const payload: Record<string, unknown> = createCheckoutPayload(
-      requestedTier,
-      organizationId,
-      safeReturnUrl
-    );
+    const built = createCheckoutPayload(normalizedTier, organizationId, safeReturnUrl);
+
+    if (!built.ok) {
+      // The tier is valid but this deployment has no Price id for it. Say so —
+      // and log the variable, so the founder is not left comparing a generic
+      // payment error against a Stripe status page.
+      console.error(
+        `[stripe] no price id configured for tier ${normalizedTier}; set ${
+          built.code === 'PRICE_NOT_CONFIGURED' ? built.envVar : 'STRIPE_PRICE_*'
+        }`
+      );
+      return NextResponse.json(
+        {
+          error: {
+            code: 'STRIPE_PRICE_NOT_CONFIGURED',
+            message: 'Este plan todavía no está disponible para contratación en línea.',
+          },
+        },
+        { status: 503 }
+      );
+    }
+
+    const payload: Record<string, unknown> = built.payload;
 
     // Reuse the organization's Stripe customer when it has one, so a second
     // subscription does not create a duplicate customer record.
@@ -94,9 +118,11 @@ export async function POST(request: Request) {
 
     const result = await createCheckoutSession(
       payload,
-      // Scoped to the tenant and tier so a double-click reuses one session,
-      // while a genuine later upgrade still creates its own.
-      `checkout:${organizationId}:${requestedTier}:${new Date().toISOString().slice(0, 13)}`
+      // Scoped to the tenant and canonical tier so a double-click reuses one
+      // session — and so an alias ('pro') and its canonical name ('negocio') do
+      // not open two sessions for the same purchase — while a genuine later
+      // upgrade still creates its own.
+      `checkout:${organizationId}:${normalizedTier}:${new Date().toISOString().slice(0, 13)}`
     );
 
     if (!result.ok) {

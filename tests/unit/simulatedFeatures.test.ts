@@ -116,7 +116,14 @@ describe('Stripe checkout is a real session', () => {
   });
 
   it('propagates the organization onto the subscription so webhooks can attribute it', () => {
-    const payload = createCheckoutPayload('negocio', 'org-abc') as {
+    const built = createCheckoutPayload('negocio', 'org-abc', undefined, {
+      STRIPE_PRICE_NEGOCIO: 'price_live_negocio',
+    });
+
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+
+    const payload = built.payload as {
       subscription_data: { metadata: { organization_id: string } };
       client_reference_id: string;
     };
