@@ -77,9 +77,20 @@
 - `cfdi_use`: text (nullable, default: `'G03'`) -- SAT CFDI Usage (e.g., 'G03', 'P01')
 - `notes`: text (nullable)
 - `health_score`: int4 (not null, default: `100`) -- 0 to 100 payment reliability score
-- `credit_limit`: numeric(12,2) (nullable, default: `0.00`) -- Authorised credit limit line ($ MXN)
-- `credit_days`: int4 (nullable, default: `0`) -- Default payment terms in days (e.g., 0, 15, 30, 60)
-- `credit_status`: text (nullable, default: `'active'`) -- 'active' | 'suspended' | 'blocked'
+- `credit_limit`: numeric(12,2) (nullable, **no default**) -- Authorised credit limit line ($ MXN). NULL = no credit line has ever been configured
+- `credit_days`: int4 (nullable, **no default**) -- Payment terms in days. NULL = never configured; `0` is a real answer meaning contado
+- `credit_status`: text (nullable, **no default**, CHECK in `'active' | 'suspended' | 'blocked'`) -- NULL = never configured
+
+> **These three carry no default on purpose.** This document previously
+> specified them as `default 0.00 / 0 / 'active'`, and no migration ever created
+> them at all — the columns were absent from production while `types/database.ts`
+> declared them, so every read resolved to `undefined`. Defaulting would have
+> made the resulting bug permanent rather than fixing it: a client nobody has
+> assessed would be indistinguishable from one deliberately authorised at zero,
+> and would render under a confident green "Activo" badge on the screen where
+> the owner decides whether to extend more credit. Consumers must branch on
+> `credit_limit IS NULL` (see `isConfigured` in `lib/clientCredit.ts`).
+> Created by `20260809180000_clients_credit_terms.sql`.
 - `created_at`: timestamptz (not null, default: `now()`)
 - `updated_at`: timestamptz (not null, default: `now()`)
 

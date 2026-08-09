@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Client, LineItem } from '@/types';
 import { calculateQuoteTotals } from '@/lib/quoteCalculator';
 import { calculateClientCreditSummary, validateQuoteCreditLimit } from '@/lib/clientCredit';
+import { useReceivables } from '@/lib/hooks/useReceivables';
 import { X, Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles, AlertTriangle } from 'lucide-react';
 
 interface QuoteWizardModalProps {
@@ -66,6 +67,12 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
     }
   };
 
+  // The client's open receivables are what consume the line. Omitting them made
+  // `usedCredit` always 0, so a client who already owed $48,000 of a $50,000
+  // line was shown "$50,000 MXN Disp." and the over-limit warning only fired
+  // for a quote larger than the entire line (#96 money-path review).
+  const { receivables, loading: receivablesLoading, error: receivablesError } = useReceivables();
+
   if (!isOpen) return null;
 
   const totals = calculateQuoteTotals(lineItems, {
@@ -75,7 +82,11 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   });
 
   const selectedClient = clients.find((c) => c.id === (clientId || clients[0]?.id));
-  const creditSummary = calculateClientCreditSummary(selectedClient);
+  const balanceKnown = !receivablesLoading && !receivablesError;
+  const creditSummary = calculateClientCreditSummary(
+    selectedClient,
+    balanceKnown ? receivables.filter((m) => m.client_id === selectedClient?.id) : []
+  );
   const creditValidation = validateQuoteCreditLimit(
     totals.totalAmount,
     creditSummary.availableCredit,
@@ -204,9 +215,20 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                       <span className={`font-extrabold px-2 py-0.5 rounded-md ${
                         creditSummary.status === 'blocked' ? 'bg-rose-950 text-rose-400 border border-rose-500/30' :
                         creditSummary.status === 'suspended' ? 'bg-amber-950 text-amber-400 border border-amber-500/30' :
-                        'bg-emerald-950 text-emerald-400 border border-emerald-500/30'
+                        creditSummary.status === 'active' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' :
+                        'bg-slate-900 text-slate-400 border border-slate-700'
                       }`}>
-                        {creditSummary.totalLimit > 0 ? `$${creditSummary.availableCredit.toLocaleString('es-MX')} MXN Disp. (${creditSummary.creditDays}d)` : 'Contado (0 días)'}
+                        {/* "Contado (0 días)" used to be the else branch for
+                            everything, so a client nobody had assessed got a
+                            confident green badge stating terms the owner never
+                            set (#96). */}
+                        {!creditSummary.hasLimit
+                          ? 'Sin línea de crédito'
+                          : !balanceKnown
+                          ? `$${creditSummary.totalLimit.toLocaleString('es-MX')} MXN de límite`
+                          : `$${creditSummary.availableCredit.toLocaleString('es-MX')} MXN Disp.${
+                              creditSummary.creditDays === null ? '' : ` (${creditSummary.creditDays}d)`
+                            }`}
                       </span>
                     </div>
 

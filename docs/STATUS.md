@@ -75,7 +75,7 @@ until checked against source. This memo does that check; §06 records the method
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **825 tests / 100 files**, `npx vitest run` (2026-08-09, `claude/issue-95-pr-9rqlj9`) — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **860 tests / 101 files**, `npx vitest run` (2026-08-09, `claude/issue-95-pr-9rqlj9`) — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -150,7 +150,7 @@ frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08
 | 3 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 | 4 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
 | 5 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
-| 6 | **The UX-audit trio: demo identity, fabricated settings save, fabricated client history.** All three fixed in code on 2026-08-08 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): real org/user identity in chrome and outbound WhatsApp with a logout that finally exists (#93); Ajustes reads and writes the real organization row instead of localStorage + a 405 (#95); client detail derives its financial modules from real rows behind a three-state loading gate (#96). **#95's deployed verification is done** (2026-08-09, see below); #93 and #96 still need one pass through a real tenant's dashboard and a client page. | [#93](https://github.com/jesushzv/business-helper/issues/93) · [#95](https://github.com/jesushzv/business-helper/issues/95) · [#96](https://github.com/jesushzv/business-helper/issues/96) |
+| 6 | **The UX-audit trio: demo identity, fabricated settings save, fabricated client history.** All three fixed in code on 2026-08-08 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): real org/user identity in chrome and outbound WhatsApp with a logout that finally exists (#93); Ajustes reads and writes the real organization row instead of localStorage + a 405 (#95); client detail derives its financial modules from real rows behind a three-state loading gate (#96). **Two of the three were verified against production on 2026-08-09.** #95's save passed (see below). #96's **failed**, and finding two further live defects, both now fixed: `clients.credit_limit` / `credit_days` / `credit_status` did not exist in production at all (declared in `types/database.ts`, collected by the form, never migrated — so every client showed a $0 limit under a green "Activo", and every credit edit was silently discarded), and both clients routes destructured camelCase keys off a snake_case body, dropping `contact_name` / `regimen_fiscal` / `codigo_postal` / `cfdi_use` on every write. Migration `20260809180000` is applied and confirmed in production. #93 still awaits its walkthrough; #96 awaits only the rendered page for a signed-in tenant; #95's remaining gap is a non-owner's read-only view. | [#93](https://github.com/jesushzv/business-helper/issues/93) · [#95](https://github.com/jesushzv/business-helper/issues/95) · [#96](https://github.com/jesushzv/business-helper/issues/96) |
 | 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
 **#95's save verified against production on 2026-08-09.** The shell in a remote session cannot
@@ -182,15 +182,18 @@ closed as already-done (PR #75).
 fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
 
 > [!NOTE]
-> **Every remaining row needs the founder — with one correction made on 2026-08-09.** Rows 1–4 and
-> 7 are credentials, accounts, a real handset and a real card, and no agent can supply those.
-> Rows 5 and 6 were also filed here as founder work, and that was wrong: "verify against a real
-> deployment" is agent-takeable whenever the deployment can be reached, and #95's was, using the
-> `http` extension from inside Postgres to call `businesshelper.app` (the shell's egress is
-> blocked; the database's is not). Before parking a verification on the founder, check whether it
-> needs a *human* (a handset, a card, a vendor account) or only *reach* — #79 sat unverifiable for
-> a day for exactly this reason, and #95's row repeated it. Row 5 (#64) and the #93/#96 halves of
-> row 6 are the ones to re-examine next under that rule.
+> **Most remaining rows need the founder — and the note that said *every* row did was wrong.**
+> Rows 1–4 and 7 are credentials, accounts, a real handset and a real card; no agent supplies those.
+> Rows 5 and 6 were filed here too, and on 2026-08-09 two sessions took their "needs a deployment"
+> criteria directly. #96's check **failed**, surfacing two live defects nobody had seen (a table
+> missing three columns the code depended on; a write path silently dropping four fields, two of
+> them required to stamp a CFDI). #95's passed, reaching `businesshelper.app` itself over the `http`
+> extension from inside Postgres — the shell's egress is blocked, the database's is not.
+> **The rule: ask whether a step needs a *human* or only *reach*.** Schema, grants, constraints,
+> PostgREST behaviour and the deployed API are all reachable from the connector. What genuinely
+> needs a human is the browser session and the real credential — the rendered page, the code on a
+> handset, the card that charges. #79 sat unverifiable for a day and #95 for three weeks for want
+> of this distinction. Row 5 (#64) and #93's half of row 6 are the ones to re-examine next.
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without
@@ -327,7 +330,7 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 825 tests / 100 files as of 2026-08-09
+npx vitest run                 # 860 tests / 101 files as of 2026-08-09
                                # (earlier counts, and what each pass verified, are in the frozen
                                #  log at docs/99-archive/status-log-2026-08.md)
 npm run typecheck
