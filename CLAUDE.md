@@ -112,8 +112,8 @@ engineering journal.
 5. **Production-first architecture**: build for Vercel + Supabase Cloud + live APIs, not
    local-only/mock-only setups, unless explicitly told otherwise.
 6. **Migration ordering**: Vercel auto-deploys `main` and migrations are applied by hand, so the
-   deploy can outrun the schema. A PR carrying a migration must have it applied **before or with**
-   the merge (`npm run db:migrate:dry` first). CI posts a reminder; treat it as a requirement.
+   deploy can outrun the schema. A PR carrying one must have it applied **before or with** the merge
+   (`npm run db:migrate:dry` first). CI's reminder is a requirement, not a note.
 7. **Tests import the `.ts` sources** — never hand-maintained `.js` mirrors (retired in PR #21).
    Every code change ships with corresponding Vitest coverage; keep the 85% gate.
    **Before fixing a bug, grep the suite for the defect's shape — the test that should have caught
@@ -135,17 +135,13 @@ engineering journal.
   and anything touching money, fiscal documents, auth, or OTP. Before writing SQL or Supabase
   calls, verify field names against `docs/02-architecture/database-schema-design.md`.
 - **The `@agent` names in that playbook are mostly not executable — the loop itself is.** The nine
-  agents named in `ecc-execution-playbook.md` §03 and `MASTER_PROMPT.md` §06 come from the
-  third-party "Everything Claude Code" suite, which was never installed. What exists here:
-  Two roles are defined for real in `.claude/agents/`, chosen because they cover the two defect
-  classes this repo has actually produced (#35 unverified migrations; the CFDI simulation incident
-  and #33 fabricated state):
-  - ✅ **`database-reviewer`** subagent — run on any diff touching migrations, RLS, or query patterns.
-  - ✅ **`money-path-reviewer`** subagent — run on any diff touching payments, CFDI, Stripe, folios,
-    receivables.
+  in `ecc-execution-playbook.md` §03 and `MASTER_PROMPT.md` §06 come from the third-party
+  "Everything Claude Code" suite, never installed. Real, in `.claude/agents/`, covering the two
+  defect classes this repo has produced (#35; the CFDI incident and #33):
+  - ✅ **`database-reviewer`** — any diff touching migrations, RLS, or query patterns.
+  - ✅ **`money-path-reviewer`** — any diff touching payments, CFDI, Stripe, folios, receivables.
   - `@planner`/`@architect` → the `Plan` subagent; `@security-reviewer` → `/security-review`;
-    `@code-reviewer` → `/code-review`; `@tdd-guide`/`@build-error-resolver`/`@e2e-runner` → no
-    equivalent, perform the step directly.
+    `@code-reviewer` → `/code-review`; the rest have no equivalent — perform the step directly.
 - **Light path** for small fixes, copy, and docs: make the change, add/update a test, run the
   quality gate. No spec-doc ceremony required.
 - The hard rules above and the quality gate are non-negotiable at every size.
@@ -221,10 +217,16 @@ not actually earned. It has shipped here at least eight times.
   the fetch — never as a fallback in a `catch`** (#58 signing page, #86 `/pay/[token]`). A
   catch-fallback turns every real tenant's network failure into a fake confirmation: `/pay/[token]`
   showed a payer "Comprobante enviado correctamente" for a declaration the API had rejected.
-- **Placeholder identifiers are the same rule wearing a UI costume** (#44, #78): `token || 'demo'`,
-  `id || 'demo_token'`, `phone || '8115551234'` each render as a live, tappable control. Absent is
-  absent — render the **disabled** control and **name the specific record** the tenant must fix; a
-  missing CLABE reported as a missing phone number sends them to edit the wrong thing.
+- **Placeholder identifiers are the same rule wearing a UI costume** (#44, #78, #106): `token ||
+  'demo'`, `phone || '8115551234'` each render as a live, tappable control. Absent is absent —
+  render the **disabled** control and **name the specific record** to fix — a missing CLABE reported
+  as a missing phone sends them to the wrong form.
+  `tests/unit/placeholderIdentifiers.test.ts` scans for the shape and fails the build.
+- **A verification script's exit code is a claim.** `verify:webhook` printed "All 4 checks passed"
+  for a run that skipped the two checks protecting money — and those four also passed against an
+  endpoint with *no* secret, which rejects everything (#63; #118 is `verify:otp`'s version). An
+  incomplete run exits non-zero naming what it skipped, no opt-out flag; every set of negative
+  checks carries a positive control; and a missing credential answers 503, not 400.
 - **An all-optional interface cannot tell you a mapping is missing** (#78). `MilestoneWithClient`
   declares every client/contract field optional, so `useReceivables` assigning raw API rows into it
   was not a type error — and the only thing ever populating those fields was the demo fixtures in
@@ -259,6 +261,10 @@ not actually earned. It has shipped here at least eight times.
   implicit `PUBLIC` grant leaves those standing, and PostgREST serves the function at
   `/rest/v1/rpc/<name>` outside RLS (#76 — unlimited folio minting). Always
   `REVOKE EXECUTE ON FUNCTION public.f(<signature>) FROM anon, authenticated;`.
+  **A `.update()`/`.delete()` matching zero rows returns `{ error: null }`** — chain `.select('id')`
+  and check the array whenever the response tells anyone it worked, or a well-formed id belonging to
+  no row reports success for a write that never happened (#63: the Stripe webhook answered
+  `200 { processed }` for a tier change it never applied, and Stripe stopped retrying).
   `tests/unit/securityDefinerGrants.test.ts` fails the build on a new one without it, and holds the
   single deliberate exemption (`user_organization_ids()` — RLS policies call it as the querying
   role, so revoking it breaks every policy). That test reads migration *files*; the live grants
@@ -267,10 +273,9 @@ not actually earned. It has shipped here at least eight times.
 ### Tooling and process traps
 
 - The lint gate is real: `next lint --max-warnings=0`, debt cleared to zero. Any new warning fails
-  `npm run lint`, and therefore `npm test` and CI. The 14 `<img>` sites carry scoped, per-site
-  `eslint-disable-next-line` comments with reasons (SVG logos: permanent; PNG screenshots: until the
-  `next/image` migration in [#82](https://github.com/jesushzv/business-helper/issues/82)). Don't add
-  a new bare `<img>`; don't widen a scoped disable to file level.
+  `npm run lint`, and therefore `npm test` and CI. Existing `<img>` sites carry scoped, per-site
+  `eslint-disable-next-line` comments with reasons ([#82](https://github.com/jesushzv/business-helper/issues/82)
+  tracks the `next/image` migration). Don't add a bare `<img>`; don't widen a disable to file level.
 - CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38). After
   opening a PR, verify the `CI` check actually ran; absence looks identical to passing.
 - E2E exists but is not in CI; never cite Playwright results you didn't run.
@@ -298,17 +303,15 @@ not actually earned. It has shipped here at least eight times.
   swallowed by `.catch(() => {})`, reported as success (#95). A method mismatch is the quietest
   fabricated-success there is: no test that mocks `fetch` can see it. The same grep takes seconds:
   `grep "export async function" app/api/<route>/route.ts`.
-- **The demo persona lives behind `isClientDemoMode()` and nowhere else.** "Don Roberto" /
-  "Distribuidora del Norte" / RFC `DNO850101…` shipped hardcoded in the header, sidebar, dashboard
-  greeting and three client-facing WhatsApp builders (#93). Identity in chrome comes from
-  `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in `lib/whatsappLink.ts`
-  (org name as a parameter — never a literal, and omit the signature when unknown).
-  `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak and keeps the file allowlist;
-  extending the allowlist requires the string to actually sit behind a demo gate.
+- **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93 — "Don Roberto" /
+  "Distribuidora del Norte" shipped hardcoded in chrome and three WhatsApp builders). Identity in
+  chrome comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
+  `lib/whatsappLink.ts` (org name as a parameter, signature omitted when unknown).
+  `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak and holds the allowlist;
+  extending it requires the string to actually sit behind a demo gate.
 - **localStorage is demo-sandbox state, never a real tenant's store.** Real tenants read the API
-  (an empty list is a real answer), see errors as errors, and their mutations apply the server row
-  or throw. Seeding fixtures into localStorage on a failed fetch is how a new tenant's directory
-  opened with three invented companies (#93/#96 audit; same class as #33/#50/#58).
+  (an empty list is a real answer) and see errors as errors. Seeding fixtures on a failed fetch is
+  how a new tenant's directory opened with three invented companies (#93/#96; class of #33/#50/#58).
 
 ## GitHub conventions
 
@@ -317,12 +320,11 @@ not actually earned. It has shipped here at least eight times.
   steps, and a fix sketch — see #36/#39/#40 for the house style. The tracker is the journal; write
   issues so a future session needs no other context.
 - **An issue's enumeration is a starting point, not an inventory — re-run the search that produced
-  it.** #73 listed *two* builders with a hardcoded origin; there were three (`lib/whatsappReminder.ts`
-  was missed). #46's lint count was wrong three times; #64's body described two holes and its comment
-  a third state. These lists go stale the moment a PR moves code, and a fix scoped to the list leaves
-  the remainder in place *looking* closed. Re-derive the set with a grep you can paste into the PR,
-  and if your count differs from the issue's, **say so explicitly** rather than quietly fixing more
-  than was asked. (The same applies to any tally quoted in a doc: count the whole output yourself.)
+  it.** #73 listed *two* builders with a hardcoded origin; there were three. #46's lint count was
+  wrong three times. These lists go stale the moment a PR moves code, and a fix scoped to the list
+  leaves the remainder *looking* closed. Re-derive the set with a grep you can paste into the PR,
+  and if your count differs from the issue's, **say so explicitly**. (Same for any tally in a doc:
+  count the whole output yourself.)
 - **`Closes #N` claims the issue's *exit criteria* are met — not that you wrote the code.** When
   those criteria name a deployed behaviour (a real OAuth round-trip, a live PAC stamp, a code on a
   real handset), the issue stays open after merge: write `Refs #N` instead and say in the PR what

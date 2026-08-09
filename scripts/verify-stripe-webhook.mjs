@@ -16,6 +16,15 @@
  * passing run means one was applied. Use a staging deployment and an ORG_ID you
  * are willing to have written to.
  *
+ * ⚠ The allowlist below guards the URL, not the database behind it. A Vercel
+ * preview is a preview of the *code*; its environment variables come from the
+ * same project, and Vercel applies a variable to Preview as well as Production
+ * unless it was explicitly scoped otherwise. So a `*.vercel.app` target can be
+ * holding the production SUPABASE_SERVICE_ROLE_KEY, and the two ORG_ID checks
+ * would write subscription_tier and subscription_status to a real tenant's row.
+ * Confirm which project the target's Supabase variables point at before setting
+ * ORG_ID. The signature checks write nothing and are safe either way.
+ *
  * ── Why a rejection-only run is not a sign-off ────────────────────────────────
  *
  * This script used to run four rejection checks, skip the accept-and-process

@@ -160,6 +160,18 @@ money, and they write to that organization, so use a staging target you are
 willing to change. Without it the script runs the signature checks, prints
 `INCOMPLETE`, and **exits non-zero**; there is no flag to turn that into a pass.
 
+> [!WARNING]
+> **The target allowlist guards the URL, not the database behind it.** The
+> script refuses any host that is not localhost, a `*.vercel.app` preview, or
+> `staging.*`. A Vercel preview is a preview of the *code*: its environment
+> variables come from the same project, and Vercel applies a variable to Preview
+> as well as Production unless it was scoped otherwise. A preview of this repo
+> can therefore hold the production `SUPABASE_SERVICE_ROLE_KEY`, and the two
+> `ORG_ID` checks would write `subscription_tier` and `subscription_status` to a
+> real tenant. Check which Supabase project the target's variables point at
+> before setting `ORG_ID`. The six signature checks write nothing and are safe
+> against any allowlisted target.
+
 What a green run proves, and what it does not:
 
 | Proved | Not proved |
