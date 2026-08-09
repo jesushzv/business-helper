@@ -82,13 +82,16 @@ describe('BrandingSettingsCard — the logo field follows the server row', () =>
     );
 
     const input = screen.getByPlaceholderText('https://ejemplo.com/logo.png') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '  https://cdn.example.com/logo.png  ' } });
+    // Deliberately not a whitespace-only difference: jsdom applies the URL
+    // value sanitizer to `type="url"`, so a trim would be indistinguishable
+    // from the card doing nothing and this assertion would never go red.
+    fireEvent.change(input, { target: { value: 'https://cdn.example.com/typed.png' } });
     fireEvent.submit(input.closest('form') as HTMLFormElement);
     await waitFor(() => expect(onSave).toHaveBeenCalled());
 
     rerender(
       <BrandingSettingsCard
-        settings={{ ...SERVER_ROW, logo_url: 'https://cdn.example.com/logo.png' }}
+        settings={{ ...SERVER_ROW, logo_url: 'https://cdn.example.com/stored.png' }}
         onSave={onSave}
         saving={false}
         canEdit
@@ -98,7 +101,7 @@ describe('BrandingSettingsCard — the logo field follows the server row', () =>
     await waitFor(() =>
       expect(
         (screen.getByPlaceholderText('https://ejemplo.com/logo.png') as HTMLInputElement).value
-      ).toBe('https://cdn.example.com/logo.png')
+      ).toBe('https://cdn.example.com/stored.png')
     );
   });
 });
