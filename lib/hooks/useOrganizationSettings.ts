@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { STRIPE_PLANS, StripeTierConfig, validateSubscriptionStatus, SubscriptionStatusResult } from '../stripe';
+import { validateSubscriptionStatus, SubscriptionStatusResult } from '../stripe';
 import { isClientDemoMode } from '../clientDemoMode';
 
 export interface OrganizationSettings {
@@ -13,8 +13,25 @@ export interface OrganizationSettings {
   codigo_postal: string;
   phone: string;
   logo_url: string | null;
-  subscription_tier: 'inicial' | 'negocio' | 'empresa';
-  subscription_status: 'active' | 'past_due' | 'canceled';
+  /**
+   * `null` when the row names no paid plan — which is every organization that
+   * has never checked out, since `organizations.subscription_tier` defaults to
+   * `'free'` and no such plan exists in `STRIPE_PLANS`. Mapping that to
+   * `'inicial'` (as this hook did) told a tenant who has never paid that they
+   * were on the $299/mes plan, and the billing card disabled its own
+   * subscribe button because it read them as already subscribed.
+   */
+  subscription_tier: 'inicial' | 'negocio' | 'empresa' | null;
+  /**
+   * Passed through verbatim from the row; `validateSubscriptionStatus` is the
+   * only thing that interprets it. The narrow `'active' | 'past_due' |
+   * 'canceled'` union this used to be predated the constraint widening in
+   * `20260806120000_security_hardening.sql`, which accepts the four extra
+   * statuses Stripe actually reports — so `unpaid`, `incomplete` and
+   * `incomplete_expired` all fell through to `'active'` and a tenant Stripe
+   * had stopped collecting from was badged "Activo".
+   */
+  subscription_status: string;
 }
 
 export type OrganizationRole = 'owner' | 'manager' | 'member';
@@ -58,8 +75,9 @@ export function toOrganizationSettings(row: Record<string, unknown>): Organizati
     codigo_postal: typeof row.codigo_postal === 'string' ? row.codigo_postal : '',
     phone: typeof row.phone === 'string' ? row.phone : '',
     logo_url: typeof row.logo_url === 'string' && row.logo_url ? row.logo_url : null,
-    subscription_tier: tier === 'negocio' || tier === 'empresa' ? tier : 'inicial',
-    subscription_status: status === 'past_due' || status === 'canceled' ? status : 'active',
+    subscription_tier:
+      tier === 'inicial' || tier === 'negocio' || tier === 'empresa' ? tier : null,
+    subscription_status: typeof status === 'string' && status ? status : 'active',
   };
 }
 
@@ -162,8 +180,9 @@ export function useOrganizationSettings() {
     [demo]
   );
 
-  const currentTierConfig: StripeTierConfig =
-    STRIPE_PLANS[settings?.subscription_tier ?? 'inicial'] || STRIPE_PLANS.inicial;
+  // `currentTierConfig` used to be returned here, resolving an unknown tier to
+  // STRIPE_PLANS.inicial. Nothing consumed it and the fallback was a claim the
+  // server had not made, so it is gone rather than corrected.
   const subscriptionStatusInfo: SubscriptionStatusResult = validateSubscriptionStatus(
     settings?.subscription_status ?? 'active'
   );
@@ -171,7 +190,6 @@ export function useOrganizationSettings() {
   return {
     settings,
     role,
-    currentTierConfig,
     subscriptionStatusInfo,
     loading,
     saving,

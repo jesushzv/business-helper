@@ -185,8 +185,50 @@ describe('toOrganizationSettings', () => {
     const mapped = toOrganizationSettings({ id: 'org-x', name: 'Real' });
     expect(mapped.rfc).toBe('');
     expect(mapped.phone).toBe('');
-    expect(mapped.subscription_tier).toBe('inicial');
     expect(JSON.stringify(mapped)).not.toContain('8115551234');
+  });
+
+  /**
+   * This assertion previously read `toBe('inicial')` — a test pinning the
+   * defect rather than catching it (CLAUDE.md rule 7). `organizations`
+   * defaults `subscription_tier` to `'free'`, there is no `'free'` plan in
+   * STRIPE_PLANS, and mapping it to `'inicial'` told every organization that
+   * has never checked out it was on the $299/mes plan.
+   */
+  /**
+   * The database accepts the seven statuses Stripe reports (widened in
+   * 20260806120000_security_hardening.sql). Collapsing the four it did not
+   * recognise into 'active' badged a tenant Stripe had stopped collecting from
+   * as "Activo".
+   */
+  it('passes the subscription status through instead of rounding it up to active', () => {
+    for (const status of ['unpaid', 'incomplete', 'incomplete_expired', 'trialing']) {
+      expect(
+        toOrganizationSettings({ ...SERVER_ROW, subscription_status: status })
+          .subscription_status
+      ).toBe(status);
+    }
+    expect(
+      toOrganizationSettings({ ...SERVER_ROW, subscription_status: 'past_due' })
+        .subscription_status
+    ).toBe('past_due');
+    // Absent is the one case that gets a default, and it stays the old one.
+    expect(toOrganizationSettings({ id: 'x', name: 'y' }).subscription_status).toBe('active');
+  });
+
+  it('reports no tier at all when the row names no paid plan', () => {
+    expect(toOrganizationSettings({ id: 'org-x', name: 'Real' }).subscription_tier).toBeNull();
+    expect(
+      toOrganizationSettings({ ...SERVER_ROW, subscription_tier: 'free' }).subscription_tier
+    ).toBeNull();
+    // The retired tier key (#renamed to 'inicial') is not silently revived.
+    expect(
+      toOrganizationSettings({ ...SERVER_ROW, subscription_tier: 'emprendedor' })
+        .subscription_tier
+    ).toBeNull();
+    expect(
+      toOrganizationSettings({ ...SERVER_ROW, subscription_tier: 'negocio' }).subscription_tier
+    ).toBe('negocio');
   });
 
   it('reduces a legacy display label to the SAT code', () => {
