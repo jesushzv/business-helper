@@ -52,3 +52,103 @@ describe('B2B Client Trade Credit & SAT PPD/CPP Invoicing Engine', () => {
     expect(res.warningMessage).toContain('suspendido');
   });
 });
+
+/**
+ * Unknown is not zero (#96).
+ *
+ * `clients.credit_limit` is nullable with no default, so a client nobody has
+ * assessed and a client deliberately authorized for $0 are different facts.
+ * The summary used to collapse them — `Number(undefined) || 0` for the limit
+ * and `credit_status || 'active'` for the status — so the detail page showed
+ * every real tenant's client an authorized limit of $0 under a confident green
+ * "Activo" badge, on the screen where the owner decides whether to extend more
+ * credit. At the time the columns did not exist in production at all, so this
+ * was the state of every client in the product.
+ */
+describe('an unconfigured credit line reads as unknown, not as zero', () => {
+  const receivables = [{ clientId: 'c_1', amount: 12000, status: 'pending' }];
+
+  it('reports isConfigured false when no limit is stored', () => {
+    for (const client of [
+      { id: 'c_1' },
+      { id: 'c_1', credit_limit: null, credit_days: null, credit_status: null },
+      { id: 'c_1', credit_limit: undefined },
+    ]) {
+      const summary = calculateClientCreditSummary(client, receivables);
+      expect(summary.isConfigured, JSON.stringify(client)).toBe(false);
+      // Never a green "Activo" the owner did not choose.
+      expect(summary.status).toBeNull();
+      expect(summary.creditDays).toBeNull();
+      expect(summary.utilizationPercentage).toBe(0);
+    }
+  });
+
+  it('still reports money genuinely owed, so the balance is not hidden', () => {
+    const summary = calculateClientCreditSummary({ id: 'c_1' }, receivables);
+    expect(summary.usedCredit).toBe(12000);
+    // But not as headroom against a line that does not exist.
+    expect(summary.availableCredit).toBe(0);
+    expect(summary.isOverLimit).toBe(false);
+  });
+
+  it('distinguishes a deliberate zero limit from an unset one', () => {
+    const deliberate = calculateClientCreditSummary(
+      { id: 'c_1', credit_limit: 0, credit_days: 0, credit_status: 'active' },
+      receivables
+    );
+    expect(deliberate.isConfigured).toBe(true);
+    expect(deliberate.totalLimit).toBe(0);
+    expect(deliberate.creditDays).toBe(0);
+    expect(deliberate.status).toBe('active');
+
+    const unset = calculateClientCreditSummary({ id: 'c_1' }, receivables);
+    expect(unset.isConfigured).toBe(false);
+  });
+
+  it('does not invent a credit warning for a client with no credit policy', () => {
+    const summary = calculateClientCreditSummary({ id: 'c_1' }, receivables);
+    const res = validateQuoteCreditLimit(999999, summary.availableCredit, summary.status);
+    expect(res.isAllowed).toBe(true);
+    expect(res.isExceeding).toBe(false);
+    expect(res.warningMessage).toBeNull();
+  });
+
+  it('treats a status without a limit as a real decision, not as unconfigured', () => {
+    // The two columns are independent. An owner who blocks a defaulting client
+    // without ever setting a limit has decided something; keying isConfigured
+    // off the limit alone hid that block behind "sin línea de crédito" while
+    // the quote wizard still refused the sale.
+    const summary = calculateClientCreditSummary(
+      { id: 'c_1', credit_limit: null, credit_status: 'blocked' },
+      receivables
+    );
+    expect(summary.isConfigured).toBe(true);
+    expect(summary.hasLimit).toBe(false);
+    expect(summary.status).toBe('blocked');
+    expect(validateQuoteCreditLimit(100, summary.availableCredit, summary.status).isAllowed).toBe(
+      false
+    );
+  });
+
+  it('does not call a stored limit with no status "Activo"', () => {
+    const summary = calculateClientCreditSummary(
+      { id: 'c_1', credit_limit: 50000, credit_status: null },
+      receivables
+    );
+    expect(summary.hasLimit).toBe(true);
+    // The badge is rendered from `status`; null must stay null so the UI can
+    // omit it rather than fall through to a green default.
+    expect(summary.status).toBeNull();
+  });
+
+  it('keeps blocking a blocked client once a policy exists', () => {
+    const summary = calculateClientCreditSummary(
+      { id: 'c_1', credit_limit: 10000, credit_status: 'blocked' },
+      receivables
+    );
+    expect(summary.isConfigured).toBe(true);
+    expect(validateQuoteCreditLimit(500, summary.availableCredit, summary.status).isAllowed).toBe(
+      false
+    );
+  });
+});

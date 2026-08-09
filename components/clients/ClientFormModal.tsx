@@ -40,12 +40,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [rfc, setRfc] = useState('');
-  const [regimenFiscal, setRegimenFiscal] = useState('601');
+  const [regimenFiscal, setRegimenFiscal] = useState('');
   const [codigoPostal, setCodigoPostal] = useState('');
   const [cfdiUse, setCfdiUse] = useState('G03');
   const [creditLimit, setCreditLimit] = useState<number | ''>('');
-  const [creditDays, setCreditDays] = useState<number>(0);
-  const [creditStatus, setCreditStatus] = useState<'active' | 'suspended' | 'blocked'>('active');
+  const [creditDays, setCreditDays] = useState<number | ''>('');
+  const [creditStatus, setCreditStatus] = useState<'' | 'active' | 'suspended' | 'blocked'>('');
   const [notes, setNotes] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -58,12 +58,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setEmail(initialClient.email || '');
       setPhone(initialClient.phone || '');
       setRfc(initialClient.rfc || '');
-      setRegimenFiscal(initialClient.regimen_fiscal || '601');
+      setRegimenFiscal(initialClient.regimen_fiscal || '');
       setCodigoPostal(initialClient.codigo_postal || '');
       setCfdiUse(initialClient.cfdi_use || 'G03');
       setCreditLimit(initialClient.credit_limit ?? '');
-      setCreditDays(initialClient.credit_days ?? 0);
-      setCreditStatus(initialClient.credit_status || 'active');
+      setCreditDays(initialClient.credit_days ?? '');
+      setCreditStatus(initialClient.credit_status || '');
       setNotes(initialClient.notes || '');
     } else {
       setName('');
@@ -71,12 +71,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setEmail('');
       setPhone('');
       setRfc('');
-      setRegimenFiscal('601');
+      setRegimenFiscal('');
       setCodigoPostal('');
       setCfdiUse('G03');
       setCreditLimit('');
-      setCreditDays(0);
-      setCreditStatus('active');
+      setCreditDays('');
+      setCreditStatus('');
       setNotes('');
     }
     setError(null);
@@ -101,18 +101,31 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
     setError(null);
     try {
       await onSave({
+        // null, not undefined: the write path skips undefined keys so it can
+        // tell "not provided" from "cleared". The form always provides every
+        // field, so a blank one means the user cleared it and must persist as
+        // NULL — sending undefined made clearing a value a silent no-op.
         name: name.trim(),
-        contact_name: contactName.trim() || undefined,
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
-        rfc: rfc.trim().toUpperCase() || undefined,
-        regimen_fiscal: regimenFiscal,
-        codigo_postal: codigoPostal.trim() || undefined,
+        contact_name: contactName.trim() || null,
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        rfc: rfc.trim().toUpperCase() || null,
+        regimen_fiscal: regimenFiscal || null,
+        codigo_postal: codigoPostal.trim() || null,
         cfdi_use: cfdiUse,
-        credit_limit: creditLimit !== '' ? Number(creditLimit) : 0,
-        credit_days: Number(creditDays),
-        credit_status: creditStatus,
-        notes: notes.trim() || undefined,
+        // Blank means "not assigned", not "assigned a value of zero" — the
+        // columns are nullable precisely so the detail page can tell those
+        // apart instead of showing every client a green "Activo" over $0 (#96).
+        //
+        // The three are independent on purpose. Coupling status and plazo to
+        // the limit discarded the most important credit decision there is:
+        // an owner cutting off a defaulting client picks "Bloqueado" and
+        // clears the limit, and the block would never persist while the modal
+        // closed reporting success.
+        credit_limit: creditLimit === '' ? null : Number(creditLimit),
+        credit_days: creditDays === '' ? null : Number(creditDays),
+        credit_status: creditStatus || null,
+        notes: notes.trim() || null,
       });
       onClose();
     } catch (err: unknown) {
@@ -263,6 +276,13 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 onChange={(e) => setRegimenFiscal(e.target.value)}
                 className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
               >
+                {/* The régimen decides how a CFDI is stamped, so it is the
+                    client's own answer or nothing — the form used to preselect
+                    601 for everyone, which (once saves started persisting)
+                    would stamp a regime the owner never chose (#96). */}
+                <option value="" className="bg-slate-900 text-white">
+                  Selecciona el régimen del cliente
+                </option>
                 {REGIMENES_FISCALES.map((r) => (
                   <option key={r.code} value={r.code} className="bg-slate-900 text-white">
                     {r.label}
@@ -329,9 +349,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 <label className="block text-xs font-bold text-slate-300">Plazo de Crédito (Días)</label>
                 <select
                   value={creditDays}
-                  onChange={(e) => setCreditDays(Number(e.target.value))}
+                  onChange={(e) => setCreditDays(e.target.value === '' ? '' : Number(e.target.value))}
                   className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
                 >
+                  <option value="" className="bg-slate-900 text-white">Sin definir</option>
                   <option value={0} className="bg-slate-900 text-white">0 días (Contado)</option>
                   <option value={7} className="bg-slate-900 text-white">7 días</option>
                   <option value={15} className="bg-slate-900 text-white">15 días</option>
@@ -347,9 +368,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 <label className="block text-xs font-bold text-slate-300">Estatus de Crédito</label>
                 <select
                   value={creditStatus}
-                  onChange={(e) => setCreditStatus(e.target.value as 'active' | 'suspended' | 'blocked')}
+                  onChange={(e) => setCreditStatus(e.target.value as '' | 'active' | 'suspended' | 'blocked')}
                   className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
                 >
+                  <option value="" className="bg-slate-900 text-white">Sin asignar</option>
                   <option value="active" className="bg-slate-900 text-emerald-400">Activo (Crédito Permitido)</option>
                   <option value="suspended" className="bg-slate-900 text-amber-400">Suspendido (Requiere Revisión)</option>
                   <option value="blocked" className="bg-slate-900 text-rose-400">Bloqueado (Solo Contado)</option>
