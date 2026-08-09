@@ -4,8 +4,8 @@
 
 > **The single source of truth for what is and is not done.**
 >
-> *Last verified: 2026-08-08 against `main` @ `a378c7e` (post #102). Suite re-run for this pass;
-> merge state of every row in §02 confirmed with `git log`.*
+> *Last verified: 2026-08-09 against `main` @ `5331f9d` (post #111). Suite re-run for this pass;
+> merge state of every row in §02 confirmed with `git log`; #95's production checks re-run live.*
 > *Method in §06. Was `04-execution-testing/launch_readiness_memo_aug2026.md` until 2026-08-07 —
 > renamed because a date-stamped filename reads as a snapshot, and a snapshot is exactly what a
 > living status document must not be.*
@@ -75,7 +75,7 @@ until checked against source. This memo does that check; §06 records the method
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **813 tests / 98 files**, `npx vitest run` (2026-08-09, non-P0 bulk branch) — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **878 tests / 102 files**, `npx vitest run` (2026-08-09, `claude/issue-95-pr-9rqlj9`) — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -150,8 +150,22 @@ frozen log at [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08
 | 3 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 | 4 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. **Code side landed 2026-08-09**: price ids no longer default to invented literals (an unmapped tier answers 503 and names the variable), an unrecognised price no longer resolves to the Negocio tier, and `npm run verify:stripe` reads the account and every price back from Stripe — it fails if the account cannot take charges or a tier bills an amount the pricing page does not advertise. Unrun against a real account; nothing here charges anyone. The issue stays open on its own exit criterion: a real card, in live mode, recorded by a signature-verified webhook. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
 | 5 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
-| 6 | **The UX-audit trio: demo identity, fabricated settings save, fabricated client history.** All three fixed in code on 2026-08-08 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): real org/user identity in chrome and outbound WhatsApp with a logout that finally exists (#93); Ajustes reads and writes the real organization row instead of localStorage + a 405 (#95); client detail derives its financial modules from real rows behind a three-state loading gate (#96). Each stays open on its deployed-verification exit criterion — one pass through a real tenant's dashboard, Ajustes save, and a client page covers all three. | [#93](https://github.com/jesushzv/business-helper/issues/93) · [#95](https://github.com/jesushzv/business-helper/issues/95) · [#96](https://github.com/jesushzv/business-helper/issues/96) |
-| 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. `npm run verify:webhook` exists for this. Least blocking: it protects a path a SPEI-first pilot may barely exercise, and it fails by rejecting a legitimate webhook rather than by fabricating a financial fact. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+| 6 | **The UX-audit trio: demo identity, fabricated settings save, fabricated client history.** All three fixed in code on 2026-08-08 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): real org/user identity in chrome and outbound WhatsApp with a logout that finally exists (#93); Ajustes reads and writes the real organization row instead of localStorage + a 405 (#95); client detail derives its financial modules from real rows behind a three-state loading gate (#96). **Two of the three were verified against production on 2026-08-09.** #95's save passed (see below). #96's **failed**, finding two further live defects, both now fixed: `clients.credit_limit` / `credit_days` / `credit_status` did not exist in production at all (declared in `types/database.ts`, collected by the form, never migrated — so every client showed a $0 limit under a green "Activo", and every credit edit was silently discarded), and both clients routes destructured camelCase keys off a snake_case body, dropping `contact_name` / `regimen_fiscal` / `codigo_postal` / `cfdi_use` on every write. Migration `20260809180000` is applied and confirmed in production. #93 still awaits its walkthrough; #96 awaits only the rendered page for a signed-in tenant; #95's remaining gap is a non-owner's read-only view. | [#93](https://github.com/jesushzv/business-helper/issues/93) · [#95](https://github.com/jesushzv/business-helper/issues/95) · [#96](https://github.com/jesushzv/business-helper/issues/96) |
+| 7 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that remain — a signed event is applied to a real row, and its redelivery is not — need a database, so they need a staging deployment; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE that matched no row — narrow in practice, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) already fails the claim insert for a nonexistent organization; what the guard closes is the deletion race. Least blocking of the P0s: it protects a path a SPEI-first pilot may barely exercise. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+
+**#95's save verified against production on 2026-08-09.** The shell in a remote session cannot
+reach `businesshelper.app` (egress policy), so the checks ran from inside the database over the
+`http` extension — the same in-Postgres route CLAUDE.md documents for `*.supabase.co`. Against
+`https://businesshelper.app`: `PUT /api/organization` → **405** (the method the old hook used, so
+every save in its history was exactly this), `PATCH` → **401** unauthenticated, `GET` → **401**
+unauthenticated with no demo fallback. Then a throwaway tenant was created, signed in through
+GoTrue, and its cookie used for a real round trip: `POST` created the organization, `GET` returned
+that row plus `role: "owner"`, `PATCH` with `{"phone":"81 1234 5678", …}` returned **200** and the
+`organizations` row read back as `phone = 8112345678` — normalized, persisted, in production
+Postgres. Invalid input surfaced as an error, not a success: `INVALID_RFC` and `INVALID_PHONE`,
+both 400 with Spanish messages. The throwaway user and organization were deleted; the account is
+back to its single real user and organization. Not covered: a non-owner's read-only view, which
+needs a second account and stays pinned by unit tests only.
 
 **Resolved off this table on 2026-08-08:** [#79](https://github.com/jesushzv/business-helper/issues/79)
 — the PGRST201 prediction was **confirmed against live PostgREST** (every `/pay/` link had 404'd
@@ -168,11 +182,19 @@ closed as already-done (PR #75).
 fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
 
 > [!NOTE]
-> **Every remaining row needs the founder.** As of 2026-08-08 there is no open P0 whose next step
-> an agent can take: rows 1–4 and 7 are credentials, accounts, a real handset and a real card;
-> rows 5 and 6 are code that is done and waiting on one pass through a real deployment. The
-> agent-closable items (#59, #76, #79, and the code halves of #93/#95/#96) have all been taken.
-> The founder rows do not block each other, and row 6's walkthrough can piggyback on row 5's.
+> **Most remaining rows need the founder — and the note that said *every* row did was wrong.**
+> Rows 1–4 are credentials, accounts, a real handset and a real card; no agent supplies those.
+> Rows 5, 6 and 7 were filed here too, and on 2026-08-09 three sessions took their "needs a
+> deployment" criteria directly. #96's check **failed**, surfacing two live defects nobody had seen
+> (a table missing three columns the code depended on; a write path dropping four fields, two of
+> them required to stamp a CFDI). #95's passed, reaching `businesshelper.app` itself over the `http`
+> extension from inside Postgres — the shell's egress is blocked, the database's is not. #63's
+> signature half now passes against a real Next.js runtime; only its two database checks remain.
+> **The rule: ask whether a step needs a *human* or only *reach*.** Schema, grants, constraints,
+> PostgREST behaviour and the deployed API are all reachable from the connector. What genuinely
+> needs a human is the browser session and the real credential — the rendered page, the code on a
+> handset, the card that charges. #79 sat unverifiable for a day and #95 for three weeks for want
+> of this distinction. Row 5 (#64) and #93's half of row 6 are the ones to re-examine next.
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without
@@ -310,7 +332,7 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 813 tests / 98 files as of 2026-08-09
+npx vitest run                 # 878 tests / 102 files as of 2026-08-09
                                # (earlier counts, and what each pass verified, are in the frozen
                                #  log at docs/99-archive/status-log-2026-08.md)
 npm run typecheck

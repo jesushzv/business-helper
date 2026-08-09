@@ -34,8 +34,30 @@
 
 const env = process.env;
 
-const STRIPE_API_BASE = 'https://api.stripe.com/v1';
 const STRIPE_API_VERSION = '2024-06-20';
+
+/**
+ * Stripe's API, or a local stub when one is named.
+ *
+ * The override exists so `tests/unit/verifyStripeGuard.test.ts` can pin this
+ * script's *verdict* — which responses it calls a pass — the way #63 pins
+ * `verify:webhook`'s. It is accepted **only** for localhost, and a non-local
+ * value is a hard failure rather than a silent fallback to the real API: an
+ * override that quietly did nothing would let a run report on an account it
+ * never contacted.
+ */
+const STRIPE_API_BASE = (() => {
+  const override = process.env.STRIPE_API_BASE_URL?.trim();
+  if (!override) return 'https://api.stripe.com/v1';
+  if (!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(override)) {
+    console.error(
+      `\n✗ STRIPE_API_BASE_URL must point at localhost — got "${override}".\n\n` +
+        '  It exists for the test stub only. Unset it to check the real account.\n'
+    );
+    process.exit(1);
+  }
+  return override.replace(/\/$/, '');
+})();
 
 /** Mirrors STRIPE_PLANS in lib/stripe.ts. Amounts are MXN per month. */
 const EXPECTED_TIERS = [
@@ -294,7 +316,9 @@ for (const pack of EXPECTED_PACKS) {
 }
 
 if (packsConfigured === 0) {
-  note('nothing to check');
+  // Not counted as an incomplete run: no code path sells a pack yet (#24), so
+  // there is nothing these prices could mis-charge.
+  note('nothing to check — no route sells a pack yet (#24)');
 }
 
 // ---------------------------------------------------------------------------
@@ -303,8 +327,14 @@ if (packsConfigured === 0) {
 
 console.log('\nWebhook endpoint');
 
+const skipped = [];
+
 if (!appUrl) {
-  note('skipped: set NEXT_PUBLIC_APP_URL to the production origin to check this');
+  skipped.push(
+    'the webhook endpoint registration (NEXT_PUBLIC_APP_URL unset) — without it nothing\n' +
+      '      grants a tier after a successful payment, so this is a money-path check'
+  );
+  note('not run: NEXT_PUBLIC_APP_URL is unset');
 } else {
   const expectedUrl = `${appUrl}/api/stripe/webhook`;
   const endpoints = await get('/webhook_endpoints?limit=100');
@@ -347,6 +377,18 @@ if (failed) {
     `${failed} check${failed === 1 ? '' : 's'} failed. Fix them before charging a card —\n` +
       '  a wrong price id charges the wrong amount and reports success everywhere.'
   );
+}
+
+// An exit code is a claim (#63). A run that skipped a money-path check has not
+// verified this deployment, however many checks it printed a tick against, and
+// there is deliberately no flag to override that.
+if (skipped.length) {
+  console.error(
+    `INCOMPLETE — the checks that ran passed, but this is not a #68 sign-off.\n\n` +
+      skipped.map((s) => `    – ${s}`).join('\n') +
+      '\n\n  Re-run with it set before treating the price map as verified.\n'
+  );
+  process.exit(1);
 }
 
 console.log(

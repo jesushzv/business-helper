@@ -34,7 +34,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const router = useRouter();
   const { getClientById, updateClient, deleteClient, loading, error } = useClients();
   const { quotes } = useQuotes();
-  const { receivables } = useReceivables();
+  // The financial modules below are only as trustworthy as this read. A failed
+  // or in-flight receivables fetch yields `[]`, which would render as
+  // "Crédito Utilizado $0 / Disponible $50,000" — a confident zero on the
+  // screen where the owner decides whether to extend more credit (#96).
+  const {
+    receivables,
+    loading: receivablesLoading,
+    error: receivablesError,
+  } = useReceivables();
   const { org } = useCurrentOrg();
   const [isEditOpen, setIsEditOpen] = useState(false);
 
@@ -114,6 +122,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   // owner decides whether to extend more credit (#96).
   const clientQuotes = quotes.filter((q) => q.client_id === client.id);
   const clientMilestones = receivables.filter((m) => m.client_id === client.id);
+
+  // Three states, not two: an empty list means "this client owes nothing" only
+  // once the read actually succeeded. Until then it means "we do not know yet".
+  const balanceKnown = !receivablesLoading && !receivablesError;
 
   const activityFeed = formatClientActivity(
     clientQuotes,
@@ -234,52 +246,113 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       <h3 className="text-base font-extrabold text-white">Línea de Crédito B2B</h3>
                       <p className="mt-0.5 text-xs text-slate-400">Condiciones de pago y saldo utilizado</p>
                     </div>
-                    <span className={`rounded-xl px-3 py-1 text-xs font-bold border ${
-                      creditSummary.status === 'blocked'
-                        ? 'bg-rose-950/80 text-rose-400 border-rose-500/30'
-                        : creditSummary.status === 'suspended'
-                        ? 'bg-amber-950/80 text-amber-400 border-amber-500/30'
-                        : 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
-                    }`}>
-                      {creditSummary.status === 'blocked' ? 'Bloqueado' : creditSummary.status === 'suspended' ? 'Suspendido' : 'Activo'}
-                    </span>
+                    {/* Gated on the status itself, not on whether a limit
+                        exists: those are independent columns, so gating on the
+                        limit would render a green "Activo" for a stored NULL
+                        status — the same fabrication one field over (#96). */}
+                    {creditSummary.status !== null && (
+                      <span className={`rounded-xl px-3 py-1 text-xs font-bold border ${
+                        creditSummary.status === 'blocked'
+                          ? 'bg-rose-950/80 text-rose-400 border-rose-500/30'
+                          : creditSummary.status === 'suspended'
+                          ? 'bg-amber-950/80 text-amber-400 border-amber-500/30'
+                          : 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
+                      }`}>
+                        {creditSummary.status === 'blocked' ? 'Bloqueado' : creditSummary.status === 'suspended' ? 'Suspendido' : 'Activo'}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="mt-4 space-y-3">
-                    <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
-                      <span className="font-semibold text-slate-400">Límite de Crédito Autorizado</span>
-                      <span className="font-bold text-white font-mono">${creditSummary.totalLimit.toLocaleString('es-MX')} MXN</span>
+                  {!creditSummary.isConfigured ? (
+                    <div className="mt-4 space-y-3">
+                      <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs">
+                        <p className="font-bold text-slate-200">Sin línea de crédito asignada</p>
+                        <p className="mt-1 font-medium text-slate-400">
+                          Aún no defines cuánto crédito le das a este cliente. Puedes asignarlo
+                          en <span className="font-bold text-slate-300">Editar</span>.
+                        </p>
+                      </div>
+                      {balanceKnown && creditSummary.usedCredit > 0 && (
+                        <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                          <span className="font-semibold text-slate-400">Saldo Pendiente de Cobro</span>
+                          <span className="font-bold text-amber-400 font-mono">
+                            ${creditSummary.usedCredit.toLocaleString('es-MX')} MXN
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
-                      <span className="font-semibold text-slate-400">Crédito Utilizado (Cuentas Activas)</span>
-                      <span className="font-bold text-amber-400 font-mono">${creditSummary.usedCredit.toLocaleString('es-MX')} MXN</span>
-                    </div>
-                    <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
-                      <span className="font-semibold text-slate-400">Crédito Disponible</span>
-                      <span className="font-bold text-emerald-400 font-mono">${creditSummary.availableCredit.toLocaleString('es-MX')} MXN</span>
-                    </div>
-                    <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
-                      <span className="font-semibold text-slate-400">Plazo de Pago (Días)</span>
-                      <span className="font-bold text-indigo-400">{creditSummary.creditDays > 0 ? `${creditSummary.creditDays} Días de Crédito` : 'Contado (0 días)'}</span>
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="mt-4 space-y-3">
+                        <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                          <span className="font-semibold text-slate-400">Límite de Crédito Autorizado</span>
+                          <span className="font-bold text-white font-mono">
+                            {creditSummary.hasLimit
+                              ? `$${creditSummary.totalLimit.toLocaleString('es-MX')} MXN`
+                              : 'Sin definir'}
+                          </span>
+                        </div>
+                        {/* Every figure below is derived from the receivables
+                            read. While it is in flight or failed, the honest
+                            answer is "no lo sabemos" — a $0 utilizado against a
+                            full available line is the fabrication this page
+                            exists to remove (#96). */}
+                        <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                          <span className="font-semibold text-slate-400">Crédito Utilizado (Cuentas Activas)</span>
+                          <span className="font-bold text-amber-400 font-mono">
+                            {balanceKnown
+                              ? `$${creditSummary.usedCredit.toLocaleString('es-MX')} MXN`
+                              : '—'}
+                          </span>
+                        </div>
+                        {creditSummary.hasLimit && (
+                          <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                            <span className="font-semibold text-slate-400">Crédito Disponible</span>
+                            <span className="font-bold text-emerald-400 font-mono">
+                              {balanceKnown
+                                ? `$${creditSummary.availableCredit.toLocaleString('es-MX')} MXN`
+                                : '—'}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
+                          <span className="font-semibold text-slate-400">Plazo de Pago (Días)</span>
+                          <span className="font-bold text-indigo-400">
+                            {creditSummary.creditDays === null
+                              ? 'Sin definir'
+                              : creditSummary.creditDays > 0
+                              ? `${creditSummary.creditDays} Días de Crédito`
+                              : 'Contado (0 días)'}
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* Credit Utilization Bar */}
-                  {creditSummary.totalLimit > 0 && (
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1.5">
-                        <span>Uso de Línea</span>
-                        <span>{creditSummary.utilizationPercentage}%</span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-950 border border-slate-800">
-                        <div
-                          className={`h-full transition-all ${
-                            creditSummary.utilizationPercentage > 85 ? 'bg-rose-500' : creditSummary.utilizationPercentage > 60 ? 'bg-amber-500' : 'bg-emerald-500'
-                          }`}
-                          style={{ width: `${Math.max(5, creditSummary.utilizationPercentage)}%` }}
-                        />
-                      </div>
-                    </div>
+                      {!balanceKnown && (
+                        <p className="mt-3 text-xs font-medium text-slate-400">
+                          {receivablesLoading
+                            ? 'Calculando el saldo del cliente…'
+                            : 'No pudimos calcular el saldo de este cliente. Revisa tu conexión y vuelve a intentar.'}
+                        </p>
+                      )}
+
+                      {/* Credit Utilization Bar */}
+                      {balanceKnown && creditSummary.hasLimit && creditSummary.totalLimit > 0 && (
+                        <div className="mt-4">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1.5">
+                            <span>Uso de Línea</span>
+                            <span>{creditSummary.utilizationPercentage}%</span>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-950 border border-slate-800">
+                            <div
+                              className={`h-full transition-all ${
+                                creditSummary.utilizationPercentage > 85 ? 'bg-rose-500' : creditSummary.utilizationPercentage > 60 ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${Math.max(5, creditSummary.utilizationPercentage)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -289,20 +362,37 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <h3 className="text-base font-extrabold text-white">Perfil Fiscal SAT (CFDI 4.0)</h3>
               <p className="mt-0.5 text-xs text-slate-400">Datos requeridos para facturación electrónica</p>
 
+              {/* These three were rendered as `|| '601'`, `|| 'G03'`, `|| 'N/A'`,
+                  so a client with no fiscal data on file looked fully set up for
+                  invoicing with someone else's régimen. Régimen fiscal and
+                  código postal are required to stamp a CFDI 4.0 — showing a
+                  default here is the placeholder-identifier rule on the field
+                  that decides whether an invoice can be issued at all (#96). */}
               <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
-                  <span className="font-semibold text-slate-400">Régimen Fiscal</span>
-                  <span className="font-bold text-white">{client.regimen_fiscal || '601'}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
-                  <span className="font-semibold text-slate-400">Uso de CFDI</span>
-                  <span className="font-bold text-white">{client.cfdi_use || 'G03'}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs">
-                  <span className="font-semibold text-slate-400">Código Postal</span>
-                  <span className="font-bold text-white">{client.codigo_postal || 'N/A'}</span>
-                </div>
+                {([
+                  ['Régimen Fiscal', client.regimen_fiscal],
+                  ['Uso de CFDI', client.cfdi_use],
+                  ['Código Postal', client.codigo_postal],
+                ] as const).map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="flex items-center justify-between rounded-xl bg-slate-950 p-3 text-xs"
+                  >
+                    <span className="font-semibold text-slate-400">{label}</span>
+                    {value ? (
+                      <span className="font-bold text-white">{value}</span>
+                    ) : (
+                      <span className="font-bold text-amber-400">Falta capturar</span>
+                    )}
+                  </div>
+                ))}
               </div>
+
+              {(!client.regimen_fiscal || !client.codigo_postal) && (
+                <p className="mt-3 rounded-xl border border-amber-500/20 bg-amber-950/40 p-3 text-xs font-medium text-amber-300">
+                  Sin estos datos no podrás facturarle a este cliente. Complétalos en Editar.
+                </p>
+              )}
             </div>
           </div>
 

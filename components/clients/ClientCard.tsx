@@ -61,15 +61,29 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
               CP {client.codigo_postal}
             </span>
           )}
-          {(client.credit_limit ?? 0) > 0 ? (
+          {/* A blocked or suspended client says so first, whether or not a
+              limit is on file — the two columns are independent, and the
+              directory must not look calmer than the detail page (#96). */}
+          {client.credit_status === 'blocked' || client.credit_status === 'suspended' ? (
             <span className={`rounded-lg px-2.5 py-1 font-bold border ${
               client.credit_status === 'blocked'
                 ? 'bg-rose-950/80 text-rose-300 border-rose-500/40'
-                : client.credit_status === 'suspended'
-                ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
-                : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                : 'bg-amber-950/80 text-amber-300 border-amber-500/40'
             }`}>
-              Crédito: ${(client.credit_limit || 0).toLocaleString('es-MX')} MXN ({client.credit_days || 0}d)
+              {client.credit_status === 'blocked' ? 'Crédito bloqueado' : 'Crédito suspendido'}
+            </span>
+          ) : (client.credit_limit ?? 0) > 0 ? (
+            <span className="rounded-lg px-2.5 py-1 font-bold border bg-emerald-950/80 text-emerald-300 border-emerald-500/40">
+              Crédito: ${(client.credit_limit || 0).toLocaleString('es-MX')} MXN
+              {client.credit_days === null || client.credit_days === undefined
+                ? ''
+                : ` (${client.credit_days}d)`}
+            </span>
+          ) : client.credit_limit === null || client.credit_limit === undefined ? (
+            // No credit line on file. This used to read "Contado (0 días)",
+            // stating payment terms nobody had chosen (#96).
+            <span className="rounded-lg bg-slate-950 px-2.5 py-1 text-slate-500 border border-slate-800">
+              Sin crédito asignado
             </span>
           ) : (
             <span className="rounded-lg bg-slate-950 px-2.5 py-1 text-slate-400 border border-slate-800">
