@@ -61,8 +61,14 @@ export function isAnalyticsConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY);
 }
 
-function analyticsHost(): string | null {
-  return process.env.NEXT_PUBLIC_POSTHOG_HOST?.replace(/\/+$/, '') ?? null;
+/**
+ * Ingestion host. Defaults to US cloud so that setting only the key is enough —
+ * a required host is a second thing to forget, and forgetting it makes every
+ * event vanish with no error (rule 1 hides the failure, so nothing would say so).
+ * Set the EU host explicitly if the PostHog project lives there.
+ */
+function analyticsHost(): string {
+  return (process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com').replace(/\/+$/, '');
 }
 
 export function sanitizeEventProperties(
@@ -82,11 +88,34 @@ export function sanitizeEventProperties(
 const DISTINCT_ID_STORAGE_KEY = 'bh_analytics_distinct_id';
 
 /**
+ * Where the browser's distinct id comes from when posthog-js is running.
+ *
+ * Two systems now send events: this raw capture path and the posthog-js SDK
+ * (`components/PostHogInit.tsx`). posthog-js owns an identity of its own and
+ * merges anonymous → identified when `identify()` is called. If this module
+ * minted a *second* id, the same person would arrive under two of them and
+ * `signup_started → signup_completed` would never join — which is the one
+ * question #37 exists to answer. So posthog-js is asked for the id whenever it
+ * is initialized, and the localStorage id below is only the fallback for when
+ * it is not.
+ */
+let browserDistinctIdSource: (() => string | null | undefined) | null = null;
+
+export function setBrowserDistinctIdSource(
+  source: (() => string | null | undefined) | null
+): void {
+  browserDistinctIdSource = source;
+}
+
+/**
  * A stable pseudonymous id for this browser, so signup_started and
  * signup_completed join into one funnel row before any account exists.
  */
 function browserDistinctId(): string {
   try {
+    const shared = browserDistinctIdSource?.();
+    if (shared) return shared;
+
     const existing = localStorage.getItem(DISTINCT_ID_STORAGE_KEY);
     if (existing) return existing;
     const generated =

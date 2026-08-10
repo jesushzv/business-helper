@@ -31,7 +31,7 @@ const nextConfig: NextConfig = {
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none';
-      connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.facturapi.io https://us.i.posthog.com;
+      connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.facturapi.io https://*.posthog.com;
     `.replace(/\s{2,}/g, ' ').trim();
 
     return [

@@ -1,53 +1,104 @@
 'use client';
 
+import { useEffect } from 'react';
 import posthog from 'posthog-js';
+import { setBrowserDistinctIdSource } from '@/lib/analytics';
+
+/**
+ * Browser-side PostHog SDK, mounted once from the root layout.
+ *
+ * Two constraints shape this file:
+ *
+ * 1. **Analytics may never break the product** (`lib/analytics.ts` rule 1).
+ *    Nothing here throws — a missing key warns in development and is silent
+ *    everywhere else. A module-scope `throw` would take the root layout, and
+ *    therefore every page, down with it.
+ * 2. **Initialization is browser-only.** `'use client'` modules still execute
+ *    during server prerender, so `posthog.init` runs from an effect rather than
+ *    at import time.
+ */
 
 const projectToken = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-const isPostHogConfigured = Boolean(projectToken);
 
-if (!projectToken) {
-  if (process.env.NODE_ENV === 'development') {
-    throw new Error(
-      'NEXT_PUBLIC_POSTHOG_KEY variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once NEXT_PUBLIC_POSTHOG_KEY is configured'
-    );
-  }
-} else {
-  posthog.init(projectToken, {
-    api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-    defaults: '2025-05-24',
-    capture_exceptions: true,
-    debug: process.env.NODE_ENV === 'development',
-  });
+/** Same default as `lib/analytics.ts`, so one env var is enough to go live. */
+function apiHost(): string {
+  return (process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com').replace(/\/+$/, '');
 }
 
-const RAW_ANALYTICS_DISTINCT_ID_STORAGE_KEY = 'bh_analytics_distinct_id';
+let initialized = false;
+
+function initPostHog(): void {
+  if (initialized || typeof window === 'undefined') return;
+
+  if (!projectToken) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        '[analytics] NEXT_PUBLIC_POSTHOG_KEY is unset — PostHog is disabled and events are dropped. Set it to enable analytics.'
+      );
+    }
+    return;
+  }
+
+  try {
+    posthog.init(projectToken, {
+      api_host: apiHost(),
+      defaults: '2025-05-24',
+      capture_exceptions: true,
+      debug: process.env.NODE_ENV === 'development',
+    });
+    initialized = true;
+
+    // From here the raw capture path in lib/analytics.ts borrows this identity
+    // instead of minting its own, so both senders agree on who the person is.
+    setBrowserDistinctIdSource(() => {
+      try {
+        return posthog.get_distinct_id();
+      } catch {
+        return null;
+      }
+    });
+  } catch {
+    // Rule 1: a broken SDK is never worth a broken page.
+  }
+}
 
 export function identifyPostHogUser(
   userId: string,
   properties: { email?: string; name?: string }
-) {
-  if (!isPostHogConfigured) return;
-
-  posthog.identify(userId, properties);
-  localStorage.setItem(RAW_ANALYTICS_DISTINCT_ID_STORAGE_KEY, userId);
+): void {
+  if (!initialized) return;
+  try {
+    posthog.identify(userId, properties);
+  } catch {
+    // Rule 1.
+  }
 }
 
-export function resetPostHogUser() {
-  if (!isPostHogConfigured) return;
-
-  posthog.reset();
-  localStorage.removeItem(RAW_ANALYTICS_DISTINCT_ID_STORAGE_KEY);
+export function resetPostHogUser(): void {
+  if (!initialized) return;
+  try {
+    posthog.reset();
+  } catch {
+    // Rule 1.
+  }
 }
 
 export function capturePostHogException(
   error: Error,
   properties: { route: string; level: string }
-) {
-  if (!isPostHogConfigured) return;
-
-  posthog.captureException(error, properties);
+): void {
+  if (!initialized) return;
+  try {
+    posthog.captureException(error, properties);
+  } catch {
+    // Rule 1.
+  }
 }
 
 export function PostHogInit() {
+  useEffect(() => {
+    initPostHog();
+  }, []);
+
   return null;
 }

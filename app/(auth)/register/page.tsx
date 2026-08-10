@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -43,6 +43,16 @@ function RegisterFormContent() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Fires on arrival, not on submit. "Started" has to mean *reached the form*
+   * or the funnel loses everyone who landed here and bounced — which is the
+   * drop-off #37 was written to measure. Firing it after validation passes
+   * would only ever count people who were about to succeed.
+   */
+  useEffect(() => {
+    track('signup_started');
+  }, []);
 
   const rfcResult = rfc ? validateRFC(rfc) : { isValid: false, type: null };
   const phoneResult = phone ? validatePhone(phone) : { isValid: false, phone: '' };
@@ -107,7 +117,6 @@ function RegisterFormContent() {
       return;
     }
 
-    track('signup_started', { registration_method: 'password' });
     setLoading(true);
 
     try {

@@ -31,6 +31,15 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 
+const mockTrack = vi.fn();
+vi.mock('@/lib/analytics', () => ({
+  track: (...args: unknown[]) => mockTrack(...args),
+}));
+
+vi.mock('@/components/PostHogInit', () => ({
+  identifyPostHogUser: vi.fn(),
+}));
+
 /** Stands in for GET /auth/v1/settings — see tests/unit/authProviders.test.ts. */
 function stubProviderSettings(google: boolean) {
   vi.stubGlobal(
@@ -48,6 +57,35 @@ describe('RegisterPage Component (Task C1 Progressive Profiling Suite)', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'real-anon-key');
     stubProviderSettings(true);
+  });
+
+  /**
+   * #37 — `signup_started` has to mean "reached the form". Fired from the
+   * submit handler instead, it would only ever count people who went on to
+   * succeed, and the registration drop-off would be invisible.
+   */
+  describe('signup_started marks arrival, not submission', () => {
+    it('fires on mount, before any field is touched', () => {
+      render(<RegisterPage />);
+      expect(mockTrack).toHaveBeenCalledWith('signup_started');
+    });
+
+    it('does not wait for a valid form', async () => {
+      render(<RegisterPage />);
+      mockTrack.mockClear();
+
+      // A submit that cannot succeed must not be what triggers the event.
+      const submit = screen.getByRole('button', { name: /Crear mi cuenta|Comenzar/i });
+      await act(async () => {
+        fireEvent.click(submit);
+      });
+
+      expect(mockTrack).not.toHaveBeenCalledWith('signup_started');
+      expect(mockTrack).not.toHaveBeenCalledWith(
+        'signup_started',
+        expect.objectContaining({ registration_method: expect.anything() })
+      );
+    });
   });
 
   /** #48 — the twin of the login-page gate; same defect, same reasoning. */
