@@ -92,7 +92,8 @@ graph TD
      - `STRIPE_PRICE_EMPRESA`: Exact Stripe Price ID for Empresa tier
      - **Verify before charging anyone**: `npm run verify:stripe` with the same variables exported locally. It reads the account and every price back from Stripe and fails if the account cannot take charges, a price id does not exist in that mode, or a tier bills an amount the pricing page does not advertise. Every request it makes is a GET, so it is safe against the live account. A tier with no Price ID cannot be sold at all — checkout answers `503 STRIPE_PRICE_NOT_CONFIGURED`.
    - **OTP Delivery (Required for e-signature)**:
-     - `OTP_DELIVERY_CHANNEL`: `whatsapp` (the only channel — `sms` was retired with phone-number login and now fails closed). Unset fails closed in production — the signing flow returns 502.
+     - `OTP_DELIVERY_CHANNEL`: `sms` or `whatsapp`. Unset fails closed in production — the signing flow returns 502.
+     - For `sms`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER`
      - For `whatsapp` via Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`
      - For `whatsapp` via Meta: `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID`
      - **Verify before trusting the channel**: `npm run verify:otp` with the same variables exported locally. It names any variable the selected provider is missing and authenticates against Twilio/Meta without sending. Add `OTP_TEST_PHONE=+52…` to send one sample message to a handset you control. Half-configured credentials return the same 502 as no configuration at all, so the first person to notice would otherwise be a signer.
@@ -309,8 +310,7 @@ remediation of issue #17 its only bound was a 30s cooldown on
 `quotes.client_otp_sent_at`, which is per quote: a client with several open
 quotes has several valid tokens resolving to one `clients.phone`, so cycling
 between them issued a code on every request. Every send is a billable
-Twilio/Meta message, so uncapped issuance is a cost channel as well as an
-abuse one.
+Twilio/Meta message, and on SMS that is the pattern carriers flag as pumping.
 
 **Migrations required.** `20260807000000_otp_send_rate_limit.sql` creates
 `otp_send_log`, the persisted counter the limit reads, and

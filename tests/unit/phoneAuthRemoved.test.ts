@@ -3,19 +3,20 @@ import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 /**
- * Phone-credential auth and the SMS transport are retired (#122, and the
- * sms OTP channel that went with it). The product authenticates with
- * email/OAuth only; WhatsApp remains the only outbound message transport.
+ * Phone-credential auth is retired (#122). The product authenticates with
+ * email/OAuth only; phone numbers are message-delivery data, never a
+ * credential.
  *
- * This scan keeps both from growing back anywhere in the runtime tree:
+ * This scan keeps it from growing back anywhere in the runtime tree: no
+ * Supabase auth call may take a phone credential. The login tab that did
+ * could never succeed — no account has a phone identity — and told the
+ * user their password was wrong (#122).
  *
- *  - No Supabase auth call may take a phone credential. The login tab that
- *    did could never succeed — no account has a phone identity — and told
- *    the user their password was wrong (#122).
- *  - Nothing may read the retired SMS sender variables. `lib/otpDelivery.ts`
- *    resolves `OTP_DELIVERY_CHANNEL=sms` to console (fails closed in
- *    production); a new read of these variables would mean the channel is
- *    being rebuilt.
+ * The sms OTP *delivery* channel is deliberately out of scope: it was
+ * retired alongside phone login, then restored as the interim delivery
+ * channel once WhatsApp OTP proved to need a WABA + approved auth template
+ * (#42). Delivering a code over SMS is not phone-credential auth — the
+ * credential model this scan guards is unchanged.
  *
  * Derived from the tree at run time, not from a fixture — a hand-kept list
  * cannot catch the drift it names (hard rule #7).
@@ -33,10 +34,6 @@ const ROOTS = ['app', 'lib', 'components'];
 const PHONE_CREDENTIAL_CALL =
   /\.auth\s*\.\s*(signInWithPassword|signInWithOtp|verifyOtp)\s*\(\s*\{[^)]*\bphone\s*[:,}]/s;
 
-// TWILIO_PHONE_NUMBER is NOT listed: lib/whatsappOutbound.ts reads it as a
-// legacy alias for the WhatsApp sender, which is unrelated to the sms channel.
-const RETIRED_ENV_VARS = /TWILIO_SMS_NUMBER/;
-
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
@@ -45,7 +42,7 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-describe('phone auth and SMS transport stay removed', () => {
+describe('phone-credential auth stays removed', () => {
   const files = ROOTS.flatMap((root) => sourceFiles(root));
 
   it('scanned a plausible slice of the runtime tree', () => {
@@ -56,11 +53,6 @@ describe('phone auth and SMS transport stay removed', () => {
 
   it('no Supabase auth call takes a phone credential', () => {
     const offenders = files.filter((file) => PHONE_CREDENTIAL_CALL.test(readFileSync(file, 'utf8')));
-    expect(offenders).toEqual([]);
-  });
-
-  it('nothing reads the retired SMS sender variables', () => {
-    const offenders = files.filter((file) => RETIRED_ENV_VARS.test(readFileSync(file, 'utf8')));
     expect(offenders).toEqual([]);
   });
 });
