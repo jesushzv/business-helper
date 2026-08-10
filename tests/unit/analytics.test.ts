@@ -20,7 +20,7 @@ beforeEach(() => {
   fetchMock.mockResolvedValue(new Response('{"status": 1}', { status: 200 }));
   vi.stubGlobal('fetch', fetchMock);
   delete process.env.NEXT_PUBLIC_POSTHOG_KEY;
-  delete process.env.NEXT_PUBLIC_POSTHOG_HOST;
+  process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://us.i.posthog.com';
   localStorage.clear();
 });
 
