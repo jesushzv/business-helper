@@ -38,7 +38,11 @@ describe('getDeliveryChannel / isDeliveryConfigured', () => {
     expect(isDeliveryConfigured()).toBe(false);
   });
 
-  it('reads whatsapp from the environment', () => {
+  it('reads sms and whatsapp from the environment', () => {
+    process.env.OTP_DELIVERY_CHANNEL = 'sms';
+    expect(getDeliveryChannel()).toBe('sms');
+    expect(isDeliveryConfigured()).toBe(true);
+
     process.env.OTP_DELIVERY_CHANNEL = 'whatsapp';
     expect(getDeliveryChannel()).toBe('whatsapp');
     expect(isDeliveryConfigured()).toBe(true);
@@ -47,28 +51,6 @@ describe('getDeliveryChannel / isDeliveryConfigured', () => {
   it('falls back to console for an unrecognized value', () => {
     process.env.OTP_DELIVERY_CHANNEL = 'carrier_pigeon';
     expect(getDeliveryChannel()).toBe('console');
-  });
-
-  // The sms channel was retired with phone-number login. A deployment still
-  // holding the value must fail closed, not silently pick another provider.
-  it('treats the retired sms value as unconfigured', () => {
-    process.env.OTP_DELIVERY_CHANNEL = 'sms';
-    expect(getDeliveryChannel()).toBe('console');
-    expect(isDeliveryConfigured()).toBe(false);
-  });
-
-  it('fails closed in production for a deployment still holding sms', async () => {
-    process.env.OTP_DELIVERY_CHANNEL = 'sms';
-    process.env.TWILIO_ACCOUNT_SID = 'AC_test_sid';
-    process.env.TWILIO_AUTH_TOKEN = 'test_auth_token';
-    vi.stubEnv('NODE_ENV', 'production');
-    const spy = stubFetch(() => jsonResponse({}));
-
-    const result = await deliverOtp(PHONE, CODE);
-
-    expect(result.delivered).toBe(false);
-    expect(result.devCode).toBeNull();
-    expect(spy).not.toHaveBeenCalled();
   });
 });
 
@@ -86,15 +68,25 @@ describe('describeDeliveryConfig', () => {
     });
   });
 
-  it('reports the retired sms channel as unconfigured, fully-credentialed or not', () => {
+  it('names only the variables actually absent on the sms channel', () => {
+    const report = describeDeliveryConfig({
+      OTP_DELIVERY_CHANNEL: 'sms',
+      TWILIO_ACCOUNT_SID: 'AC_test_sid',
+    });
+
+    expect(report.provider).toBe('twilio_sms');
+    expect(report.ready).toBe(false);
+    expect(report.missing).toEqual(['TWILIO_AUTH_TOKEN', 'TWILIO_SMS_NUMBER']);
+  });
+
+  it('accepts the legacy TWILIO_PHONE_NUMBER as the sms sender', () => {
     const report = describeDeliveryConfig({
       OTP_DELIVERY_CHANNEL: 'sms',
       ...TWILIO,
-      TWILIO_WHATSAPP_NUMBER: '+14155238886',
+      TWILIO_PHONE_NUMBER: '+14155238886',
     });
 
-    expect(report.channel).toBe('console');
-    expect(report.ready).toBe(false);
+    expect(report).toEqual({ channel: 'sms', provider: 'twilio_sms', ready: true, missing: [] });
   });
 
   it('selects the provider the send would actually use on whatsapp', () => {
@@ -168,6 +160,66 @@ describe('console channel (no provider configured)', () => {
 
     expect(result.delivered).toBe(false);
     expect(result.devCode).toBeNull();
+  });
+});
+
+describe('SMS channel (Twilio)', () => {
+  beforeEach(() => {
+    process.env.OTP_DELIVERY_CHANNEL = 'sms';
+    process.env.TWILIO_ACCOUNT_SID = 'AC_test_sid';
+    process.env.TWILIO_AUTH_TOKEN = 'test_auth_token';
+    process.env.TWILIO_SMS_NUMBER = '+14155238886';
+  });
+
+  it('POSTs to the Twilio Messages API without a whatsapp: prefix', async () => {
+    const spy = stubFetch(() => jsonResponse({ sid: 'SM_real_id' }));
+
+    const result = await deliverOtp(PHONE, CODE);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toBe('https://api.twilio.com/2010-04-01/Accounts/AC_test_sid/Messages.json');
+
+    const body = new URLSearchParams(init.body as string);
+    expect(body.get('From')).toBe('+14155238886');
+    expect(body.get('To')).toBe('+528115559988');
+    expect(body.get('Body')).toContain(CODE);
+
+    expect(result.delivered).toBe(true);
+    expect(result.channel).toBe('sms');
+    expect(result.devCode).toBeNull();
+  });
+
+  it('never echoes the code back when a provider is configured', async () => {
+    stubFetch(() => jsonResponse({ sid: 'SM_x' }));
+    const result = await deliverOtp(PHONE, CODE);
+    expect(result.devCode).toBeNull();
+  });
+
+  it('reports a rejected send as a failure', async () => {
+    stubFetch(() => jsonResponse({ code: 21211 }, false, 400));
+
+    const result = await deliverOtp(PHONE, CODE);
+
+    expect(result.delivered).toBe(false);
+    expect(result.error).toContain('400');
+  });
+
+  it('reports missing configuration as a failure without calling the network', async () => {
+    delete process.env.TWILIO_SMS_NUMBER;
+    delete process.env.TWILIO_PHONE_NUMBER;
+    const spy = stubFetch(() => jsonResponse({}));
+
+    const result = await deliverOtp(PHONE, CODE);
+
+    expect(result.delivered).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('does not leak the auth token into the error message', async () => {
+    stubFetch(() => jsonResponse({ code: 20003 }, false, 401));
+    const result = await deliverOtp(PHONE, CODE);
+    expect(JSON.stringify(result)).not.toContain('test_auth_token');
   });
 });
 
@@ -275,6 +327,23 @@ describe('operator visibility', () => {
     expect(logged).toHaveBeenCalledTimes(1);
     const line = logged.mock.calls[0][0] as string;
     expect(line).toContain('twilio_whatsapp');
+    expect(line).not.toContain(CODE);
+
+    logged.mockRestore();
+  });
+
+  it('names the sms provider in the failure line on that channel', async () => {
+    process.env.OTP_DELIVERY_CHANNEL = 'sms';
+    process.env.TWILIO_ACCOUNT_SID = 'AC_test_sid';
+    process.env.TWILIO_AUTH_TOKEN = 'test_auth_token';
+    process.env.TWILIO_SMS_NUMBER = '+14155238886';
+    stubFetch(() => jsonResponse({ code: 21606 }, false, 400));
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await deliverOtp(PHONE, CODE);
+
+    const line = logged.mock.calls[0][0] as string;
+    expect(line).toContain('twilio_sms');
     expect(line).not.toContain(CODE);
 
     logged.mockRestore();

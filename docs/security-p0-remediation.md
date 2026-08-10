@@ -110,7 +110,7 @@ is shared at all (`lib/settlementAccount.ts`):
 | `STRIPE_PRICE_INICIAL` | Recommended | Exact price id. Falls back to substring matching if unset. |
 | `STRIPE_PRICE_NEGOCIO` | Recommended | As above. |
 | `STRIPE_PRICE_EMPRESA` | Recommended | As above. |
-| `OTP_DELIVERY_CHANNEL` | Yes (production) | `whatsapp` — the only channel; `sms` was retired and fails closed. See §4 for the provider variables. Unset fails closed in production. |
+| `OTP_DELIVERY_CHANNEL` | Yes (production) | `sms` \| `whatsapp`. See §4 for the provider variables each channel needs. Unset fails closed in production. |
 
 Rotating `OTP_SECRET` invalidates outstanding OTP codes and makes previously
 stored seals unverifiable against a recomputation. Treat it as long-lived and
@@ -149,12 +149,12 @@ select id, name from organizations where bank_clabe is null;
 
 ## 4. OTP delivery
 
-`lib/otpDelivery.ts` sends the code over WhatsApp, selected by
-`OTP_DELIVERY_CHANNEL` (the `sms` channel was retired along with phone-number
-login; a deployment still holding `sms` resolves to console and fails closed):
+`lib/otpDelivery.ts` sends the code over one of three channels, selected by
+`OTP_DELIVERY_CHANNEL`:
 
 | `OTP_DELIVERY_CHANNEL` | Provider | Required variables |
 |---|---|---|
+| `sms` | Twilio Messages API | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER` (or `TWILIO_PHONE_NUMBER`) |
 | `whatsapp` | Twilio, else Meta Cloud API | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` — or `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` |
 | unset | console (development only) | — |
 
@@ -174,8 +174,8 @@ exactly the same 502 as an unset channel — and by default the first person to
 discover it is a signer. Check before enabling:
 
 ```
-OTP_DELIVERY_CHANNEL=whatsapp \
-TWILIO_ACCOUNT_SID=AC… TWILIO_AUTH_TOKEN=… TWILIO_WHATSAPP_NUMBER=+1… \
+OTP_DELIVERY_CHANNEL=sms \
+TWILIO_ACCOUNT_SID=AC… TWILIO_AUTH_TOKEN=… TWILIO_SMS_NUMBER=+1… \
 npm run verify:otp
 ```
 
@@ -205,8 +205,8 @@ category.
 so a send to a signer who has not messaged the business recently is rejected —
 Meta error 131047, Twilio error 63016 — and the signing flow returns 502. That
 is the normal case for a client who was just sent a quote link, so the channel
-does not yet work for cold recipients. Tracked in #42 — and with `sms` retired,
-the approved template is now on the signing flow's critical path.
+does not yet work for cold recipients. Tracked in #42; `sms` has no
+equivalent requirement, which is why it is the launch channel.
 
 ## 5. Staging verification
 

@@ -308,7 +308,7 @@ export default function LandingPage() {
               </p>
               <ul className="space-y-3 text-xs text-slate-300">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Aprobación instantánea con código OTP por WhatsApp
+                  <Check className="w-4 h-4 text-emerald-400" /> Aprobación instantánea con código OTP SMS/WhatsApp
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-400" /> Evidencia digital legal respaldada con sello temporal

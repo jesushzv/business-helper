@@ -96,7 +96,7 @@ export default function DemoPage() {
             </div>
             <h3 className="text-base font-bold text-white">Firma OTP por WhatsApp</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Tus clientes aprueban cotizaciones en 1 clic con código OTP por WhatsApp sin instalar aplicaciones.
+              Tus clientes aprueban cotizaciones en 1 clic con código SMS/OTP legal sin instalar aplicaciones.
             </p>
           </div>
 
