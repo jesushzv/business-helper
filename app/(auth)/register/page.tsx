@@ -4,9 +4,10 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Building2, Lock, Mail, ArrowRight, AlertCircle, Sparkles, FileText, Phone, Users, ShieldCheck } from 'lucide-react';
+import { Building2, Lock, Mail, ArrowRight, AlertCircle, Sparkles, FileText, Users, ShieldCheck } from 'lucide-react';
 import { validateRFC } from '@/lib/rfcValidator';
-import { validatePhone } from '@/lib/phoneValidator';
+import { isPlausibleE164 } from '@/lib/phoneCountries';
+import { PhoneField } from '@/components/shared/PhoneField';
 import { track } from '@/lib/analytics';
 import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
 import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
@@ -56,7 +57,13 @@ function RegisterFormContent() {
   }, []);
 
   const rfcResult = rfc ? validateRFC(rfc) : { isValid: false, type: null };
-  const phoneResult = phone ? validatePhone(phone) : { isValid: false, phone: '' };
+  // `phone` is already the E.164 value `PhoneField` emits, so the check here is
+  // a shape test for the ✓ badge, not a parse. Deliberately *not*
+  // `validatePhone`: this is a public, mobile-first signup page, and importing
+  // the validator pulls libphonenumber's 190 KB of numbering-plan metadata into
+  // this route's client bundle to light up one badge. The authority is the
+  // server, which parses against the full metadata on the write path.
+  const phoneResult = { isValid: isPlausibleE164(phone), phone };
 
   /**
    * Whether the Auth server accepts Google (#48). `false` hides the button
@@ -117,7 +124,10 @@ function RegisterFormContent() {
     }
 
     if (!phoneResult.isValid) {
-      setError('Por favor ingresa un número telefónico válido de 10 dígitos.');
+      setError(
+        'Por favor ingresa un número telefónico válido: 10 dígitos para México, ' +
+          'o con clave del país (ej. +1 212 555 1234).'
+      );
       return;
     }
 
@@ -287,29 +297,20 @@ function RegisterFormContent() {
 
               {/* Phone / WhatsApp */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Teléfono Móvil / WhatsApp <span className="text-rose-500 font-bold ml-0.5">*</span>
-                  </label>
+                <div className="flex items-center justify-end mb-2">
                   {phone && (
                     <span className={`text-[10px] font-bold ${phoneResult.isValid ? 'text-emerald-400' : 'text-amber-400'}`}>
-                      {phoneResult.isValid ? '✓ 10 dígitos' : 'Inválido'}
+                      {phoneResult.isValid ? '✓ Válido' : 'Inválido'}
                     </span>
                   )}
                 </div>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                    <Phone className="w-5 h-5" />
-                  </div>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="8112345678"
-                    className="block w-full pl-11 pr-4 py-3 min-h-[48px] bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                  />
-                </div>
+                <PhoneField
+                  inputId="register-phone"
+                  label="TELÉFONO MÓVIL / WHATSAPP *"
+                  value={phone}
+                  onChange={setPhone}
+                  hint="Escribe los 10 dígitos. Si tu número es de otro país, elige su bandera."
+                />
               </div>
             </div>
 

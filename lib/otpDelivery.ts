@@ -15,7 +15,7 @@
  * *login* remains retired; a phone here is delivery data, not a credential.
  */
 
-import { formatE164MexicanPhone } from './whatsappOutbound';
+import { formatE164Phone } from './whatsappOutbound';
 
 export type OtpDeliveryChannel = 'sms' | 'whatsapp' | 'console';
 
@@ -283,7 +283,7 @@ async function sendViaProvider(
   phone: string,
   code: string
 ): Promise<OtpDeliveryResult> {
-  const recipient = formatE164MexicanPhone(phone);
+  const recipient = formatE164Phone(phone);
   if (!recipient) {
     return { delivered: false, channel, devCode: null, error: 'Número de teléfono inválido' };
   }

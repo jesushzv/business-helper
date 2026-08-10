@@ -154,7 +154,7 @@ describe('RegisterPage Component (Task C1 Progressive Profiling Suite)', () => {
     render(<RegisterPage />);
 
     const businessNameInput = screen.getByPlaceholderText(/Materiales MTY SA de CV/i);
-    const phoneInput = screen.getByPlaceholderText(/8112345678/i);
+    const phoneInput = document.getElementById('register-phone') as HTMLInputElement;
     const emailInput = screen.getByPlaceholderText(/roberto@materialesmty.mx/i);
     const passwordInput = screen.getByPlaceholderText(/Mínimo 6 caracteres/i);
     const termsCheckbox = screen.getByRole('checkbox');
@@ -176,7 +176,7 @@ describe('RegisterPage Component (Task C1 Progressive Profiling Suite)', () => {
       options: {
         data: expect.objectContaining({
           business_name: 'Mi Empresa Demo',
-          phone: '8112345678',
+          phone: '+528112345678',
           rfc: null,
         }),
       },
@@ -192,7 +192,7 @@ describe('RegisterPage Component (Task C1 Progressive Profiling Suite)', () => {
     fireEvent.change(rfcInput, { target: { value: 'INVALID_RFC' } });
 
     const businessNameInput = screen.getByPlaceholderText(/Materiales MTY SA de CV/i);
-    const phoneInput = screen.getByPlaceholderText(/8112345678/i);
+    const phoneInput = document.getElementById('register-phone') as HTMLInputElement;
     const emailInput = screen.getByPlaceholderText(/roberto@materialesmty.mx/i);
     const passwordInput = screen.getByPlaceholderText(/Mínimo 6 caracteres/i);
     const termsCheckbox = screen.getByRole('checkbox');

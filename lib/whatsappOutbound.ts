@@ -6,6 +6,7 @@
  */
 
 import { getPaymentPublicUrl } from './url';
+import { validatePhone } from './phoneValidator';
 
 export interface WhatsAppReminderOptions {
   clientName: string;
@@ -31,30 +32,29 @@ export interface WhatsAppDispatchMode {
 }
 
 /**
- * Formats standard Mexican phone number to E.164 format (+52...)
+ * Resolves a stored or typed phone to the E.164 form a provider is handed.
+ *
+ * Since #94 `clients.phone` stores E.164 already, so for a migrated row this
+ * is a validating pass-through. It stays a *function* rather than a raw read
+ * for two reasons:
+ *
+ *  - **The deploy can outrun the backfill** (hard rule 6). Vercel ships `main`
+ *    on merge and migrations are applied by hand, so this code will run
+ *    against rows still holding 10 bare digits. Those keep working, read as
+ *    Mexican national numbers exactly as before.
+ *  - It still has to **fail closed**. It used to return `+${digits}` for any
+ *    input, so a 7-digit local number or an extension was handed to Twilio
+ *    with a plus in front, and `normalizeOtpRecipient`'s `\+[0-9]{10,15}`
+ *    waved through everything from 10 to 15 digits (#40). Callers already
+ *    treat `''` as "unusable number" and surface it, which tells the tenant
+ *    their stored phone is the problem rather than blaming the provider.
+ *
+ * No longer Mexico-only, hence the rename: a `+1`/`+44` client number is now a
+ * legitimate stored value and must reach the provider intact rather than being
+ * re-prefixed with +52.
  */
-export function formatE164MexicanPhone(phone: string): string {
-  const digits = (phone || '').replace(/\D/g, '');
-  if (digits.length === 10) {
-    return `+52${digits}`;
-  }
-  if (digits.length === 12 && digits.startsWith('52')) {
-    return `+${digits}`;
-  }
-  // Legacy +521 mobile form. lib/whatsappLink.ts has always normalized this
-  // (its "Case 2"); this function did not, so the same stored number produced
-  // a working wa.me link and a malformed provider recipient (#40).
-  if (digits.length === 13 && digits.startsWith('521')) {
-    return `+52${digits.slice(3)}`;
-  }
-  // Anything else is not a number this product knows how to reach. It used to
-  // return `+${digits}` — so a 7-digit local number or an extension was handed
-  // to the provider prefixed with a plus, and `normalizeOtpRecipient`'s
-  // `\+[0-9]{10,15}` test waved through everything from 10 to 15 digits. Fail
-  // closed instead (hard rule 3): callers already treat '' as "unusable
-  // number" and surface it, which tells the tenant their stored phone is the
-  // problem rather than blaming the provider.
-  return '';
+export function formatE164Phone(phone: string): string {
+  return validatePhone(phone || '').phone;
 }
 
 /**
@@ -89,7 +89,7 @@ export function getWhatsAppDispatchMode(
  * Formats dynamic outbound payment reminder payload
  */
 export function formatOutboundReminderPayload(options: WhatsAppReminderOptions): OutboundPayload {
-  const recipient = formatE164MexicanPhone(options.phone);
+  const recipient = formatE164Phone(options.phone);
   // The literal here was 'https://business-helper.app' — hyphenated, and not a
   // domain this project owns. Its only production caller never passes baseUrl,
   // so every reminder sent through the API carried a dead link: #36 again with
