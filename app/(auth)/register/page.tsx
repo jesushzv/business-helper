@@ -11,6 +11,7 @@ import { track } from '@/lib/analytics';
 import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
 import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 import { identifyPostHogUser } from '@/components/PostHogInit';
+import { exitDemoMode } from '@/lib/demoUtils';
 
 const REGIMENES_FISCALES = [
   { code: '601', label: '601 - General de Ley Personas Morales' },
@@ -81,6 +82,9 @@ function RegisterFormContent() {
     }
 
     try {
+      // Clear any demo-browsing flags before the browser leaves for Google —
+      // they never expire, and a new tenant must not land on fixtures.
+      exitDemoMode();
       const supabase = createClient();
       // Guards errors the SDK *can* report; never a disabled provider.
       const { error: authError } = await supabase.auth.signInWithOAuth({
@@ -146,6 +150,8 @@ function RegisterFormContent() {
           email: data.user.email ?? undefined,
         });
         track('signup_completed', { company_size: companySize, tax_regime: taxRegime });
+        // A real account exists now — demo-browsing flags must not survive it.
+        exitDemoMode();
         router.push('/onboarding');
       } else {
         // Email confirmation pending — the account exists, the funnel step is done.

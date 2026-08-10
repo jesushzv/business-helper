@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { DemoBanner } from '@/components/demo/DemoBanner';
+import { DemoSessionExit } from '@/components/demo/DemoSessionExit';
 import { SettlementAccountBanner } from '@/components/settlement/SettlementAccountBanner';
 import { FeatureTierComparisonModal } from '@/components/features/FeatureTierComparisonModal';
 import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
@@ -74,6 +75,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950">
+      {/* Stale demo flags + a live session = a real tenant seeing fixtures;
+          this clears the flags and reloads once. */}
+      <DemoSessionExit />
+
       {/* Sticky Demo Banner in Demo Mode */}
       {isDemo && <DemoBanner onOpenTierModal={() => setIsTierModalOpen(true)} />}
 

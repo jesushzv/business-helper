@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Lock, Mail, ArrowRight, AlertCircle, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
+import { exitDemoMode } from '@/lib/demoUtils';
 import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 import { identifyPostHogUser } from '@/components/PostHogInit';
 
@@ -79,6 +80,9 @@ export default function LoginPage() {
         });
       }
 
+      // The "Ver Demo" link below plants sandbox flags that never expire; a
+      // real sign-in must clear them or the dashboard renders fixtures.
+      exitDemoMode();
       router.push(resolveRedirect());
     } catch {
       setError('Ocurrió un error al conectar con el servidor. Intenta de nuevo.');
@@ -107,6 +111,10 @@ export default function LoginPage() {
     }
 
     try {
+      // Clear the demo flags before the browser leaves for Google — there is
+      // no client-side moment after the redirect where this could run before
+      // the dashboard reads them.
+      exitDemoMode();
       const supabase = createClient();
       // Kept as a guard for errors the SDK *can* report (a failure to persist
       // the PKCE verifier, say). It cannot fire for a disabled provider.
