@@ -46,6 +46,7 @@ describe('LoginPage Component (Task C7 Remediation Suite)', () => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
+    localStorage.clear();
     supabaseConfigured = true;
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'real-anon-key');
@@ -201,6 +202,70 @@ describe('LoginPage Component (Task C7 Remediation Suite)', () => {
     const demoLink = screen.getByRole('link', { name: /Ver Demo/i });
     expect(demoLink).toBeInTheDocument();
     expect(demoLink).toHaveAttribute('href', '/dashboard?demo=true');
+  });
+
+  /**
+   * The "Ver Demo" link on this very page plants a sandbox flag with no
+   * expiry. If a sign-in does not clear it, the tenant's first dashboard
+   * after Google OAuth is the fixture one — the bug this pins closed.
+   */
+  describe('a real sign-in clears the demo-browsing flags', () => {
+    beforeEach(() => {
+      localStorage.setItem('business_helper_sandbox', 'true');
+      localStorage.setItem('business_helper_demo', 'true');
+    });
+
+    it('before the browser leaves for Google', async () => {
+      let sandboxAtNavigation: string | null = 'unread';
+      mockSignInWithOAuth.mockImplementation(async () => {
+        sandboxAtNavigation = localStorage.getItem('business_helper_sandbox');
+        return { error: null };
+      });
+      render(<LoginPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Continuar con Google/i }));
+
+      await waitFor(() => expect(mockSignInWithOAuth).toHaveBeenCalledTimes(1));
+      // Cleared BEFORE signInWithOAuth navigates away — after it, no client
+      // code runs again until the dashboard has already read the flag.
+      expect(sandboxAtNavigation).toBeNull();
+      expect(localStorage.getItem('business_helper_demo')).toBeNull();
+    });
+
+    it('on a successful password sign-in', async () => {
+      mockSignInWithPassword.mockResolvedValueOnce({ data: { user: null }, error: null });
+      render(<LoginPage />);
+
+      fireEvent.change(screen.getByPlaceholderText(/don.roberto@negocio.mx/i), {
+        target: { value: 'test@negocio.mx' },
+      });
+      fireEvent.change(screen.getByPlaceholderText(/••••••••/i), {
+        target: { value: 'securepassword123' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Entrar a mi Cuenta/i }));
+
+      await waitFor(() => expect(mockPush).toHaveBeenCalled());
+      expect(localStorage.getItem('business_helper_sandbox')).toBeNull();
+      expect(localStorage.getItem('business_helper_demo')).toBeNull();
+    });
+
+    it('but NOT on a failed password sign-in', async () => {
+      mockSignInWithPassword.mockResolvedValueOnce({ data: {}, error: { message: 'bad' } });
+      render(<LoginPage />);
+
+      fireEvent.change(screen.getByPlaceholderText(/don.roberto@negocio.mx/i), {
+        target: { value: 'test@negocio.mx' },
+      });
+      fireEvent.change(screen.getByPlaceholderText(/••••••••/i), {
+        target: { value: 'wrong' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Entrar a mi Cuenta/i }));
+
+      await waitFor(() =>
+        expect(screen.getByText(/Correo o contraseña incorrectos/i)).toBeInTheDocument()
+      );
+      expect(localStorage.getItem('business_helper_sandbox')).toBe('true');
+    });
   });
 
   it('submits form successfully and redirects to /dashboard', async () => {

@@ -54,9 +54,32 @@ describe('RegisterPage Component (Task C1 Progressive Profiling Suite)', () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     supabaseConfigured = true;
+    localStorage.clear();
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'real-anon-key');
     stubProviderSettings(true);
+  });
+
+  /**
+   * Demo-browsing flags never expire; a new tenant carrying one would land
+   * on the fixture dashboard after registering (same defect the login page
+   * pins — a real sign-in must clear the demo state).
+   */
+  it('clears the sandbox flags before leaving for Google', async () => {
+    localStorage.setItem('business_helper_sandbox', 'true');
+    localStorage.setItem('business_helper_demo', 'true');
+    let sandboxAtNavigation: string | null = 'unread';
+    mockSignInWithOAuth.mockImplementation(async () => {
+      sandboxAtNavigation = localStorage.getItem('business_helper_sandbox');
+      return { error: null };
+    });
+    render(<RegisterPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Google/i }));
+
+    await waitFor(() => expect(mockSignInWithOAuth).toHaveBeenCalledTimes(1));
+    expect(sandboxAtNavigation).toBeNull();
+    expect(localStorage.getItem('business_helper_demo')).toBeNull();
   });
 
   /**
