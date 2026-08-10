@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -10,6 +10,7 @@ import { validatePhone } from '@/lib/phoneValidator';
 import { track } from '@/lib/analytics';
 import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
 import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
+import { identifyPostHogUser } from '@/components/PostHogInit';
 
 const REGIMENES_FISCALES = [
   { code: '601', label: '601 - General de Ley Personas Morales' },
@@ -42,10 +43,6 @@ function RegisterFormContent() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    track('signup_started');
-  }, []);
 
   const rfcResult = rfc ? validateRFC(rfc) : { isValid: false, type: null };
   const phoneResult = phone ? validatePhone(phone) : { isValid: false, phone: '' };
@@ -110,6 +107,7 @@ function RegisterFormContent() {
       return;
     }
 
+    track('signup_started', { registration_method: 'password' });
     setLoading(true);
 
     try {
@@ -135,6 +133,9 @@ function RegisterFormContent() {
       }
 
       if (data.user) {
+        identifyPostHogUser(data.user.id, {
+          email: data.user.email ?? undefined,
+        });
         track('signup_completed', { company_size: companySize, tax_regime: taxRegime });
         router.push('/onboarding');
       } else {

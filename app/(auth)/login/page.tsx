@@ -8,6 +8,7 @@ import { Lock, Mail, ArrowRight, AlertCircle, Sparkles, Eye, EyeOff, Phone } fro
 import { validatePhone } from '@/lib/phoneValidator';
 import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
 import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
+import { identifyPostHogUser } from '@/components/PostHogInit';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -64,7 +65,7 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient();
-      const { error: authError } = loginMethod === 'email'
+      const { data, error: authError } = loginMethod === 'email'
         ? await supabase.auth.signInWithPassword({ email, password })
         : await supabase.auth.signInWithPassword({ phone: phoneResult.phone, password });
 
@@ -72,6 +73,21 @@ export default function LoginPage() {
         setError('Correo, teléfono o contraseña incorrectos. Por favor verifica tus datos.');
         setLoading(false);
         return;
+      }
+
+      if (data.user) {
+        const metadata = data.user.user_metadata ?? {};
+        const name =
+          typeof metadata.full_name === 'string'
+            ? metadata.full_name
+            : typeof metadata.name === 'string'
+              ? metadata.name
+              : undefined;
+
+        identifyPostHogUser(data.user.id, {
+          email: data.user.email ?? undefined,
+          name,
+        });
       }
 
       router.push(resolveRedirect());

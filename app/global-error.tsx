@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { capturePostHogException } from '@/components/PostHogInit';
 import { captureException } from '@/lib/sentry';
 
 export default function GlobalError({
@@ -12,6 +13,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    capturePostHogException(error, { route: 'global-root', level: 'fatal' });
     captureException(error, { route: 'global-root', level: 'fatal' });
   }, [error]);
 

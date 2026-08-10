@@ -16,6 +16,7 @@ import {
   resolveFolioAllowance,
 } from '@/lib/cfdiFolios';
 import { getAppBaseUrl } from '@/lib/url';
+import { track } from '@/lib/analytics';
 
 /**
  * CFDI 4.0 issuance.
@@ -398,6 +399,18 @@ export async function POST(request: Request) {
     actor: userId,
     details: `CFDI ${document.uuid} timbrado para el cobro ${milestone.label} (${credentials.environment}, PAC ${credentials.source})`,
   });
+
+  track(
+    'cfdi_issued',
+    {
+      organization_id: organizationId,
+      milestone_id: milestoneId,
+      payment_method: paymentMethod,
+      pac_environment: credentials.environment,
+      pac_source: credentials.source,
+    },
+    { distinctId: userId }
+  );
 
   return NextResponse.json({
     cfdiId: document.providerInvoiceId,

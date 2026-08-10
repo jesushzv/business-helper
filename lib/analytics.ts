@@ -1,5 +1,5 @@
 /**
- * Product analytics — the seven-event funnel from issue #37.
+ * Product analytics — the core business funnel.
  *
  * Sends events to PostHog over its plain capture API. No SDK, matching how
  * every other third party in this codebase is called (raw REST — see the
@@ -17,18 +17,29 @@
  *    nothing errors, so the demo deployment and local dev stay silent.
  */
 
-/** The quote-to-cash loop. Each answers one question about the funnel. */
-export const FUNNEL_EVENTS = [
-  'signup_started', // is the landing page converting?
-  'signup_completed', // where does registration lose people?
-  'client_created', // did they get past an empty state?
-  'quote_created', // activation — the "aha" moment per the PRD
-  'quote_sent', // did they trust it enough to send to a real client?
-  'quote_signed', // does the OTP flow work for THEIR clients?
-  'payment_confirmed', // did the loop close?
+/** Core conversion and operations events, captured only after the action succeeds. */
+export const ANALYTICS_EVENTS = [
+  'signup_started',
+  'signup_completed',
+  'organization_created',
+  'settlement_account_configured',
+  'client_created',
+  'product_created',
+  'quote_created',
+  'quote_sent',
+  'quote_signed',
+  'quote_converted',
+  'payment_confirmed',
+  'cfdi_issued',
+  'subscription_checkout_started',
 ] as const;
 
-export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
+export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];
+
+/** @deprecated Use ANALYTICS_EVENTS for the full core event contract. */
+export const FUNNEL_EVENTS = ANALYTICS_EVENTS;
+/** @deprecated Use AnalyticsEvent. */
+export type FunnelEvent = AnalyticsEvent;
 
 /** Keys that must never reach an analytics property, whatever the caller sends. */
 const PII_KEYS = new Set([
@@ -50,8 +61,8 @@ export function isAnalyticsConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY);
 }
 
-function analyticsHost(): string {
-  return (process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com').replace(/\/+$/, '');
+function analyticsHost(): string | null {
+  return process.env.NEXT_PUBLIC_POSTHOG_HOST?.replace(/\/+$/, '') ?? null;
 }
 
 export function sanitizeEventProperties(
@@ -103,17 +114,18 @@ export interface CaptureOptions {
  * Prefer {@link track} at call sites — the funnel should never be awaited.
  */
 export async function capture(
-  event: FunnelEvent,
+  event: AnalyticsEvent,
   properties: Record<string, unknown> = {},
   options: CaptureOptions = {}
 ): Promise<void> {
   try {
-    if (!isAnalyticsConfigured()) return;
+    const host = analyticsHost();
+    if (!isAnalyticsConfigured() || !host) return;
 
     const distinctId =
       options.distinctId || (typeof window !== 'undefined' ? browserDistinctId() : 'server');
 
-    await fetch(`${analyticsHost()}/capture/`, {
+    await fetch(`${host}/capture/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
@@ -132,7 +144,7 @@ export async function capture(
 
 /** Fire-and-forget wrapper — the standard call site form. */
 export function track(
-  event: FunnelEvent,
+  event: AnalyticsEvent,
   properties: Record<string, unknown> = {},
   options: CaptureOptions = {}
 ): void {

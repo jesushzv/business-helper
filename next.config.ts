@@ -22,15 +22,16 @@ const nextConfig: NextConfig = {
   async headers() {
     const cspHeader = `
       default-src 'self';
-      script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com;
+      script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://*.posthog.com;
       style-src 'self' 'unsafe-inline';
+      worker-src 'self' blob:;
       img-src 'self' blob: data: https:;
       font-src 'self' data: https:;
       object-src 'none';
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none';
-      connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.facturapi.io;
+      connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.facturapi.io https://us.i.posthog.com;
     `.replace(/\s{2,}/g, ' ').trim();
 
     return [

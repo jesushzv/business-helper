@@ -49,6 +49,7 @@ export const metadata: Metadata = {
 };
 
 import { CookieBanner } from '@/components/layout/CookieBanner';
+import { PostHogInit } from '@/components/PostHogInit';
 
 export default function RootLayout({
   children,
@@ -58,6 +59,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={plusJakartaSans.variable}>
       <body className={`${plusJakartaSans.className} antialiased selection:bg-indigo-500 selection:text-white`}>
+        <PostHogInit />
         {children}
         <CookieBanner />
       </body>
