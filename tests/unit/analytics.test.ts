@@ -6,6 +6,7 @@ import {
   capture,
   isAnalyticsConfigured,
   sanitizeEventProperties,
+  setBrowserDistinctIdSource,
 } from '@/lib/analytics';
 
 /**
@@ -21,6 +22,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   delete process.env.NEXT_PUBLIC_POSTHOG_KEY;
   delete process.env.NEXT_PUBLIC_POSTHOG_HOST;
+  setBrowserDistinctIdSource(null);
   localStorage.clear();
 });
 
@@ -58,6 +60,72 @@ describe('configuration gate', () => {
     process.env.NEXT_PUBLIC_POSTHOG_HOST = 'https://eu.i.posthog.com/';
     await capture('signup_started');
     expect(String(fetchMock.mock.calls[0][0])).toBe('https://eu.i.posthog.com/capture/');
+  });
+
+  // A required host would mean key-set-but-host-unset drops every event with no
+  // error, since rule 1 swallows failures — the quietest possible break.
+  it('still sends when only the key is set — the host has a default', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test';
+    expect(process.env.NEXT_PUBLIC_POSTHOG_HOST).toBeUndefined();
+
+    await capture('quote_created', { organization_id: 'org-1' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://us.i.posthog.com/capture/');
+  });
+});
+
+describe('one identity across both senders', () => {
+  // posthog-js and this raw path both emit events. If they disagree on the
+  // distinct id, signup_started (anonymous) and signup_completed (identified)
+  // land on two different people and the #37 funnel never joins.
+  it('prefers the registered posthog-js id over its own localStorage id', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test';
+    localStorage.setItem('bh_analytics_distinct_id', 'stale-local-id');
+    setBrowserDistinctIdSource(() => 'posthog-js-id');
+
+    await capture('signup_started');
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.distinct_id).toBe('posthog-js-id');
+  });
+
+  it('follows posthog-js through identify, so pre- and post-signup events join', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test';
+    let current = 'anon-from-posthog';
+    setBrowserDistinctIdSource(() => current);
+
+    await capture('signup_started');
+    // posthog.identify() merges the anonymous person into the user server-side;
+    // this path just has to report whatever posthog-js now considers current.
+    current = 'user-uuid';
+    await capture('signup_completed');
+
+    const first = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).distinct_id;
+    const second = JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).distinct_id;
+    expect(first).toBe('anon-from-posthog');
+    expect(second).toBe('user-uuid');
+  });
+
+  it('falls back to its own id when posthog-js is not running', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test';
+    localStorage.setItem('bh_analytics_distinct_id', 'local-only-id');
+
+    await capture('signup_started');
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.distinct_id).toBe('local-only-id');
+  });
+
+  it('ignores a source that yields nothing', async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = 'phc_test';
+    localStorage.setItem('bh_analytics_distinct_id', 'local-only-id');
+    setBrowserDistinctIdSource(() => undefined);
+
+    await capture('signup_started');
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.distinct_id).toBe('local-only-id');
   });
 });
 

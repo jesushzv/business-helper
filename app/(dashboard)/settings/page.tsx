@@ -8,6 +8,7 @@ import { BankAccountCard } from '@/components/settings/BankAccountCard';
 import { SubscriptionBillingCard } from '@/components/settings/SubscriptionBillingCard';
 import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard';
 import { PacConnectionCard } from '@/components/settings/PacConnectionCard';
+import { track } from '@/lib/analytics';
 
 export default function SettingsPage() {
   const { settings, role, subscriptionStatusInfo, updateSettings, loading, saving, error } =
@@ -42,6 +43,7 @@ export default function SettingsPage() {
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.url) {
+        track('subscription_checkout_started', { tier_id: tierId });
         window.location.href = data.url;
         return;
       }

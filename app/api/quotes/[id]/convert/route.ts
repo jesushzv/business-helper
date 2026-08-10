@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { convertQuoteToContract } from '@/lib/quoteToContract';
+import { track } from '@/lib/analytics';
 
 /**
  * Converts an accepted quote into a contract with its milestones.
@@ -16,7 +17,7 @@ export async function POST(
 ) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId } = auth.ctx;
+  const { supabase, organizationId, userId } = auth.ctx;
 
   try {
     const { id } = await params;
@@ -98,6 +99,16 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    track(
+      'quote_converted',
+      {
+        organization_id: organizationId,
+        quote_id: id,
+        milestone_count: newMilestones?.length ?? 0,
+      },
+      { distinctId: userId }
+    );
 
     return NextResponse.json({ contract: newContract, milestones: newMilestones }, { status: 201 });
   } catch {

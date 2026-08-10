@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { validateProductCatalogItem, ProductCatalogItem } from '@/lib/products';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
+import { track } from '@/lib/analytics';
 
 // Demo-mode fixtures. Reachable ONLY behind isClientDemoMode(): before #98
 // they seeded every visitor's localStorage — including real tenants', whose
@@ -176,6 +177,10 @@ export function useProducts() {
             return { success: false, error: msg };
           }
           // The server row is the truth — never the locally minted one.
+          track('product_created', {
+            organization_id: data.product.organization_id,
+            has_stock_tracking: data.product.stock_quantity !== null,
+          });
           setProducts((prev) => [data.product, ...prev]);
           setLegacyLocalProducts([]);
           return { success: true, product: data.product };

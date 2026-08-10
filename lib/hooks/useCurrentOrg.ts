@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { identifyPostHogUser, resetPostHogUser } from '@/components/PostHogInit';
 import { isClientDemoMode } from '../clientDemoMode';
 import { createClient, isSupabaseConfigured } from '../supabase/client';
 
@@ -27,6 +28,7 @@ export interface CurrentOrg {
 }
 
 export interface CurrentUser {
+  id: string;
   name: string | null;
   email: string | null;
 }
@@ -48,7 +50,7 @@ const DEMO_STATE: CurrentOrgState = {
     subscription_tier: 'negocio',
   },
   role: 'owner',
-  user: { name: 'Don Roberto', email: null },
+  user: { id: 'user-demo-1', name: 'Don Roberto', email: null },
 };
 
 // The chrome mounts on every dashboard page; one fetch serves them all.
@@ -87,7 +89,7 @@ async function loadCurrentOrg(): Promise<CurrentOrgState | null> {
           (typeof meta.full_name === 'string' && meta.full_name) ||
           (typeof meta.name === 'string' && meta.name) ||
           null;
-        user = { name, email: auth.user.email ?? null };
+        user = { id: auth.user.id, name, email: auth.user.email ?? null };
       }
     } catch {
       // The org still renders; only the personal greeting degrades.
@@ -127,9 +129,19 @@ export function useCurrentOrg() {
     };
   }, [demo]);
 
+  useEffect(() => {
+    if (!demo && state?.user) {
+      identifyPostHogUser(state.user.id, {
+        email: state.user.email ?? undefined,
+        name: state.user.name ?? undefined,
+      });
+    }
+  }, [demo, state?.user]);
+
   const signOut = useCallback(async () => {
     try {
       if (!demo && isSupabaseConfigured()) {
+        resetPostHogUser();
         await createClient().auth.signOut();
       }
     } finally {

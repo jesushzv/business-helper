@@ -7,6 +7,7 @@ import { validateRFC } from '@/lib/rfcValidator';
 import { formatClabe, normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { hasSettlementAccount } from '@/lib/settlementAccount';
+import { track } from '@/lib/analytics';
 
 const REGIMENES_FISCALES = [
   { code: '601', label: '601 - General de Ley Personas Morales' },
@@ -131,6 +132,11 @@ export default function OnboardingPage() {
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.organization?.id) {
+        track('organization_created', {
+          organization_id: data.organization.id,
+          industry,
+          has_rfc: Boolean(rfc.trim()),
+        });
         // The bank account is a separate PATCH and needs the organization to
         // exist first (it is scoped by owner_id).
         setStep(3);
@@ -192,6 +198,10 @@ export default function OnboardingPage() {
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.organization?.id) {
+        track('settlement_account_configured', {
+          organization_id: data.organization.id,
+          has_account_holder: Boolean(bankAccountHolder.trim()),
+        });
         router.push('/dashboard');
         return;
       }
