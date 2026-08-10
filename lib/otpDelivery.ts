@@ -3,21 +3,27 @@
  *
  * Issuing a code server-side is only half of a real e-signature: the code has
  * to reach the signer over a channel the signer controls, and nothing else.
- * This module sends over Twilio SMS, Twilio WhatsApp, or the Meta WhatsApp
- * Cloud API depending on configuration, and makes it impossible for an
- * unconfigured deployment to leak the code back over the HTTP response.
+ * This module sends over Twilio WhatsApp or the Meta WhatsApp Cloud API
+ * depending on configuration, and makes it impossible for an unconfigured
+ * deployment to leak the code back over the HTTP response.
+ *
+ * The `sms` channel (Twilio Messages API without the `whatsapp:` prefix) was
+ * retired with phone-number login: WhatsApp is the product's only outbound
+ * message surface. An environment still holding OTP_DELIVERY_CHANNEL=sms
+ * resolves to `console` and fails closed in production, rather than silently
+ * sending through a provider the operator never configured for WhatsApp.
  */
 
 import { formatE164MexicanPhone } from './whatsappOutbound';
 
-export type OtpDeliveryChannel = 'sms' | 'whatsapp' | 'console';
+export type OtpDeliveryChannel = 'whatsapp' | 'console';
 
 /**
  * The concrete API a channel resolves to. `whatsapp` is two providers, chosen
  * by which credentials are present, so the channel alone does not say what an
  * operator has to configure.
  */
-export type OtpDeliveryProvider = 'twilio_sms' | 'twilio_whatsapp' | 'meta_whatsapp' | 'console';
+export type OtpDeliveryProvider = 'twilio_whatsapp' | 'meta_whatsapp' | 'console';
 
 export interface OtpDeliveryConfigReport {
   channel: OtpDeliveryChannel;
@@ -51,7 +57,7 @@ function isProduction(): boolean {
 
 export function getDeliveryChannel(env: EnvRecord = process.env): OtpDeliveryChannel {
   const configured = env.OTP_DELIVERY_CHANNEL;
-  if (configured === 'sms' || configured === 'whatsapp') return configured;
+  if (configured === 'whatsapp') return configured;
   return 'console';
 }
 
@@ -85,12 +91,6 @@ export function describeDeliveryConfig(env: EnvRecord = process.env): OtpDeliver
 
   const twilioShared = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'];
 
-  if (channel === 'sms') {
-    const missing = twilioShared.filter((key) => !env[key]);
-    if (!env.TWILIO_SMS_NUMBER && !env.TWILIO_PHONE_NUMBER) missing.push('TWILIO_SMS_NUMBER');
-    return { channel, provider: 'twilio_sms', ready: missing.length === 0, missing };
-  }
-
   // whatsapp: Twilio when its number is set, Meta otherwise — mirroring
   // sendViaProvider, so the report names the provider that would actually run.
   if (env.TWILIO_WHATSAPP_NUMBER) {
@@ -112,57 +112,6 @@ function notConfiguredError(label: string, missing: string[]): string {
 
 function otpMessage(code: string): string {
   return `Su código de verificación para firmar la cotización es: ${code}. Vence en 5 minutos. No lo comparta con nadie.`;
-}
-
-/**
- * Sends the OTP as a plain SMS via the Twilio Messages API (no `whatsapp:`
- * prefix on either number).
- */
-async function sendViaTwilioSms(recipient: string, code: string): Promise<OtpDeliveryResult> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_SMS_NUMBER || process.env.TWILIO_PHONE_NUMBER;
-
-  if (!accountSid || !authToken || !from) {
-    return {
-      delivered: false,
-      channel: 'sms',
-      devCode: null,
-      error: notConfiguredError('SMS', describeDeliveryConfig().missing),
-    };
-  }
-
-  const body = new URLSearchParams({ From: from, To: recipient, Body: otpMessage(code) });
-
-  try {
-    const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: body.toString(),
-        signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-      }
-    );
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      return {
-        delivered: false,
-        channel: 'sms',
-        devCode: null,
-        error: `Twilio rechazó el envío del SMS (${response.status}${data?.code ? ` / ${data.code}` : ''})`,
-      };
-    }
-
-    return { delivered: true, channel: 'sms', devCode: null };
-  } catch (err) {
-    const reason = err instanceof Error && err.name === 'TimeoutError' ? 'tiempo agotado' : 'error de red';
-    return { delivered: false, channel: 'sms', devCode: null, error: `No se pudo contactar a Twilio (${reason})` };
-  }
 }
 
 /** Sends the OTP over WhatsApp via Twilio, preferred when both providers are configured. */
@@ -279,10 +228,6 @@ async function sendViaProvider(
   const recipient = formatE164MexicanPhone(phone);
   if (!recipient) {
     return { delivered: false, channel, devCode: null, error: 'Número de teléfono inválido' };
-  }
-
-  if (channel === 'sms') {
-    return sendViaTwilioSms(recipient, code);
   }
 
   // whatsapp: Twilio first, Meta as a fallback provider.

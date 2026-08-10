@@ -19,7 +19,7 @@ export function ComparisonSection() {
     },
     {
       feature: 'Firma Legal & Aceptación OTP',
-      bh: 'Sí (Aprobación OTP por SMS/WhatsApp con Evidencia Legal)',
+      bh: 'Sí (Aprobación OTP por WhatsApp con Evidencia Legal)',
       manual: 'No (mensajes informales en chat)',
       traditional: 'No (requiere impresión o firma física)',
     },

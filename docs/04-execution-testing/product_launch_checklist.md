@@ -45,7 +45,7 @@
 - [x] **Remove Mock Auth Defaults**: Updated backend API routes (`app/api/*`) to enforce valid authenticated sessions (`supabase.auth.getUser()`).
 
 ### ✍️ E-Signature OTP Delivery (P0 — blocks the core loop)
-- [x] **Provider Code Paths**: `lib/otpDelivery.ts` implements Twilio SMS, Twilio WhatsApp, and Meta Cloud API, selected by `OTP_DELIVERY_CHANNEL`. Fails closed outside development (PR #16).
+- [x] **Provider Code Paths**: `lib/otpDelivery.ts` implements Twilio WhatsApp and Meta Cloud API, selected by `OTP_DELIVERY_CHANNEL=whatsapp`. Fails closed outside development (PR #16; the sms channel was retired with phone login).
 - [ ] **Provider Credentials Configured**: No credentials in the environment. Until set, `POST /api/quotes/public/[token]/otp` returns 502 and **no quote can be signed**. See issue #2.
 - [x] **Per-Recipient Rate Limiting**: Issuance is capped on the recipient phone across quotes. *(Issue #17 / PR #20 — merged 2026-08-07; this line previously read "PR #20 unmerged".)* Escalating backoff and a daily cap remain open as hardening ([#22](https://github.com/jesushzv/business-helper/issues/22), P1).
 - [ ] **Real Handset Verification** ([#2](https://github.com/jesushzv/business-helper/issues/2), **P0**): A code arrives within ~10s on the configured channel and cannot be replayed.
@@ -122,7 +122,7 @@
 - [ ] **Resolve CFDI FAQ/Pricing contradiction**: Update FAQ to match pay-per-folio add-on model (not plan-gated at $999).
 - [ ] **Update pricing table**: Show CFDI as available across all plans per [cfdi_integration_architecture.md](../../docs/02-architecture/cfdi_integration_architecture.md).
 - [ ] **Fix broken core routes**: Resolve 404s/errors on `/pricing` and `/demo` routes or redirect to active sections.
-- [ ] **Fix broken `/login` page**: Ensure email/phone input, password field, recovery link, and social login render properly.
+- [ ] **Fix broken `/login` page**: Ensure email input, password field, recovery link, and social login render properly. (Phone login was removed with #122 / PR #141 — email/OAuth only.)
 
 ### Signup Form & Legal
 - [ ] **Defer RFC to progressive profiling**: Allow friction-free signup with Email + Password / Phone + OTP; defer RFC demand to first invoice (*timbrado*).
@@ -184,7 +184,7 @@
 - [ ] **Production API Keys Configuration**:
   - [ ] `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`: Live key set and webhook endpoint registered (`/api/stripe/webhook`). Verify with `npm run verify:webhook`.
   - [ ] `STRIPE_PRICE_*` ([#68](https://github.com/jesushzv/business-helper/issues/68)): Live price IDs mapped for each tier (Inicial / Negocio / Empresa).
-  - [ ] `OTP_DELIVERY_CHANNEL` + `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / sender number — **required, not optional.** The earlier "Not Needed / Bypassed" note was wrong: `wa.me/` Click-to-Chat only covers *owner-initiated* messages. It cannot deliver an OTP to a signer, so without a provider the e-signature flow is inoperable and no quote can be signed. One Twilio account also covers the outbound reminders in `lib/whatsappOutbound.ts`. (Meta Cloud API is the alternative; Twilio SMS is the fastest to provision.)
+  - [ ] `OTP_DELIVERY_CHANNEL` + `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / sender number — **required, not optional.** The earlier "Not Needed / Bypassed" note was wrong: `wa.me/` Click-to-Chat only covers *owner-initiated* messages. It cannot deliver an OTP to a signer, so without a provider the e-signature flow is inoperable and no quote can be signed. One Twilio account also covers the outbound reminders in `lib/whatsappOutbound.ts`. (Meta Cloud API is the alternative; the sms channel was retired — WhatsApp is the only OTP transport, see #42 for the cold-recipient template.)
   - [ ] `PAC_ENCRYPTION_KEY`: **Required before anyone can connect a PAC.** 32 bytes (base64 or hex) sealing tenant PAC API keys; `/api/organization/pac` answers 503 rather than storing a credential in plaintext without it.
   - [ ] `FACTURAPI_SECRET_KEY`: **Optional.** It is the platform's shared PAC account, used by tenants who have not connected their own; those stamps consume the folios their plan includes. Without it, an organization connects its own PAC in Ajustes and invoicing still works. The Nota de Venta PDF and Accountant ZIP Export (`lib/receiptGenerator.ts`) remain the zero-SAT default.
 - [ ] **Domain & SSL Setup**: The domain is **`businesshelper.app`** — `.mx` was never registered. On Vercel:

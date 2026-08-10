@@ -4,8 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Lock, Mail, ArrowRight, AlertCircle, Sparkles, Eye, EyeOff, Phone } from 'lucide-react';
-import { validatePhone } from '@/lib/phoneValidator';
+import { Lock, Mail, ArrowRight, AlertCircle, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
 import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 import { identifyPostHogUser } from '@/components/PostHogInit';
@@ -26,15 +25,11 @@ export default function LoginPage() {
     const next = new URLSearchParams(window.location.search).get('next');
     return next && /^\/[^/\\]/.test(next) ? next : '/dashboard';
   };
-  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const phoneResult = phone ? validatePhone(phone) : { isValid: false, phone: '' };
 
   /**
    * Whether the Auth server actually accepts Google (#48). `false` hides the
@@ -55,22 +50,16 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (loginMethod === 'phone' && !phoneResult.isValid) {
-      setError('Por favor ingresa un número telefónico válido de 10 dígitos.');
-      return;
-    }
-
     setLoading(true);
 
     try {
       const supabase = createClient();
-      const { data, error: authError } = loginMethod === 'email'
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signInWithPassword({ phone: phoneResult.phone, password });
+      // Phone + password sign-in was removed (#122): no account has a phone
+      // identity, so the tab only ever rejected valid credentials.
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (authError) {
-        setError('Correo, teléfono o contraseña incorrectos. Por favor verifica tus datos.');
+        setError('Correo o contraseña incorrectos. Por favor verifica tus datos.');
         setLoading(false);
         return;
       }
@@ -129,7 +118,7 @@ export default function LoginPage() {
       });
 
       if (authError) {
-        setError('No se pudo iniciar sesión con Google. Intenta con tu correo o teléfono.');
+        setError('No se pudo iniciar sesión con Google. Intenta con tu correo y contraseña.');
       }
     } catch {
       setError('Ocurrió un error al conectar con Google.');
@@ -204,79 +193,25 @@ export default function LoginPage() {
           </div>
           )}
 
-          {/* Email / Phone Method Selector */}
-          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 mb-6">
-            <button
-              type="button"
-              onClick={() => setLoginMethod('email')}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all min-h-[40px] ${
-                loginMethod === 'email'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Correo Electrónico
-            </button>
-            <button
-              type="button"
-              onClick={() => setLoginMethod('phone')}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all min-h-[40px] ${
-                loginMethod === 'phone'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Teléfono / WhatsApp
-            </button>
-          </div>
-
           <form className="space-y-6" onSubmit={handleLogin}>
-            {loginMethod === 'email' ? (
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                  Correo Electrónico
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                    <Mail className="w-5 h-5" />
-                  </div>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="don.roberto@negocio.mx"
-                    className="block w-full pl-11 pr-4 py-3 min-h-[48px] bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                  />
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                Correo Electrónico
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <Mail className="w-5 h-5" />
                 </div>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="don.roberto@negocio.mx"
+                  className="block w-full pl-11 pr-4 py-3 min-h-[48px] bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                />
               </div>
-            ) : (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Teléfono Móvil (10 dígitos)
-                  </label>
-                  {phone && (
-                    <span className={`text-[10px] font-bold ${phoneResult.isValid ? 'text-emerald-400' : 'text-amber-400'}`}>
-                      {phoneResult.isValid ? '✓ 10 dígitos' : 'Inválido'}
-                    </span>
-                  )}
-                </div>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                    <Phone className="w-5 h-5" />
-                  </div>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="8112345678"
-                    className="block w-full pl-11 pr-4 py-3 min-h-[48px] bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                  />
-                </div>
-              </div>
-            )}
+            </div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
