@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, AlertCircle, Building2, User, Phone, Mail, FileText, MapPin } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Building2, User, Mail, FileText, MapPin } from 'lucide-react';
 import { Client } from '@/types';
 import { validateRFC } from '@/lib/rfcValidator';
+import { PhoneField } from '@/components/shared/PhoneField';
 
 interface ClientFormModalProps {
   isOpen: boolean;
@@ -199,19 +200,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-300">Teléfono WhatsApp (10 dígitos)</label>
-              <div className="relative mt-1.5">
-                <Phone className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Ej. 8115551234"
-                  className="w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
-            </div>
+            <PhoneField
+              inputId="client-phone"
+              value={phone}
+              onChange={setPhone}
+              hint="Es el número al que se envía el código de firma. Si tu cliente está en otro país, elige su bandera."
+            />
           </div>
 
           {/* Email & RFC */}

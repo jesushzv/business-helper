@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   dispatchWhatsAppReminder,
   getWhatsAppDispatchMode,
-  formatE164MexicanPhone,
+  formatE164Phone,
 } from '@/lib/whatsappOutbound';
 
 /**
@@ -230,7 +230,7 @@ describe('supporting behavior preserved', () => {
   });
 
   it('formats Mexican numbers to E.164', () => {
-    expect(formatE164MexicanPhone('8115559988')).toBe('+528115559988');
-    expect(formatE164MexicanPhone('528115559988')).toBe('+528115559988');
+    expect(formatE164Phone('8115559988')).toBe('+528115559988');
+    expect(formatE164Phone('528115559988')).toBe('+528115559988');
   });
 });

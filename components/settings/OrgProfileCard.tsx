@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Building2, Save, CheckCircle2, AlertCircle } from 'lucide-react';
 import { OrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 import { validateRFC } from '@/lib/rfcValidator';
+import { PhoneField } from '@/components/shared/PhoneField';
 
 interface OrgProfileCardProps {
   settings: OrganizationSettings;
@@ -170,20 +171,13 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Teléfono WhatsApp de Contacto
-            </label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="10 dígitos, ej. 8112345678"
-              disabled={!canEdit}
-              className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px] disabled:opacity-60"
-            />
-          </div>
+          <PhoneField
+            inputId="org-phone"
+            label="TELÉFONO WHATSAPP DE CONTACTO"
+            value={formData.phone}
+            onChange={(e164) => setFormData((prev) => ({ ...prev, phone: e164 }))}
+            disabled={!canEdit}
+          />
         </div>
 
         <div className="pt-2">

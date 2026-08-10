@@ -39,27 +39,33 @@ describe('OrgProfileCard — the form follows the server row', () => {
       <OrgProfileCard settings={SERVER_ROW} onSave={onSave} saving={false} canEdit />
     );
 
-    const phone = screen.getByPlaceholderText('10 dígitos, ej. 8112345678') as HTMLInputElement;
-    fireEvent.change(phone, { target: { name: 'phone', value: '81 1234 5678' } });
-    expect(phone.value).toBe('81 1234 5678');
+    const phone = document.getElementById('org-phone') as HTMLInputElement;
+    fireEvent.change(phone, { target: { value: '81 1234 5678' } });
+    // Normalized as typed, so the field never shows a shape the column will
+    // not hold — the #95 defect was exactly that gap.
+    expect(phone.value).toBe('8112345678');
 
     fireEvent.submit(phone.closest('form') as HTMLFormElement);
     await waitFor(() => expect(onSave).toHaveBeenCalled());
 
+    // The field submits E.164 — the country is explicit, never inferred (#94).
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ phone: '+528112345678' }));
+
     // What the hook does on a 2xx: replace `settings` with the returned row.
     rerender(
       <OrgProfileCard
-        settings={{ ...SERVER_ROW, phone: '8112345678' }}
+        settings={{ ...SERVER_ROW, phone: '+528112345678' }}
         onSave={onSave}
         saving={false}
         canEdit
       />
     );
 
+    // The national part is what the field shows; the country lives in the
+    // selector beside it. Still the #95 guard: the typed text must not survive
+    // the server row landing.
     await waitFor(() =>
-      expect(
-        (screen.getByPlaceholderText('10 dígitos, ej. 8112345678') as HTMLInputElement).value
-      ).toBe('8112345678')
+      expect((document.getElementById('org-phone') as HTMLInputElement).value).toBe('8112345678')
     );
     expect(await screen.findByText(/se guardaron correctamente/i)).toBeTruthy();
   });

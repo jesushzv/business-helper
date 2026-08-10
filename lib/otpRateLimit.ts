@@ -22,7 +22,7 @@
  * closed rather than sending unbounded messages when the ledger is unreachable.
  */
 
-import { formatE164MexicanPhone } from './whatsappOutbound';
+import { formatE164Phone } from './whatsappOutbound';
 
 /** Rolling window over which sends to one phone are counted. */
 export const OTP_PHONE_WINDOW_MS = 60 * 60 * 1000;
@@ -93,7 +93,7 @@ export type OtpRateLimitDecision =
  * another would be two budgets for one handset.
  */
 export function normalizeOtpRecipient(phone: string | null | undefined): string | null {
-  const e164 = formatE164MexicanPhone(phone || '');
+  const e164 = formatE164Phone(phone || '');
   return /^\+[0-9]{10,15}$/.test(e164) ? e164 : null;
 }
 
