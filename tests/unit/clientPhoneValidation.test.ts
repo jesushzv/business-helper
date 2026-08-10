@@ -174,6 +174,17 @@ describe('generateWhatsAppLink does not re-derive a country code (#94)', () => {
     expect(generateWhatsAppLink('+442079460958')).toBe('https://wa.me/442079460958');
   });
 
+  it('keeps a foreign number whose E.164 is exactly 10 digits long', () => {
+    // The case that actually discriminates. `+1…` and `+44…` are 11 and 12
+    // digits, which no legacy branch rewrites — so asserting on those alone
+    // passes even with the `+` check deleted, and proves nothing. Denmark and
+    // Iceland total ten digits, which is precisely the length the pre-#94 code
+    // read as "bare Mexican national number" and prefixed with 52.
+    // Verified by planting `isE164 = false` and watching these two go red.
+    expect(generateWhatsAppLink('+4520123456')).toBe('https://wa.me/4520123456');
+    expect(generateWhatsAppLink('+3546123456')).toBe('https://wa.me/3546123456');
+  });
+
   it('still handles the pre-backfill Mexican shapes', () => {
     expect(generateWhatsAppLink('8115551234')).toBe('https://wa.me/528115551234');
     expect(generateWhatsAppLink('+52 81-1555-1234')).toBe('https://wa.me/528115551234');
