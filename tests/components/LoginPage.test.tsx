@@ -58,7 +58,7 @@ describe('LoginPage Component (Task C7 Remediation Suite)', () => {
     expect(screen.getByText(/Controla tus cotizaciones, cobranza y facturación/i)).toBeInTheDocument();
   });
 
-  it('renders input fields for email/phone and password with >= 48px touch targets', () => {
+  it('renders input fields for email and password with >= 48px touch targets', () => {
     render(<LoginPage />);
     const emailInput = screen.getByPlaceholderText(/don.roberto@negocio.mx/i);
     const passwordInput = screen.getByPlaceholderText(/••••••••/i);
@@ -68,6 +68,18 @@ describe('LoginPage Component (Task C7 Remediation Suite)', () => {
 
     expect(emailInput.className).toContain('min-h-[48px]');
     expect(passwordInput.className).toContain('min-h-[48px]');
+  });
+
+  /**
+   * #122 — the "Teléfono / WhatsApp" tab routed to signInWithPassword({ phone }),
+   * which could never succeed (provider off, no phone identity ever created,
+   * number not E.164) and blamed the user's password for it. The product is
+   * email/OAuth only; no phone entry point may come back to this page.
+   */
+  it('offers no phone login: no method tab and no tel input (#122)', () => {
+    render(<LoginPage />);
+    expect(screen.queryByText(/Teléfono/i)).not.toBeInTheDocument();
+    expect(document.querySelector('input[type="tel"]')).toBeNull();
   });
 
   it('renders password visibility toggle button and toggles input type', () => {

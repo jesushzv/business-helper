@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const deliverOtp = vi.fn();
 vi.mock('@/lib/otpDelivery', () => ({
   deliverOtp: (...args: unknown[]) => deliverOtp(...args),
-  getDeliveryChannel: () => 'sms',
+  getDeliveryChannel: () => 'whatsapp',
   isDeliveryConfigured: () => true,
 }));
 
@@ -75,7 +75,7 @@ describe('POST /api/quotes/public/[token]/otp — deliver before store', () => {
   });
 
   it('does not flag the reservation when delivery succeeds', async () => {
-    deliverOtp.mockResolvedValue({ delivered: true, channel: 'sms' });
+    deliverOtp.mockResolvedValue({ delivered: true, channel: 'whatsapp' });
 
     const res = await POST(...issueRequest());
 
@@ -84,7 +84,7 @@ describe('POST /api/quotes/public/[token]/otp — deliver before store', () => {
   });
 
   it('does not touch the stored digest when delivery fails', async () => {
-    deliverOtp.mockResolvedValue({ delivered: false, channel: 'sms', devCode: null, error: 'Proveedor caído' });
+    deliverOtp.mockResolvedValue({ delivered: false, channel: 'whatsapp', devCode: null, error: 'Proveedor caído' });
 
     const res = await POST(...issueRequest());
 
@@ -98,7 +98,7 @@ describe('POST /api/quotes/public/[token]/otp — deliver before store', () => {
     const callOrder: string[] = [];
     deliverOtp.mockImplementation(async () => {
       callOrder.push('deliver');
-      return { delivered: true, channel: 'sms', devCode: null };
+      return { delivered: true, channel: 'whatsapp', devCode: null };
     });
     update.mockImplementation(() => {
       callOrder.push('store');
@@ -120,7 +120,7 @@ describe('POST /api/quotes/public/[token]/otp — deliver before store', () => {
   });
 
   it('reports an honest failure when the code was delivered but could not be stored', async () => {
-    deliverOtp.mockResolvedValue({ delivered: true, channel: 'sms', devCode: null });
+    deliverOtp.mockResolvedValue({ delivered: true, channel: 'whatsapp', devCode: null });
     updateEq.mockResolvedValue({ error: { message: 'db down' } });
 
     const res = await POST(...issueRequest());

@@ -14,8 +14,8 @@
  *   2. Credential — an authenticated read against the provider. Sends nothing.
  *   3. Send       — a real message, only when OTP_TEST_PHONE is set.
  *
- *   OTP_DELIVERY_CHANNEL=sms \
- *   TWILIO_ACCOUNT_SID=AC… TWILIO_AUTH_TOKEN=… TWILIO_SMS_NUMBER=+1… \
+ *   OTP_DELIVERY_CHANNEL=whatsapp \
+ *   TWILIO_ACCOUNT_SID=AC… TWILIO_AUTH_TOKEN=… TWILIO_WHATSAPP_NUMBER=+1… \
  *   OTP_TEST_PHONE=+528115559988 \
  *   npm run verify:otp
  *
@@ -66,33 +66,28 @@ function basicAuth(sid, token) {
 console.log('\nOTP delivery verification\n');
 console.log('Config');
 
-const channel =
-  env.OTP_DELIVERY_CHANNEL === 'sms' || env.OTP_DELIVERY_CHANNEL === 'whatsapp'
-    ? env.OTP_DELIVERY_CHANNEL
-    : 'console';
+const channel = env.OTP_DELIVERY_CHANNEL === 'whatsapp' ? 'whatsapp' : 'console';
 
 if (channel === 'console') {
-  record('OTP_DELIVERY_CHANNEL is sms or whatsapp', false, `got ${env.OTP_DELIVERY_CHANNEL ?? '(unset)'}`);
+  // 'sms' lands here on purpose: the channel was retired with phone login,
+  // and a deployment still holding it fails closed rather than half-working.
+  record('OTP_DELIVERY_CHANNEL is whatsapp', false, `got ${env.OTP_DELIVERY_CHANNEL ?? '(unset)'}`);
   fail(
     'No delivery channel selected.\n\n' +
-      '  export OTP_DELIVERY_CHANNEL=sms      # or whatsapp\n\n' +
-      '  Unset means the console channel, which fails closed in production —\n' +
-      '  the signing flow returns 502 and no code is ever issued.'
+      '  export OTP_DELIVERY_CHANNEL=whatsapp\n\n' +
+      '  Unset (or the retired sms value) means the console channel, which fails\n' +
+      '  closed in production — the signing flow returns 502 and no code is issued.'
   );
 }
 
-record('OTP_DELIVERY_CHANNEL is sms or whatsapp', true, channel);
+record('OTP_DELIVERY_CHANNEL is whatsapp', true, channel);
 
-// Mirrors describeDeliveryConfig(): on whatsapp, Twilio wins when its number is
-// set; otherwise Meta is the provider that would run.
+// Mirrors describeDeliveryConfig(): Twilio wins when its number is set;
+// otherwise Meta is the provider that would run.
 let provider;
 let missing;
 
-if (channel === 'sms') {
-  provider = 'twilio_sms';
-  missing = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'].filter((key) => !env[key]);
-  if (!env.TWILIO_SMS_NUMBER && !env.TWILIO_PHONE_NUMBER) missing.push('TWILIO_SMS_NUMBER');
-} else if (env.TWILIO_WHATSAPP_NUMBER) {
+if (env.TWILIO_WHATSAPP_NUMBER) {
   provider = 'twilio_whatsapp';
   missing = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'].filter((key) => !env[key]);
 } else {
@@ -121,9 +116,9 @@ if (missing.length) {
 
 console.log('\nCredentials');
 
-const sender = channel === 'sms' ? env.TWILIO_SMS_NUMBER || env.TWILIO_PHONE_NUMBER : env.TWILIO_WHATSAPP_NUMBER;
+const sender = env.TWILIO_WHATSAPP_NUMBER;
 
-if (provider === 'twilio_sms' || provider === 'twilio_whatsapp') {
+if (provider === 'twilio_whatsapp') {
   const sid = env.TWILIO_ACCOUNT_SID;
   const account = await request(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}.json`, {
     headers: { Authorization: basicAuth(sid, env.TWILIO_AUTH_TOKEN) },
@@ -139,23 +134,10 @@ if (provider === 'twilio_sms' || provider === 'twilio_whatsapp') {
     record('Twilio account is active', false, `status ${account.json.status} — sends will be rejected`);
   }
 
-  // A from-number the account does not own is the failure that otherwise
-  // surfaces only as Twilio error 21606 on a signer's first request.
-  const numbers = await request(
-    `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(sender)}`,
-    { headers: { Authorization: basicAuth(sid, env.TWILIO_AUTH_TOKEN) } }
-  );
-
-  if (numbers.ok) {
-    const owned = Array.isArray(numbers.json.incoming_phone_numbers) && numbers.json.incoming_phone_numbers.length > 0;
-    // WhatsApp senders are not IncomingPhoneNumbers, so absence there proves
-    // nothing on that channel — report it without failing the run.
-    if (provider === 'twilio_sms') {
-      record('sender number belongs to the account', owned, owned ? sender : `${sender} not found on this account`);
-    } else {
-      console.log(`  · WhatsApp sender ${sender} — ownership not checkable via this API, stage 3 confirms it`);
-    }
-  }
+  // WhatsApp senders are not IncomingPhoneNumbers, so ownership cannot be
+  // read from the account API the way an SMS sender's could — stage 3 is
+  // what confirms it.
+  console.log(`  · WhatsApp sender ${sender} — ownership not checkable via the account API, stage 3 confirms it`);
 } else {
   const version = env.META_GRAPH_API_VERSION || 'v21.0';
   const number = await request(
@@ -209,8 +191,8 @@ const body =
 
 let send;
 
-if (provider === 'twilio_sms' || provider === 'twilio_whatsapp') {
-  const prefix = provider === 'twilio_whatsapp' ? 'whatsapp:' : '';
+if (provider === 'twilio_whatsapp') {
+  const prefix = 'whatsapp:';
   send = await request(
     `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(env.TWILIO_ACCOUNT_SID)}/Messages.json`,
     {
@@ -265,8 +247,8 @@ if (failed) {
         '  when the recipient messages the business. An OTP to anyone else has to go\n' +
         '  out as an approved template in the authentication category, which\n' +
         '  lib/otpDelivery.ts does not send yet.\n\n' +
-        '  Either message the business from this handset and re-run within 24 hours\n' +
-        '  to confirm the credentials, or use OTP_DELIVERY_CHANNEL=sms.'
+        '  Message the business from this handset and re-run within 24 hours to\n' +
+        '  confirm the credentials. Cold recipients need the approved template (#42).'
     );
   }
 

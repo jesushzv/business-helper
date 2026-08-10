@@ -53,7 +53,7 @@ gantt
 ---
 
 ### Scene 4: Revisión del Cliente & Firma Digital OTP (40s – 58s)
-* **Visual**: Cambio de perspectiva al celular del cliente (Construcciones Maya). El cliente abre la propuesta interactiva sin necesidad de descargar apps ni crear cuenta. Hace clic en *"Aceptar Cotización"*, recibe un código SMS/WhatsApp de 6 dígitos (OTP: `482-910`) y confirma. Aparece en pantalla un sello verde de validación: `"Sello Digital Cryptoseal SHA-256 Registrado"`.
+* **Visual**: Cambio de perspectiva al celular del cliente (Construcciones Maya). El cliente abre la propuesta interactiva sin necesidad de descargar apps ni crear cuenta. Hace clic en *"Aceptar Cotización"*, recibe un código de 6 dígitos por WhatsApp (OTP: `482-910`) y confirma. Aparece en pantalla un sello verde de validación: `"Sello Digital Cryptoseal SHA-256 Registrado"`.
 * **Voz en Off (Locución)**: *"Tu cliente revisa la cotización en su navegador, aprueba con un código OTP y el sistema genera un sello digital criptográfico SHA-256 para máxima validez legal y transparencia."*
 * **On-Screen Text**: *"Firma Digital OTP + Sello Cryptoseal SHA-256"*
 
