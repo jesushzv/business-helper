@@ -122,7 +122,7 @@
 - [ ] **Resolve CFDI FAQ/Pricing contradiction**: Update FAQ to match pay-per-folio add-on model (not plan-gated at $999).
 - [ ] **Update pricing table**: Show CFDI as available across all plans per [cfdi_integration_architecture.md](../../docs/02-architecture/cfdi_integration_architecture.md).
 - [ ] **Fix broken core routes**: Resolve 404s/errors on `/pricing` and `/demo` routes or redirect to active sections.
-- [ ] **Fix broken `/login` page**: Ensure email/phone input, password field, recovery link, and social login render properly.
+- [ ] **Fix broken `/login` page**: Ensure email input, password field, recovery link, and social login render properly. (Phone login was removed with #122 / PR #141 — email/OAuth only.)
 
 ### Signup Form & Legal
 - [ ] **Defer RFC to progressive profiling**: Allow friction-free signup with Email + Password / Phone + OTP; defer RFC demand to first invoice (*timbrado*).
