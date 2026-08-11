@@ -46,10 +46,20 @@
 - `cfdi_folios_period`: text (nullable) -- 'YYYY-MM' the counter above describes
 - `cfdi_folios_purchased`: integer (not null, default: `0`) -- Pack folios; do not expire monthly
 - `bank_name`: text (nullable) -- SPEI settlement account (`20260806120000`)
-- `bank_clabe`: text (nullable) -- 18-digit CLABE; absence blocks `/pay/` (#64)
+- `bank_clabe`: text (nullable) -- 18-digit CLABE; absence blocks `/pay/` (#64); emptying it clears all three columns (#163)
 - `bank_account_holder`: text (nullable)
 - `created_at`: timestamptz (not null, default: `now()`)
 - `updated_at`: timestamptz (not null, default: `now()`)
+
+> **One organization settles at one account — chosen, not assumed (#164).** The three `bank_*`
+> columns above are deliberately columns rather than a `bank_accounts` table: every `/pay/` link
+> resolves to this row, so a tenant with two bank accounts switches by editing Ajustes. The
+> alternative — several accounts with one flagged default, or an account chosen per quote — was
+> weighed and deferred, because no tenant has yet needed a second account and the change lands a
+> migration on the money path. Revisit when a real tenant does: the smallest step is a
+> `bank_accounts` table with one default row, with `hasSettlementAccount()` becoming "at least one
+> account" and the payer-facing embed in `app/api/receivables/public/[token]/route.ts` reading the
+> default. Per-quote selection is a larger question and needs its own decision.
 
 #### `organization_members`
 - `id`: uuid (PK, default: `gen_random_uuid()`)
