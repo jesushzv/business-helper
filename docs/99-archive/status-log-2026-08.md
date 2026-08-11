@@ -698,3 +698,51 @@ core promise is Mexican tax compliance, that is a compliance defect, not a missi
 The same pattern applied to Stripe checkout, team invitations, the accountant ZIP export, and
 outbound WhatsApp dispatch — all since remediated (see §02).
 
+
+
+## P0 table re-derivation history (moved from `docs/STATUS.md` 2026-08-11)
+
+Kept for provenance; STATUS carries only the current count and the rule.
+
+> [!NOTE]
+> **One P0, one open issue.** Every row below maps to exactly one open issue and every
+> open P0 issue appears below. Rows 1, 4 and 6 were previously all "#14", which meant no
+> single one could be closed without implying the others; #14 is now their parent and holds
+> only the staging-checklist residue. Verify this table against
+> `is:issue is:open label:P0` before trusting it — the list is ordered by dependency, not
+> just severity, and rows drop off as they close.
+>
+> **That instruction earned itself on 2026-08-09**: the live query returned **11** open P0s
+> against **7** rows. #122, #135 and #48 were added below. The invariant is only true because
+> someone ran the query — a rule nobody executes is how five documents once claimed completion
+> for simulated work (§01). **Re-run after PR #137 merged the same day: 10 open P0s against the
+> nine rows below** (row 6 carries two, #93 and #96). #135's row dropped off with its issue.
+> **2026-08-10:** #122 resolved by decision — phone login removed, the product is email/OAuth
+> only (outbound WhatsApp stays; OTP moved to email 2026-08-11). Its row dropped. **2026-08-11:** #2 closed at
+> founder request, criterion then unmet, its steps tracked by a row with no backing issue —
+> and **later the same day the criterion was met**: a real code to a real inbox, quote signed and
+> sealed, evidence in §02. That row dropped too. **Re-derived: 6 open P0s against the 6 rows
+> below** (#48 and #96 closed earlier the same day, dropping theirs). **Re-derived again after #93
+> closed on its walkthrough, taking the UX-audit trio's row with it: 5 open P0s against the 5 rows
+> below** — #62, #26, #68, #64, #63. **Re-derived after #68 closed on a real card the
+> same day: 4 open P0s against the 4 rows below** — #62, #26, #64, #63.
+> **Re-derived again 2026-08-11 22:00Z: 3 open P0s against the 3 rows below** — #62, #26, #63.
+> #64 closed at 20:44Z on PR #161, and the table still carried its row an hour later — the
+> invariant held only because the query was run again.
+
+
+## UX-audit landed work, per issue (moved from `docs/STATUS.md` 2026-08-11)
+
+**UX-audit work landed since 2026-08-11.** All verified by unit/component tests only — none
+re-checked against production or a real handset, which is the part no agent supplies.
+
+| Issues | What changed |
+|:--|:--|
+| #87, #100 | Every overlay is `components/shared/Modal.tsx`: dialog role, Escape, focus trap and return, a named ≥48px close, and the `max-h`/`overflow-y-auto` deciding whether the OTP submit is reachable at 375px |
+| #127 | One SAT régimen catalogue (`lib/satRegimenes.ts`) across all five screens; an unlisted stored code renders as itself instead of blanking |
+| #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email); the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
+| #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
+| #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
+| #89, #101 | 48px floor enforced (46 declarations); one global `:focus-visible` ring replacing zero; 43 labels associated, 6 inputs named; gating `slate-500` raised, light-theme islands restyled; credit status gains an icon; 15 error containers announce. Gate: `a11yBaseline.test.ts` |
+| #103 | Jargon out of rendered copy (RBAC, SHA-256/HMAC, RLS, TLS, "Sandbox", route templates); English badges translated; provider errors mapped to Spanish via `lib/errorCopy.ts`, original logged; one name per concept; one register (tú) across the client portals. Plan naming split to #185. Gate: `copyRules.test.ts` |
+| #104 | Create-a-quote loses its navigation-only tap; "Generar y Compartir" now shares; invites get the WhatsApp link their copy promised; dirty-form guard; empty-vs-filtered split; skeletons unified; OTP resend cooldown. Gate: `flowPolish.test.ts` |
