@@ -140,8 +140,12 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
                       </div>
                     </div>
 
+                    {/* Per-tier, so it carries the tier: /upgrade decides where
+                        the clicker actually needs to go. A bare /register here
+                        put a signed-in owner in a signup form and forgot which
+                        plan they had chosen. */}
                     <Link
-                      href="/register"
+                      href={`/upgrade?plan=${tier.id}`}
                       onClick={onClose}
                       className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl text-sm font-bold shadow-md transition-all active:scale-95 ${
                         tier.recommended
