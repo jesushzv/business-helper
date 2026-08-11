@@ -28,6 +28,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { Client } from '@/types';
+import { findRegimen } from '@/lib/satRegimenes';
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -370,7 +371,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   that decides whether an invoice can be issued at all (#96). */}
               <div className="mt-4 space-y-3">
                 {([
-                  ['Régimen Fiscal', client.regimen_fiscal],
+                  // The stored value is a bare SAT code; "606" is not an
+                  // answer to "what régimen is this client on". The shared
+                  // catalogue names it, and a code it does not carry falls
+                  // back to the code itself rather than to nothing (#127).
+                  [
+                    'Régimen Fiscal',
+                    client.regimen_fiscal
+                      ? (findRegimen(client.regimen_fiscal)?.label ?? client.regimen_fiscal)
+                      : client.regimen_fiscal,
+                  ],
                   ['Uso de CFDI', client.cfdi_use],
                   ['Código Postal', client.codigo_postal],
                 ] as const).map(([label, value]) => (

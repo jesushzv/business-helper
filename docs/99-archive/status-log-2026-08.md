@@ -535,3 +535,16 @@ pins the render over that exact response body. The hydrated page — the *Cerrar
 org name after hydration — was confirmed by the founder in a browser on 2026-08-11, which closed
 the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
 no-invented-bank path stays pinned by unit tests until a first real payment.
+
+
+## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
+
+Settled history: all four verified closed on the tracker at the time, moved here verbatim when
+`STATUS.md` reached its size budget.
+
+| Issue | What it was | Closed by |
+|:--|:--|:--|
+| [#33](https://github.com/jesushzv/business-helper/issues/33) | Payment confirmation | PR #55 |
+| [#36](https://github.com/jesushzv/business-helper/issues/36) | `.mx` quote links | PR #47 |
+| [#37](https://github.com/jesushzv/business-helper/issues/37) | Product analytics | PR #56 |
+| [#58](https://github.com/jesushzv/business-helper/issues/58) | The public signing page rendering a fixture quote for every token — never listed as a P0 and worse than several that were | PR #57 |
