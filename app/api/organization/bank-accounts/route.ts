@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
-import { BANK_ACCOUNT_COLUMNS, validateBankAccount, type BankAccount } from '@/lib/bankAccounts';
+import {
+  BANK_ACCOUNT_COLUMNS,
+  validateBankAccount,
+  type BankAccount,
+  type BankAccountValidation,
+} from '@/lib/bankAccounts';
 import { captureException } from '@/lib/sentry';
 import { describeDbWriteError } from '@/lib/dbWriteError';
 
@@ -13,8 +18,24 @@ import { describeDbWriteError } from '@/lib/dbWriteError';
  * treatment as the PAC credentials rather than plain membership.
  */
 
-function fieldError(field: string, message: string, status = 400): NextResponse {
-  return NextResponse.json({ error: { code: 'INVALID_INPUT', message, field } }, { status });
+/**
+ * `fields` carries every problem at once so the form can pin each message under
+ * the input it names; `field`/`message` repeat the first for a caller with one
+ * slot. Validation reveals the whole form's state per submit, not one problem
+ * per round trip (#146).
+ */
+function fieldError(validation: Extract<BankAccountValidation, { ok: false }>): NextResponse {
+  return NextResponse.json(
+    {
+      error: {
+        code: 'INVALID_INPUT',
+        message: validation.message,
+        field: validation.field,
+        fields: validation.fields,
+      },
+    },
+    { status: 400 }
+  );
 }
 
 export async function GET() {
@@ -64,7 +85,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const validated = validateBankAccount(body);
-    if (!validated.ok) return fieldError(validated.field, validated.message);
+    if (!validated.ok) return fieldError(validated);
 
     // First account for this organization becomes the default: a tenant with
     // exactly one account should never be in the "nothing is default" state
@@ -99,6 +120,24 @@ export async function POST(request: Request) {
         { error: { code: failure.code, message: failure.message } },
         { status: failure.status }
       );
+    }
+
+    // Adding an account is how money starts arriving somewhere new. Audited
+    // like the archive and the default switch, best-effort and after the row is
+    // confirmed — never the CLABE itself, which `lib/analytics.ts` already
+    // treats as PII.
+    const { error: auditError } = await supabase.from('audit_logs').insert({
+      organization_id: organizationId,
+      action: 'settlement_account.added',
+      actor: auth.ctx.userId,
+      details: `Cuenta de cobro agregada: ${(data as BankAccount).label}`,
+    });
+
+    if (auditError) {
+      captureException(auditError, {
+        route: 'POST /api/organization/bank-accounts',
+        organization_id: organizationId,
+      });
     }
 
     return NextResponse.json({ account: data as BankAccount });

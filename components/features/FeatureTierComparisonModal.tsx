@@ -54,7 +54,7 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
         <div className="flex overflow-x-auto border-b border-slate-800 bg-slate-900/80 px-6 pt-3">
           <button
             onClick={() => setActiveTab('matrix')}
-            className={`min-h-[44px] px-4 py-2.5 text-sm font-bold border-b-2 transition-all ${
+            className={`min-h-[48px] px-4 py-2.5 text-sm font-bold border-b-2 transition-all ${
               activeTab === 'matrix'
                 ? 'border-emerald-400 text-emerald-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -64,7 +64,7 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
           </button>
           <button
             onClick={() => setActiveTab('painpoints')}
-            className={`min-h-[44px] px-4 py-2.5 text-sm font-bold border-b-2 transition-all ${
+            className={`min-h-[48px] px-4 py-2.5 text-sm font-bold border-b-2 transition-all ${
               activeTab === 'painpoints'
                 ? 'border-emerald-400 text-emerald-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -74,7 +74,7 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
           </button>
           <button
             onClick={() => setActiveTab('roi')}
-            className={`min-h-[44px] px-4 py-2.5 text-sm font-bold border-b-2 transition-all ${
+            className={`min-h-[48px] px-4 py-2.5 text-sm font-bold border-b-2 transition-all ${
               activeTab === 'roi'
                 ? 'border-emerald-400 text-emerald-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -266,7 +266,7 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
           </p>
           <button
             onClick={onClose}
-            className="flex min-h-[40px] items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+            className="flex min-h-[48px] items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700"
           >
             Cerrar
           </button>

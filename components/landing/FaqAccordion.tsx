@@ -20,7 +20,7 @@ const FAQS: FaqItem[] = [
   {
     id: 'otp-legal-validity',
     question: '¿La firma digital OTP por WhatsApp tiene validez legal en México?',
-    answer: 'Sí. De acuerdo con el Artículo 89 del Código de Comercio de México y los lineamientos de la Norma Oficial Mexicana NOM-151 sobre conservación de mensajes de datos, la aprobación mediante código OTP enviado al correo del cliente respaldado por sellado de tiempo criptográfico SHA-256 constituye un medio de prueba digital válido y atribuible para contratos comerciales.',
+    answer: 'Sí. De acuerdo con el Artículo 89 del Código de Comercio de México y los lineamientos de la Norma Oficial Mexicana NOM-151 sobre conservación de mensajes de datos, la aprobación mediante código OTP enviado al correo del cliente respaldado por un sello de tiempo certificado constituye un medio de prueba digital válido y atribuible para contratos comerciales.',
     icon: FileText,
   },
   {

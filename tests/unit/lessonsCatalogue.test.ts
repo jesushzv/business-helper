@@ -35,8 +35,8 @@ const AUTHORITY = 'CLAUDE.md';
  * committed. Not hand-curated prose: it must equal what the file contains, in both directions.
  */
 const LESSON_REFS: number[] = [
-  33, 38, 44, 48, 50, 58, 59, 63, 64, 76, 78, 82, 86, 87, 93, 95, 96, 100, 116, 118, 129, 133,
-  135, 146,
+  33, 38, 44, 48, 50, 58, 59, 63, 64, 76, 78, 82, 86, 93, 95, 96, 116, 118, 128, 129, 133, 135,
+  146, 148,
 ];
 
 /**
@@ -46,6 +46,8 @@ const LESSON_REFS: number[] = [
  */
 const RETIRED: Record<number, string> = {
   // 82: 'next/image migration completed in #NNN — the lint gate now fails on a bare <img>',
+  87: 'modal shell — tests/unit/modalShell.test.ts fails the build on a new hand-rolled `fixed inset-0` overlay and names the replacement, so the prose added nothing the gate does not say; retired in #148 to pay for the scanning-gate lesson within the file budget',
+  100: 'see 87 — same lesson, same gate',
 };
 
 const body = readFileSync(join(ROOT, CATALOGUE), 'utf-8');

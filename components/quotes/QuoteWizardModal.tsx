@@ -11,8 +11,13 @@ import {
 import { calculateQuoteTotals } from '@/lib/quoteCalculator';
 import { calculateClientCreditSummary, validateQuoteCreditLimit } from '@/lib/clientCredit';
 import { useReceivables } from '@/lib/hooks/useReceivables';
+import { useBankAccounts } from '@/lib/hooks/useBankAccounts';
+import { selectableAccounts, findDefaultAccount } from '@/lib/bankAccounts';
+import { formatClabe } from '@/lib/clabe';
 import { Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles, AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { userFacingMessage } from '@/lib/errorCopy';
+import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
 
 interface QuoteWizardModalProps {
   isOpen: boolean;
@@ -25,6 +30,12 @@ interface QuoteWizardModalProps {
     currency: string;
     valid_until: string;
     notes: string;
+    /**
+     * The settlement account this quote's client pays into (#164), or `null`
+     * for "whatever the organization's default is at the time" — which is what
+     * every quote written before the picker existed means.
+     */
+    bank_account_id: string | null;
     taxOptions: { applyIva: boolean; applyRetencionIsr: boolean; applyRetencionIva: boolean };
   }) => Promise<void>;
 }
@@ -35,6 +46,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   clients,
   onSubmit,
 }) => {
+  const confirmAction = useConfirm();
   const [step, setStep] = useState<number>(1);
   const [clientId, setClientId] = useState<string>(clients[0]?.id || '');
   const [title, setTitle] = useState<string>('');
@@ -61,6 +73,21 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  /**
+   * Where this quote's client pays (#164).
+   *
+   * `null` until the accounts load, and it stays `null` for a tenant with one
+   * account or none: the picker only appears when there is a real choice to
+   * make, and a NULL column means "the organization's default at render time".
+   * Sending the default's id explicitly would freeze this quote to today's
+   * default, which is a different promise than the tenant made.
+   */
+  const { accounts: bankAccounts } = useBankAccounts();
+  const [bankAccountId, setBankAccountId] = useState<string | null>(null);
+
+  const liveAccounts = bankAccounts ? selectableAccounts(bankAccounts) : [];
+  const defaultAccount = bankAccounts ? findDefaultAccount(bankAccounts) : null;
+
   React.useEffect(() => {
     if (isOpen && clients && clients.length > 0 && (!clientId || !clients.some(c => c.id === clientId))) {
       const selected = clients[0];
@@ -84,6 +111,26 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   // line was shown "$50,000 MXN Disp." and the over-limit warning only fired
   // for a quote larger than the entire line (#96 money-path review).
   const { receivables, loading: receivablesLoading, error: receivablesError } = useReceivables();
+
+  /**
+   * Clears the per-quote account each time the wizard opens (#164).
+   *
+   * The modal is mounted permanently by `app/(dashboard)/quotes/page.tsx` and
+   * only toggled with `isOpen`, and the early return below unmounts nothing —
+   * so state survives a close. Without this, a quote pinned to "Santander
+   * nómina" leaves the picker on Santander, and the *next* client, a different
+   * business entirely, is silently pinned to the same account unless the tenant
+   * re-reads step 3. The money still reaches the tenant, but into a branch or
+   * partner account nobody chose for that client — and no surface shows which
+   * account a quote named after it is created.
+   *
+   * Deliberately only this field: the title, line items and tax toggles are
+   * cleared by their own flow, and wiping a half-typed quote on a stray reopen
+   * would cost the tenant real work.
+   */
+  React.useEffect(() => {
+    if (isOpen) setBankAccountId(null);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -158,6 +205,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
         valid_until: validUntil,
         line_items: lineItems,
         notes: notes.trim(),
+        bank_account_id: bankAccountId,
         taxOptions: { applyIva, applyRetencionIsr, applyRetencionIva },
       });
       onClose();
@@ -165,19 +213,39 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
       // The quote was not created; the wizard stays open so nothing pretends
       // otherwise (#50).
       setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : 'No se pudo crear la cotización. Intenta de nuevo.'
+        userFacingMessage(err, 'No se pudo crear la cotización. Intenta de nuevo.')
       );
     } finally {
       setSubmitting(false);
     }
   };
 
+  // A mis-tap on the X used to discard everything typed — up to eight line
+  // items entered on a phone (#104). The guard only fires when there is
+  // something to lose, so an untouched wizard still closes in one tap.
+  const isDirty =
+    title.trim() !== '' ||
+    notes.trim() !== '' ||
+    drafts.some((d) => d.description.trim() !== '' || d.quantity.trim() !== '' || d.unit_price.trim() !== '');
+
+  const handleClose = () => {
+    if (!isDirty) {
+      onClose();
+      return;
+    }
+    confirmAction.ask({
+      title: 'Descartar esta cotización',
+      consequence: 'Se perderán los conceptos y las notas que llevas capturados. Esto no se puede deshacer.',
+      confirmLabel: 'Sí, descartar',
+      cancelLabel: 'Seguir editando',
+      onConfirm: onClose,
+    });
+  };
+
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={handleClose}
       title="Generador de Cotización"
       maxWidth="max-w-2xl"
       // Three steps of typed work behind a backdrop tap.
@@ -209,8 +277,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <label className="block text-sm font-bold text-slate-300 mb-2">Seleccionar Cliente</label>
+                <label htmlFor="quotewizardmodal-seleccionar-cliente" className="block text-sm font-bold text-slate-300 mb-2">Seleccionar Cliente</label>
                 <select
+                  id="quotewizardmodal-seleccionar-cliente"
                   value={clientId}
                   onChange={(e) => handleClientChange(e.target.value)}
                   className="w-full min-h-[48px] px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl font-medium text-white focus:border-emerald-500 focus:outline-none"
@@ -259,8 +328,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-300 mb-2">Título de la Cotización</label>
+                <label htmlFor="quotewizardmodal-titulo-de-la-cotizacion" className="block text-sm font-bold text-slate-300 mb-2">Título de la Cotización</label>
                 <input
+                  id="quotewizardmodal-titulo-de-la-cotizacion"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -272,8 +342,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-slate-300 mb-2">Válida Hasta</label>
+                  <label htmlFor="quotewizardmodal-valida-hasta" className="block text-sm font-bold text-slate-300 mb-2">Válida Hasta</label>
                   <input
+                    id="quotewizardmodal-valida-hasta"
                     type="date"
                     value={validUntil}
                     onChange={(e) => setValidUntil(e.target.value)}
@@ -282,8 +353,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-slate-300 mb-2">Moneda</label>
+                  <label htmlFor="quotewizardmodal-moneda" className="block text-sm font-bold text-slate-300 mb-2">Moneda</label>
                   <select
+                    id="quotewizardmodal-moneda"
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
                     className="w-full min-h-[48px] px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl font-medium text-white focus:border-emerald-500 focus:outline-none"
@@ -322,7 +394,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                       value={item.description}
                       onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                       placeholder="Descripción del producto o servicio"
-                      className="w-full min-h-[44px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      className="w-full min-h-[48px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                       required
                     />
                     <div className="grid grid-cols-2 gap-3">
@@ -343,7 +415,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                           value={item.quantity}
                           onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                           placeholder="1"
-                          className="w-full min-h-[44px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                          className="w-full min-h-[48px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                           required
                         />
                       </div>
@@ -361,7 +433,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                           value={item.unit_price}
                           onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
                           placeholder="0.00"
-                          className="w-full min-h-[44px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                          className="w-full min-h-[48px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                           required
                         />
                       </div>
@@ -456,6 +528,53 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                   </div>
                 </div>
 
+                {/*
+                  Which account this client pays into (#164).
+                  Shown only when the tenant actually keeps more than one: with
+                  a single account there is no choice to make, and a picker with
+                  one option is a decision the tenant must read and dismiss on a
+                  375px screen. Leaving it on "principal" stores NULL, so the
+                  quote follows whatever the default is — the same meaning every
+                  pre-#164 quote carries.
+                */}
+                {liveAccounts.length > 1 && (
+                  <div className="border-t border-slate-800 pt-4">
+                    <label
+                      htmlFor="quote_bank_account"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-400"
+                    >
+                      ¿En qué cuenta te paga este cliente?
+                    </label>
+                    <select
+                      id="quote_bank_account"
+                      value={bankAccountId ?? ''}
+                      onChange={(e) => setBankAccountId(e.target.value || null)}
+                      className="mt-1.5 min-h-[48px] w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-base font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none"
+                    >
+                      <option value="">
+                        {defaultAccount
+                          ? `Mi cuenta principal (${defaultAccount.label})`
+                          : 'Mi cuenta principal'}
+                      </option>
+                      {liveAccounts
+                        .filter((account) => !account.is_default)
+                        .map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.label} — {account.bank_name}
+                          </option>
+                        ))}
+                    </select>
+                    {bankAccountId && (
+                      <p className="mt-1.5 font-mono text-xs text-slate-400">
+                        {formatClabe(liveAccounts.find((a) => a.id === bankAccountId)?.clabe || '')}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-slate-500">
+                      Tu cliente verá los datos de esta cuenta en su página de pago.
+                    </p>
+                  </div>
+                )}
+
                 {creditValidation.warningMessage && (
                   <div className="rounded-xl bg-amber-950/80 border border-amber-500/40 p-3.5 text-xs text-amber-300 font-semibold flex items-start gap-2">
                     <AlertTriangle className="h-5 w-5 shrink-0 text-amber-400 mt-0.5" />
@@ -468,8 +587,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-300 mb-2">Notas adicionales para el cliente</label>
+                <label htmlFor="quotewizardmodal-notas-adicionales-para-el" className="block text-sm font-bold text-slate-300 mb-2">Notas adicionales para el cliente</label>
                 <textarea
+                  id="quotewizardmodal-notas-adicionales-para-el"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Condiciones de pago, tiempo de entrega, etc."
@@ -535,6 +655,8 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
           </div>
         </form>
       </div>
+
+      <ConfirmDialog request={confirmAction.request} onClose={confirmAction.dismiss} />
     </Modal>
   );
 };

@@ -173,4 +173,37 @@ describe('validating an account before it can receive money', () => {
     const result = validateBankAccount({ ...valid, accountHolder: '  ' });
     expect(result.ok && result.value.account_holder).toBeNull();
   });
+
+  /**
+   * Reports every problem in one pass (#146).
+   *
+   * This function used to return at the first failure while its docblock
+   * claimed the opposite, so the tests above — each supplying exactly one bad
+   * field — could not tell the difference. A tenant filling this in on a phone
+   * would have learned about the short CLABE only after fixing the label and
+   * submitting again, on the form that decides where their money lands.
+   */
+  it('reports every problem in one pass, not one per submit', () => {
+    const result = validateBankAccount({ label: '  ', bankName: '', clabe: '0121' });
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.fields).toEqual({
+      label: expect.stringMatching(/Ponle un nombre/),
+      bankName: expect.stringMatching(/nombre del banco/),
+      clabe: expect.stringMatching(/18 dígitos/),
+    });
+  });
+
+  it('reports only the fields that are actually wrong', () => {
+    const result = validateBankAccount({ ...valid, clabe: '0121' });
+
+    expect(result.ok === false && Object.keys(result.fields)).toEqual(['clabe']);
+  });
+
+  it('keeps field/message as the first problem, for a caller with one slot', () => {
+    const result = validateBankAccount({ label: '', bankName: '', clabe: '0121' });
+
+    expect(result.ok === false && result.field).toBe('label');
+    expect(result.ok === false && result.message).toMatch(/Ponle un nombre/);
+  });
 });

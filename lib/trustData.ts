@@ -154,13 +154,13 @@ export const TRUST_BADGES: TrustBadge[] = [
   },
   {
     id: 'ssl-encryption',
-    title: 'Encriptación SSL/TLS 256-bit',
+    title: 'Tu información viaja cifrada',
     subtitle: 'Seguridad Bancaria',
     description:
       'Toda tu información contable, firmas OTP y comprobantes se transmiten encriptados bajo estándares de nivel bancario.',
     iconName: 'ShieldCheck',
-    badgeTag: 'SSL / TLS 1.3',
-    externalSealLabel: 'Cifrado TLS 1.3 en tránsito y AES-256 en reposo — Pagos por Stripe (PCI DSS Nivel 1)',
+    badgeTag: 'Conexión cifrada',
+    externalSealLabel: 'Tu información viaja y se guarda cifrada — pagos procesados por Stripe (certificación PCI DSS Nivel 1)',
   },
   {
     id: 'banxico-spei',
@@ -169,7 +169,7 @@ export const TRUST_BADGES: TrustBadge[] = [
     description:
       'Verificación transparente por Clave de Rastreo SPEI Banxico directamente desde tu portal de cobranza.',
     iconName: 'CheckCircle2',
-    badgeTag: 'Banxico Validated',
+    badgeTag: 'Validado ante Banxico',
     externalSealLabel: 'Verificación CEP Banxico por Clave de Rastreo',
   },
 ];
@@ -216,7 +216,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     bio: 'Fundador y líder ejecutivo apasionado por empoderar a los dueños de PyMEs en México con tecnología móvil accesible. Enfocado en eliminar las barreras de cobranza y agilizar el flujo de efectivo.',
     avatarInitials: 'HZ',
     avatarBg: 'bg-emerald-600',
-    highlights: ['Líder de Visión & Estrategia', 'Enfoque en Cash Flow PyME', 'Atención Directa a Clientes'],
+    highlights: ['Líder de Visión & Estrategia', 'Enfoque en el flujo de efectivo de las PyMEs', 'Atención Directa a Clientes'],
     contactEmail: activeHectorEmail,
   },
   {
@@ -224,10 +224,10 @@ export const TEAM_MEMBERS: TeamMember[] = [
     name: 'Gilberto Santana',
     role: 'Co-Fundador & CTO',
     location: 'Tijuana, BC / San Diego, CA',
-    bio: 'Co-Fundador y líder de arquitectura técnica. Diseña la infraestructura de seguridad en la nube, integración del SAT CFDI 4.0 y sincronización en tiempo real con Supabase y Next.js.',
+    bio: 'Co-Fundador y líder de arquitectura técnica. Diseña la infraestructura de seguridad en la nube, integración del SAT CFDI 4.0 y sincronización en tiempo real de tu información.',
     avatarInitials: 'GS',
     avatarBg: 'bg-indigo-600',
-    highlights: ['Arquitectura Cloud & Seguridad', 'Infraestructura Multitenant', 'Integraciones SAT & SPEI'],
+    highlights: ['Arquitectura Cloud & Seguridad', 'Aislamiento de datos por negocio', 'Integraciones SAT & SPEI'],
     contactEmail: activeSoporteEmail,
   },
   {

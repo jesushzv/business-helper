@@ -84,9 +84,14 @@ function warnOnAmbiguousTenant(source: string, userId: string, rowsSeen: number)
  * whole request, and every route downstream scopes its queries by it: the
  * dashboard shows another organization's data, with no error anywhere (#133).
  * The extra row fetched (`limit(2)`) is what makes the ambiguity *visible* —
- * the schema already contemplates multi-organization users, so silently
- * resolving it is a guess, and a guess about tenancy is the one this repo
- * cannot afford.
+ * silently resolving it is a guess, and a guess about tenancy is the one this
+ * repo cannot afford.
+ *
+ * As of `20260811150000`, `uq_organizations_owner_id` makes the owned-side
+ * ambiguity unreachable (#109/#168). The ordering and the second row stay:
+ * the membership lookup below has no such constraint, and a guard that only
+ * holds while an index exists should not disappear the moment it does — this
+ * is what would report the invariant having been dropped.
  */
 export async function requireOrgAccess(): Promise<AuthResult> {
   if (isDemoDeployment()) {
@@ -224,6 +229,11 @@ export const QUOTE_WRITABLE_FIELDS = [
   'status',
   'valid_until',
   'notes',
+  // Which of the organization's settlement accounts this quote's client pays
+  // into (#164). Absent from this list, `pickFields` drops it silently and the
+  // quote is stored with a NULL account while the wizard reports the choice as
+  // saved — the #96 shape, on the column that decides where money lands.
+  'bank_account_id',
 ] as const;
 
 /** Columns a client may set on a milestone. */

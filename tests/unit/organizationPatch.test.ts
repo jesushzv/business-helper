@@ -14,32 +14,59 @@ import { requireOrgAccess } from '@/lib/apiAuth';
  */
 
 const updateCalls: Array<Record<string, unknown>> = [];
+/** Rows the route inserts, by table — `audit_logs` is what the #163 tests read. */
 const insertCalls: Array<{ table: string; values: Record<string, unknown> }> = [];
+/** Writes the legacy→`bank_accounts` mirror issues, kept apart from the org row. */
+const mirrorCalls: Array<{ table: string; values: Record<string, unknown> }> = [];
+/** What the mirror finds as the org's current live default; null = none yet. */
+let defaultAccountRow: { id: string } | null = { id: 'acct-1' };
 let updateResult: { data: unknown; error: unknown } = { data: { id: 'org-1' }, error: null };
+/** The role requireOrgAccess reports — 'owner' unless a test says otherwise. */
+let callerRole = 'owner';
+
+// PATCH resolves through requireOrgAccess rather than requireUser so it can see
+// the caller's *role*: a member used to fall through to the owner_id filter
+// matching nothing and get a 404 about a business that does not exist.
+/**
+ * One stub for every table the route touches.
+ *
+ * It has to answer more than `update`: PATCH also inserts `audit_logs` rows and
+ * calls `syncLegacyDefaultAccount`, which reads and writes `bank_accounts`
+ * through `.select().eq().is().maybeSingle()` and an awaited `.update()`. A
+ * stub missing those makes the mirror throw into its own empty `catch` on every
+ * test — green, with the mirror never executing (#198).
+ */
+const supabaseStub = {
+  from: (table: string) => ({
+    update: (values: Record<string, unknown>) => {
+      if (table === 'organizations') updateCalls.push(values);
+      else mirrorCalls.push({ table, values });
+      const chain = {
+        eq: () => chain,
+        is: () => chain,
+        select: () => ({ maybeSingle: async () => updateResult }),
+        // Awaited with no `.select()` — the mirror's archive-all path.
+        then: (resolve: (v: unknown) => void) => Promise.resolve({ data: null, error: null }).then(resolve),
+      };
+      return chain;
+    },
+    insert: async (values: Record<string, unknown>) => {
+      insertCalls.push({ table, values });
+      return { error: null };
+    },
+    select: () => {
+      const chain = {
+        eq: () => chain,
+        is: () => chain,
+        maybeSingle: async () => ({ data: defaultAccountRow, error: null }),
+      };
+      return chain;
+    },
+  }),
+};
 
 vi.mock('@/lib/apiAuth', () => ({
-  requireUser: vi.fn(async () => ({
-    ok: true,
-    userId: 'user-1',
-    supabase: {
-      from: (table: string) => ({
-        update: (values: Record<string, unknown>) => {
-          updateCalls.push(values);
-          return {
-            eq: () => ({
-              select: () => ({
-                maybeSingle: async () => updateResult,
-              }),
-            }),
-          };
-        },
-        insert: async (values: Record<string, unknown>) => {
-          insertCalls.push({ table, values });
-          return { data: null, error: null };
-        },
-      }),
-    },
-  })),
+  requireUser: vi.fn(async () => ({ ok: true, userId: 'user-1', supabase: supabaseStub })),
   requireOrgAccess: vi.fn(),
   isDemoDeployment: () => false,
 }));
@@ -55,6 +82,23 @@ function patchRequest(body: unknown): Request {
 beforeEach(() => {
   updateCalls.length = 0;
   insertCalls.length = 0;
+  mirrorCalls.length = 0;
+  defaultAccountRow = { id: 'acct-1' };
+  callerRole = 'owner';
+
+  // Re-installed each test: the GET block below sets its own mockResolvedValue
+  // with a read-only supabase stub, and that override outlives its describe.
+  // Harmless while PATCH went through requireUser; now that it shares this mock
+  // it would hand the bank tests a client with no update(). mockImplementation
+  // so `callerRole` is read when the route calls, not when this hook runs.
+  vi.mocked(requireOrgAccess).mockImplementation(
+    async () =>
+      ({
+        ok: true,
+        ctx: { supabase: supabaseStub, userId: 'user-1', organizationId: 'org-1', role: callerRole },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any
+  );
   updateResult = { data: { id: 'org-1' }, error: null };
 });
 
@@ -203,20 +247,28 @@ describe('PATCH /api/organization — bank payload keeps its contract', () => {
   });
 });
 
-/**
- * #163 — a saved account could be replaced but never removed.
- *
- * Any bank payload was required to carry a valid 18-digit CLABE, so the only
- * route back to "no account" was a hand edit against production. The database
- * always allowed the state (`chk_org_bank_clabe_format` is
- * `bank_clabe IS NULL OR ~ '^[0-9]{18}$'`); only this route refused it.
- *
- * The distinction that makes it safe: an *explicitly empty* CLABE is a
- * deliberate clear, while an absent key stays absent — a profile save must
- * never wipe the account as a side effect. #64's gate is what makes the empty
- * state honest rather than a silent hole: no CLABE means a banner, disabled
- * share actions, and a 409 before any /pay/ link leaves the server.
- */
+
+describe('PATCH /api/organization — a member is told why, not that they have no business', () => {
+  it('answers 403 naming who may change these data', async () => {
+    callerRole = 'manager';
+    const res = await PATCH(patchRequest({ name: 'Ferretería La Central' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(body.error.code).toBe('FORBIDDEN');
+    // Not 404 "No se encontró una organización propia", which reads as *your
+    // business does not exist* to someone whose only problem is not owning it.
+    expect(body.error.message).toMatch(/dueño/i);
+    expect(updateCalls).toHaveLength(0);
+  });
+
+  it('still lets the owner through', async () => {
+    const res = await PATCH(patchRequest({ name: 'Ferretería La Central' }));
+    expect(res.status).toBe(200);
+    expect(updateCalls[0]).toMatchObject({ name: 'Ferretería La Central' });
+  });
+});
+
 describe('PATCH /api/organization — removing the account (#163)', () => {
   it('clears all three bank columns when the CLABE is explicitly emptied', async () => {
     const res = await PATCH(patchRequest({ bankName: '', bankClabe: '', bankAccountHolder: '' }));

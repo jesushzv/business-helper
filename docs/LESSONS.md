@@ -6,11 +6,11 @@ start of every session — if your harness did not inline this file, open it bef
 Where this file and the code disagree, the code wins: fix this file in the same PR.
 
 **Why it is a separate file.** A shared always-read doc with no headroom manufactures merge
-conflicts, and the cheap resolution drops one side's lessons under a green build (#135). The churn
-is concentrated here, with its own budget and its own headroom — keep some.
+conflicts, and the cheap resolution drops one side's lessons under a green build (#135). Keep some
+headroom here.
 
-**How to add one.** New lessons go in this file, not `CLAUDE.md`; append to the section that fits
-rather than re-flowing its neighbours, so conflicts stay append-vs-append. A lesson backed by a
+**How to add one.** New lessons go here, not `CLAUDE.md`; append to the section that fits rather
+than re-flowing its neighbours, so conflicts stay append-vs-append. A lesson backed by a
 **scanning gate** (a test that fails on the next occurrence anywhere in the tree) states the rule
 and names the test, nothing more — the test does the convincing. A lesson with only a regression
 test, or none, keeps its full narrative, because there the prose is the only thing standing between
@@ -20,7 +20,7 @@ an agent and the defect. Cite the issue number: it is the lesson's identity.
 below and fails the build when one disappears, turning a lossy merge resolution into a red build.
 Retiring one is deliberate: delete it, remove its numbers from `LESSON_REFS`, record why in
 `RETIRED`. `tests/unit/docsStatusAuthority.test.ts` holds the size budget; when it trips, retire
-lessons a scanning gate now covers or move settled history to `docs/99-archive/`.
+lessons a scanning gate covers or move settled history to `docs/99-archive/`.
 
 ## Fabricated success — hard rule #1's recurring disguises
 
@@ -50,28 +50,28 @@ not earned. It has shipped here at least eight times.
   non-zero naming what it skipped, no opt-out; negative checks carry a positive control.
 - **An all-optional interface cannot tell a mapping is missing** (#78). `MilestoneWithClient`
   declared every field optional, so assigning raw API rows into it was no type error, only the demo
-  fixtures ever populated them, and real tenants got `undefined` throughout. Two habits close it: a
-  flattening is a **named exported function with its own test** (`toMilestoneWithClient`), and where
-  fixtures and server rows share a type, assert against a **server-shaped** row.
+  fixtures populated them, and real tenants got `undefined` throughout. Two habits close it: a
+  flattening is a **named exported function with its own test**, and where fixtures and server rows
+  share a type, assert against a **server-shaped** row.
 
 ## Client/server state
 
 - **Demo-mode detection differs by side.** Collection GET routes answer the demo deployment with
   200 + empty lists, so a client hook can NOT use `503 BACKEND_NOT_CONFIGURED` to decide when demo
   fixtures are legitimate — that code appears only on authenticated/mutating paths. Hooks gate on
-  the build-time signal: `isClientDemoMode()` in `lib/clientDemoMode.ts`. Wrong either way: a blank
-  marketing demo, or fixtures for real tenants.
+  `isClientDemoMode()` in `lib/clientDemoMode.ts`. Wrong either way: a blank marketing demo, or
+  fixtures for real tenants.
   **In Vitest this signal defaults to *on*** — `NEXT_PUBLIC_SUPABASE_URL` is unset, so any path
   behind it is skipped and a test meant to exercise the real-tenant branch silently asserts nothing.
   Stub it: `vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co')`, and
   `vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')` for the demo case.
-- **A hook gating a warning or a disabled control needs three states**: `true` /
-  `false` / **`null` = unknown** (still loading, or the read failed). Collapsing unknown into `false`
-  invents a fact — warning a healthy tenant on a network blip; into `true` re-opens the hole the
-  gate closed. Never let the client be the only enforcement: gate on the server too, and the
-  permissive choice for unknown becomes safe. `lib/hooks/useSettlementAccount.ts` is the reference
-  (#64). **Any figure derived from a fetched list needs the same treatment** — the client detail
-  page rendered "Crédito Utilizado $0 / Disponible $50,000" from a failed read (#96).
+- **A hook gating a warning or a disabled control needs three states**: `true` / `false` /
+  **`null` = unknown** (still loading, or the read failed). Collapsing unknown into `false` invents
+  a fact — warning a healthy tenant on a network blip; into `true` re-opens the hole the gate
+  closed. Never let the client be the only enforcement: gate on the server too, and the permissive
+  choice for unknown becomes safe. `lib/hooks/useSettlementAccount.ts` is the reference (#64).
+  **Any figure derived from a fetched list needs the same treatment** — the client detail page
+  rendered "Crédito Utilizado $0 / Disponible $50,000" from a failed read (#96).
 
 ## Database and migrations
 
@@ -110,6 +110,12 @@ not earned. It has shipped here at least eight times.
   `requireOrgAccess` chose the caller's organization that way and every route scopes by the id it
   returns, so a user owning two sees another company's data, no error. Order it and select `n+1`:
   the ambiguity must be fetched before it can be logged.
+- **A backfill's guard is a claim about rows; count them before and after** (#128). Whether
+  `ADD COLUMN … DEFAULT` fills the rows already there decides what the `UPDATE` after it must do —
+  one migration got it wrong in *both* directions in a session, each time reasoned from the SQL
+  rather than measured, and left a tenant `trialing` with no end date: a trial the app reads as
+  unknown, so nothing shows or enforces it. State the count you expect, and read the rows back.
+  **0 rows changed looks exactly like success.**
 - **A vocabulary the database enforces exists once in code, with `null` for everything else**
   (#116). The Stripe webhook wrote `obj.status` off whatever object the event carried, and
   `checkout.session.completed` carries a **Checkout Session**, whose status field holds
@@ -131,9 +137,6 @@ not earned. It has shipped here at least eight times.
 - **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93). Chrome identity
   comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
   `lib/whatsappLink.ts`. `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak.
-- **A modal is `components/shared/Modal.tsx`, never a hand-rolled `fixed inset-0` div** (#87, #100).
-  `role`/Escape/focus-trap and `max-h`+`overflow-y-auto` belong to the shell; 8 copies had none.
-  `tests/unit/modalShell.test.ts` fails the build on a new one.
 - **A form the user cannot get past is usually validation that returns at the first failure and
   names no field** (#146). Both clients routes checked name → RFC → crédito → teléfono in sequence
   and 400'd at the first, so each submit revealed one more problem; the envelope carried prose with
@@ -162,6 +165,10 @@ not earned. It has shipped here at least eight times.
   misconfigured production reporting payments nobody received.
 
 ## Tooling and process traps
+
+- **A gate that grades a whole *file* grades the wrong thing** (#148): one branch's consulted error
+  covers for another's discarded one. Scan the branch: brace-matched body, own `.from(` chain,
+  any `…Error` name. `tests/unit/writeErrorLegibility.test.ts`.
 
 - The lint gate is real: `next lint --max-warnings=0`, debt at zero. Any new warning fails
   `npm run lint`, `npm test` and CI. Existing `<img>` sites carry scoped per-site disables with

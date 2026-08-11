@@ -604,6 +604,16 @@ Each step was counted from the query output rather than from the previous line's
 is the only reason the invariant survived seven closures in three days.
 
 ---
+---
+
+## Moved out of STATUS §03 P1 on 2026-08-11 (settled; §02's metrics row carries the live state)
+
+- ~~**Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).~~
+  **Done 2026-08-08** — `--max-warnings=0`, 22 warnings cleared, failure verified with a planted
+  warning. (The count was recorded as 1, 3 and 23 before settling at 22 — a fail-open gate is how
+  the debt grew unnoticed.) Follow-up: `next/image` for the PNG sites,
+  [#82](https://github.com/jesushzv/business-helper/issues/82) (P2).
+
 
 ## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
 
@@ -626,6 +636,21 @@ Settled history: all four verified closed on the tracker at the time, moved here
 | [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
 | [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |
 
+
+## "Merged and real", moved from `docs/STATUS.md` 2026-08-11
+
+Settled history: work merged well before this date, kept for provenance.
+
+| Change | PR | What it actually closed |
+|:---|:---|:---|
+| P0 money-path hardening | #1 | API auth enforcement across `app/api/*`; simulated writes relabelled so they cannot be mistaken for real ones |
+| Outbound WhatsApp dispatch | #13 | Reminders now send via Twilio / Meta Cloud API instead of reporting fabricated success |
+| Post-merge security setup | #16 | `lib/otpDelivery.ts` — real Twilio SMS, Twilio WhatsApp, and Meta Cloud API paths; per-org bank account (CLABE) UI; Stripe webhook signature verification |
+| Real checkout, invites, export | #19 | `lib/stripeClient.ts`, `lib/teamInvitations.ts`, and `lib/accountantExport.ts` read real data instead of hardcoded fixtures |
+| CI workflow + migration tooling | #11 | `.github/workflows/ci.yml`, `scripts/db-migrate.mjs`, `scripts/verify-stripe-webhook.mjs` |
+| Test consolidation | #21 | `scripts/test-runner.js` (2,751 lines) retired; coverage folded into vitest |
+| Agent authority split in two | #137 | The defect-class catalogue moved to `docs/LESSONS.md` under its own budget, with `tests/unit/lessonsCatalogue.test.ts` failing the build when a merge resolution drops a lesson (#135) |
+
 ---
 
 ## OTP email-channel verification, moved off `docs/STATUS.md` (2026-08-11)
@@ -633,3 +658,43 @@ Settled history: all four verified closed on the tracker at the time, moved here
 Verbatim from the §02 row, collapsed there to one line when the file reached its size budget.
 
 | ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
+
+---
+
+## Resolved open decisions, moved from `docs/STATUS.md` §05 (2026-08-11)
+
+*Settled: each was resolved by the founder and the resolution is now reflected in the code and the
+priority stack. Moved here verbatim when `STATUS.md` reached its 32 KB budget while recording
+#164's UI. For live status read [`../STATUS.md`](../STATUS.md).*
+
+1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships.** Deferral is off
+   the table, so [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through
+   a live Facturapi sandbox) is blocking, not negotiable.
+2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch; sms/whatsapp
+   deprecated but wired.** Supersedes 2026-08-10's "Twilio SMS at launch" (itself a same-day
+   reversal: WhatsApp OTP needs a business-owned WABA plus the #42 template — Meta policy — and
+   no WABA exists). Email needs one API key and a DNS-verified domain; no carrier registration,
+   no per-message cost.
+3. ~~**`businesshelper.app` or `businesshelper.mx`?**~~ Resolved — `.app`; `.mx` was never
+   registered (#36).
+4. ~~**Does the September launch date hold?**~~ **Resolved 2026-08-07 — the September date holds,
+   at full scope.** Confirmed by the founder alongside decision 1. The consequence — both halves of
+   the trade taken, so no relief valve remains — stays in `STATUS.md` §05, because it still
+   constrains what can be promised.
+5. ~~**Merge posture on PRs #20 and #23.**~~ Moot — both merged 2026-08-07.
+
+---
+
+## §01's original account of the simulated features, moved off `docs/STATUS.md` (2026-08-11)
+
+Verbatim; the summary that replaced it points here.
+
+The most serious instance: `POST /api/invoices/issue` called `simulateInvoiceStamping()`, which
+fabricated an invoice ID and two `storage.businesshelper.mx` URLs, then wrote `cfdi_status: 'issued'`
+onto the milestone. No PAC was contacted and no tax document existed. A business owner could read
+their own dashboard, believe they had invoiced a client, and file accordingly. For a product whose
+core promise is Mexican tax compliance, that is a compliance defect, not a missing feature.
+
+The same pattern applied to Stripe checkout, team invitations, the accountant ZIP export, and
+outbound WhatsApp dispatch — all since remediated (see §02).
+

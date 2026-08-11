@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { verifyStoredOTP, generateDigitalSeal, OTP_MAX_ATTEMPTS } from '@/lib/otpSeal';
 import { publicApiError } from '@/lib/publicApiError';
+import { publicDbWriteErrorResponse } from '@/lib/dbWriteError';
 import { track } from '@/lib/analytics';
 
 /**
@@ -222,11 +223,16 @@ export async function POST(
     // previous version did by ignoring the result — records a signature that
     // does not exist.
     if (updateError) {
-      return publicApiError(
-        500,
-        'SIGNATURE_WRITE_FAILED',
-        'No se pudo registrar la firma. Intente de nuevo.'
-      );
+      // The reader here is the signer, not the tenant: the message stays in
+      // their register and names no column, but the cause is now classified
+      // (a stale schema answers 503, not 500) and the raw error is logged
+      // instead of discarded (#148).
+      return publicDbWriteErrorResponse(updateError, {
+        operation: 'SIGNATURE_WRITE_FAILED',
+        entity: 'la firma',
+        route: 'POST /api/quotes/public/[token]',
+        verb: 'registrar',
+      });
     }
 
     // The signer is an external party; their identity is PII the funnel does

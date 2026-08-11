@@ -221,3 +221,56 @@ describe('POST /api/whatsapp/broadcast — settlement account gate (#64)', () =>
     expect(dispatchWhatsAppReminder).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * An organization with live accounts but **no default** (#164).
+ *
+ * `makeDefault` clears the current default before setting the new one — the
+ * partial unique index forces two steps — so a failure between them leaves
+ * exactly this state. This function used to answer it with `live[0]`, the
+ * alphabetically first account, which is two defects at once: it names an
+ * account nobody designated as the settlement target, and it disagrees with the
+ * payer route, which resolves the same state through `resolveQuoteAccount(null,
+ * null)` and refuses. That disagreement is #64's failure — the tenant's
+ * dashboard stays clean and share buttons stay live while every quote that
+ * named no account dead-ends in front of its client.
+ */
+describe('an organization with live accounts but no default', () => {
+  function supabaseWith(accounts: unknown[]) {
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      is: async () => ({ data: accounts, error: null }),
+    };
+    return { from: () => builder };
+  }
+
+  const live = (id: string, label: string, is_default: boolean) => ({
+    id,
+    label,
+    bank_name: 'BBVA México',
+    clabe: '012180001234567899',
+    account_holder: null,
+    is_default,
+    archived_at: null,
+  });
+
+  it('refuses rather than naming an account nobody designated', async () => {
+    const result = await requireSettlementAccount(
+      supabaseWith([live('a', 'Alfa', false), live('b', 'Beta', false)]),
+      'org-1'
+    );
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('answers with the flagged account when there is one', async () => {
+    const result = await requireSettlementAccount(
+      supabaseWith([live('a', 'Alfa', false), live('b', 'Beta', true)]),
+      'org-1'
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.account.id).toBe('b');
+  });
+});

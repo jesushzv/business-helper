@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/quotes"
+                href="/quotes?nueva=1"
                 className="flex min-h-[48px] items-center gap-2 rounded-2xl bg-emerald-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 shadow-lg shadow-emerald-950/60 transition-all hover:bg-emerald-400 active:scale-95"
               >
                 <Plus className="h-4 w-4" />

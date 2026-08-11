@@ -73,6 +73,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         );
       }
 
+      // Which row holds the flag now, so it can be put back if the set below
+      // fails after the clear has already landed.
+      const { data: previousDefault } = await supabase
+        .from('bank_accounts')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('is_default', true)
+        .maybeSingle();
+
       const { error: clearError } = await supabase
         .from('bank_accounts')
         .update({ is_default: false, updated_at: new Date().toISOString() })
@@ -96,11 +105,59 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         .maybeSingle();
 
       if (error || !data) {
+        /**
+         * The clear succeeded and the set did not, so this organization now has
+         * live accounts and **no default** — every quote that named no account
+         * resolves to nothing and refuses in front of its client. The partial
+         * unique index forces the two steps (one live default per org), so the
+         * window is real rather than theoretical.
+         *
+         * Put the previous default back before reporting the failure. If even
+         * that fails there is nothing left to try from here, so it is reported
+         * loudly rather than left as a silent divergence.
+         */
+        if (previousDefault?.id) {
+          const { error: restoreError } = await supabase
+            .from('bank_accounts')
+            .update({ is_default: true, updated_at: new Date().toISOString() })
+            .eq('id', previousDefault.id)
+            .eq('organization_id', organizationId);
+
+          if (restoreError) {
+            captureException(restoreError, {
+              route: 'PATCH /api/organization/bank-accounts/[id]',
+              organization_id: organizationId,
+              // Live accounts, no default: every unassigned quote refuses until
+              // someone sets one.
+              extra: { detail: 'default cleared but neither set nor restored' },
+            });
+          }
+        }
+
         const failure = describeDbWriteError(error, 'la cuenta principal', 'PATCH /api/organization/bank-accounts/[id]');
         return NextResponse.json(
           { error: { code: failure.code, message: failure.message } },
           { status: failure.status }
         );
+      }
+
+      // Changing where money settles is the move an attacker with a session, or
+      // a departing employee, would actually make — and it leaves every screen
+      // looking normal. Audited like the archive beside it, and like the PAC
+      // disconnect. Best-effort, after the row is confirmed; never the CLABE,
+      // which is treated as PII.
+      const { error: auditError } = await supabase.from('audit_logs').insert({
+        organization_id: organizationId,
+        action: 'settlement_account.default_changed',
+        actor: auth.ctx.userId,
+        details: `Cuenta principal cambiada a: ${(data as BankAccount).label}`,
+      });
+
+      if (auditError) {
+        captureException(auditError, {
+          route: 'PATCH /api/organization/bank-accounts/[id]',
+          organization_id: organizationId,
+        });
       }
 
       return NextResponse.json({ account: data as BankAccount });
@@ -116,8 +173,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     });
 
     if (!validated.ok) {
+      // Every problem at once, keyed by input, so an edit does not reveal them
+      // one submit at a time (#146). Same envelope as POST.
       return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: validated.message, field: validated.field } },
+        {
+          error: {
+            code: 'INVALID_INPUT',
+            message: validated.message,
+            field: validated.field,
+            fields: validated.fields,
+          },
+        },
         { status: 400 }
       );
     }
@@ -136,6 +202,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         { error: { code: failure.code, message: failure.message } },
         { status: failure.status }
       );
+    }
+
+    // An edit can move the CLABE money lands in without changing anything a
+    // tenant's screens would show differently — the same reason the PAC
+    // disconnect and the archive are audited.
+    const { error: auditError } = await supabase.from('audit_logs').insert({
+      organization_id: organizationId,
+      action: 'settlement_account.updated',
+      actor: auth.ctx.userId,
+      details:
+        `Cuenta de cobro editada: ${(existing as BankAccount).label}` +
+        ((existing as BankAccount).clabe !== (data as BankAccount).clabe ? ' (CLABE cambiada)' : ''),
+    });
+
+    if (auditError) {
+      captureException(auditError, {
+        route: 'PATCH /api/organization/bank-accounts/[id]',
+        organization_id: organizationId,
+      });
     }
 
     return NextResponse.json({ account: data as BankAccount });

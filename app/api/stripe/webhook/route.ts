@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { handleStripeWebhookEvent } from '@/lib/stripe';
 import { verifyStripeWebhookSignature } from '@/lib/stripeWebhook';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { captureException } from '@/lib/sentry';
 
 /**
  * Stripe webhook receiver.
@@ -129,6 +130,20 @@ export async function POST(request: Request) {
 
     if (handled.status) {
       update.subscription_status = handled.status;
+
+      // #128 — the app-side trial ends the moment Stripe becomes the authority.
+      //
+      // This is a correctness fix, not tidiness. `resolveTrialState` consults
+      // `trial_ends_at` while the status is `'trialing'`, and **Stripe reports
+      // that same status** for a subscription inside its own trial window. A
+      // stale app-side date left behind would refuse a quote to a customer who
+      // had just paid, because a trial they replaced by subscribing had lapsed —
+      // blocking on a fact the system no longer holds.
+      //
+      // Inside this branch rather than beside `updated_at`, for the reason the
+      // comment above gives about `handled.status`: an event that establishes no
+      // status establishes nothing, and must not end a trial on its way past.
+      update.trial_ends_at = null;
     }
 
     if (handled.tierId) {
@@ -220,6 +235,15 @@ export async function POST(request: Request) {
 
       // 500 tells Stripe to retry. The previous version swallowed this and
       // reported success while the subscription change was silently dropped.
+      // Stripe reads the status, not the body, so the diagnosis has to go to
+      // the log or it goes nowhere — a paid tier that never applied is
+      // otherwise invisible until the customer complains (#148).
+      captureException(updateError, {
+        route: 'POST /api/stripe/webhook',
+        level: 'error',
+        tags: { db_error_code: String(updateError?.code || 'unknown'), stripe_event: eventId },
+        extra: { message: updateError?.message, organization_id: organizationId },
+      });
       return NextResponse.json(
         { error: 'No se pudo aplicar el cambio de suscripción' },
         { status: 500 }

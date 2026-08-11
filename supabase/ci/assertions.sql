@@ -169,4 +169,47 @@ BEGIN
 END
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 6. One organization per owner (#109/#168). A constraint is only proven by
+--    making it *reject* something, so this attempts the duplicate the schema
+--    now forbids and fails the build if the INSERT succeeds.
+--
+--    The subtransaction matters: an unhandled unique_violation would abort the
+--    outer transaction and take every later assertion with it.
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.organizations (id, name, owner_id)
+    VALUES (
+      '00000000-0000-4000-8000-0000000000a2', 'CI Tenant Segundo',
+      '00000000-0000-4000-8000-000000000001'
+    );
+    RAISE EXCEPTION
+      'organizations accepted a second row for one owner_id — uq_organizations_owner_id is missing (#168)';
+  EXCEPTION
+    WHEN unique_violation THEN
+      NULL; -- refused, which is the assertion
+  END;
+END
+$$;
+
+-- …and the index is the *unique* one, not a plain index that happens to exist.
+DO $$
+DECLARE
+  is_unique boolean;
+BEGIN
+  SELECT indisunique INTO is_unique
+    FROM pg_index i
+    JOIN pg_class c ON c.oid = i.indexrelid
+   WHERE c.relname = 'uq_organizations_owner_id';
+
+  IF is_unique IS NULL THEN
+    RAISE EXCEPTION 'uq_organizations_owner_id does not exist (#168)';
+  ELSIF NOT is_unique THEN
+    RAISE EXCEPTION 'uq_organizations_owner_id exists but is not UNIQUE (#168)';
+  END IF;
+END
+$$;
+
 ROLLBACK;

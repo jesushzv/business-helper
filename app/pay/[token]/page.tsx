@@ -35,6 +35,7 @@ export default function PublicPayPortalPage() {
   // business just has no CLABE yet — telling the payer "el enlace no existe"
   // would send them to re-ask the vendor for a link that works fine.
   const [loadErrorCode, setLoadErrorCode] = useState<string | null>(null);
+  const [loadErrorMessage, setLoadErrorMessage] = useState<string | null>(null);
   const [copiedClabe, setCopiedClabe] = useState(false);
 
   // Form states
@@ -59,6 +60,12 @@ export default function PublicPayPortalPage() {
         }
         if (data?.error?.code) {
           setLoadErrorCode(data.error.code);
+          // Every message in this envelope is Spanish and safe to render to the
+          // payer verbatim — that is what `publicApiError()` guarantees (#65).
+          // Keeping it means a refusal this page has no specific styling for is
+          // still said in the words the route chose, instead of being flattened
+          // into "no existe".
+          if (typeof data.error.message === 'string') setLoadErrorMessage(data.error.message);
         }
       } catch {
         // Network failure falls through to the not-found rendering below.
@@ -162,14 +169,14 @@ export default function PublicPayPortalPage() {
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         setFormError(
-          data?.error?.message || 'No se pudo registrar el comprobante. Intente de nuevo.'
+          data?.error?.message || 'No se pudo registrar el comprobante. Intenta de nuevo.'
         );
         return;
       }
 
       setSubmitted(true);
     } catch {
-      setFormError('No se pudo contactar al servidor. Verifique su conexión e intente de nuevo.');
+      setFormError('No se pudo contactar al servidor. Revisa tu conexión e intenta de nuevo.');
     } finally {
       setSubmitting(false);
     }
@@ -189,6 +196,24 @@ export default function PublicPayPortalPage() {
     // not a broken one. Saying "no existe" here would tell a payer who already
     // transferred that their cobro vanished.
     const alreadyRecorded = loadErrorCode === 'PAYMENT_ALREADY_RECORDED';
+    /**
+     * The account this quote named has been archived (#164).
+     *
+     * A real link, a real cobro, and a payer who must **not** transfer yet.
+     * Before this branch existed the page fell through to "Enlace de Pago No
+     * Encontrado", so a client holding a perfectly valid quote was told their
+     * cobro did not exist — they conclude the link is dead or the vendor is
+     * not real, and nobody contacts anybody.
+     */
+    const accountUnavailable = loadErrorCode === 'SETTLEMENT_ACCOUNT_UNAVAILABLE';
+    /**
+     * Anything else the route refuses with. `publicApiError()` guarantees a
+     * Spanish message safe to show the payer, so an unrecognised code says what
+     * the route said rather than being flattened into "no existe" — a claim
+     * this page cannot actually support for a code it does not know.
+     */
+    const unknownRefusal = Boolean(loadErrorCode) && !bankDetailsMissing && !alreadyRecorded && !accountUnavailable;
+
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 text-center max-w-md text-white">
@@ -197,6 +222,10 @@ export default function PublicPayPortalPage() {
               ? 'Pago No Disponible Por El Momento'
               : alreadyRecorded
               ? 'Este Cobro Ya Fue Registrado'
+              : accountUnavailable
+              ? 'Pago No Disponible Por El Momento'
+              : unknownRefusal
+              ? 'No Se Puede Completar El Pago'
               : 'Enlace de Pago No Encontrado'}
           </h2>
           <p className="text-sm text-slate-400 mt-2">
@@ -204,6 +233,9 @@ export default function PublicPayPortalPage() {
               ? 'El negocio aún no ha configurado su cuenta bancaria para recibir pagos SPEI. Contacte a su proveedor para completar el pago.'
               : alreadyRecorded
               ? 'El comprobante de este cobro ya fue enviado o el pago ya fue confirmado. Si tienes dudas, contacta directamente al negocio.'
+              : accountUnavailable || unknownRefusal
+              ? loadErrorMessage ||
+                'No se puede completar este pago por el momento. Contacta al negocio antes de transferir.'
               : 'La clave o ficha de cobro no existe o ha expirado.'}
           </p>
         </div>
@@ -318,17 +350,18 @@ export default function PublicPayPortalPage() {
               </div>
 
               {formError && (
-                <div className="p-3 bg-rose-950/80 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30">
+                <div role="alert" className="p-3 bg-rose-950/80 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30">
                   {formError}
                 </div>
               )}
 
               {/* Clave de Rastreo */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                <label htmlFor="page-clave-de-rastreo-banxico" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
                   Clave de Rastreo Banxico *
                 </label>
                 <input
+                  id="page-clave-de-rastreo-banxico"
                   type="text"
                   value={trackingRef}
                   onChange={(e) => setTrackingRef(e.target.value)}
@@ -340,10 +373,11 @@ export default function PublicPayPortalPage() {
 
               {/* Amount Transfered */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                <label htmlFor="page-monto-transferido-mxn" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
                   Monto Transferido (MXN) *
                 </label>
                 <input
+                  id="page-monto-transferido-mxn"
                   type="number"
                   step="0.01"
                   value={transferredAmount}
@@ -355,7 +389,7 @@ export default function PublicPayPortalPage() {
 
               {/* File Attachment Dropzone */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                <label htmlFor="page-comprobante-png-jpg-o" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
                   Comprobante (PNG, JPG o PDF &lt; 5MB) *
                 </label>
                 <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-800 rounded-2xl cursor-pointer hover:border-emerald-500 bg-slate-950/50 transition-colors min-h-[100px]">
@@ -363,8 +397,9 @@ export default function PublicPayPortalPage() {
                   <span className="text-xs font-bold text-slate-300">
                     {selectedFile ? selectedFile.name : 'Haz clic para seleccionar comprobante'}
                   </span>
-                  <span className="text-[11px] text-slate-500 mt-0.5">Máximo 5MB (PNG/JPG/PDF)</span>
+                  <span className="text-[11px] text-slate-400 mt-0.5">Máximo 5MB (PNG/JPG/PDF)</span>
                   <input
+                    id="page-comprobante-png-jpg-o"
                     type="file"
                     accept="image/png,image/jpeg,image/jpg,application/pdf"
                     onChange={handleFileChange}

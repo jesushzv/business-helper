@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { CreditCard, Check, Zap, ExternalLink, ShieldCheck } from 'lucide-react';
 import { STRIPE_PLANS, StripeTierConfig, SubscriptionStatusResult } from '@/lib/stripe';
 import { OrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
+import { useTrialState } from '@/lib/hooks/useTrialState';
 
 interface SubscriptionBillingCardProps {
   settings: OrganizationSettings;
@@ -25,6 +26,7 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
   highlightTier = null,
 }) => {
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const { trial } = useTrialState();
   const highlightRef = React.useRef<HTMLDivElement | null>(null);
 
   // The billing card sits below four others, so on a 375px screen the plan they
@@ -77,6 +79,17 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
             <span className={`rounded-full border px-3 py-1 text-xs font-extrabold ${statusInfo.badgeColor}`}>
               {statusInfo.badgeText}
             </span>
+          ) : trial?.kind === 'trialing' ? (
+            // What a tenant who has never checked out is actually on (#128).
+            // Only ever rendered from a trial the server confirmed — the hook
+            // holds `null` for anything it could not read.
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-950/80 px-3 py-1 text-xs font-extrabold text-emerald-400">
+              Prueba gratis: {trial.daysLeft} {trial.daysLeft === 1 ? 'día' : 'días'}
+            </span>
+          ) : trial?.kind === 'expired' ? (
+            <span className="rounded-full border border-amber-500/30 bg-amber-950/80 px-3 py-1 text-xs font-extrabold text-amber-400">
+              Prueba terminada
+            </span>
           ) : (
             // `subscription_status` defaults to 'active' in the database, so an
             // organization that has never checked out would otherwise be
@@ -87,6 +100,18 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
           )}
         </div>
       </div>
+
+      {/* Says exactly what stopped and what did not. A tenant whose trial ended
+          keeps everything already in motion — the gate only stops *new* work —
+          and being told that is the difference between choosing a plan and
+          assuming the product took their business hostage. */}
+      {trial?.kind === 'expired' && (
+        <p className="mt-5 rounded-2xl border border-amber-500/30 bg-amber-950/40 p-4 text-xs font-semibold text-amber-300">
+          Tu prueba gratis terminó. Lo que ya enviaste sigue funcionando: tus clientes pueden firmar
+          y pagar, y puedes facturar lo que ya cerraste. Elige un plan para volver a crear
+          cotizaciones nuevas.
+        </p>
+      )}
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {plansList.map((plan) => {
@@ -127,7 +152,7 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
                   )}
                 </div>
 
-                <p className="mt-2 text-xs font-medium text-slate-400 min-h-[36px]">{plan.description}</p>
+                <p className="mt-2 text-xs font-medium text-slate-400 min-h-[48px]">{plan.description}</p>
 
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-4xl font-black font-mono tracking-tight text-white">

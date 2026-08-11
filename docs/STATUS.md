@@ -4,9 +4,8 @@
 
 > **The single source of truth for what is and is not done.**
 >
-> *Last verified: 2026-08-09 against `main` @ `4134e91` (post #119). Suite re-run for this pass;
-> merge state of every row in §02 confirmed with `git log`; the P0 table below re-derived from
-> `is:issue is:open label:P0` rather than trusted — it was short by three.*
+> *Last verified: 2026-08-11. Suite re-run for this pass; merge state of every §02 row confirmed
+> with `git log`; the P0 table re-derived from `is:issue is:open label:P0` rather than trusted.*
 > *Method in §06. Was `04-execution-testing/launch_readiness_memo_aug2026.md` until 2026-08-07 —
 > renamed because a date-stamped filename reads as a snapshot, and a snapshot is exactly what a
 > living status document must not be.*
@@ -39,45 +38,30 @@ An HTML rendering is published at
 
 ## 01 Why This Document Exists
 
-The roadmap marks Sprints 1–16 plus WS-A/WS-B as **Completed**, and the readiness snapshot reports
-**100% roadmap progress** with an all-green dashboard. A security review conducted on 2026-08-06
-found that several features recorded as complete were **simulated**: the UI and data model existed,
-but the third-party call underneath was faked or stubbed.
+A security review on 2026-08-06 found that features the roadmap marked **Completed** were
+*simulated*: the UI and data model existed, but the third-party call underneath was faked. The worst
+case fabricated an invoice id and two storage URLs and wrote `cfdi_status: 'issued'` — a business
+owner could read their own dashboard, believe they had invoiced a client, and file accordingly.
 
-The most serious instance: `POST /api/invoices/issue` called `simulateInvoiceStamping()`, which
-fabricated an invoice ID and two `storage.businesshelper.mx` URLs, then wrote `cfdi_status: 'issued'`
-onto the milestone. No PAC was contacted and no tax document existed. A business owner could read
-their own dashboard, believe they had invoiced a client, and file accordingly. For a product whose
-core promise is Mexican tax compliance, that is a compliance defect, not a missing feature.
-
-The same pattern applied to Stripe checkout, team invitations, the accountant ZIP export, and
-outbound WhatsApp dispatch — all since remediated (see §02).
-
-**The takeaway is procedural, not just technical:** the sprint-by-sprint "Completed" history is not a
-reliable map of what is launch-safe. Every remaining completion claim should be treated as unverified
-until checked against source. This memo does that check; §06 records the method so it can be repeated.
-
----
+The takeaway is procedural: **the sprint history is not a map of what is launch-safe**, and every
+completion claim needs checking against source. That is what this file is for. The full 2026-08-06
+findings are in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 
 ## 02 Verified State of `main`
 
 ### Merged and real
 
-| Change | PR | What it actually closed |
-|:---|:---|:---|
-| P0 money-path hardening | #1 | API auth enforcement across `app/api/*`; simulated writes relabelled so they cannot be mistaken for real ones |
-| Outbound WhatsApp dispatch | #13 | Reminders now send via Twilio / Meta Cloud API instead of reporting fabricated success |
-| Post-merge security setup | #16 | `lib/otpDelivery.ts` — real Twilio SMS, Twilio WhatsApp, and Meta Cloud API paths; per-org bank account (CLABE) UI; Stripe webhook signature verification |
-| Real checkout, invites, export | #19 | `lib/stripeClient.ts`, `lib/teamInvitations.ts`, and `lib/accountantExport.ts` read real data instead of hardcoded fixtures |
-| CI workflow + migration tooling | #11 | `.github/workflows/ci.yml`, `scripts/db-migrate.mjs`, `scripts/verify-stripe-webhook.mjs` |
-| Test consolidation | #21 | `scripts/test-runner.js` (2,751 lines) retired; coverage folded into vitest |
-| Agent authority split in two | #137 | The defect-class catalogue moved to `docs/LESSONS.md` under its own budget, with `tests/unit/lessonsCatalogue.test.ts` failing the build when a merge resolution drops a lesson (#135) |
+Seven changes (PRs #1, #11, #13, #16, #19, #21, #137) — the P0 money-path hardening, real outbound
+WhatsApp, real checkout/invites/export, CI + migration tooling, the test-runner retirement and the
+agent-authority split. Moved verbatim to
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-11; all merged
+long ago and none of it is live state.
 
 ### Corrected baseline metrics
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **943 tests / 106 files**, `npx vitest run` (2026-08-09, `main` @ `e51fa30`) — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **1576 tests / 165 files**, measured on this branch merged with `main` @ `aedf521` (2026-08-11), `npx vitest run` — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -85,9 +69,8 @@ until checked against source. This memo does that check; §06 records the method
 | Zero-warning lint gate | "ESLint passes with `--max-warnings=0`" (5 docs) | ~~Gate was nominal — bare `next lint`, exit 0 with warnings.~~ **Enforced since 2026-08-08 (#46):** script is `next lint --max-warnings=0`, debt cleared to 0, failure verified with a planted warning. |
 
 > [!IMPORTANT]
-> **The Sentry finding matters disproportionately for a solo founder.** Error monitoring is the only
-> mechanism that reports a production 500 when nobody is watching the dashboard. It is currently a
-> console shim. This is tracked as a P1 item in §03.
+> **The Sentry finding matters disproportionately for a solo founder**: error monitoring is the only
+> thing that reports a production 500 when nobody is watching. P1 in §03.
 
 ### Open and blocking
 
@@ -98,15 +81,20 @@ into one line; their reasoning is in the frozen log.*
 |:---|:---|:---|
 | **Live PAC stamp** | **The one that matters.** PR #23 merged, so stamping is real code — but its coverage runs against a mocked `fetch`, and no invoice has been issued through a live Facturapi sandbox. Merging is not verification. | **Yes** — CFDI ships at launch |
 | ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11)** — a real inbox signed a real quote, evidence read back from the live catalog; detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). sms/whatsapp stay wired but deprecated. | Cleared |
+| ~~**Stripe live mode**~~ | ✅ **A real card completed the loop (2026-08-11).** The `STRIPE_PRICE_*` variables held Stripe **Product** ids, so checkout answered `502 No such price: 'prod_…'` for every tier and the live account had never had a session; the founder set the Price ids, then paid $599 MXN and Ajustes showed "Activo" and "Tu Plan Actual" on Negocio — a badge that reads the organization row, which only the signature-verified webhook writes. Founder-confirmed in the browser; no catalog read-back this session. Code half in PR #166 (a non-price value now refuses with a 503 naming the variable) and #181 (plan CTAs stopped sending a signed-in owner into the registration form). | Cleared |
 | ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
 | ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
 
+**One organization per owner is now a schema invariant** (`uq_organizations_owner_id`,
+`20260811150000` — #109 decided, #168 closed). `owner_id` had neither an index nor uniqueness while
+every owner-scoped route assumed both: a second owned row would have made `.maybeSingle()` 404 the
+owner off their own settlement account. `POST /api/organization` no longer answers the
+now-reachable collision with a generic 500.
+
 ### Recently landed (2026-08-07 → 2026-08-08)
 
-Moved to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-09 —
-eight merged changes with their issues, PRs and commits. Settled history, and this file was over
-its 32 KB budget. **What none of it changed:** every row was verified by `typecheck` + `lint` +
-vitest against **mocked** providers. Not one was a live third-party round-trip; the §03 items
+Eight merged changes moved to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
+**What none of it changed:** every row was verified against **mocked** providers, so the §03 items
 needing a real handset, card, PAC stamp or deployed database are untouched by all of it.
 
 ---
@@ -125,22 +113,27 @@ needing a real handset, card, PAC stamp or deployed database are untouched by al
 > `is:issue is:open label:P0` before trusting it — the list is ordered by dependency, not
 > just severity, and rows drop off as they close.
 >
-> **That instruction has earned itself repeatedly.** On 2026-08-09 the live query returned
-> **11** open P0s against **7** rows here; every re-derivation since has moved the count as
-> issues closed (#135, #122, #2, #48, #96, #93, and #64 with the PR carrying this line). The
-> blow-by-blow is in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
-> The invariant holds only because someone runs the query — a rule nobody executes is how five
-> documents once claimed completion for simulated work (§01). **Current: the query returns 5 open
-> P0s on 2026-08-11** — #62, #26, #68, #63 and #64 — and #64 closes the moment the PR carrying this
-> line merges, leaving the **4 rows below**. Counted from the query output, not from this
-> paragraph's arithmetic.
+> **That instruction earned itself on 2026-08-09**: the live query returned **11** open P0s
+> against **7** rows. #122, #135 and #48 were added below. The invariant is only true because
+> someone ran the query — a rule nobody executes is how five documents once claimed completion
+> for simulated work (§01). **Re-run after PR #137 merged the same day: 10 open P0s against the
+> nine rows below** (row 6 carries two, #93 and #96). #135's row dropped off with its issue.
+> **2026-08-10:** #122 resolved by decision — phone login removed, the product is email/OAuth
+> only (outbound WhatsApp stays; OTP moved to email 2026-08-11). Its row dropped. **2026-08-11:** #2 closed at
+> founder request, criterion then unmet, its steps tracked by a row with no backing issue —
+> and **later the same day the criterion was met**: a real code to a real inbox, quote signed and
+> sealed, evidence in §02. That row dropped too. **Re-derived: 6 open P0s against the 6 rows
+> below** (#48 and #96 closed earlier the same day, dropping theirs). **Re-derived again after #93
+> closed on its walkthrough, taking the UX-audit trio's row with it: 5 open P0s against the 5 rows
+> below** — #62, #26, #68, #64, #63. **Re-derived after #68 closed on a real card the
+> same day: 4 open P0s against the 4 rows below** — #62, #26, #64, #63.
 
 | # | Item | Tracked |
 |:--|:---|:---|
 | 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path. **The OTP route got its real request on 2026-08-11** (the email-channel verification, §02); the invoice and complemento paths remain. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
 | 2 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
-| 3 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. **Code side landed 2026-08-09** (PR #119): no invented price-id literals, no tier guessed from an unrecognised price, and `npm run verify:stripe` reads the account and every price back from Stripe, failing on an amount the pricing page does not advertise. **Checkout reaches Stripe for the first time, 2026-08-11.** It had never worked: probed as a real tenant against production, every tier answered `502` with `No such price: 'prod_…'` — all three `STRIPE_PRICE_*` in Vercel held Stripe **Product** ids, and the account had never had a Checkout Session. The founder set the Price ids and redeployed; the same probe now returns `200` and a `cs_live_…` URL for all three, billing 29900 / 59900 / 99900 MXN monthly against `price_1U0CxLDuvxyuzaREdO7Jsp3E`, `price_1U0CxlDuvxyuzaRElZ6Lswzt` and `price_1U0CySDuvxyuzaREHFoeCb08`, each session carrying the `organization_id` and `tier_id` the webhook attributes by. The three QA sessions were left unpaid and expire within 24h; the QA tenant is deleted. PR #166 also made a non-price value refuse with a 503 naming the variable rather than a 502 that reads as an outage, and cleared two walls behind it (a return URL that collided with itself; an idempotency key that turned a retry into a 400). **What is left is the money itself**: a real card charged end to end, and the webhook writing the tier onto the organization — this row's own exit criterion, and nothing above touches it. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
-| 4 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that remain — a signed event is applied to a real row, and its redelivery is not — need a database, so they need a staging deployment; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE matching no row — narrow, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) fails the claim insert first; what the guard closes is the deletion race. Least blocking of the P0s. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+| 3 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
+| 4 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. **One of the two that remained was met in production on 2026-08-11**: the founder’s live subscription event was accepted, verified and applied — the tier reached the organization row, which nothing but this route writes. Redelivery idempotency is still unexercised against a database; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE matching no row — narrow, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) fails the claim insert first; what the guard closes is the deletion race. Least blocking of the P0s. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
 **The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued
 — transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays
@@ -161,13 +154,21 @@ re-checked against production or a real handset, which is the part no agent supp
 
 | Issues | What changed |
 |:--|:--|
-| #87, #100 | Every overlay is `components/shared/Modal.tsx`: `role="dialog"`, Escape, focus trap and return, a named ≥48px close, and the `max-h`/`overflow-y-auto` deciding whether the OTP submit is reachable at 375px with the keyboard open |
+| #87, #100 | Every overlay is `components/shared/Modal.tsx`: dialog role, Escape, focus trap and return, a named ≥48px close, and the `max-h`/`overflow-y-auto` deciding whether the OTP submit is reachable at 375px |
 | #127 | One SAT régimen catalogue (`lib/satRegimenes.ts`) across all five screens; an unlisted stored code renders as itself instead of blanking |
 | #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email); the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
 | #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
 | #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
+| #89, #101 | 48px floor enforced (46 declarations); one global `:focus-visible` ring replacing zero; 43 labels associated, 6 inputs named; gating `slate-500` raised, light-theme islands restyled; credit status gains an icon; 15 error containers announce. Gate: `a11yBaseline.test.ts` |
+| #103 | Jargon out of rendered copy (RBAC, SHA-256/HMAC, RLS, TLS, "Sandbox", route templates); English badges translated; provider errors mapped to Spanish via `lib/errorCopy.ts`, original logged; one name per concept; one register (tú) across the client portals. Plan naming split to #185. Gate: `copyRules.test.ts` |
+| #104 | Create-a-quote loses its navigation-only tap; "Generar y Compartir" now shares; invites get the WhatsApp link their copy promised; dirty-form guard; empty-vs-filtered split; skeletons unified; OTP resend cooldown. Gate: `flowPolish.test.ts` |
 
-Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
+**CFDI cancellation stays out of the app for launch** (#174, decided): the route ships with no UI
+caller — it needs a motivo, the `01` replacement UUID, receptor refusal and an async SAT answer
+(#30). Tenants cancel at their PAC portal; the stamping dialog says so, and
+`tests/unit/cfdiCancelHasNoUiCaller.test.ts` fails the build if a caller appears.
+
+The audit is closed. Deferred as decisions: #174 (CFDI cancel UI), #185 (plan naming).
 
 **Resolved off this table** (2026-08-07→08, all verified closed): #79, #76, #59, #33, #36, #37, #58
 — detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
@@ -238,15 +239,15 @@ Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
   in PR #147: every bad field reported at once keyed by column, a failed write naming its cause
   instead of one opaque 500, per-field messages in the form, and the RFC no longer gating
   registration. This row closes when a client is registered through the UI.
+- ~~**A failed write must name its cause** ([#148](https://github.com/jesushzv/business-helper/issues/148)).~~
+  **Done 2026-08-11** — the eleven routes classify the error instead of discarding it (503 naming
+  the column, 400 pinned to its input, 403, 500) and log it. Scanning per *branch* found four more,
+  plus a live defect: `constraintName()` read the relation, not the constraint, so no CHECK was ever
+  attributed. Gate proven red on a planted revert.
 - **One real production smoke test:** register → quote → WhatsApp send → OTP sign → SPEI upload → confirm.
 - **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
   CFDI ships at launch, so this is revenue the pricing page promises and the product cannot collect.
-- ~~**Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).~~
-  **Done 2026-08-08** — `--max-warnings=0`, 22 warnings cleared, failure verified with a planted
-  warning. (The count was recorded as 1, 3 and 23 before settling at 22 — a fail-open gate is how
-  the debt grew unnoticed.) Follow-up: `next/image` for the PNG sites,
-  [#82](https://github.com/jesushzv/business-helper/issues/82) (P2).
 
 ### P2 — Can trail launch by weeks
 
@@ -307,36 +308,41 @@ Launch Readiness ≥ 7.0, Mobile ≥ 6.0, Credibility ≥ 7.0.
 
 ## 05 Open Decisions
 
-These require the founder and are not resolvable from the codebase.
+These require the founder and are not resolvable from the codebase. **Still open:**
 
-1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships.** Deferral is off
-   the table, so [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through
-   a live Facturapi sandbox) is blocking, not negotiable.
-2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch; sms/whatsapp
-   deprecated but wired.** Supersedes 2026-08-10's "Twilio SMS at launch" (itself a same-day
-   reversal: WhatsApp OTP needs a business-owned WABA plus the #42 template — Meta policy — and
-   no WABA exists). Email needs one API key and a DNS-verified domain; no carrier registration,
-   no per-message cost.
-3. **Are there real CLABE account numbers for the pilot organizations?**
-4. ~~**`businesshelper.app` or `businesshelper.mx`?**~~ Resolved — `.app`; `.mx` was never
-   registered (#36).
-5. ~~**Does the September launch date hold?**~~ **Resolved 2026-08-07 — the September date holds,
-   at full scope.** Confirmed by the founder alongside decision 1.
-
-   > [!IMPORTANT]
-   > **Both halves of the trade were taken, so the schedule has no relief valve left.** The framing
-   > offered a choice — hold the date by cutting CFDI, or keep scope and slip. Keeping both means
-   > every P0 row in §03 must land, and the only remaining variable is hours (decision 7, open). If
-   > the list slips, the next lever is not scope or date but pilot count: fewer pilots, longer and
-   > more closely watched.
-6. **Ad budget and platform for pilot recruiting**, given pilots are being recruited cold rather than
-   from a warm list.
-7. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
+1. **Are there real CLABE account numbers for the pilot organizations?** Each pilot can now hold
+   several (#164), so this is per-organization rather than one CLABE for the account.
+2. **Ad budget and platform for pilot recruiting**, given pilots are being recruited cold rather
+   than from a warm list.
+3. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
    "1–2 focused weeks" is two calendar weeks or closer to a month.
-8. ~~**Merge posture on PRs #20 and #23.**~~ Moot — both merged 2026-08-07 (§02).
-9. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
+4. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
    narrow to one module, freeze for a validation-only sprint, or wind down and redirect the time.
    Worth deciding while calm rather than mid-crisis.
+
+**Resolved recently**, kept here because live work still references them:
+
+- ~~**Which roles may set a client's trade-credit line?**~~ **Owners and managers** (#123), via
+  `manage_credit`; a change without it is a 403 per column. Whether the limit restrains a quote is
+  #203.
+- ~~**What does a never-subscribed org get?**~~ **A 30-day trial** (#128). Expiry blocks new
+  quotes, contract conversion, CFDI stamping, complementos and outbound reminders (#195 widened
+  this past quotes alone); collecting, correcting and every public `/q/` and `/pay/` page stay
+  open. Both migrations applied and read back.
+- ~~**Is one organization per owner the invariant?**~~ **Yes, and it is in the schema**
+  (`uq_organizations_owner_id`, `20260811150000`; #109/#168). Multi-org ownership now needs that
+  index dropped deliberately, rather than being permitted by omission.
+
+> [!IMPORTANT]
+> **The schedule has no relief valve left.** CFDI ships *and* the September date holds — both
+> halves of the trade were taken (resolved 2026-08-07), so every P0 row in §03 must land and the
+> only remaining variable is hours, decision 3 above. If the list slips, the next lever is not
+> scope or date but pilot count: fewer pilots, longer and more closely watched.
+
+Five older resolved decisions — CFDI ships at launch, email/Resend as the OTP channel, `.app` over
+`.mx`, the September date, and the #20/#23 merge posture — are in
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) with their reasoning, moved
+on 2026-08-11 when this file reached its budget.
 
 ---
 
@@ -346,9 +352,8 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 910 tests / 104 files as of 2026-08-09
-                               # (earlier counts, and what each pass verified, are in the frozen
-                               #  log at docs/99-archive/status-log-2026-08.md)
+npx vitest run                 # figure in the §02 metrics row; earlier counts
+                               # are in 99-archive/status-log-2026-08.md
 npm run typecheck
 npm run lint
 node -e "console.log(Object.keys(require('./package.json').dependencies))"

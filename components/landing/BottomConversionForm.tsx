@@ -28,10 +28,11 @@ export function BottomConversionForm() {
     >
       {/* Business Name */}
       <div className="space-y-1">
-        <label className="text-xs font-bold text-slate-300">
+        <label htmlFor="bottomconversionform-nombre-de-tu-negocio" className="text-xs font-bold text-slate-300">
           Nombre de tu Negocio <span className="text-rose-500 font-bold ml-0.5">*</span>
         </label>
         <input
+          id="bottomconversionform-nombre-de-tu-negocio"
           type="text"
           required
           value={businessName}
@@ -44,10 +45,11 @@ export function BottomConversionForm() {
       {/* Phone & Email Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label className="text-xs font-bold text-slate-300">
+          <label htmlFor="bottomconversionform-telefono-whatsapp" className="text-xs font-bold text-slate-300">
             Teléfono / WhatsApp <span className="text-rose-500 font-bold ml-0.5">*</span>
           </label>
           <input
+            id="bottomconversionform-telefono-whatsapp"
             type="tel"
             required
             value={phone}
@@ -58,10 +60,11 @@ export function BottomConversionForm() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-bold text-slate-300">
+          <label htmlFor="bottomconversionform-correo-electronico" className="text-xs font-bold text-slate-300">
             Correo Electrónico <span className="text-rose-500 font-bold ml-0.5">*</span>
           </label>
           <input
+            id="bottomconversionform-correo-electronico"
             type="email"
             required
             value={email}
