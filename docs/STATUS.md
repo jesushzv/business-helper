@@ -163,18 +163,14 @@ re-checked against production or a real handset, which is the part no agent supp
 |:--|:--|
 | #87, #100 | Every overlay is `components/shared/Modal.tsx`: `role="dialog"`, Escape, focus trap and return, a named ≥48px close, and the `max-h`/`overflow-y-auto` deciding whether the OTP submit is reachable at 375px with the keyboard open |
 | #127 | One SAT régimen catalogue (`lib/satRegimenes.ts`) across all five screens; an unlisted stored code renders as itself instead of blanking |
-| #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email) and both stacking collisions: the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
+| #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email); the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
+| #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
 | #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
 
-Still open from the audit: #88, #89, #90, #99, #101, #103, #104.
+Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
 
-**Resolved off this table on 2026-08-08:** #79 (the PGRST201 prediction confirmed against live
-PostgREST, both embeds hinted, scan test pinning the pattern), #76 (live `aclexplode` sweep clean)
-and #59 (already-done). Detail in
-[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
-
-**Cleared since this section was first written** (2026-08-07, all verified closed): #33, #36, #37,
-#58 — moved verbatim to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
+**Resolved off this table** (2026-08-07→08, all verified closed): #79, #76, #59, #33, #36, #37, #58
+— detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 
 > [!NOTE]
 > **Most remaining rows need the founder — and the note that said *every* row did was wrong.**
