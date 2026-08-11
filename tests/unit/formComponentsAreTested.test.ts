@@ -18,12 +18,13 @@ import { join } from 'node:path';
  * layer was correct on its own terms. What no test asked was the only question
  * the tenant asks — *can I complete this form?*
  *
- * Hence this gate. A component that owns a `<form>` and a submit handler is
- * where a user can get stuck, and a component test is where that can be caught.
- * Seven such components have no test that renders them and are allowlisted
- * below, tracked in #149 — among them `/pay/[token]`, the page a paying client
- * sees. (`OtpSignatureModal` left the list with the email-OTP migration, which
- * added its test.)
+ * Hence this gate. A component where a user supplies something and submits it
+ * is where they can get stuck, and a component test is where that can be
+ * caught. The allowlist is now **empty**: the seven that #149 tracked — among
+ * them `/pay/[token]`, the page a paying client sees — each have one, and so
+ * does `SpeiConfirmModal`, which the earlier `<form>`-only detector could not
+ * even see. Adding an entry back now needs the same argument as shipping a form
+ * nobody can finish.
  *
  * **Coverage is decided by import, not by filename.** `SettingsCards.test.tsx`
  * covers three cards, and every Next.js page is called `page.tsx`, so matching
@@ -35,20 +36,23 @@ const TEST_DIR = join(process.cwd(), 'tests', 'components');
 
 /**
  * Form components with no component test. Each entry is untested, not exempt.
- * Delete one in the PR that adds its test; that is how #149 closes.
+ * Delete one in the PR that adds its test; that is how #149 closed.
  */
-const UNTESTED = new Set([
-  'app/pay/[token]/page.tsx',
-  'components/assistant/AIAssistantCard.tsx',
-  'components/help/HelpCenterView.tsx',
-  'components/landing/BottomConversionForm.tsx',
-  'components/products/ProductCatalogCard.tsx',
-  'components/settings/PacConnectionCard.tsx',
-  'components/team/TeamMembersCard.tsx',
-]);
+const UNTESTED = new Set<string>([]);
 
 const HAS_FORM = /<form[\s>]/;
-const HAS_SUBMIT = /onSubmit=|handleSubmit/;
+const HAS_INPUT = /<(input|select|textarea)[\s>]/;
+/**
+ * What makes a component *submittable*.
+ *
+ * Keying on `<form>` alone was too narrow, and #149 said so while listing
+ * `SpeiConfirmModal` as out of scope by construction: it collects an amount and
+ * confirms a payment from a plain `onClick={handleConfirm}`, with no `<form>`
+ * anywhere — so the gate could never have asked for its test, on the control
+ * that turns owed into collected. A component that renders an input and wires a
+ * submitting handler is where a user can get stuck, tag or no tag.
+ */
+const HAS_SUBMIT = /onSubmit=|handleSubmit|onClick=\{handle(Confirm|Save|Send|Create|Submit|Invite|Pay)\w*\}/;
 
 function sourceFiles(dir: string, ext: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -63,7 +67,10 @@ function formComponents(): string[] {
   return ROOTS.flatMap((root) => sourceFiles(join(process.cwd(), root), '.tsx'))
     .filter((file) => {
       const source = readFileSync(file, 'utf8');
-      return HAS_FORM.test(source) && HAS_SUBMIT.test(source);
+      if (!HAS_SUBMIT.test(source)) return false;
+      // A `<form>` implies its own inputs; without one, there must be something
+      // to fill in, or a "submit" is just a button.
+      return HAS_FORM.test(source) || HAS_INPUT.test(source);
     })
     .map((file) => file.replace(process.cwd() + '/', ''))
     .sort();
@@ -88,6 +95,8 @@ describe('a form a user can get stuck in has a test that tries to finish it (#14
     expect(forms.length).toBeGreaterThanOrEqual(17);
     expect(forms).toContain('components/clients/ClientFormModal.tsx');
     expect(forms).toContain('components/quotes/QuoteWizardModal.tsx');
+    // The one the `<form>`-only detector could not see (#149).
+    expect(forms).toContain('components/receivables/SpeiConfirmModal.tsx');
   });
 
   it('detects the coverage that already exists (guards the guard)', () => {
