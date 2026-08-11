@@ -24,6 +24,8 @@ export interface Database {
           stripe_subscription_id: string | null;
           subscription_tier: 'free' | 'inicial' | 'emprendedor' | 'negocio' | 'empresa';
           subscription_status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired';
+          /** #128 — end of the free trial. NULL = no trial applies (paying, or grandfathered). */
+          trial_ends_at: string | null;
           facturapi_organization_id: string | null;
           cfdi_folios_used: number;
           cfdi_folios_period: string | null;
@@ -48,6 +50,7 @@ export interface Database {
           stripe_subscription_id?: string | null;
           subscription_tier?: 'free' | 'inicial' | 'emprendedor' | 'negocio' | 'empresa';
           subscription_status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired';
+          trial_ends_at?: string | null;
           facturapi_organization_id?: string | null;
           cfdi_folios_used?: number;
           cfdi_folios_period?: string | null;
@@ -72,6 +75,7 @@ export interface Database {
           stripe_subscription_id?: string | null;
           subscription_tier?: 'free' | 'inicial' | 'emprendedor' | 'negocio' | 'empresa';
           subscription_status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired';
+          trial_ends_at?: string | null;
           facturapi_organization_id?: string | null;
           cfdi_folios_used?: number;
           cfdi_folios_period?: string | null;

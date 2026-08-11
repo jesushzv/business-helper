@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireOrgAccess } from '@/lib/apiAuth';
+import { requireOrgAccess, requireActiveSubscription } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { issuePaymentComplement, planPaymentComplement } from '@/lib/complementoPago';
@@ -115,6 +115,12 @@ export async function POST(
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
   const { supabase, organizationId, userId, role } = auth.ctx;
+
+  // #128 — the trial gate. Creating new commercial work needs an active plan or
+  // a live trial; reading, exporting and collecting stay open.
+  const gate = await requireActiveSubscription(auth.ctx);
+  if (gate) return gate;
+
 
   // Filing a complement by hand is a deliberate act of issuing a stamped
   // document, unlike the automatic one that follows a confirmed payment, so it

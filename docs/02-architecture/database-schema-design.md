@@ -39,8 +39,9 @@
 - `owner_id`: uuid (FK -> `auth.users.id`, not null, IDX)
 - `stripe_customer_id`: text (nullable, UQ)
 - `stripe_subscription_id`: text (nullable, UQ)
-- `subscription_tier`: text (not null, default: `'free'`) -- 'free' | 'emprendedor' | 'negocio' | 'empresa'
-- `subscription_status`: text (not null, default: `'active'`) -- 'active' | 'past_due' | 'canceled'
+- `subscription_tier`: text (not null, default: `'free'`) -- CHECK, read from the live catalog: 'free' | 'inicial' | 'emprendedor' | 'negocio' | 'empresa'. `20260806120000` added `inicial`; this line listed four values for a constraint that permits five
+- `subscription_status`: text (not null, default: `'trialing'` since `20260811170000`; was `'active'`) -- CHECK, read from the live catalog: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired'. This line listed three of the seven, which is the #95 trap written down: a set narrower than the column's CHECK reads `unpaid` as something it is not
+- `trial_ends_at`: timestamptz (nullable, **no default at the row level's semantics** — the column default `now() + 30 days` applies to new inserts only) -- #128. NULL = no trial applies: paying, or grandfathered by `20260811170000`. Only meaningful while `subscription_status = 'trialing'`; `lib/subscriptionAccess.ts` is the only reader, and the Stripe webhook NULLs it when a real subscription lands
 - `facturapi_organization_id`: text (nullable) -- Linked PAC tenant ID
 - `cfdi_folios_used`: integer (not null, default: `0`) -- Folios spent inside `cfdi_folios_period`
 - `cfdi_folios_period`: text (nullable) -- 'YYYY-MM' the counter above describes
@@ -259,8 +260,10 @@ ALTER TABLE contracts ADD CONSTRAINT chk_otp_attempts_limit CHECK (client_otp_at
 ALTER TABLE quotes ADD CONSTRAINT chk_quote_currency CHECK (currency IN ('MXN', 'USD'));
 ALTER TABLE contracts ADD CONSTRAINT chk_contract_currency CHECK (currency IN ('MXN', 'USD'));
 
--- 5. Valid Subscription Tiers
-ALTER TABLE organizations ADD CONSTRAINT chk_subscription_tier CHECK (subscription_tier IN ('free', 'emprendedor', 'negocio', 'empresa'));
+-- 5. Valid Subscription Tiers and statuses (as they stand in the live catalog,
+--    not as first written: 20260806120000 widened both)
+ALTER TABLE organizations ADD CONSTRAINT chk_subscription_tier CHECK (subscription_tier IN ('free', 'inicial', 'emprendedor', 'negocio', 'empresa'));
+ALTER TABLE organizations ADD CONSTRAINT chk_subscription_status CHECK (subscription_status IN ('active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired'));
 ```
 
 ---

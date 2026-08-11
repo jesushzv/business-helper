@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireOrgAccess } from '@/lib/apiAuth';
+import { requireOrgAccess, requireActiveSubscription } from '@/lib/apiAuth';
 import { convertQuoteToContract } from '@/lib/quoteToContract';
 import { track } from '@/lib/analytics';
 
@@ -18,6 +18,12 @@ export async function POST(
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
   const { supabase, organizationId, userId } = auth.ctx;
+
+  // #128 — the trial gate. Creating new commercial work needs an active plan or
+  // a live trial; reading, exporting and collecting stay open.
+  const gate = await requireActiveSubscription(auth.ctx);
+  if (gate) return gate;
+
 
   try {
     const { id } = await params;

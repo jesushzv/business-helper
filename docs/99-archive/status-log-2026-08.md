@@ -557,3 +557,51 @@ Settled history: all four verified closed on the tracker at the time, moved here
 | [#79](https://github.com/jesushzv/business-helper/issues/79) | The PGRST201 prediction confirmed against live PostgREST; both embeds hinted, scan test pinning the pattern |
 | [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
 | [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |
+
+
+---
+
+## #35 — migrations execute against a real Postgres in CI (merged; moved out of STATUS 2026-08-11)
+
+Moved here verbatim when `docs/STATUS.md` needed room for the #128 trial entry. The work has
+merged; this is the detail behind the one-line entry that replaced it.
+
+CI's `migration-verify` job applies the full set twice to Postgres 16 under a faithful Supabase
+shim (including the default-privilege auto-grants — the #76 trap), seeds a tenant, and asserts anon
+isolation, service_role access, the OTP phone CHECK, SECURITY DEFINER grants via `aclexplode`, and
+RLS-on-every-table. Shown red against a planted anon leak. Making double-apply pass surfaced 16
+non-idempotent statements, all fixed. Requiring the check in branch protection remains #38.
+
+
+---
+
+## Complemento de pago gaps (moved out of STATUS 2026-08-11, still open)
+
+The three issues remain open; only the prose moved. The request body has never reached a real PAC
+(#34), the accountant export omits complementos (#31), and one stamped in error cannot be cancelled
+(#30). Filing on PPD confirmation itself landed in #29.
+
+
+---
+
+## #68 — Stripe checkout reaches Stripe for the first time (2026-08-11)
+
+Moved out of `docs/STATUS.md` when it needed room for the #128 trial entry. The P0 row remains
+open on its own exit criterion; this is the history behind it.
+
+Code side landed 2026-08-09 (PR #119): no invented price-id literals, no tier guessed from an
+unrecognised price, and `npm run verify:stripe` reads the account and every price back from Stripe,
+failing on an amount the pricing page does not advertise.
+
+Checkout had never worked. Probed as a real tenant against production, every tier answered `502`
+with `No such price: 'prod_…'` — all three `STRIPE_PRICE_*` in Vercel held Stripe **Product** ids,
+and the account had never had a Checkout Session. The founder set the Price ids and redeployed; the
+same probe then returned `200` and a `cs_live_…` URL for all three, billing 29900 / 59900 / 99900
+MXN monthly against `price_1U0CxLDuvxyuzaREdO7Jsp3E`, `price_1U0CxlDuvxyuzaRElZ6Lswzt` and
+`price_1U0CySDuvxyuzaREHFoeCb08`, each session carrying the `organization_id` and `tier_id` the
+webhook attributes by. The three QA sessions were left unpaid and expire within 24h; the QA tenant
+was deleted.
+
+PR #166 also made a non-price value refuse with a 503 naming the variable rather than a 502 that
+reads as an outage, and cleared two walls behind it: a return URL that collided with itself, and an
+idempotency key that turned a retry into a 400.

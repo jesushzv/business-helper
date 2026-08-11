@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import type { UserRole } from '@/lib/teamRBAC';
+import {
+  evaluateSubscriptionAccess,
+  SUBSCRIPTION_REQUIRED_CODE,
+} from '@/lib/subscriptionAccess';
 
 /**
  * Shared authentication and tenant-scoping for API routes.
@@ -109,6 +113,69 @@ export async function requireOrgAccess(): Promise<AuthResult> {
   }
 
   return fail(403, 'NO_ORGANIZATION', 'La cuenta no pertenece a ninguna organización');
+}
+
+/**
+ * Refuses a write when the organization's trial has run out and no plan was
+ * bought (#128). Returns `null` when the write may proceed.
+ *
+ * Routes call this **after** `requireOrgAccess()` and return its response
+ * verbatim, the same contract as the auth check itself:
+ *
+ *     const gate = await requireActiveSubscription(auth.ctx);
+ *     if (gate) return gate;
+ *
+ * Only the routes that create new commercial work call it — quotes, the
+ * quote→contract conversion, CFDI stamping, complementos, outbound reminders.
+ * Deliberately **not** called by:
+ *
+ * - any public route (a tenant's client is not the one who owes us money);
+ * - receivables confirm and upload — collecting what is already owed must
+ *   never stop;
+ * - invoice cancellation — correcting a wrong CFDI is not new work;
+ * - the organization and Stripe routes, since billing is how a tenant gets
+ *   *out* of this state;
+ * - the client and product routes: housekeeping, not commercial output.
+ *
+ * The read is its own query rather than a field on `AuthContext`, so routes
+ * that do not gate pay nothing for it.
+ */
+export async function requireActiveSubscription(
+  ctx: AuthContext
+): Promise<NextResponse | null> {
+  const { supabase, organizationId } = ctx;
+
+  const { data, error } = await (supabase as SupabaseServerClient)
+    .from('organizations')
+    .select('subscription_status, trial_ends_at')
+    .eq('id', organizationId)
+    .maybeSingle();
+
+  // A failed read is not an expired trial. `evaluateSubscriptionAccess` resolves
+  // missing input to `unknown`/permissive for the same reason, but the short
+  // circuit is here too so an outage cannot become a billing wall.
+  if (error || !data) return null;
+
+  const access = evaluateSubscriptionAccess({
+    status: data.subscription_status,
+    trialEndsAt: data.trial_ends_at,
+    now: new Date(),
+  });
+
+  if (access.canWrite) return null;
+
+  return NextResponse.json(
+    {
+      error: {
+        code: SUBSCRIPTION_REQUIRED_CODE,
+        message:
+          access.message ||
+          'Tu prueba gratis terminó. Activa un plan para crear cotizaciones nuevas.',
+        state: access.state,
+      },
+    },
+    { status: 402 }
+  );
 }
 
 /**

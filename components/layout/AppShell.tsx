@@ -23,6 +23,7 @@ import { Modal } from '@/components/shared/Modal';
 import { DemoBanner } from '@/components/demo/DemoBanner';
 import { DemoSessionExit } from '@/components/demo/DemoSessionExit';
 import { SettlementAccountBanner } from '@/components/settlement/SettlementAccountBanner';
+import { TrialStatusBanner } from '@/components/subscription/TrialStatusBanner';
 import { FeatureTierComparisonModal } from '@/components/features/FeatureTierComparisonModal';
 import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
 
@@ -163,6 +164,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
             be paid, and nothing else in the app says so until a client hits the
             409 on the payment page (#64). */}
         <SettlementAccountBanner />
+        <TrialStatusBanner />
         <main className="mx-auto min-h-screen max-w-7xl">{children}</main>
       </div>
 

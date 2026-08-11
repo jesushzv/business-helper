@@ -3,6 +3,7 @@ import { requireOrgAccess, requireUser, isDemoDeployment } from '@/lib/apiAuth';
 import { normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
+import { trialEndsAtFrom } from '@/lib/subscriptionAccess';
 
 export async function GET() {
   // No backend means no tenant data; the demo organization is honest here.
@@ -41,7 +42,7 @@ export async function GET() {
       // and the app-shell identity.
       .select(
         'id, name, rfc, regimen_fiscal, codigo_postal, phone, logo_url, industry, ' +
-          'subscription_tier, subscription_status, bank_name, bank_clabe, bank_account_holder'
+          'subscription_tier, subscription_status, trial_ends_at, bank_name, bank_clabe, bank_account_holder'
       )
       .eq('id', organizationId)
       .maybeSingle();
@@ -304,6 +305,11 @@ export async function POST(request: Request) {
         codigo_postal: codigoPostal || null,
         industry: industry || null,
         owner_id: userId,
+        // #128 — a new organization starts on a 30-day trial. The column
+        // carries the same default, so an insert by any other path gets the
+        // same terms; setting it here is what this route's tests assert on.
+        subscription_status: 'trialing',
+        trial_ends_at: trialEndsAtFrom(new Date()),
       })
       .select()
       .single();

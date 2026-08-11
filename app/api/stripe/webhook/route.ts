@@ -122,6 +122,20 @@ export async function POST(request: Request) {
     // the existing tier is left untouched.
     const update: Record<string, unknown> = {
       subscription_status: handled.status,
+      // #128 — Stripe is the authority from here, so the app-side trial ends.
+      //
+      // Clearing it is not tidiness. `lib/subscriptionAccess.ts` only consults
+      // `trial_ends_at` while the status is `'trialing'`, and **Stripe reports
+      // that status too** for a subscription in its own trial window. Leaving a
+      // stale app-side date behind would let a genuinely subscribed customer be
+      // refused a quote because a trial they replaced by paying had lapsed —
+      // hard rule #1 inverted, blocking on a fact the system no longer holds.
+      //
+      // NULL is the honest value: no app trial applies to this organization any
+      // more. The evaluator resolves `trialing` with no end date to `unknown`
+      // and grants access, which is the right answer for a Stripe trial whose
+      // real end date lives at Stripe and not here.
+      trial_ends_at: null,
       updated_at: new Date().toISOString(),
     };
 

@@ -143,18 +143,15 @@ needing a real handset, card, PAC stamp or deployed database are untouched by al
 |:--|:---|:---|
 | 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path. **The OTP route got its real request on 2026-08-11** (the email-channel verification, §02); the invoice and complemento paths remain. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
 | 2 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
-| 3 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. **Code side landed 2026-08-09** (PR #119): no invented price-id literals, no tier guessed from an unrecognised price, and `npm run verify:stripe` reads the account and every price back from Stripe, failing on an amount the pricing page does not advertise. **Checkout reaches Stripe for the first time, 2026-08-11.** It had never worked: probed as a real tenant against production, every tier answered `502` with `No such price: 'prod_…'` — all three `STRIPE_PRICE_*` in Vercel held Stripe **Product** ids, and the account had never had a Checkout Session. The founder set the Price ids and redeployed; the same probe now returns `200` and a `cs_live_…` URL for all three, billing 29900 / 59900 / 99900 MXN monthly against `price_1U0CxLDuvxyuzaREdO7Jsp3E`, `price_1U0CxlDuvxyuzaRElZ6Lswzt` and `price_1U0CySDuvxyuzaREHFoeCb08`, each session carrying the `organization_id` and `tier_id` the webhook attributes by. The three QA sessions were left unpaid and expire within 24h; the QA tenant is deleted. PR #166 also made a non-price value refuse with a 503 naming the variable rather than a 502 that reads as an outage, and cleared two walls behind it (a return URL that collided with itself; an idempotency key that turned a retry into a 400). **What is left is the money itself**: a real card charged end to end, and the webhook writing the tier onto the organization — this row's own exit criterion, and nothing above touches it. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
+| 3 | **Enable Stripe live mode.** **Checkout reaches Stripe as of 2026-08-11** — the founder set the three live Price ids in Vercel (they had held Stripe *Product* ids, so every tier answered 502) and all three now return a `cs_live_…` session billing the advertised amount, each carrying the `organization_id` and `tier_id` the webhook attributes by. History in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). **What is left is the money itself**: a real card charged end to end, and the webhook writing the tier onto the organization — this row's own exit criterion. `npm run verify:stripe` is read-only and catches the account and price-map failures before a card is involved. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
 | 4 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
 | 5 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that remain — a signed event is applied to a real row, and its redelivery is not — need a database, so they need a staging deployment; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE that matched no row — narrow in practice, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) already fails the claim insert for a nonexistent organization; what the guard closes is the deletion race. Least blocking of the P0s: it protects a path a SPEI-first pilot may barely exercise. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
-**The UX-audit trio is closed** (#93, #95, #96), and each was checked against production rather than
-argued: #95's save on 2026-08-09 — `PUT` 405, `PATCH`/`GET` 401, then a throwaway tenant's round trip
-persisting a normalized `phone`; #96's data layer the same day — a check that **failed**, finding two
-further defects since fixed; #93's chrome, public quote route and served dashboard on 2026-08-11 as
-the owner of a real organization, with the hydrated page confirmed by the founder in a browser.
-Transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays
-open in #103/#99 and #113/#114/#123/#124, plus two gaps pinned by unit tests only: a non-owner's
-read-only Ajustes, and `/pay`'s no-invented-bank path, which needs a tenant with a contract.
+**The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued —
+#96's check **failed** and found two further defects, since fixed; transcripts in
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays open in
+#103/#99 and #113/#114/#123/#124, plus two gaps pinned by unit tests only: a non-owner's read-only
+Ajustes, and `/pay`'s no-invented-bank path, which needs a tenant with a contract.
 
 **UX-audit work landed since 2026-08-11.** All verified by unit/component tests only — none
 re-checked against production or a real handset, which is the part no agent supplies.
@@ -247,18 +244,26 @@ Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
 
 ### P2 — Can trail launch by weeks
 
-- Complemento de pago gaps: the request body has never reached a real PAC ([#34](https://github.com/jesushzv/business-helper/issues/34)),
-  the accountant export omits complementos ([#31](https://github.com/jesushzv/business-helper/issues/31)),
-  and one stamped in error cannot be cancelled ([#30](https://github.com/jesushzv/business-helper/issues/30)).
-  *(Filing on PPD confirmation itself landed in #29.)*
+- Complemento de pago gaps, all open: never reached a real PAC
+  ([#34](https://github.com/jesushzv/business-helper/issues/34)), absent from the accountant export
+  ([#31](https://github.com/jesushzv/business-helper/issues/31)), and one stamped in error cannot be
+  cancelled ([#30](https://github.com/jesushzv/business-helper/issues/30)).
 - ~~Migrations never execute against a real Postgres in CI
-  ([#35](https://github.com/jesushzv/business-helper/issues/35)).~~ **In the 2026-08-09 non-P0 bulk
-  PR (pending merge):** CI's `migration-verify` job applies the full set twice to Postgres 16 under
-  a faithful Supabase shim (including the default-privilege auto-grants — the #76 trap), seeds a
-  tenant, and asserts anon isolation, service_role access, the OTP phone CHECK, SECURITY DEFINER
-  grants via `aclexplode`, and RLS-on-every-table. Shown red against a planted anon leak. Making
-  double-apply pass surfaced 16 non-idempotent statements, all fixed. Requiring the check in
+  ([#35](https://github.com/jesushzv/business-helper/issues/35)).~~ **Merged** — `migration-verify`
+  applies the full set twice to Postgres 16 under a Supabase shim and asserts isolation, grants and
+  RLS; shown red against a planted anon leak. Detail in
+  [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Requiring the check in
   branch protection remains #38.
+- **A never-subscribed organization gets a 30-day trial, then read-only**
+  ([#128](https://github.com/jesushzv/business-helper/issues/128)). **Code complete; migration
+  `20260811170000` NOT applied.** Decided Option B. The product had been free with metered CFDI and
+  nothing said so — the one `isAccessible` flag in the tree was read by nothing. New orgs start
+  `trialing`; on expiry the five routes creating commercial work answer 402, while reads, exports,
+  payment confirmation, Stripe and every public `/q/` and `/pay/` page stay open: a supplier's
+  billing never blocks their client. Unknown state always permits — an outage is not a billing wall.
+  The two production orgs are grandfathered `active`, which is also the documented escape hatch.
+  **Open risk:** if the webhook does not write the tier after a real payment (#63), a tenant who
+  pays stays blocked.
 - `parseNaturalLanguageQuery` is keyword matching rather than a model. It now reports `engine: 'rules'`
   instead of implying otherwise, so it is honest but not intelligent. Degrades gracefully; does not gate launch.
 - Animated demo video — storyboarded in [`demo_video_storyboard.md`](03-product-specs/demo_video_storyboard.md), not produced.

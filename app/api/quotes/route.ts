@@ -4,6 +4,7 @@ import {
   isDemoDeployment,
   pickFields,
   QUOTE_WRITABLE_FIELDS,
+  requireActiveSubscription,
 } from '@/lib/apiAuth';
 
 /**
@@ -52,6 +53,11 @@ export async function POST(request: Request) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
   const { supabase, userId, organizationId } = auth.ctx;
+
+  // #128 — the trial gate. Creating new commercial work needs an active plan or
+  // a live trial; reading, exporting and collecting stay open.
+  const gate = await requireActiveSubscription(auth.ctx);
+  if (gate) return gate;
 
   try {
     const body = await request.json();

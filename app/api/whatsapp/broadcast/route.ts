@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireOrgAccess } from '@/lib/apiAuth';
+import { requireOrgAccess, requireActiveSubscription } from '@/lib/apiAuth';
 import { requireSettlementAccount } from '@/lib/settlementAccount';
 import { dispatchWhatsAppReminder, WhatsAppReminderOptions } from '@/lib/whatsappOutbound';
 
@@ -16,6 +16,13 @@ export async function POST(req: NextRequest) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
   const { supabase, organizationId } = auth.ctx;
+
+  // #128 — the trial gate sits above the settlement check on purpose: both
+  // refuse before anything leaves, and "activa un plan" is the more useful
+  // answer than "captura tu CLABE" for a tenant whose trial has run out.
+  // Collecting on what is already owed is not gated — only this outbound push.
+  const gate = await requireActiveSubscription(auth.ctx);
+  if (gate) return gate;
 
   // #64 — refuse before the link leaves rather than after the client opens it.
   // Without a CLABE the /pay/ page this message points at answers 409, so
