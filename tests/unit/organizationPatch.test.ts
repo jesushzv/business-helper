@@ -15,26 +15,27 @@ import { requireOrgAccess } from '@/lib/apiAuth';
 
 const updateCalls: Array<Record<string, unknown>> = [];
 let updateResult: { data: unknown; error: unknown } = { data: { id: 'org-1' }, error: null };
+/** The role requireOrgAccess reports — 'owner' unless a test says otherwise. */
+let callerRole = 'owner';
+
+// PATCH resolves through requireOrgAccess rather than requireUser so it can see
+// the caller's *role*: a member used to fall through to the owner_id filter
+// matching nothing and get a 404 about a business that does not exist.
+const supabaseStub = {
+  from: () => ({
+    update: (values: Record<string, unknown>) => {
+      updateCalls.push(values);
+      const chain = {
+        eq: () => chain,
+        select: () => ({ maybeSingle: async () => updateResult }),
+      };
+      return chain;
+    },
+  }),
+};
 
 vi.mock('@/lib/apiAuth', () => ({
-  requireUser: vi.fn(async () => ({
-    ok: true,
-    userId: 'user-1',
-    supabase: {
-      from: () => ({
-        update: (values: Record<string, unknown>) => {
-          updateCalls.push(values);
-          return {
-            eq: () => ({
-              select: () => ({
-                maybeSingle: async () => updateResult,
-              }),
-            }),
-          };
-        },
-      }),
-    },
-  })),
+  requireUser: vi.fn(async () => ({ ok: true, userId: 'user-1', supabase: supabaseStub })),
   requireOrgAccess: vi.fn(),
   isDemoDeployment: () => false,
 }));
@@ -49,6 +50,21 @@ function patchRequest(body: unknown): Request {
 
 beforeEach(() => {
   updateCalls.length = 0;
+  callerRole = 'owner';
+
+  // Re-installed each test: the GET block below sets its own mockResolvedValue
+  // with a read-only supabase stub, and that override outlives its describe.
+  // Harmless while PATCH went through requireUser; now that it shares this mock
+  // it would hand the bank tests a client with no update(). mockImplementation
+  // so `callerRole` is read when the route calls, not when this hook runs.
+  vi.mocked(requireOrgAccess).mockImplementation(
+    async () =>
+      ({
+        ok: true,
+        ctx: { supabase: supabaseStub, userId: 'user-1', organizationId: 'org-1', role: callerRole },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any
+  );
   updateResult = { data: { id: 'org-1' }, error: null };
 });
 
@@ -194,5 +210,27 @@ describe('PATCH /api/organization — bank payload keeps its contract', () => {
     );
     expect(res.status).toBe(200);
     expect(updateCalls[0]).toMatchObject({ bank_name: 'BBVA', bank_clabe: '012180001234567899' });
+  });
+});
+
+
+describe('PATCH /api/organization — a member is told why, not that they have no business', () => {
+  it('answers 403 naming who may change these data', async () => {
+    callerRole = 'manager';
+    const res = await PATCH(patchRequest({ name: 'Ferretería La Central' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(body.error.code).toBe('FORBIDDEN');
+    // Not 404 "No se encontró una organización propia", which reads as *your
+    // business does not exist* to someone whose only problem is not owning it.
+    expect(body.error.message).toMatch(/dueño/i);
+    expect(updateCalls).toHaveLength(0);
+  });
+
+  it('still lets the owner through', async () => {
+    const res = await PATCH(patchRequest({ name: 'Ferretería La Central' }));
+    expect(res.status).toBe(200);
+    expect(updateCalls[0]).toMatchObject({ name: 'Ferretería La Central' });
   });
 });
