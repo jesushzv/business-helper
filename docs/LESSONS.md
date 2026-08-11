@@ -131,11 +131,18 @@ not earned. It has shipped here at least eight times.
   message. Corollary: **a validation gate belongs where the value is load-bearing.** The RFC gate
   cost the whole client record for a field only CFDI stamping needs, which `lib/facturapi.ts`
   already refuses loudly on its own.
+- **A layer-by-layer suite cannot see a defect that lives between the layers** (#146). The clients
+  coverage invoked both handlers, pinned the phone normalizer and the credit maths — and never
+  rendered the form, so three defects that together made registration impossible were all invisible
+  to it. Ask the tenant's question, not the function's: *can I complete this?* A form component
+  gets a test that fills the minimum and submits;
+  `tests/unit/formComponentsAreTested.test.ts` fails the build on a new one without it.
 - **One `catch`-all 500 on a write is a diagnosis you threw away** (#146). `if (error) return 500
   'No se pudo crear el cliente'` made a missing column (`PGRST204` — #96's exact shape), a CHECK,
   an RLS denial and an outage identical on screen *and* in the logs, since the raw error was
   discarded. Map the code to a Spanish cause naming the column, and `captureException` the original
-  every time: `lib/dbWriteError.ts` is the reference.
+  every time: `lib/dbWriteError.ts` is the reference, and
+  `tests/unit/writeErrorLegibility.test.ts` fails the build on a new one.
 - **localStorage is demo-sandbox state, never a real tenant's store.** Real tenants read the API
   (an empty list is a real answer), see errors as errors, and their mutations apply the server row
   or throw. Seeding fixtures on a failed fetch is how a new tenant's directory opened with three
