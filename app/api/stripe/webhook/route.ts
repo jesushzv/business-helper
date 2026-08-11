@@ -141,6 +141,29 @@ export async function POST(request: Request) {
       );
     }
 
+    // The Stripe ids, which nothing has ever written (#115). The checkout route
+    // reads `stripe_customer_id` to reuse a customer and that column is always
+    // null, so every upgrade mints a new Stripe customer for the same
+    // organization — three customers, each billable, for an org that upgraded
+    // twice. Without `stripe_subscription_id` there is also no id to cancel or
+    // to open a Billing Portal against.
+    //
+    // Both columns are `text UNIQUE`, so a value belonging to another
+    // organization fails the UPDATE and lands in the `updateError` branch
+    // below: a 500 and a released claim, never a swallowed collision.
+    if (handled.customerId) {
+      update.stripe_customer_id = handled.customerId;
+    }
+
+    if (handled.clearsSubscriptionId) {
+      // The subscription is gone. Leaving its id behind would point cancel and
+      // portal calls at something Stripe refuses; the customer stays, because
+      // that is still who they are.
+      update.stripe_subscription_id = null;
+    } else if (handled.subscriptionId) {
+      update.stripe_subscription_id = handled.subscriptionId;
+    }
+
     if (!handled.status && handled.eventType.startsWith('customer.subscription.')) {
       // Expected for `checkout.session.completed`, which carries no subscription
       // status; on a subscription lifecycle event it means Stripe reported a

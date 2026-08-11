@@ -4,6 +4,7 @@ import {
   normalizeSubscriptionStatus,
   validateSubscriptionStatus,
   handleStripeWebhookEvent,
+  readStripeId,
 } from '@/lib/stripe';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -142,5 +143,113 @@ describe('validateSubscriptionStatus', () => {
     // the same news as "your subscription was cancelled".
     expect(validateSubscriptionStatus('incomplete').badgeText).toBe('Pago sin completar');
     expect(validateSubscriptionStatus('incomplete_expired').isAccessible).toBe(false);
+  });
+});
+
+/**
+ * #115 — `organizations.stripe_customer_id` and `stripe_subscription_id` exist
+ * in the schema (both `text UNIQUE`) and nothing ever wrote them.
+ *
+ * Three reads, zero writes: the checkout route's customer-reuse branch reads a
+ * column that is always null, so every upgrade mints a fresh Stripe customer
+ * for the same organization — Stripe will bill all of them — and with no
+ * subscription id stored, "cancel my plan" cannot be answered by the app at
+ * all. The ids ride on the same events this route already handles.
+ */
+describe('handleStripeWebhookEvent — the Stripe ids it reports (#115)', () => {
+  it('reads customer and subscription off a Checkout Session', () => {
+    const handled = handleStripeWebhookEvent({
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_test_1',
+          customer: 'cus_ABC123',
+          subscription: 'sub_XYZ789',
+          metadata: { organization_id: ORG },
+        },
+      },
+    });
+
+    expect(handled.customerId).toBe('cus_ABC123');
+    // A Session names the subscription it created in `subscription`; its own
+    // `id` is a `cs_…`, which must never reach a sub_ column.
+    expect(handled.subscriptionId).toBe('sub_XYZ789');
+    expect(handled.clearsSubscriptionId).toBe(false);
+  });
+
+  it('reads a Subscription event: the object is the subscription', () => {
+    const handled = handleStripeWebhookEvent({
+      type: 'customer.subscription.updated',
+      data: {
+        object: {
+          id: 'sub_LIVE1',
+          customer: 'cus_LIVE1',
+          status: 'active',
+          metadata: { organization_id: ORG },
+        },
+      },
+    });
+
+    expect(handled.customerId).toBe('cus_LIVE1');
+    expect(handled.subscriptionId).toBe('sub_LIVE1');
+  });
+
+  it('accepts an expanded object as well as a bare id', () => {
+    const handled = handleStripeWebhookEvent({
+      type: 'customer.subscription.created',
+      data: {
+        object: {
+          id: 'sub_EXP1',
+          customer: { id: 'cus_EXP1', object: 'customer' },
+          status: 'active',
+          metadata: { organization_id: ORG },
+        },
+      },
+    });
+
+    expect(handled.customerId).toBe('cus_EXP1');
+  });
+
+  it('refuses an id of the wrong kind rather than storing it in a UNIQUE column', () => {
+    // The shape that would have done the damage: a Session whose `id` gets read
+    // as the subscription, writing `cs_…` into a column other tenants share.
+    const handled = handleStripeWebhookEvent({
+      type: 'checkout.session.completed',
+      data: { object: { id: 'cs_test_2', metadata: { organization_id: ORG } } },
+    });
+
+    expect(handled.subscriptionId).toBeNull();
+    expect(handled.customerId).toBeNull();
+
+    expect(readStripeId('cus_OK', 'cus_')).toBe('cus_OK');
+    expect(readStripeId('sub_OK', 'cus_')).toBeNull();
+    expect(readStripeId('cus_bad id', 'cus_')).toBeNull();
+    expect(readStripeId(undefined, 'sub_')).toBeNull();
+    expect(readStripeId({}, 'sub_')).toBeNull();
+  });
+
+  it('marks a deletion as clearing the subscription id, keeping the customer', () => {
+    const handled = handleStripeWebhookEvent({
+      type: 'customer.subscription.deleted',
+      data: {
+        object: { id: 'sub_GONE', customer: 'cus_STAYS', metadata: { organization_id: ORG } },
+      },
+    });
+
+    expect(handled.clearsSubscriptionId).toBe(true);
+    expect(handled.customerId).toBe('cus_STAYS');
+  });
+});
+
+describe('the webhook route stores the ids the event carried (#115)', () => {
+  const route = readFileSync(join('app', 'api', 'stripe', 'webhook', 'route.ts'), 'utf8');
+
+  it('writes each id only when the event named it', () => {
+    expect(route).toMatch(/if \(handled\.customerId\) \{\s*update\.stripe_customer_id = handled\.customerId;/);
+    expect(route).toMatch(/else if \(handled\.subscriptionId\) \{\s*update\.stripe_subscription_id = handled\.subscriptionId;/);
+  });
+
+  it('clears the subscription id on a deletion instead of leaving a dead one', () => {
+    expect(route).toMatch(/if \(handled\.clearsSubscriptionId\) \{[\s\S]*?update\.stripe_subscription_id = null;/);
   });
 });

@@ -576,7 +576,41 @@ export interface StripeWebhookOutcome {
   status: SubscriptionStatus | null;
   /** null when the event names no tier we can attribute — do not write a guess. */
   tierId: StripeTierId | null;
+  /** The Stripe Customer this event belongs to, or null when it names none. */
+  customerId: string | null;
+  /** The Stripe Subscription this event belongs to, or null when it names none. */
+  subscriptionId: string | null;
+  /**
+   * True only for `customer.subscription.deleted`: the subscription is gone, so
+   * the stored id must be cleared rather than left pointing at something Stripe
+   * will refuse to act on. Distinct from `subscriptionId === null`, which means
+   * "this event says nothing" — the difference between erasing a fact and
+   * simply not having learned one.
+   */
+  clearsSubscriptionId: boolean;
   eventType: string;
+}
+
+/**
+ * Reads a Stripe object reference that may arrive as an id or as an expanded
+ * object, and refuses anything that is not an id of the expected kind.
+ *
+ * `organizations.stripe_customer_id` and `stripe_subscription_id` are both
+ * `text UNIQUE`, and nothing has ever written them (#115) — so the checkout
+ * route's customer-reuse branch reads a column that is always null and every
+ * upgrade mints a fresh Stripe customer for the same organization. Writing them
+ * is the fix; writing the *wrong thing* into a UNIQUE column shared across
+ * tenants is worse than leaving them null, hence the prefix check.
+ */
+export function readStripeId(value: unknown, prefix: 'cus_' | 'sub_'): string | null {
+  const raw =
+    typeof value === 'string'
+      ? value
+      : typeof (value as { id?: unknown })?.id === 'string'
+        ? ((value as { id: string }).id)
+        : '';
+  const trimmed = raw.trim();
+  return trimmed.startsWith(prefix) && /^[A-Za-z0-9_]+$/.test(trimmed) ? trimmed : null;
 }
 
 export function handleStripeWebhookEvent(
@@ -608,10 +642,24 @@ export function handleStripeWebhookEvent(
   const tierId =
     normalizeTierKey(obj?.metadata?.tier_id || '') ?? resolveTierFromPriceId(priceId, env);
 
+  // Where each id lives depends on which object the event carries: a Checkout
+  // Session names the subscription it created in `subscription`, while a
+  // Subscription *is* the subscription and names itself in `id`. Reading `id`
+  // off a Session would store `cs_…` in a column meant for `sub_…`, which is
+  // why `readStripeId` checks the prefix rather than trusting the field (#115).
+  const customerId = readStripeId(obj?.customer, 'cus_');
+  const subscriptionId =
+    event?.type === 'checkout.session.completed'
+      ? readStripeId(obj?.subscription, 'sub_')
+      : readStripeId(obj?.id, 'sub_');
+
   return {
     organizationId,
     status,
     tierId,
+    customerId,
+    subscriptionId,
+    clearsSubscriptionId: event?.type === 'customer.subscription.deleted',
     eventType: event.type
   };
 }
