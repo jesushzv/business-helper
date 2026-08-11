@@ -35,7 +35,8 @@ const AUTHORITY = 'CLAUDE.md';
  * committed. Not hand-curated prose: it must equal what the file contains, in both directions.
  */
 const LESSON_REFS: number[] = [
-  33, 38, 44, 48, 50, 58, 59, 63, 64, 76, 78, 86, 93, 95, 96, 116, 118, 129, 133, 135, 146,
+  33, 38, 44, 48, 50, 58, 59, 63, 64, 76, 78, 82, 86, 87, 93, 95, 96, 100, 116, 118, 129, 133,
+  135, 146,
 ];
 
 /**
@@ -44,11 +45,7 @@ const LESSON_REFS: number[] = [
  * still listed as retired.
  */
 const RETIRED: Record<number, string> = {
-  // Retired 2026-08-11 to pay for #116 and #133 at the size budget — the trade this file's own
-  // guidance prescribes. Both are covered by a gate that fails on the next occurrence anywhere.
-  82: 'the lint gate itself fails on a bare <img>; the rule stays in Tooling without the issue ref',
-  87: 'tests/unit/modalShell.test.ts fails the build on a hand-rolled modal; rule kept, narrative cut',
-  100: 'same gate as #87 — the two were always one lesson',
+  // 82: 'next/image migration completed in #NNN — the lint gate now fails on a bare <img>',
 };
 
 const body = readFileSync(join(ROOT, CATALOGUE), 'utf-8');

@@ -97,7 +97,7 @@ into one line; their reasoning is in the frozen log.*
 | Item | State | Blocks launch? |
 |:---|:---|:---|
 | **Live PAC stamp** | **The one that matters.** PR #23 merged, so stamping is real code — but its coverage runs against a mocked `fetch`, and no invoice has been issued through a live Facturapi sandbox. Merging is not verification. | **Yes** — CFDI ships at launch |
-| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
+| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11)** — a real inbox signed a real quote, evidence read back from the live catalog; detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). sms/whatsapp stay wired but deprecated. | Cleared |
 | ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
 | ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
 
@@ -143,42 +143,39 @@ needing a real handset, card, PAC stamp or deployed database are untouched by al
 |:--|:---|:---|
 | 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path. **The OTP route got its real request on 2026-08-11** (the email-channel verification, §02); the invoice and complemento paths remain. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
 | 2 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
-| 3 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. **Code side landed 2026-08-09**: price ids no longer default to invented literals (an unmapped tier answers 503 and names the variable), an unrecognised price no longer resolves to the Negocio tier, and `npm run verify:stripe` reads the account and every price back from Stripe — it fails if the account cannot take charges or a tier bills an amount the pricing page does not advertise. **Probed live on 2026-08-11 and broken at the environment, not in the code**: as a real tenant against production, all three tiers answered `502 STRIPE_ERROR`, with `No such price: 'prod_…'` in the log — every `STRIPE_PRICE_*` in Vercel holds a Stripe **Product** id, and the live account has never had a Checkout Session. The prices themselves are right, read back from the account: `price_1U0CxLDuvxyuzaREdO7Jsp3E` $299, `price_1U0CxlDuvxyuzaRElZ6Lswzt` $599, `price_1U0CySDuvxyuzaREHFoeCb08` $999, MXN monthly, and the webhook endpoint is registered for the three subscription events. **Founder action: set those three ids in Vercel and redeploy** — no agent can. A non-price value is now refused with a 503 naming the variable instead of a 502 that reads as an outage, and two walls behind it are gone (a return URL that collided with itself; an idempotency key that turned the retry into a 400). The issue stays open on its own exit criterion: a real card, in live mode, recorded by a signature-verified webhook. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
+| 3 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. **Code side landed 2026-08-09** (PR #119): no invented price-id literals, no tier guessed from an unrecognised price, and `npm run verify:stripe` reads the account and every price back from Stripe, failing on an amount the pricing page does not advertise. **Checkout reaches Stripe for the first time, 2026-08-11.** It had never worked: probed as a real tenant against production, every tier answered `502` with `No such price: 'prod_…'` — all three `STRIPE_PRICE_*` in Vercel held Stripe **Product** ids, and the account had never had a Checkout Session. The founder set the Price ids and redeployed; the same probe now returns `200` and a `cs_live_…` URL for all three, billing 29900 / 59900 / 99900 MXN monthly against `price_1U0CxLDuvxyuzaREdO7Jsp3E`, `price_1U0CxlDuvxyuzaRElZ6Lswzt` and `price_1U0CySDuvxyuzaREHFoeCb08`, each session carrying the `organization_id` and `tier_id` the webhook attributes by. The three QA sessions were left unpaid and expire within 24h; the QA tenant is deleted. PR #166 also made a non-price value refuse with a 503 naming the variable rather than a 502 that reads as an outage, and cleared two walls behind it (a return URL that collided with itself; an idempotency key that turned a retry into a 400). **What is left is the money itself**: a real card charged end to end, and the webhook writing the tier onto the organization — this row's own exit criterion, and nothing above touches it. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
 | 4 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
 | 5 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that remain — a signed event is applied to a real row, and its redelivery is not — need a database, so they need a staging deployment; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE matching no row — narrow, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) fails the claim insert first; what the guard closes is the deletion race. Least blocking of the P0s. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
 **The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued
-— transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
-Transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays
+— transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays
 open in #103/#99 and #113/#114/#123/#124, plus two gaps pinned by unit tests only: a non-owner's
 read-only Ajustes, and `/pay`'s no-invented-bank path, which needs a tenant with a contract.
 
-**The audit's modal findings are closed in code** (#87, #100, PR #165) — detail in the archive log.
-Tests only, not a real handset. Still open: #88, #89, #90, #99, #101, #103, #104.
+**Both open `bug`-tagged issues are closed in code**, with #115 alongside them. #116: the webhook
+no longer writes a Checkout Session's `'complete'` into `subscription_status` — a value
+`chk_subscription_status` rejects, failing the write *after* the event is claimed — and an unknown
+status is no longer badged "Cancelado" to someone who has just paid. #133: `requireOrgAccess`
+resolves the tenant deterministically and logs the ambiguity instead of picking a row at random.
+#115: `stripe_customer_id` and `stripe_subscription_id` are stored for the first time, so upgrades
+stop minting duplicate Stripe customers and a subscription can be cancelled from the app at all.
+Tests, lint and build only: **no live Stripe event, no second organization row**.
 
-**Both open `bug`-tagged issues are closed in code** (#116, #133; #127 was PR #167's), and #115
-rides with them. #116: `checkout.session.completed` carries a **Checkout Session**, whose status
-field holds `'complete'` — outside `chk_subscription_status`, so that write fails the CHECK *after*
-the event is claimed, and the badge read "Cancelado" to a customer who had just paid; the handler
-now reports `null` outside the vocabulary and writes only what the event set. #133:
-`requireOrgAccess` chose the tenant with `LIMIT 1` and no `ORDER BY`; both lookups now order and
-fetch two rows, so the ambiguity is logged. #115: the webhook stores `stripe_customer_id` and
-`stripe_subscription_id`, which nothing had written — the checkout route's customer-reuse branch
-read a column that is always null, so every upgrade minted a new Stripe customer, and no stored
-subscription id meant nothing could be cancelled from the app. Tests, lint and build only: **no live
-Stripe event, no second organization row**.
+**UX-audit work landed since 2026-08-11.** All verified by unit/component tests only — none
+re-checked against production or a real handset, which is the part no agent supplies.
 
-**Resolved off this table on 2026-08-08:** #79 (the PGRST201 prediction confirmed against live
-PostgREST, both embeds hinted, scan test pinning the pattern), #76 (live `aclexplode` sweep clean)
-and #59 (already-done). Detail in
-[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
+| Issues | What changed |
+|:--|:--|
+| #87, #100 | Every overlay is `components/shared/Modal.tsx`: `role="dialog"`, Escape, focus trap and return, a named ≥48px close, and the `max-h`/`overflow-y-auto` deciding whether the OTP submit is reachable at 375px with the keyboard open |
+| #127 | One SAT régimen catalogue (`lib/satRegimenes.ts`) across all five screens; an unlisted stored code renders as itself instead of blanking |
+| #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email); the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
+| #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
+| #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
 
-**Cleared since this section was first written** (2026-08-07, all verified closed on the tracker):
-[#33](https://github.com/jesushzv/business-helper/issues/33) payment confirmation (PR #55) ·
-[#36](https://github.com/jesushzv/business-helper/issues/36) `.mx` quote links (PR #47) ·
-[#37](https://github.com/jesushzv/business-helper/issues/37) product analytics (PR #56) ·
-[#58](https://github.com/jesushzv/business-helper/issues/58) the public signing page rendering a
-fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
+Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
+
+**Resolved off this table** (2026-08-07→08, all verified closed): #79, #76, #59, #33, #36, #37, #58
+— detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 
 > [!NOTE]
 > **Most remaining rows need the founder — and the note that said *every* row did was wrong.**

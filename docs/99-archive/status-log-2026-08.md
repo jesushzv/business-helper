@@ -536,28 +536,31 @@ org name after hydration — was confirmed by the founder in a browser on 2026-0
 the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
 no-invented-bank path stays pinned by unit tests until a first real payment.
 
+## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
+
+Settled history: all four verified closed on the tracker at the time, moved here verbatim when
+`STATUS.md` reached its size budget.
+
+| Issue | What it was | Closed by |
+|:--|:--|:--|
+| [#33](https://github.com/jesushzv/business-helper/issues/33) | Payment confirmation | PR #55 |
+| [#36](https://github.com/jesushzv/business-helper/issues/36) | `.mx` quote links | PR #47 |
+| [#37](https://github.com/jesushzv/business-helper/issues/37) | Product analytics | PR #56 |
+| [#58](https://github.com/jesushzv/business-helper/issues/58) | The public signing page rendering a fixture quote for every token — never listed as a P0 and worse than several that were | PR #57 |
+
+
+## Rows resolved off `docs/STATUS.md` on 2026-08-08, moved here 2026-08-11
+
+| Issue | Resolution |
+|:--|:--|
+| [#79](https://github.com/jesushzv/business-helper/issues/79) | The PGRST201 prediction confirmed against live PostgREST; both embeds hinted, scan test pinning the pattern |
+| [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
+| [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |
+
 ---
 
-## Modal-shell findings, moved off `docs/STATUS.md` (2026-08-11)
+## OTP email-channel verification, moved off `docs/STATUS.md` (2026-08-11)
 
-Verbatim from §02; merged as PR #165, moved here when `STATUS.md` reached its size budget.
+Verbatim from the §02 row, collapsed there to one line when the file reached its size budget.
 
-**The responsiveness/accessibility audit's modal findings are closed in code** (#87, #100): every
-overlay in the app is now `components/shared/Modal.tsx` — `role="dialog"`, Escape, focus trap and
-return, a named ≥48px close control, and the `max-h`/`overflow-y-auto` containment that decides
-whether the OTP submit is reachable on a 375px phone with the keyboard open. Verified by unit and
-component tests only (`modalShell`, `Modal`), including a planted violation shown to fail; **not yet
-exercised on a real handset**, which is the part no agent can supply. The audit's remaining
-findings — #88, #89, #90, #99, #101, #103, #104 — are untouched.
-
----
-
-## UX-audit trio verification transcripts, moved off `docs/STATUS.md` (2026-08-11)
-
-Verbatim from §02; all three closed, moved here when `STATUS.md` reached its size budget.
-
-**The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued:
-#95's save on 2026-08-09 (`PUT` 405, `PATCH`/`GET` 401, then a throwaway tenant's round trip
-persisting a normalized `phone`); #96's data layer the same day — a check that **failed**, finding
-two further defects since fixed; #93's chrome, public quote route and served dashboard on
-2026-08-11 as the owner of a real organization, confirmed by the founder in a browser.
+| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
