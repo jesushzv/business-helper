@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { FileCheck2, ShieldCheck, Save, CheckCircle2, AlertCircle, Unplug } from 'lucide-react';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
+import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
 
 /**
  * PAC connection for CFDI 4.0 stamping.
@@ -72,6 +73,7 @@ export const PacConnectionCard: React.FC = () => {
   }, [load]);
 
   const result = useActionResult();
+  const confirmAction = useConfirm();
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,7 +197,17 @@ export const PacConnectionCard: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={handleDisconnect}
+                  onClick={() =>
+                    confirmAction.ask({
+                      title: 'Desconectar tu PAC',
+                      // The API key is write-only by design, so this is not
+                      // reversible from inside the app (#99).
+                      consequence:
+                        'No podrás timbrar facturas hasta que vuelvas a conectarlo, y tendrás que capturar de nuevo tu llave de Facturapi: por seguridad no la guardamos donde podamos mostrártela.',
+                      confirmLabel: 'Sí, desconectar',
+                      onConfirm: handleDisconnect,
+                    })
+                  }
                   disabled={saving}
                   className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-950/60 px-4 text-sm font-bold text-rose-300 transition-all hover:bg-rose-900/60 disabled:opacity-50"
                 >
@@ -264,6 +276,7 @@ export const PacConnectionCard: React.FC = () => {
         </div>
       )}
       <ActionResultDialog result={result.value} onClose={result.dismiss} />
+      <ConfirmDialog request={confirmAction.request} onClose={confirmAction.dismiss} />
     </div>
   );
 };
