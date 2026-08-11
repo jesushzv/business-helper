@@ -89,7 +89,8 @@ export function AIAssistantCard() {
         <button
           type="submit"
           disabled={loading || !query.trim()}
-          className="absolute right-2 top-2 min-h-[40px] min-w-[40px] px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center shadow-md disabled:opacity-50"
+          aria-label="Enviar pregunta"
+          className="absolute right-2 top-2 min-h-[48px] min-w-[48px] px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center shadow-md disabled:opacity-50"
         >
           <Send className="w-4 h-4" />
         </button>

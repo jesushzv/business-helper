@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { ShieldCheck, Lock, AlertTriangle, CheckCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { Modal } from '@/components/shared/Modal';
 
 /**
  * OTP signature modal.
@@ -111,9 +112,18 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
   const locked = remaining <= 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 relative text-white">
-        <div className="text-center mb-6">
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title="Firma Digital con Código OTP"
+      maxWidth="max-w-md"
+      // A stray backdrop tap mid-signature would discard a code the client
+      // just received on their phone; the X and "Cancelar" are the exits.
+      dismissOnBackdrop={false}
+      panelClassName="p-6 sm:p-8"
+    >
+      <div>
+        <div className="text-center mb-6 pr-12">
           <div className="w-14 h-14 bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <ShieldCheck className="w-8 h-8" />
           </div>
@@ -233,6 +243,6 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
           </form>
         )}
       </div>
-    </div>
+    </Modal>
   );
 };

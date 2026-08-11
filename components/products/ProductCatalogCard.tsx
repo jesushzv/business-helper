@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useProducts } from '@/lib/hooks/useProducts';
 import { Package, Search, Plus, Trash2, Tag, DollarSign, CheckCircle2 } from 'lucide-react';
+import { Modal } from '@/components/shared/Modal';
 
 export function ProductCatalogCard() {
   const {
@@ -225,19 +226,19 @@ export function ProductCatalogCard() {
 
       {/* Add Product Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-800 max-h-[90vh] overflow-y-auto text-white">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+        <Modal
+          open
+          onClose={() => setShowAddModal(false)}
+          title="Nuevo Concepto / Producto"
+          dismissOnBackdrop={false}
+          panelClassName="p-6"
+        >
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 pr-12">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <Plus className="w-5 h-5 text-indigo-400" />
                 Nuevo Concepto / Producto
               </h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-white p-2 rounded-lg"
-              >
-                ✕
-              </button>
             </div>
 
             {error && (
@@ -358,7 +359,7 @@ export function ProductCatalogCard() {
               </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
