@@ -9,6 +9,7 @@ import { looksLikeEmail, looksLikeCodigoPostal } from '@/lib/clientFieldHints';
 import { ClientWriteError } from '@/lib/clientWriteError';
 import { PhoneField } from '@/components/shared/PhoneField';
 import { regimenOptions } from '@/lib/satRegimenes';
+import { userFacingMessage } from '@/lib/errorCopy';
 
 interface ClientFormModalProps {
   isOpen: boolean;
@@ -215,7 +216,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       });
       onClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al guardar cliente';
+      const msg = userFacingMessage(err, 'No se pudo guardar el cliente. Intenta de nuevo.');
       // A ClientWriteError carries the API's per-field map; anything else is a
       // failure with no field to blame, and stays in the banner alone.
       const fields = err instanceof ClientWriteError ? err.fields : {};

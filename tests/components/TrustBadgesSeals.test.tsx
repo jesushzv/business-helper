@@ -13,7 +13,7 @@ describe('Task A4: Replace Self-Issued Badges with External PAC/SSL/Stripe Seals
   it('renders official external trust seals for Facturapi PAC, Stripe SSL, and Banxico SPEI', () => {
     render(<TrustBadges />);
     expect(screen.getByText(/PAC SAT Certificado|Facturapi Partner/i)).toBeInTheDocument();
-    expect(screen.getByText(/Cifrado TLS 1\.3|Stripe \(PCI DSS/i)).toBeInTheDocument();
+    expect(screen.getByText(/viaja y se guarda cifrada|pagos procesados por Stripe/i)).toBeInTheDocument();
     expect(screen.getByText(/Verificación CEP Banxico/i)).toBeInTheDocument();
   });
 });

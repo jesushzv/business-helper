@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Mail, ArrowRight, AlertCircle, Sparkles, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { authErrorMessage } from '@/lib/errorCopy';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -23,7 +24,7 @@ export default function ForgotPasswordPage() {
       });
 
       if (resetError) {
-        setError('No se pudo enviar el correo de recuperación: ' + resetError.message);
+        setError(authErrorMessage(resetError, 'No pudimos enviar el correo de recuperación. Intenta de nuevo.'));
         setLoading(false);
         return;
       }

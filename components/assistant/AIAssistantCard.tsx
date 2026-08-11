@@ -33,7 +33,7 @@ export function AIAssistantCard() {
           </span>
           <span className="text-xs font-extrabold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 px-3 py-1 rounded-full border border-indigo-400/30 flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5" />
-            WhatsApp AI Operations Assistant
+            Asistente de Operaciones por WhatsApp
           </span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">

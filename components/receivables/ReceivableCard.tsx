@@ -121,7 +121,7 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
 
         {/* Amount Card */}
         <div className="bg-slate-950/80 rounded-xl p-3.5 mb-4 border border-slate-800 flex items-baseline justify-between">
-          <span className="text-xs font-semibold text-slate-400">Monto del Hito</span>
+          <span className="text-xs font-semibold text-slate-400">Monto del Cobro</span>
           <span
             className={`text-2xl font-black font-mono ${
               isOverdue ? 'text-rose-400' : isConfirmed ? 'text-emerald-400' : 'text-white'

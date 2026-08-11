@@ -49,7 +49,7 @@ export function TeamMembersCard() {
   };
 
   const roleBadges: Record<UserRole, { label: string; className: string }> = {
-    owner: { label: 'Dueño / Founder', className: 'bg-indigo-950/80 text-indigo-300 border-indigo-500/30' },
+    owner: { label: 'Dueño del Negocio', className: 'bg-indigo-950/80 text-indigo-300 border-indigo-500/30' },
     manager: { label: 'Gerente Operativo', className: 'bg-purple-950/80 text-purple-300 border-purple-500/30' },
     member: { label: 'Miembro', className: 'bg-slate-800 text-slate-300 border-slate-700' },
     accountant: { label: 'Contador Externo', className: 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' }
@@ -62,7 +62,7 @@ export function TeamMembersCard() {
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Users className="w-6 h-6 text-indigo-400" />
-            Gestión de Equipo & Roles (RBAC)
+            Tu Equipo y sus Permisos
           </h2>
           <p className="text-sm text-slate-400 mt-1">
             Asigna permisos para Dueño, Gerente, Miembro o Contador Externo.

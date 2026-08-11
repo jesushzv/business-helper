@@ -24,7 +24,7 @@ export const FAQ_ITEMS: FAQItem[] = [
     id: 'cot-2',
     category: 'cotizaciones',
     question: '¿Cómo acepta mi cliente una cotización?',
-    answer: 'Tu cliente recibirá un enlace seguro (/q/[token]). Al abrirlo en su celular podrá revisar el desglose y aceptar la propuesta mediante una firma digital con código de verificación OTP enviado a su correo electrónico.',
+    answer: 'Tu cliente recibirá un enlace seguro por WhatsApp o correo. Al abrirlo en su celular podrá revisar el desglose y aceptar la propuesta mediante una firma digital con código de verificación OTP enviado a su correo electrónico.',
     tags: ['cliente', 'firma', 'otp', 'aceptar', 'token', 'cryptoseal']
   },
   {
@@ -45,7 +45,7 @@ export const FAQ_ITEMS: FAQItem[] = [
     id: 'fac-1',
     category: 'facturacion',
     question: '¿Cómo genero una factura electrónica SAT CFDI 4.0?',
-    answer: 'Primero conecta tu cuenta de Facturapi en "Ajustes" (tus sellos CSD se quedan con tu PAC; aquí solo guardamos la llave de API cifrada). Después, en "Facturación" timbras cada cobro en 1 clic: el PAC devuelve el folio fiscal y guardamos los archivos XML y PDF oficiales.',
+    answer: 'Primero conecta tu cuenta de Facturapi en "Ajustes" (tus sellos CSD se quedan con tu PAC; aquí solo guardamos tu llave de acceso, cifrada). Después, en "Facturación" timbras cada cobro en 1 clic: el PAC devuelve el folio fiscal y guardamos los archivos XML y PDF oficiales.',
     tags: ['sat', 'cfdi', 'factura', 'facturapi', 'xml', 'pdf', '4.0']
   },
   {

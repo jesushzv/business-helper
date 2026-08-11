@@ -53,7 +53,7 @@ export default function QuotesPage() {
             Cotizaciones y Propuestas
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Genera cotizaciones profesionales con cálculo de impuestos SAT y envíalas por WhatsApp en 1 tap.
+            Genera cotizaciones profesionales con cálculo de impuestos SAT y envíalas por WhatsApp con un toque.
           </p>
         </div>
 
@@ -192,7 +192,7 @@ export default function QuotesPage() {
                     result.succeed({
                       title: 'Contrato creado',
                       message: `La cotización ya es un contrato con ${count} ${
-                        count === 1 ? 'hito de cobranza' : 'hitos de cobranza'
+                        count === 1 ? 'cobro programado' : 'cobros programados'
                       }.`,
                     });
                   } catch (err) {

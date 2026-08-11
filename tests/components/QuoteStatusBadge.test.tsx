@@ -23,7 +23,10 @@ describe('QuoteStatusBadge Component Suite', () => {
     rerender(<QuoteStatusBadge status="converted" />);
     expect(screen.getByText('Convertida a Contrato')).toBeInTheDocument();
 
+    // This asserted that an unmapped status renders its raw English enum —
+    // the defect #103 §3 names, pinned in place by its own test.
     rerender(<QuoteStatusBadge status="unknown_status" />);
-    expect(screen.getByText('unknown_status')).toBeInTheDocument();
+    expect(screen.queryByText('unknown_status')).toBeNull();
+    expect(screen.getByText('Sin estado')).toBeInTheDocument();
   });
 });

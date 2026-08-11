@@ -71,7 +71,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
       // Only ever populated by a local dev server with no delivery provider wired up.
       setDevCode(data?.dev_code || null);
     } catch {
-      setError('No se pudo contactar al servidor. Intente de nuevo.');
+      setError('No se pudo contactar al servidor. Intenta de nuevo.');
     } finally {
       setSending(false);
     }
@@ -103,7 +103,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
         onClose();
       }, 1500);
     } catch {
-      setError('No se pudo contactar al servidor. Intente de nuevo.');
+      setError('No se pudo contactar al servidor. Intenta de nuevo.');
     } finally {
       setVerifying(false);
     }
@@ -129,8 +129,8 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
           </div>
           <h3 className="text-xl font-extrabold text-white">Firma Digital con Código OTP</h3>
           <p className="text-xs text-slate-400 mt-1">
-            Le enviaremos un código de verificación de 6 dígitos a su contacto registrado para
-            confirmar su firma.
+            Te enviaremos un código de verificación de 6 dígitos a tu contacto registrado para
+            confirmar tu firma.
           </p>
         </div>
 
@@ -149,10 +149,10 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
           <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 mb-5 text-center">
             <p className="text-xs font-semibold text-slate-300">
               {channel === 'email'
-                ? 'Código enviado a su correo electrónico registrado. Si no lo ve, revise su carpeta de spam.'
+                ? 'Código enviado a tu correo electrónico registrado. Si no lo ves, revisa tu carpeta de spam.'
                 : channel === 'sms' || channel === 'whatsapp'
-                  ? 'Código enviado a su número celular registrado.'
-                  : 'Código enviado a su contacto registrado.'}
+                  ? 'Código enviado a tu número celular registrado.'
+                  : 'Código enviado a tu contacto registrado.'}
             </p>
           </div>
         )}
@@ -169,7 +169,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
             <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
             <p className="text-sm font-bold text-emerald-300">¡Firma Aceptada con Éxito!</p>
             <p className="text-[10px] font-mono text-emerald-400 truncate">
-              Sello HMAC-SHA256: {successSeal}
+              Folio de evidencia: {successSeal.slice(0, 12)}
             </p>
           </div>
         ) : !sent ? (
