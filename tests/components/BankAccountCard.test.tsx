@@ -264,3 +264,110 @@ describe('removing the account (#163)', () => {
     expect(screen.getByLabelText(/CLABE/i)).toHaveValue('0121 8000 1234 5678 90');
   });
 });
+
+describe('saving is not a way to remove (#163)', () => {
+  it('refuses an emptied CLABE in the submit handler rather than clearing the account', async () => {
+    // The clear path keys on an empty CLABE, so the save button is one missing
+    // guard away from being a second, unconfirmed removal — reported with "tus
+    // cobros SPEI se depositarán en esta cuenta", a success for an account that
+    // no longer exists. In a browser `required` and `formatClabe`'s digit strip
+    // both block it; this pins the handler's own refusal, because two incidental
+    // protections are thin cover for the field money arrives at.
+    // Submitted directly: `fireEvent.click` cannot reach the handler here, since
+    // jsdom enforces `required` and suppresses the submit event entirely.
+    const spy = mockFetch(() => jsonResponse(CONFIGURED_ORG));
+
+    const { container } = render(<BankAccountCard />);
+    await waitFor(() => {
+      expect(screen.getByLabelText(/CLABE/i)).toHaveValue('0121 8000 1234 5678 90');
+    });
+
+    fireEvent.change(screen.getByLabelText(/CLABE/i), { target: { value: '' } });
+    fireEvent.submit(container.querySelector('form')!);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Para quitar la cuenta/i)).toBeInTheDocument();
+    });
+    expect(spy.mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(0);
+    expect(screen.queryByText(/se guardó correctamente/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('who is offered the actions (#163)', () => {
+  it('offers a member neither save nor removal, and says who can', async () => {
+    // PATCH /api/organization is scoped by owner_id: a member's write matches no
+    // row and 404s with "No se encontró una organización propia" — after a
+    // warning that their payment links will stop working. Never send a user to
+    // an action they cannot complete.
+    mockFetch(() => jsonResponse(CONFIGURED_ORG));
+
+    render(<BankAccountCard canEdit={false} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/CLABE/i)).toHaveValue('0121 8000 1234 5678 90');
+    });
+    expect(screen.queryByRole('button', { name: /Quitar cuenta/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Guardar Cuenta Bancaria/i })).toBeDisabled();
+    expect(screen.getByText(/Solo el dueño de la cuenta puede cambiar/i)).toBeInTheDocument();
+  });
+});
+
+describe('a failed read is not "no account" (#163)', () => {
+  it('does not warn that no CLABE is configured when the read failed', async () => {
+    // The tri-state rule at the card: unknown is not missing. This warning
+    // beside an empty form reads as "your account is gone" to a tenant whose
+    // row holds one perfectly well.
+    mockFetch(() => jsonResponse({ error: { code: 'SERVER_ERROR' } }, false, 500));
+
+    render(<BankAccountCard />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Guardar Cuenta Bancaria/i })).toBeEnabled();
+    });
+    expect(screen.queryByText(/Sin una CLABE configurada/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Quitar cuenta/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('the removal failure is where the user is looking (#163)', () => {
+  it('renders the error inside the confirmation panel, not above the form', async () => {
+    mockFetch((url, init) => {
+      if (init?.method === 'PATCH') {
+        return jsonResponse(
+          { error: { code: 'NOT_FOUND', message: 'No se encontró una organización propia' } },
+          false,
+          404
+        );
+      }
+      return jsonResponse(CONFIGURED_ORG);
+    });
+
+    const { container } = render(<BankAccountCard />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Sí, quitar cuenta/i }));
+
+    const message = await screen.findByText(/No se encontró una organización propia/i);
+    // The panel, not the form block above the three inputs — on a 375px screen
+    // that is a card-scroll away from the button just tapped (#146).
+    expect(container.querySelector('form')?.contains(message)).toBe(false);
+  });
+
+  it('does not report a removal when the row comes back still holding a CLABE', async () => {
+    mockFetch((url, init) => {
+      if (init?.method === 'PATCH') return jsonResponse(CONFIGURED_ORG);
+      return jsonResponse(CONFIGURED_ORG);
+    });
+
+    render(<BankAccountCard />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Sí, quitar cuenta/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/No se pudo quitar la cuenta bancaria/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Cuenta bancaria quitada/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/CLABE/i)).toHaveValue('0121 8000 1234 5678 90');
+  });
+});

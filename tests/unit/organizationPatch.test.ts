@@ -14,6 +14,7 @@ import { requireOrgAccess } from '@/lib/apiAuth';
  */
 
 const updateCalls: Array<Record<string, unknown>> = [];
+const insertCalls: Array<{ table: string; values: Record<string, unknown> }> = [];
 let updateResult: { data: unknown; error: unknown } = { data: { id: 'org-1' }, error: null };
 
 vi.mock('@/lib/apiAuth', () => ({
@@ -21,7 +22,7 @@ vi.mock('@/lib/apiAuth', () => ({
     ok: true,
     userId: 'user-1',
     supabase: {
-      from: () => ({
+      from: (table: string) => ({
         update: (values: Record<string, unknown>) => {
           updateCalls.push(values);
           return {
@@ -31,6 +32,10 @@ vi.mock('@/lib/apiAuth', () => ({
               }),
             }),
           };
+        },
+        insert: async (values: Record<string, unknown>) => {
+          insertCalls.push({ table, values });
+          return { data: null, error: null };
         },
       }),
     },
@@ -49,6 +54,7 @@ function patchRequest(body: unknown): Request {
 
 beforeEach(() => {
   updateCalls.length = 0;
+  insertCalls.length = 0;
   updateResult = { data: { id: 'org-1' }, error: null };
 });
 
@@ -249,6 +255,21 @@ describe('PATCH /api/organization — removing the account (#163)', () => {
     expect(updateCalls[0]).not.toHaveProperty('bank_name');
   });
 
+  it('rejects a digit-free value instead of reading it as a removal', async () => {
+    // `normalizeClabe` strips non-digits, so a clear keyed on the *normalized*
+    // length would delete the account for 'pendiente', 'N/A' or 'CLABE' and
+    // answer 200. The raw string is what distinguishes an empty field from a
+    // typed mistake.
+    for (const typo of ['pendiente', 'N/A', 'CLABE', '---- ---- ----']) {
+      updateCalls.length = 0;
+      const res = await PATCH(patchRequest({ bankName: 'BBVA', bankClabe: typo }));
+      expect(res.status, `expected 400 for ${typo}`).toBe(400);
+      const body = await res.json();
+      expect(body.error.code).toBe('INVALID_CLABE');
+      expect(updateCalls).toHaveLength(0);
+    }
+  });
+
   it('still rejects a partial CLABE — a typo is not a removal', async () => {
     const res = await PATCH(patchRequest({ bankName: 'BBVA', bankClabe: '01218000123' }));
 
@@ -256,5 +277,39 @@ describe('PATCH /api/organization — removing the account (#163)', () => {
     const body = await res.json();
     expect(body.error.code).toBe('INVALID_CLABE');
     expect(updateCalls).toHaveLength(0);
+  });
+});
+
+describe('PATCH /api/organization — the removal is recorded (#163)', () => {
+  it('writes an audit row naming the removal', async () => {
+    updateResult = { data: { id: 'org-1' }, error: null };
+
+    const res = await PATCH(patchRequest({ bankClabe: '' }));
+
+    expect(res.status).toBe(200);
+    const audit = insertCalls.find((c) => c.table === 'audit_logs');
+    expect(audit?.values).toMatchObject({
+      organization_id: 'org-1',
+      action: 'settlement_account.removed',
+      actor: 'user-1',
+    });
+  });
+
+  it('does not record an audit row for an ordinary save', async () => {
+    await PATCH(
+      patchRequest({ bankName: 'BBVA', bankClabe: '012180001234567899', bankAccountHolder: 'X' })
+    );
+
+    expect(insertCalls.find((c) => c.table === 'audit_logs')).toBeUndefined();
+  });
+
+  it('does not record a removal the UPDATE never made', async () => {
+    // A member's PATCH matches no row under the owner_id filter.
+    updateResult = { data: null, error: null };
+
+    const res = await PATCH(patchRequest({ bankClabe: '' }));
+
+    expect(res.status).toBe(404);
+    expect(insertCalls.find((c) => c.table === 'audit_logs')).toBeUndefined();
   });
 });

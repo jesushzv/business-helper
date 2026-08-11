@@ -113,7 +113,7 @@ export default function SettingsPage() {
             />
 
             {/* SPEI Settlement Account */}
-            <BankAccountCard />
+            <BankAccountCard canEdit={canEdit} />
 
             {/* CFDI 4.0 stamping credentials */}
             <PacConnectionCard />

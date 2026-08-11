@@ -39,6 +39,24 @@ export interface SettlementAccountState {
   refresh: () => void;
 }
 
+/**
+ * Subscribers to "this organization's settlement account just changed".
+ *
+ * The banner lives in the dashboard shell and the share actions live on
+ * Cobranza and Facturación, none of which remount on a client-side navigation
+ * — so a tenant who removed their account in Ajustes kept a stale `ready: true`
+ * for the rest of the session and could still hand a client a `/pay/` link that
+ * answers 409. That is the exact failure #64 exists to move off the client's
+ * screen, so the write path announces the change and every mounted reader
+ * refetches (#163).
+ */
+const settlementAccountListeners = new Set<() => void>();
+
+/** Called by whatever writes the account, after the server confirms the write. */
+export function notifySettlementAccountChanged(): void {
+  settlementAccountListeners.forEach((listener) => listener());
+}
+
 export function useSettlementAccount(): SettlementAccountState {
   const [ready, setReady] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +64,13 @@ export function useSettlementAccount(): SettlementAccountState {
   const [reloadToken, setReloadToken] = useState(0);
 
   const refresh = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  useEffect(() => {
+    settlementAccountListeners.add(refresh);
+    return () => {
+      settlementAccountListeners.delete(refresh);
+    };
+  }, [refresh]);
 
   useEffect(() => {
     let cancelled = false;

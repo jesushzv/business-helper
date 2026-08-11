@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useSettlementAccount } from '@/lib/hooks/useSettlementAccount';
+import {
+  useSettlementAccount,
+  notifySettlementAccountChanged,
+} from '@/lib/hooks/useSettlementAccount';
 
 /**
  * #64 — the hook behind the settlement-account banner.
@@ -112,5 +115,51 @@ describe('useSettlementAccount', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.ready).toBe(true);
+  });
+});
+
+/**
+ * #163 — the gate must not go stale after the account changes.
+ *
+ * The banner is mounted in the dashboard shell and the share actions live on
+ * Cobranza and Facturación; none of them remount on a client-side navigation.
+ * So a tenant who removed their account in Ajustes kept `ready: true` for the
+ * rest of the session and could still hand a client a `/pay/` link that answers
+ * 409 — the precise failure #64 exists to prevent, reachable in one tap once
+ * removal existed.
+ */
+describe('staying current after the account changes (#163)', () => {
+  it('refetches when the write path announces a change', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: '012180001234567890' }, role: 'owner' })
+    );
+
+    const { result } = await mountHook();
+    expect(result.current.ready).toBe(true);
+
+    // The account is removed elsewhere in the app.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'owner' })
+    );
+    notifySettlementAccountChanged();
+
+    await waitFor(() => {
+      expect(result.current.ready).toBe(false);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops listening once unmounted', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'owner' })
+    );
+
+    const { unmount } = await mountHook();
+    unmount();
+
+    const callsBefore = fetchMock.mock.calls.length;
+    notifySettlementAccountChanged();
+
+    expect(fetchMock.mock.calls.length).toBe(callsBefore);
   });
 });

@@ -119,7 +119,13 @@ export async function PATCH(request: Request) {
       // account as a side effect (the `hasBankPayload` guard above), and the
       // other two columns follow the CLABE out so no half-account is left
       // behind for the payer page to read.
-      const isExplicitClear = typeof bankClabe === 'string' && clabe.length === 0;
+      //
+      // Tested on the **raw** string, not on the normalized digits: `clabe` is
+      // `raw.replace(/\D/g, '')`, so keying on `clabe.length === 0` would make
+      // every digit-free value a deletion — `'pendiente'`, `'N/A'`, `'CLABE'`
+      // would each destroy the settlement account and answer 200. Those are
+      // typos, and a typo must stay a 400.
+      const isExplicitClear = typeof bankClabe === 'string' && bankClabe.trim().length === 0;
 
       if (isExplicitClear) {
         update.bank_clabe = null;
@@ -283,6 +289,26 @@ export async function PATCH(request: Request) {
         { error: { code: 'NOT_FOUND', message: 'No se encontró una organización propia' } },
         { status: 404 }
       );
+    }
+
+    // Removing the account every SPEI settles to is at least as consequential
+    // as disconnecting the PAC, which has written an audit row since it shipped
+    // (`pac.disconnected`). Recorded after the row is confirmed, so the log
+    // never carries a removal the UPDATE did not make. Best-effort: a failed
+    // audit insert must not turn a completed removal into an error the tenant
+    // would retry.
+    if (update.bank_clabe === null) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('audit_logs').insert({
+          organization_id: data.id,
+          action: 'settlement_account.removed',
+          actor: userId,
+          details: 'Cuenta bancaria para cobros SPEI eliminada',
+        });
+      } catch {
+        // Swallowed deliberately — see above.
+      }
     }
 
     return NextResponse.json({ organization: data });
