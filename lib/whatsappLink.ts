@@ -69,3 +69,21 @@ export function generateWhatsAppLink(phone: string | null | undefined, text?: st
 
   return baseUrl;
 }
+
+/**
+ * A WhatsApp share with the message ready but no recipient chosen.
+ *
+ * `generateWhatsAppLink` needs a number, which is right for a client whose
+ * phone is on file. A team invitation has no number — the invitee is
+ * identified by email — so the invite flow had only a copy button while its
+ * own copy promised "comparte este enlace por WhatsApp o correo" (#104).
+ *
+ * `wa.me` with no path opens the contact picker with the text pre-filled,
+ * which is the closest thing to the pre-filled-link rule when the recipient is
+ * the sender's choice rather than a stored row.
+ */
+export function generateWhatsAppShareLink(text: string): string {
+  const message = (text || '').trim();
+  if (!message) return 'https://wa.me/';
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}

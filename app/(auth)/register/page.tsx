@@ -15,6 +15,7 @@ import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 import { identifyPostHogUser } from '@/components/PostHogInit';
 import { exitDemoMode } from '@/lib/demoUtils';
 import { regimenOptions } from '@/lib/satRegimenes';
+import { authErrorMessage } from '@/lib/errorCopy';
 
 const COMPANY_SIZES = [
   { value: '1-5', label: '1 - 5 colaboradores (Micro)' },
@@ -143,7 +144,7 @@ function RegisterFormContent() {
       });
 
       if (authError) {
-        setError('Ocurrió un error al registrar la cuenta: ' + authError.message);
+        setError(authErrorMessage(authError, 'No pudimos crear tu cuenta. Intenta de nuevo en un momento.'));
         setLoading(false);
         return;
       }
@@ -245,7 +246,7 @@ function RegisterFormContent() {
           <form className="space-y-5" onSubmit={handleRegister}>
             {/* Business Name */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+              <label htmlFor="page-nombre-de-tu-empresa" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
                 Nombre de tu Empresa / Negocio <span className="text-rose-500 font-bold ml-0.5">*</span>
               </label>
               <div className="relative">
@@ -253,6 +254,7 @@ function RegisterFormContent() {
                   <Building2 className="w-5 h-5" />
                 </div>
                 <input
+                  id="page-nombre-de-tu-empresa"
                   type="text"
                   required
                   value={businessName}
@@ -268,7 +270,7 @@ function RegisterFormContent() {
               {/* RFC */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <label htmlFor="page-rfc-de-la-empresa" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
                     RFC de la Empresa <span className="text-slate-400 font-normal text-[11px] normal-case ml-1">(Opcional al registrarte — lo pediremos al facturar)</span>
                   </label>
                   {rfc && (
@@ -282,6 +284,7 @@ function RegisterFormContent() {
                     <FileText className="w-5 h-5" />
                   </div>
                   <input
+                    id="page-rfc-de-la-empresa"
                     type="text"
                     maxLength={13}
                     value={rfc}
@@ -313,7 +316,7 @@ function RegisterFormContent() {
 
             {/* Email */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+              <label htmlFor="page-correo-electronico-del-dueno" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
                 Correo Electrónico del Dueño / Admin <span className="text-rose-500 font-bold ml-0.5">*</span>
               </label>
               <div className="relative">
@@ -321,6 +324,7 @@ function RegisterFormContent() {
                   <Mail className="w-5 h-5" />
                 </div>
                 <input
+                  id="page-correo-electronico-del-dueno"
                   type="email"
                   required
                   value={email}
@@ -333,7 +337,7 @@ function RegisterFormContent() {
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+              <label htmlFor="page-contrasena" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
                 Contraseña <span className="text-rose-500 font-bold ml-0.5">*</span>
               </label>
               <div className="relative">
@@ -341,6 +345,7 @@ function RegisterFormContent() {
                   <Lock className="w-5 h-5" />
                 </div>
                 <input
+                  id="page-contrasena"
                   type="password"
                   required
                   minLength={6}
@@ -356,11 +361,12 @@ function RegisterFormContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-1">
               {/* Tax Regime */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                <label htmlFor="page-regimen-fiscal-sat-opcional" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
                   Régimen Fiscal SAT <span className="text-slate-500 font-normal normal-case ml-1">(Opcional)</span>
                 </label>
                 <div className="relative">
                   <select
+                    id="page-regimen-fiscal-sat-opcional"
                     value={taxRegime}
                     onChange={(e) => setTaxRegime(e.target.value)}
                     className="block w-full px-4 py-3 min-h-[48px] bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-xs"
@@ -376,7 +382,7 @@ function RegisterFormContent() {
 
               {/* Company Size */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                <label htmlFor="page-tamano-de-empresa-opcional" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
                   Tamaño de Empresa <span className="text-slate-500 font-normal normal-case ml-1">(Opcional)</span>
                 </label>
                 <div className="relative">
@@ -384,6 +390,7 @@ function RegisterFormContent() {
                     <Users className="w-4 h-4" />
                   </div>
                   <select
+                    id="page-tamano-de-empresa-opcional"
                     value={companySize}
                     onChange={(e) => setCompanySize(e.target.value)}
                     className="block w-full pl-10 pr-4 py-3 min-h-[48px] bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-xs"

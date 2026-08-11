@@ -173,7 +173,7 @@ describe('OnboardingPage — SPEI settlement account (#14)', () => {
     // Same account with the last digit off by one — 18 digits, wrong checksum.
     await reachBankStep('0121 8000 1234 5678 90');
 
-    expect(screen.getByText(/Revise la CLABE/i)).toBeInTheDocument();
+    expect(screen.getByText(/Revisa la CLABE/i)).toBeInTheDocument();
     // Advisory only: the server accepts any 18 digits, so the UI must not
     // claim an authority it does not have.
     expect(screen.getByRole('button', { name: /Comenzar en Business Helper/i })).toBeEnabled();

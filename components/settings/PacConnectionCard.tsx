@@ -175,7 +175,7 @@ export const PacConnectionCard: React.FC = () => {
           )}
 
           {error && (
-            <div className="flex items-center gap-2 rounded-2xl bg-rose-950/80 p-4 text-xs font-bold text-rose-300 border border-rose-500/30">
+            <div role="alert" className="flex items-center gap-2 rounded-2xl bg-rose-950/80 p-4 text-xs font-bold text-rose-300 border border-rose-500/30">
               <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
               <span>{error}</span>
             </div>
@@ -209,7 +209,7 @@ export const PacConnectionCard: React.FC = () => {
                     })
                   }
                   disabled={saving}
-                  className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-950/60 px-4 text-sm font-bold text-rose-300 transition-all hover:bg-rose-900/60 disabled:opacity-50"
+                  className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-950/60 px-4 text-sm font-bold text-rose-300 transition-all hover:bg-rose-900/60 disabled:opacity-50"
                 >
                   <Unplug className="h-4 w-4" />
                   Desconectar

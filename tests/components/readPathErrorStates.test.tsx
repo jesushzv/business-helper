@@ -71,7 +71,11 @@ describe('receivables page (#97)', () => {
     emptyAllApis();
     render(<ReceivablesPage />);
 
-    expect(await screen.findByText(/No hay cobros en este filtro/i)).toBeTruthy();
+    // #104 split this from the filtered case: with no filter active, the
+    // tenant is told they have none *yet* and given a route onward, rather
+    // than "no hay cobros en este filtro" when no filter is applied.
+    expect(await screen.findByText(/Todavía no tienes cobros registrados/i)).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Ir a Cotizaciones/i })).toBeTruthy();
     expect(screen.queryByText(/No pudimos cargar/i)).toBeNull();
   });
 });
@@ -89,7 +93,11 @@ describe('quotes page (#97)', () => {
     emptyAllApis();
     render(<QuotesPage />);
 
-    expect(await screen.findByText(/No se encontraron cotizaciones/i)).toBeTruthy();
+    expect(await screen.findByText(/Todavía no tienes cotizaciones/i)).toBeTruthy();
+    // The create CTA belongs to a genuinely empty list (#104). Two match —
+    // the page header's and the empty state's — which is the point: neither
+    // should vanish when the list is truly empty.
+    expect(screen.getAllByRole('button', { name: /Nueva Cotización/i }).length).toBeGreaterThan(1);
     expect(screen.queryByText(/No pudimos cargar/i)).toBeNull();
   });
 });

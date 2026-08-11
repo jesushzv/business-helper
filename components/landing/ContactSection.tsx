@@ -38,7 +38,7 @@ export function ContactSection() {
           </div>
           <a
             href={`mailto:${CONTACT_INFO.email}?subject=${encodeURIComponent('Información General — Business Helper')}`}
-            className="min-h-[44px] w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-indigo-600/20"
+            className="min-h-[48px] w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-indigo-600/20"
           >
             <Mail className="w-4 h-4" />
             <span>Enviar Correo</span>
@@ -66,7 +66,7 @@ export function ContactSection() {
           </div>
           <a
             href={`mailto:${CONTACT_INFO.supportEmail}?subject=${encodeURIComponent('Soporte Técnico — Business Helper')}`}
-            className="min-h-[44px] w-full px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-teal-600/20"
+            className="min-h-[48px] w-full px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-teal-600/20"
           >
             <HelpCircle className="w-4 h-4" />
             <span>Contactar Soporte</span>
@@ -89,7 +89,7 @@ export function ContactSection() {
           </div>
           <a
             href={`mailto:${CONTACT_INFO.founderEmail}?subject=${encodeURIComponent('Contacto Directo — Hector Zamora')}`}
-            className="min-h-[44px] w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-emerald-600/20"
+            className="min-h-[48px] w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-emerald-600/20"
           >
             <User className="w-4 h-4" />
             <span>Escribir al CEO</span>

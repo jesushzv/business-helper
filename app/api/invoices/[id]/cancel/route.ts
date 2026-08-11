@@ -16,25 +16,27 @@ import { CFDI_CANCELLATION_MOTIVES, cancelInvoice } from '@/lib/pacClient';
  * The folio is not refunded. The stamp was issued and the PAC charged for it;
  * returning the folio would let a cancel-and-restamp loop mint free ones.
  *
- * ## No UI entry point, by design for launch (#174)
+ * ## No UI caller, by decision — not by omission (#174)
  *
- * Nothing in `app/` or `components/` calls this route, and that is deliberate,
- * not an oversight — do not "fix" it by wiring a button. A CFDI cancellation is
- * not a delete: it needs a motivo (01–04), `01` needs the UUID of the
- * replacement invoice, the receptor may **reject** it when the motivo is not
- * `04`, and the SAT answers "en proceso" and settles later. A button with a
- * spinner over that is hard rule #1 applied to a fiscal document.
+ * Nothing in `app/` or `components/` calls this route, and for launch nothing
+ * should. That is a decision, recorded here so the next reader does not "fix"
+ * it: cancellation is not a delete button. Under CFDI 4.0 it needs a *motivo*
+ * (01–04), `01` additionally requires the replacement invoice's UUID, the
+ * receptor can **refuse** a cancellation that is not `04`, and the SAT answers
+ * asynchronously — "en proceso" now, settled later. A button with a spinner
+ * over that would report an outcome the SAT has not given, which is hard rule
+ * #1 applied to a fiscal document. The PPD case is worse again: #30 tracks
+ * cancelling a complemento de pago, and the two want designing together.
  *
- * So for launch a tenant cancels at the PAC's own portal, and the stamping
- * confirmation's copy — "Esta acción no se puede deshacer desde la app" —
- * stays true. The route itself is kept, and stays reachable by HTTP behind
- * `issue_cfdi`, because it is how support cancels a mis-stamp today and it is
- * the half that has to exist before any UI can.
+ * So for launch a tenant cancels at their PAC's own portal, and the stamping
+ * confirmation says as much in plain Spanish: "Esta acción no se puede deshacer
+ * desde la app." That sentence is load-bearing — it stays true exactly as long
+ * as this route stays uncalled.
  *
- * Revisit together with #30 (complemento cancellation): a PPD invoice with
- * complementos already stamped against it is a different flow again, and the
- * two want designing at once. `tests/unit/cfdiCancelEntryPoint.test.ts` fails
- * the build when a caller appears without this note being revisited.
+ * The route itself is kept, not deleted: it is tested, it enforces RBAC and
+ * org scoping, and #30 will need it. `tests/unit/cfdiCancelHasNoUiCaller.test.ts`
+ * fails the build if a caller appears, so adding one is a deliberate act that
+ * reopens the decision rather than a quiet drift away from the copy above.
  */
 export async function POST(
   request: Request,

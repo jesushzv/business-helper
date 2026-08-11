@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { handleStripeWebhookEvent } from '@/lib/stripe';
 import { verifyStripeWebhookSignature } from '@/lib/stripeWebhook';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { captureException } from '@/lib/sentry';
 
 /**
  * Stripe webhook receiver.
@@ -220,6 +221,15 @@ export async function POST(request: Request) {
 
       // 500 tells Stripe to retry. The previous version swallowed this and
       // reported success while the subscription change was silently dropped.
+      // Stripe reads the status, not the body, so the diagnosis has to go to
+      // the log or it goes nowhere — a paid tier that never applied is
+      // otherwise invisible until the customer complains (#148).
+      captureException(updateError, {
+        route: 'POST /api/stripe/webhook',
+        level: 'error',
+        tags: { db_error_code: String(updateError?.code || 'unknown'), stripe_event: eventId },
+        extra: { message: updateError?.message, organization_id: organizationId },
+      });
       return NextResponse.json(
         { error: 'No se pudo aplicar el cambio de suscripción' },
         { status: 500 }

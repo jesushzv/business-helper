@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { publicDbWriteErrorResponse } from '@/lib/dbWriteError';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { generateOTP, hashOTP, otpExpiryDate, OTP_TTL_SECONDS } from '@/lib/otpSeal';
 import { deliverOtp, getDeliveryChannel, isDeliveryConfigured } from '@/lib/otpDelivery';
@@ -192,12 +193,18 @@ export async function POST(
 
     if (updateError) {
       // The code is on the signer's handset but was never stored, so it will
-      // not verify. Say so honestly rather than reporting the send as done.
-      return publicApiError(
-        500,
-        'OTP_STORE_FAILED',
-        'No se pudo registrar el código enviado. Solicite uno nuevo.'
-      );
+      // not verify. Say so honestly rather than reporting the send as done —
+      // and classify the cause, since a stale schema here breaks signing for
+      // every tenant at once and used to reach nobody's log (#148).
+      return publicDbWriteErrorResponse(updateError, {
+        operation: 'OTP_STORE_FAILED',
+        entity: 'el código de verificación',
+        route: 'POST /api/quotes/public/[token]/otp',
+        verb: 'registrar',
+        // The signer is holding a code that verifies against nothing, so the
+        // one thing they must be told is to ask for another.
+        instruction: 'Solicite uno nuevo.',
+      });
     }
 
     return NextResponse.json({

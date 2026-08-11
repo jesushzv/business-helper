@@ -10,7 +10,7 @@ import {
   canManageCredit,
   CLIENT_CREDIT_FIELDS,
 } from '@/lib/clientCreditAuthorization';
-import { describeDbWriteError } from '@/lib/dbWriteError';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Single-client operations.
@@ -86,11 +86,7 @@ export async function PUT(
         .maybeSingle();
 
       if (readError) {
-        const failure = describeDbWriteError(readError, 'el cliente', 'PUT /api/clients/[id]');
-        return NextResponse.json(
-          { error: { code: failure.code, message: failure.message } },
-          { status: failure.status }
-        );
+        return dbWriteErrorResponse(readError, 'el cliente', 'PUT /api/clients/[id]');
       }
       if (!current) {
         return NextResponse.json(
@@ -146,17 +142,7 @@ export async function PUT(
       .maybeSingle();
 
     if (error) {
-      const failure = describeDbWriteError(error, 'el cliente', 'PUT /api/clients/[id]');
-      return NextResponse.json(
-        {
-          error: {
-            code: failure.code,
-            message: failure.message,
-            ...(failure.field ? { fields: { [failure.field]: failure.message } } : {}),
-          },
-        },
-        { status: failure.status }
-      );
+      return dbWriteErrorResponse(error, 'el cliente', 'PUT /api/clients/[id]');
     }
 
     if (!updated) {
@@ -195,10 +181,9 @@ export async function DELETE(
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'Error al eliminar el cliente' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'el cliente', 'DELETE /api/clients/[id]', {
+        verb: 'eliminar',
+      });
     }
 
     if (!deleted) {

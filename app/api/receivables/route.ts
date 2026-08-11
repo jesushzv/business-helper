@@ -5,6 +5,7 @@ import {
   pickFields,
   MILESTONE_WRITABLE_FIELDS,
 } from '@/lib/apiAuth';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Milestone (receivables) collection.
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !newMilestone) {
-      return NextResponse.json({ error: 'Failed to create milestone' }, { status: 500 });
+      return dbWriteErrorResponse(error, 'el cobro', 'POST /api/receivables', { verb: 'crear' });
     }
 
     return NextResponse.json(newMilestone, { status: 201 });

@@ -17,11 +17,12 @@ import { join } from 'node:path';
  * and branches on `error` must consult that error — through
  * `describeDbWriteError`, or by reading `error.code` / `error.message` itself.
  *
- * **This gate does not claim the tree is clean.** Eleven routes carried the
- * same shape when it was written and are allowlisted below by name, tracked in
- * #148. What it does is stop the twelfth, and make removing an entry from the
- * list the way that debt is paid down. An allowlist that shrinks is a plan; a
- * grep nobody runs is not.
+ * Eleven routes carried the same shape when this gate was written and were
+ * allowlisted by name under #148. The list is now **empty**: every one of them
+ * routes its failure through `dbWriteErrorResponse` (or, on the two public
+ * routes, `publicDbWriteErrorResponse`). The gate therefore covers the whole
+ * tree — an allowlist that shrank to nothing is what closing that issue means,
+ * and re-adding an entry now needs the same argument as writing the defect.
  */
 
 const API_ROOT = join(process.cwd(), 'app', 'api');
@@ -31,24 +32,28 @@ const API_ROOT = join(process.cwd(), 'app', 'api');
  * exemption — the entry says "not fixed yet", never "fine as it is". Delete an
  * entry in the PR that fixes its route; nothing else may be added without one.
  */
-const PRE_EXISTING = new Set([
-  'app/api/organization/members/route.ts',
-  'app/api/organization/route.ts',
-  'app/api/products/[id]/route.ts',
-  'app/api/products/route.ts',
-  'app/api/quotes/[id]/route.ts',
-  'app/api/quotes/public/[token]/route.ts',
-  'app/api/quotes/route.ts',
-  'app/api/receivables/[id]/confirm/route.ts',
-  'app/api/receivables/[id]/route.ts',
-  'app/api/receivables/public/[token]/route.ts',
-  'app/api/receivables/route.ts',
-]);
+const PRE_EXISTING = new Set<string>([]);
 
 const WRITES = /\.(insert|update|upsert|delete)\(/;
-const BRANCHES_ON_ERROR = /if \(\s*error/;
-/** Consulting the error: the shared describer, or reading it directly. */
-const CONSULTS_ERROR = /describeDbWriteError|error\.(code|message)|error\?\.(code|message)/;
+/**
+ * `if (error`, and every renamed sibling: the public routes call theirs
+ * `updateError`, the confirm route `auditError`. Matching only the bare name
+ * let the two public routes — both on #148's list — pass the branch scan with
+ * no branch found at all.
+ */
+const BRANCHES_ON_ERROR = /if \(\s*\w*[eE]rror\b/;
+/**
+ * Consulting the error: either shared helper (which classify it, log the
+ * original and build the envelope), the describer directly, reading the error's
+ * own fields, or handing the whole object to a logger.
+ *
+ * The variable is rarely called `error` — `updateError`, `claimError`,
+ * `consumeError`, `auditError` are all in the tree — and the name it is
+ * branched on must be the name that is read, or the scan grades a route on
+ * some *other* error it happened to consult nearby.
+ */
+const CONSULTS_ERROR =
+  /describeDbWriteError|dbWriteErrorResponse|publicDbWriteErrorResponse|\w*[eE]rror\??\.(code|message)|(?:console\.(?:error|warn)|captureException)\([^)]*[eE]rror\b/;
 
 function routeFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -68,6 +73,59 @@ function writeRoutes(): Array<{ rel: string; source: string }> {
     .filter(({ source }) => WRITES.test(source) && BRANCHES_ON_ERROR.test(source));
 }
 
+/**
+ * The individual `if (error …)` branches that follow a **write**, each with the
+ * text that handles it.
+ *
+ * Per-file was too coarse: a file with two write branches passed as soon as one
+ * of them consulted its error, so half a fix — and half a revert — looked
+ * identical to a whole one. The chain a branch belongs to starts at its
+ * nearest preceding `.from(`, so whether that chain wrote is decidable; a
+ * branch on a failed *read* is a different defect and not this gate's business.
+ */
+/**
+ * The `{ … }` a branch owns, by brace matching.
+ *
+ * A fixed-size window was the obvious first cut and it lied both ways: it ran
+ * past a short branch into the next one's handling, and it stopped short of a
+ * long branch's `captureException` — reporting a route that logs its error as
+ * one that discards it.
+ */
+function branchBody(source: string, from: number): string {
+  const open = source.indexOf('{', from);
+  if (open === -1) return source.slice(from, from + 200);
+
+  let depth = 0;
+  for (let i = open; i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(from, i + 1);
+    }
+  }
+  return source.slice(from);
+}
+
+function writeBranches(source: string): Array<{ line: number; handler: string }> {
+  const branches: Array<{ line: number; handler: string }> = [];
+  const pattern = new RegExp(BRANCHES_ON_ERROR.source, 'g');
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(source)) !== null) {
+    const before = source.slice(0, match.index);
+    const chainStart = before.lastIndexOf('.from(');
+    if (chainStart === -1) continue;
+    if (!WRITES.test(before.slice(chainStart))) continue;
+
+    branches.push({
+      line: before.split('\n').length,
+      handler: branchBody(source, match.index),
+    });
+  }
+
+  return branches;
+}
+
 describe('a failed write names its cause (#146)', () => {
   it('finds a plausible population of write routes (guards the guard)', () => {
     // A scan that silently matched nothing would pass every assertion below
@@ -77,11 +135,23 @@ describe('a failed write names its cause (#146)', () => {
     expect(routes.map((r) => r.rel)).toContain('app/api/clients/route.ts');
   });
 
-  it('no new route discards the error object', () => {
+  it('finds a plausible population of write branches (guards the guard)', () => {
+    // Same reasoning one level down: a branch scan that matched nothing would
+    // make the assertion below vacuous.
+    const branches = writeRoutes().flatMap(({ rel, source }) =>
+      writeBranches(source).map((b) => `${rel}:${b.line}`)
+    );
+    expect(branches.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it('no write branch discards the error object', () => {
     const offenders = writeRoutes()
       .filter(({ rel }) => !PRE_EXISTING.has(rel))
-      .filter(({ source }) => !CONSULTS_ERROR.test(source))
-      .map(({ rel }) => rel);
+      .flatMap(({ rel, source }) =>
+        writeBranches(source)
+          .filter(({ handler }) => !CONSULTS_ERROR.test(handler))
+          .map(({ line }) => `${rel}:${line}`)
+      );
 
     expect(
       offenders,
@@ -105,6 +175,40 @@ describe('a failed write names its cause (#146)', () => {
         CONSULTS_ERROR.test(route!.source),
         `${rel} now reads its error — delete its allowlist entry (that is how #148 closes)`
       ).toBe(false);
+    }
+  });
+
+  it('the eleven routes #148 tracked each consult their error (pins the closure)', () => {
+    // The allowlist being empty proves nothing on its own — deleting the names
+    // and the routes both empty it. These are the eleven, by name, asserted
+    // from the other side: a revert of any one of them fails here as well.
+    const FIXED_IN_148 = [
+      'app/api/organization/members/route.ts',
+      'app/api/organization/route.ts',
+      'app/api/products/[id]/route.ts',
+      'app/api/products/route.ts',
+      'app/api/quotes/[id]/route.ts',
+      'app/api/quotes/public/[token]/route.ts',
+      'app/api/quotes/route.ts',
+      'app/api/receivables/[id]/confirm/route.ts',
+      'app/api/receivables/[id]/route.ts',
+      'app/api/receivables/public/[token]/route.ts',
+      'app/api/receivables/route.ts',
+    ];
+
+    const routes = writeRoutes();
+    for (const rel of FIXED_IN_148) {
+      const route = routes.find((r) => r.rel === rel);
+      expect(route, `${rel} no longer exists as a write route — update this list and say so`)
+        .toBeTruthy();
+      const branches = writeBranches(route!.source);
+      expect(branches.length, `${rel} has no write branch left to check`).toBeGreaterThan(0);
+      for (const { line, handler } of branches) {
+        expect(
+          CONSULTS_ERROR.test(handler),
+          `${rel}:${line} stopped consulting its failed write — that is #148 coming back`
+        ).toBe(true);
+      }
     }
   });
 
