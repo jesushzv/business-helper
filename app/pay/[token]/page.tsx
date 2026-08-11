@@ -277,7 +277,7 @@ export default function PublicPayPortalPage() {
             <div>
               <span className="text-xs text-slate-400 block font-medium">CLABE Interbancaria (18 dígitos)</span>
               <div className="flex items-center justify-between mt-1 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
-                <span className="font-mono text-lg font-bold tracking-wider text-white">{milestone.clabe}</span>
+                <span className="min-w-0 break-all font-mono text-lg font-bold tracking-wider text-white">{milestone.clabe}</span>
                 <button
                   type="button"
                   onClick={handleCopyClabe}

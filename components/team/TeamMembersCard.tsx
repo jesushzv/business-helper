@@ -106,16 +106,18 @@ export function TeamMembersCard() {
                 <div className="w-12 h-12 rounded-xl bg-indigo-950/80 text-indigo-400 flex items-center justify-center font-bold text-lg border border-indigo-500/30 shrink-0 font-mono">
                   {mem.name.substring(0, 2).toUpperCase()}
                 </div>
-                <div>
+                {/* min-w-0: without it this flex item keeps its intrinsic
+                    width and `truncate` below never engages (#88). */}
+                <div className="min-w-0">
                   <h3 className="font-bold text-white text-base">
                     {mem.name}
                     {mem.isCurrentUser && (
                       <span className="ml-2 text-xs font-semibold text-slate-400">(tú)</span>
                     )}
                   </h3>
-                  <p className="text-sm text-slate-400 flex items-center gap-1.5 mt-0.5">
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    {mem.email || 'Correo no disponible'}
+                  <p className="text-sm text-slate-400 flex items-center gap-1.5 mt-0.5 min-w-0">
+                    <Mail className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                    <span className="truncate">{mem.email || 'Correo no disponible'}</span>
                   </p>
                 </div>
               </div>

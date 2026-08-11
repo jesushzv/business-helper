@@ -5,6 +5,7 @@ import { Building2, Save, AlertCircle } from 'lucide-react';
 import { OrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 import { validateRFC } from '@/lib/rfcValidator';
 import { PhoneField } from '@/components/shared/PhoneField';
+import { regimenOptions } from '@/lib/satRegimenes';
 
 interface OrgProfileCardProps {
   settings: OrganizationSettings;
@@ -13,15 +14,6 @@ interface OrgProfileCardProps {
   /** Only the owner can PATCH the organization; others see the data read-only. */
   canEdit: boolean;
 }
-
-// Stored as the SAT code; the label is presentation only. The old select
-// persisted the whole display string, which is not what a CFDI wants.
-const REGIMENES_FISCALES = [
-  { code: '601', label: '601 — General de Ley Personas Morales' },
-  { code: '626', label: '626 — Régimen Simplificado de Confianza (RESICO)' },
-  { code: '612', label: '612 — Personas Físicas con Actividades Empresariales' },
-  { code: '605', label: '605 — Sueldos y Salarios' },
-];
 
 export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
   settings,
@@ -155,7 +147,7 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
                   Selecciona tu régimen
                 </option>
               )}
-              {REGIMENES_FISCALES.map((r) => (
+              {regimenOptions(formData.regimen_fiscal).map((r) => (
                 <option key={r.code} value={r.code} className="bg-slate-900 text-white">
                   {r.label}
                 </option>

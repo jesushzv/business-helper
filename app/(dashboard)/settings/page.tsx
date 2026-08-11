@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { useOrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 import { OrgProfileCard } from '@/components/settings/OrgProfileCard';
@@ -9,11 +10,24 @@ import { SubscriptionBillingCard } from '@/components/settings/SubscriptionBilli
 import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard';
 import { PacConnectionCard } from '@/components/settings/PacConnectionCard';
 import { track } from '@/lib/analytics';
+import { normalizeTierKey } from '@/lib/stripe';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const { settings, role, subscriptionStatusInfo, updateSettings, loading, saving, error } =
     useOrganizationSettings();
+
+  /**
+   * The plan the visitor clicked before they got here.
+   *
+   * `/upgrade?plan=…` sends a signed-in owner to this page rather than to the
+   * registration form the pricing CTAs used to link to, and the tier rides
+   * along so the billing card can mark the one they asked for. Normalized
+   * because the marketing pages sell `starter`/`pro`/`business` while the card
+   * matches on the canonical ids; an unrecognised value marks nothing rather
+   * than highlighting the nearest plan (the #95 shape).
+   */
+  const requestedTier = normalizeTierKey(useSearchParams().get('plan') || '');
 
   // PATCH /api/organization is scoped by owner_id, so offering the form to a
   // manager or member would let them submit into a guaranteed failure (#64's
@@ -137,6 +151,7 @@ export default function SettingsPage() {
               settings={settings}
               statusInfo={subscriptionStatusInfo}
               onSelectTier={handleSelectTier}
+              highlightTier={requestedTier}
             />
           </>
         )}
@@ -144,5 +159,17 @@ export default function SettingsPage() {
 
       <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
+  );
+}
+
+/**
+ * `useSearchParams` needs a Suspense boundary above it, the same shape the
+ * register page uses for the params it prefills from.
+ */
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen pb-16" />}>
+      <SettingsPageContent />
+    </Suspense>
   );
 }

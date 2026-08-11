@@ -51,7 +51,7 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
         </div>
 
         {/* Tab Controls */}
-        <div className="flex border-b border-slate-800 bg-slate-900/80 px-6 pt-3">
+        <div className="flex overflow-x-auto border-b border-slate-800 bg-slate-900/80 px-6 pt-3">
           <button
             onClick={() => setActiveTab('matrix')}
             className={`min-h-[44px] px-4 py-2.5 text-sm font-bold border-b-2 transition-all ${
@@ -140,8 +140,12 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
                       </div>
                     </div>
 
+                    {/* Per-tier, so it carries the tier: /upgrade decides where
+                        the clicker actually needs to go. A bare /register here
+                        put a signed-in owner in a signup form and forgot which
+                        plan they had chosen. */}
                     <Link
-                      href="/register"
+                      href={`/upgrade?plan=${tier.id}`}
                       onClick={onClose}
                       className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl text-sm font-bold shadow-md transition-all active:scale-95 ${
                         tier.recommended

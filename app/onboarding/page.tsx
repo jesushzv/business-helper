@@ -7,13 +7,8 @@ import { validateRFC } from '@/lib/rfcValidator';
 import { formatClabe, normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { track } from '@/lib/analytics';
-
-const REGIMENES_FISCALES = [
-  { code: '601', label: '601 - General de Ley Personas Morales' },
-  { code: '626', label: '626 - Régimen Simplificado de Confianza (RESICO)' },
-  { code: '612', label: '612 - Personas Físicas con Actividades Empresariales' },
-  { code: '606', label: '606 - Arrendamiento' },
-];
+import { postOnboardingPath } from '@/lib/upgradeIntent';
+import { regimenOptions } from '@/lib/satRegimenes';
 
 const INDUSTRIES = [
   { value: 'construction', label: 'Materiales & Construcción' },
@@ -152,7 +147,7 @@ export default function OnboardingPage() {
       // form — a dashboard without an organization answers 403 NO_ORGANIZATION
       // on every route, with no way back to this form.
       if (res.status === 503 && data?.error?.code === 'BACKEND_NOT_CONFIGURED') {
-        router.push('/dashboard');
+        router.push(postOnboardingPath(typeof window === 'undefined' ? '' : window.location.search));
         return;
       }
 
@@ -205,7 +200,7 @@ export default function OnboardingPage() {
           organization_id: data.organization.id,
           has_account_holder: Boolean(bankAccountHolder.trim()),
         });
-        router.push('/dashboard');
+        router.push(postOnboardingPath(typeof window === 'undefined' ? '' : window.location.search));
         return;
       }
 
@@ -357,7 +352,7 @@ export default function OnboardingPage() {
                 onChange={(e) => setRegimenFiscal(e.target.value)}
                 className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950 px-4 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               >
-                {REGIMENES_FISCALES.map((r) => (
+                {regimenOptions(regimenFiscal).map((r) => (
                   <option key={r.code} value={r.code} className="bg-slate-900 text-white">
                     {r.label}
                   </option>

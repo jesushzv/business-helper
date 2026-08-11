@@ -577,8 +577,9 @@ refusals are unaffected — those are verified above and are what actually prote
 **Found while doing this**, both raised by the founder and filed separately: **#163** (a saved CLABE
 could be replaced but never removed, so the only route back to "no account" was a hand edit against
 production — fixed in the same PR that closed #64) and **#164** (one organization settles at one
-account; recorded as a deliberate boundary in `../02-architecture/database-schema-design.md` rather
-than built out, since no tenant has yet needed a second account).
+account). #164 was first recorded as a deliberate boundary and then **reversed the same day**: the
+founder chose option C — several accounts, one named per quote — and its schema and server side were
+built in the same PR. The superseded "deferred" paragraph never reached `main`.
 
 ---
 
@@ -601,3 +602,34 @@ table — stays there. For live status read [`../STATUS.md`](../STATUS.md).*
 
 Each step was counted from the query output rather than from the previous line's arithmetic, which
 is the only reason the invariant survived seven closures in three days.
+
+---
+
+## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
+
+Settled history: all four verified closed on the tracker at the time, moved here verbatim when
+`STATUS.md` reached its size budget.
+
+| Issue | What it was | Closed by |
+|:--|:--|:--|
+| [#33](https://github.com/jesushzv/business-helper/issues/33) | Payment confirmation | PR #55 |
+| [#36](https://github.com/jesushzv/business-helper/issues/36) | `.mx` quote links | PR #47 |
+| [#37](https://github.com/jesushzv/business-helper/issues/37) | Product analytics | PR #56 |
+| [#58](https://github.com/jesushzv/business-helper/issues/58) | The public signing page rendering a fixture quote for every token — never listed as a P0 and worse than several that were | PR #57 |
+
+
+## Rows resolved off `docs/STATUS.md` on 2026-08-08, moved here 2026-08-11
+
+| Issue | Resolution |
+|:--|:--|
+| [#79](https://github.com/jesushzv/business-helper/issues/79) | The PGRST201 prediction confirmed against live PostgREST; both embeds hinted, scan test pinning the pattern |
+| [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
+| [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |
+
+---
+
+## OTP email-channel verification, moved off `docs/STATUS.md` (2026-08-11)
+
+Verbatim from the §02 row, collapsed there to one line when the file reached its size budget.
+
+| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |

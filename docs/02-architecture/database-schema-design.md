@@ -51,15 +51,37 @@
 - `created_at`: timestamptz (not null, default: `now()`)
 - `updated_at`: timestamptz (not null, default: `now()`)
 
-> **One organization settles at one account — chosen, not assumed (#164).** The three `bank_*`
-> columns above are deliberately columns rather than a `bank_accounts` table: every `/pay/` link
-> resolves to this row, so a tenant with two bank accounts switches by editing Ajustes. The
-> alternative — several accounts with one flagged default, or an account chosen per quote — was
-> weighed and deferred, because no tenant has yet needed a second account and the change lands a
-> migration on the money path. Revisit when a real tenant does: the smallest step is a
-> `bank_accounts` table with one default row, with `hasSettlementAccount()` becoming "at least one
-> account" and the payer-facing embed in `app/api/receivables/public/[token]/route.ts` reading the
-> default. Per-quote selection is a larger question and needs its own decision.
+> **An organization settles at several accounts, one named per quote (#164).** This reverses the
+> boundary this section asserted until 2026-08-11 — "one organization, one CLABE" — which had been
+> an assumption nobody chose out loud until the founder questioned it and then chose against it.
+> Accounts now live in [`bank_accounts`](#bank_accounts) below and a quote records the one its
+> client pays into in `quotes.bank_account_id`.
+>
+> **The three `bank_*` columns above are legacy and still live.** They were not dropped with
+> `20260811180000`, because Vercel deploys `main` on merge while migrations are applied by hand
+> (hard rule #6), so the previously-deployed code must keep working against the new schema between
+> those two events. `PATCH /api/organization` mirrors a legacy single-account write into
+> `bank_accounts` for the same reason — letting the two diverge would reproduce #64's failure, a
+> tenant told they can be paid while their client's payment page refuses. Dropping them is a later
+> migration, once nothing reads them.
+
+#### `bank_accounts`
+*Added by `20260811180000_bank_accounts` (#164). Applied to production 2026-08-11.*
+- `id`: uuid (PK, default: `gen_random_uuid()`)
+- `organization_id`: uuid (FK -> `organizations.id` `ON DELETE CASCADE`, not null, IDX)
+- `label`: text (not null) -- What the owner calls it ("BBVA obra"). Two 18-digit strings are not distinguishable by sight, which is the mistake this feature invites
+- `bank_name`: text (not null)
+- `clabe`: text (not null)
+- `account_holder`: text (nullable)
+- `is_default`: boolean (not null, default: `false`)
+- `archived_at`: timestamptz (nullable) -- Accounts are **archived, never deleted**: a sent quote names the account its client was told to pay
+- `created_at`: timestamptz (not null, default: `now()`)
+- `updated_at`: timestamptz (not null, default: `now()`)
+- *Constraint*: `chk_bank_accounts_clabe_format` -- `clabe ~ '^[0-9]{18}$'`
+- *Constraint*: `chk_bank_accounts_archived_not_default` -- an archived account cannot hold the default flag
+- *Constraint*: `chk_bank_accounts_label_present` -- `length(trim(label)) > 0`
+- *Index*: UQ partial `uq_bank_accounts_default_per_org` on `(organization_id) WHERE is_default AND archived_at IS NULL` -- at most one live default per organization, enforced in the database rather than in a route: which account money lands in must not depend on which request won a race
+- *RLS*: `FOR ALL TO authenticated` on `organization_id IN (SELECT public.user_organization_ids())`, with `WITH CHECK` stated explicitly so a cross-tenant INSERT is refused on the way in
 
 #### `organization_members`
 - `id`: uuid (PK, default: `gen_random_uuid()`)
@@ -137,6 +159,7 @@
 - `valid_until`: date (nullable)
 - `notes`: text (nullable)
 - `public_token`: text (not null, UQ) -- Cryptographic random string for public approval link
+- `bank_account_id`: uuid (nullable, FK -> `bank_accounts.id` `ON DELETE RESTRICT`, IDX) -- The account this quote's client was told to pay (`20260811180000`, #164). NULL = the organization's default at render time, which is what every quote written before that migration means. Never re-resolved to the current default: see `resolveQuoteAccount()` in `lib/bankAccounts.ts`
 - `converted_contract_id`: uuid (nullable, FK -> `contracts.id`)
 - `created_at`: timestamptz (not null, default: `now()`)
 - `updated_at`: timestamptz (not null, default: `now()`)

@@ -125,18 +125,23 @@ export function useDashboardAnalytics() {
     return calculateCashFlowForecast(milestoneItems);
   }, [receivables]);
 
-  const hasApiData = useMemo(() => {
-    if (!apiAnalytics) return false;
-    // If API metrics are all zeroes and no clients, fallback to computed demo state
-    if (
-      apiAnalytics.metrics.collectedRevenue === 0 &&
-      apiAnalytics.metrics.pendingReceivables === 0 &&
-      apiAnalytics.topClients.length === 0
-    ) {
-      return false;
-    }
-    return true;
-  }, [apiAnalytics]);
+  /**
+   * Did the server answer — not, did the answer have big enough numbers in it.
+   *
+   * This used to return false when `collectedRevenue`, `pendingReceivables`
+   * and `topClients` were all empty, treating an all-zero answer as no answer
+   * and falling through to the locally computed figures (#114). Every newly
+   * onboarded tenant has exactly those zeros, so the dashboard's headline MXN
+   * cards showed numbers that were not theirs at the precise moment first
+   * impressions are formed.
+   *
+   * **Zero is a real answer.** The request either succeeded or it did not;
+   * `apiAnalytics` is only ever set from a 2xx carrying all three shapes, so
+   * its presence *is* the state. A failure leaves it null, falls back to the
+   * figures computed from the sub-hooks' own rows, and is reported through
+   * `combinedError` below rather than rendered as a confident total.
+   */
+  const hasApiData = apiAnalytics !== null;
 
   const metrics = hasApiData && apiAnalytics ? apiAnalytics.metrics : computedMetrics;
   const topClients = hasApiData && apiAnalytics ? apiAnalytics.topClients : computedTopClients;
