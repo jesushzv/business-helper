@@ -3,6 +3,7 @@ import { requireOrgAccess, requireUser, isDemoDeployment } from '@/lib/apiAuth';
 import { normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
+import { describeDbWriteError } from '@/lib/dbWriteError';
 
 export async function GET() {
   // No backend means no tenant data; the demo organization is honest here.
@@ -311,10 +312,18 @@ export async function POST(request: Request) {
     // Previously fell through to a fabricated 'org-demo-1' response on failure
     // or without a session, so onboarding appeared to succeed while creating
     // nothing.
+    //
+    // The failures are no longer interchangeable either. `uq_organizations_owner_id`
+    // (20260811150000) makes "you already have a business" a reachable outcome
+    // for an owner who reopens onboarding, and answering that with the same
+    // opaque 500 as an outage is the #146 defect: a diagnosis thrown away, on
+    // screen and in the log alike. `describeDbWriteError` names the cause in
+    // Spanish and `captureException`s the original.
     if (error || !data) {
+      const failure = describeDbWriteError(error, 'una organización', 'POST /api/organization');
       return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo crear la organización' } },
-        { status: 500 }
+        { error: { code: failure.code, message: failure.message } },
+        { status: failure.status }
       );
     }
 

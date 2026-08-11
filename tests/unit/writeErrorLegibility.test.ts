@@ -33,7 +33,10 @@ const API_ROOT = join(process.cwd(), 'app', 'api');
  */
 const PRE_EXISTING = new Set([
   'app/api/organization/members/route.ts',
-  'app/api/organization/route.ts',
+  // 'app/api/organization/route.ts' — fixed alongside uq_organizations_owner_id
+  // (#109/#168): its POST now answers through describeDbWriteError, because the
+  // new constraint made "you already have a business" reachable and a 500 was
+  // the wrong answer to it.
   'app/api/products/[id]/route.ts',
   'app/api/products/route.ts',
   'app/api/quotes/[id]/route.ts',

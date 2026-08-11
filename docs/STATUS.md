@@ -4,9 +4,8 @@
 
 > **The single source of truth for what is and is not done.**
 >
-> *Last verified: 2026-08-09 against `main` @ `4134e91` (post #119). Suite re-run for this pass;
-> merge state of every row in §02 confirmed with `git log`; the P0 table below re-derived from
-> `is:issue is:open label:P0` rather than trusted — it was short by three.*
+> *Last verified: 2026-08-11. Suite re-run for this pass; merge state of every §02 row confirmed
+> with `git log`; the P0 table re-derived from `is:issue is:open label:P0` rather than trusted.*
 > *Method in §06. Was `04-execution-testing/launch_readiness_memo_aug2026.md` until 2026-08-07 —
 > renamed because a date-stamped filename reads as a snapshot, and a snapshot is exactly what a
 > living status document must not be.*
@@ -39,19 +38,17 @@ An HTML rendering is published at
 
 ## 01 Why This Document Exists
 
-The roadmap marks Sprints 1–16 plus WS-A/WS-B as **Completed**, and the readiness snapshot reports
-**100% roadmap progress** with an all-green dashboard. A security review conducted on 2026-08-06
-found that several features recorded as complete were **simulated**: the UI and data model existed,
-but the third-party call underneath was faked or stubbed.
+The roadmap marks Sprints 1–16 plus WS-A/WS-B as **Completed** and reports **100% progress**
+with an all-green dashboard. A security review on 2026-08-06 found several of those features
+were **simulated**: the UI and data model existed, the third-party call underneath was faked.
 
 The most serious instance: `POST /api/invoices/issue` called `simulateInvoiceStamping()`, which
-fabricated an invoice ID and two `storage.businesshelper.mx` URLs, then wrote `cfdi_status: 'issued'`
-onto the milestone. No PAC was contacted and no tax document existed. A business owner could read
-their own dashboard, believe they had invoiced a client, and file accordingly. For a product whose
-core promise is Mexican tax compliance, that is a compliance defect, not a missing feature.
-
-The same pattern applied to Stripe checkout, team invitations, the accountant ZIP export, and
-outbound WhatsApp dispatch — all since remediated (see §02).
+fabricated an invoice ID and two storage URLs, then wrote `cfdi_status: 'issued'` onto the
+milestone. No PAC was contacted and no tax document existed — a compliance defect, not a missing
+feature, for a product whose promise is Mexican tax compliance. The same pattern applied to
+Stripe checkout, team invitations, the accountant ZIP export and outbound WhatsApp, all since
+remediated (§02). Full account in
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 
 **The takeaway is procedural, not just technical:** the sprint-by-sprint "Completed" history is not a
 reliable map of what is launch-safe. Every remaining completion claim should be treated as unverified
@@ -77,7 +74,7 @@ until checked against source. This memo does that check; §06 records the method
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **943 tests / 106 files**, `npx vitest run` (2026-08-09, `main` @ `e51fa30`) — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **1295 tests / 139 files**, `npx vitest run` (2026-08-11) — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -85,9 +82,8 @@ until checked against source. This memo does that check; §06 records the method
 | Zero-warning lint gate | "ESLint passes with `--max-warnings=0`" (5 docs) | ~~Gate was nominal — bare `next lint`, exit 0 with warnings.~~ **Enforced since 2026-08-08 (#46):** script is `next lint --max-warnings=0`, debt cleared to 0, failure verified with a planted warning. |
 
 > [!IMPORTANT]
-> **The Sentry finding matters disproportionately for a solo founder.** Error monitoring is the only
-> mechanism that reports a production 500 when nobody is watching the dashboard. It is currently a
-> console shim. This is tracked as a P1 item in §03.
+> **The Sentry finding matters disproportionately for a solo founder**: error monitoring is the only
+> thing that reports a production 500 when nobody is watching. P1 in §03.
 
 ### Open and blocking
 
@@ -101,12 +97,16 @@ into one line; their reasoning is in the frozen log.*
 | ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
 | ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
 
+**One organization per owner is now a schema invariant** (`uq_organizations_owner_id`,
+`20260811150000` — #109 decided, #168 closed). `owner_id` had neither an index nor uniqueness while
+every owner-scoped route assumed both: a second owned row would have made `.maybeSingle()` 404 the
+owner off their own settlement account. `POST /api/organization` no longer answers the
+now-reachable collision with a generic 500.
+
 ### Recently landed (2026-08-07 → 2026-08-08)
 
-Moved to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-09 —
-eight merged changes with their issues, PRs and commits. Settled history, and this file was over
-its 32 KB budget. **What none of it changed:** every row was verified by `typecheck` + `lint` +
-vitest against **mocked** providers. Not one was a live third-party round-trip; the §03 items
+Eight merged changes moved to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
+**What none of it changed:** every row was verified against **mocked** providers, so the §03 items
 needing a real handset, card, PAC stamp or deployed database are untouched by all of it.
 
 ---
@@ -311,14 +311,13 @@ Launch Readiness ≥ 7.0, Mobile ≥ 6.0, Credibility ≥ 7.0.
 
 These require the founder and are not resolvable from the codebase.
 
-1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships.** Deferral is off
-   the table, so [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through
-   a live Facturapi sandbox) is blocking, not negotiable.
+1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships**, so
+   [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through a live
+   Facturapi sandbox) is blocking, not negotiable.
 2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch; sms/whatsapp
-   deprecated but wired.** Supersedes 2026-08-10's "Twilio SMS at launch" (itself a same-day
-   reversal: WhatsApp OTP needs a business-owned WABA plus the #42 template — Meta policy — and
-   no WABA exists). Email needs one API key and a DNS-verified domain; no carrier registration,
-   no per-message cost.
+   deprecated but wired.** WhatsApp OTP needs a business-owned WABA plus the #42 template (Meta
+   policy) and no WABA exists; email needs one API key and a verified domain, no carrier
+   registration, no per-message cost.
 3. **Are there real CLABE account numbers for the pilot organizations?**
 4. ~~**`businesshelper.app` or `businesshelper.mx`?**~~ Resolved — `.app`; `.mx` was never
    registered (#36).
@@ -336,7 +335,10 @@ These require the founder and are not resolvable from the codebase.
 7. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
    "1–2 focused weeks" is two calendar weeks or closer to a month.
 8. ~~**Merge posture on PRs #20 and #23.**~~ Moot — both merged 2026-08-07 (§02).
-9. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
+9. ~~**Is one organization per owner the invariant?**~~ **Resolved 2026-08-11 — yes, and it is in
+   the schema** (`uq_organizations_owner_id`, `20260811150000`). Closes #109 and #168. Multi-org
+   ownership now needs that index dropped deliberately, not merely permitted by omission.
+10. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
    narrow to one module, freeze for a validation-only sprint, or wind down and redirect the time.
    Worth deciding while calm rather than mid-crisis.
 
@@ -348,9 +350,8 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 910 tests / 104 files as of 2026-08-09
-                               # (earlier counts, and what each pass verified, are in the frozen
-                               #  log at docs/99-archive/status-log-2026-08.md)
+npx vitest run                 # 1295 tests / 139 files as of 2026-08-11
+                               # (earlier counts are in 99-archive/status-log-2026-08.md)
 npm run typecheck
 npm run lint
 node -e "console.log(Object.keys(require('./package.json').dependencies))"

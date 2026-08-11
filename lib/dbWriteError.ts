@@ -122,6 +122,22 @@ export function describeDbWriteError(
   }
 
   if (code === '23505') {
+    // One organization per owner is a schema invariant as of
+    // 20260811150000 (#109/#168), so this collision is reachable by an owner
+    // who reopens onboarding or double-submits it. The generic wording below
+    // ("…con esos datos en tu organización") is nonsense here, where the
+    // duplicate *is* the organization, and it hides the one useful fact: they
+    // already have one, and nothing was lost.
+    if (constraintName(e) === 'uq_organizations_owner_id') {
+      return {
+        status: 409,
+        code: 'ORGANIZATION_EXISTS',
+        message:
+          'Tu cuenta ya tiene un negocio registrado. No se creó uno nuevo; ' +
+          'puedes editar los datos del que ya tienes en Ajustes.',
+      };
+    }
+
     return {
       status: 409,
       code: 'DUPLICATE',

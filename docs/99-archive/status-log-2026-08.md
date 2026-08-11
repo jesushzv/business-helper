@@ -564,3 +564,18 @@ Settled history: all four verified closed on the tracker at the time, moved here
 Verbatim from the §02 row, collapsed there to one line when the file reached its size budget.
 
 | ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
+
+---
+
+## §01's original account of the simulated features, moved off `docs/STATUS.md` (2026-08-11)
+
+Verbatim; the summary that replaced it points here.
+
+The most serious instance: `POST /api/invoices/issue` called `simulateInvoiceStamping()`, which
+fabricated an invoice ID and two `storage.businesshelper.mx` URLs, then wrote `cfdi_status: 'issued'`
+onto the milestone. No PAC was contacted and no tax document existed. A business owner could read
+their own dashboard, believe they had invoiced a client, and file accordingly. For a product whose
+core promise is Mexican tax compliance, that is a compliance defect, not a missing feature.
+
+The same pattern applied to Stripe checkout, team invitations, the accountant ZIP export, and
+outbound WhatsApp dispatch — all since remediated (see §02).
