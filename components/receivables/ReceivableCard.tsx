@@ -134,7 +134,7 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
 
         {/* Amount Card */}
         <div className="bg-slate-950/80 rounded-xl p-3.5 mb-4 border border-slate-800 flex items-baseline justify-between">
-          <span className="text-xs font-semibold text-slate-400">Monto del Hito</span>
+          <span className="text-xs font-semibold text-slate-400">Monto del Cobro</span>
           <span
             className={`text-2xl font-black font-mono ${
               isOverdue ? 'text-rose-400' : isConfirmed ? 'text-emerald-400' : 'text-white'
@@ -154,7 +154,7 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
+                className="flex-1 min-h-[48px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
               >
                 <MessageSquare className="w-4 h-4 shrink-0" />
                 <span>Recordar WhatsApp</span>
@@ -167,7 +167,7 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
                 type="button"
                 disabled
                 title={blockedReason}
-                className="flex-1 min-w-0 min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm text-center"
+                className="flex-1 min-w-0 min-h-[48px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm text-center"
               >
                 <MessageSquare className="w-4 h-4 shrink-0" />
                 <span>
@@ -190,7 +190,7 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
               rel="noopener noreferrer"
               className={`${
                 isConfirmed ? 'w-full' : 'shrink-0'
-              } min-h-[44px] px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap`}
+              } min-h-[48px] px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap`}
             >
               <ExternalLink className="w-4 h-4 shrink-0 text-slate-400" />
               <span>Portal SPEI</span>
@@ -209,7 +209,7 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
               }
               className={`${
                 isConfirmed ? 'w-full' : 'shrink-0'
-              } min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-not-allowed text-xs sm:text-sm whitespace-nowrap`}
+              } min-h-[48px] px-3.5 py-2.5 bg-slate-800 text-slate-500 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-not-allowed text-xs sm:text-sm whitespace-nowrap`}
             >
               <ExternalLink className="w-4 h-4 shrink-0 text-slate-500" />
               <span>Portal SPEI</span>
@@ -220,7 +220,7 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
         {!isConfirmed && (
           <button
             onClick={() => onOpenConfirmModal && onOpenConfirmModal(milestone)}
-            className={`w-full min-h-[44px] px-4 py-2.5 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-md text-xs sm:text-sm whitespace-nowrap ${
+            className={`w-full min-h-[48px] px-4 py-2.5 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-md text-xs sm:text-sm whitespace-nowrap ${
               isMarkedPaid
                 ? 'bg-blue-600 hover:bg-blue-500 text-white'
                 : 'bg-indigo-600 hover:bg-indigo-500 text-white'

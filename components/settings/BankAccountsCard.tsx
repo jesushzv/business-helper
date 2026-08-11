@@ -151,13 +151,13 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
                     {formatClabe(account.clabe)}
                   </p>
                   {account.account_holder && (
-                    <p className="mt-0.5 truncate text-xs text-slate-500">{account.account_holder}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-400">{account.account_holder}</p>
                   )}
                 </div>
               </div>
 
               {account.is_default && (
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-slate-400">
                   Las cotizaciones nuevas cobran aquí, salvo que elijas otra al crearlas.
                 </p>
               )}
@@ -333,7 +333,7 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
       )}
 
       {live !== null && live.length > 1 && (
-        <p className="mt-4 flex items-start gap-2 text-xs text-slate-500">
+        <p className="mt-4 flex items-start gap-2 text-xs text-slate-400">
           <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
           <span>
             Al crear una cotización puedes elegir en cuál de tus cuentas quieres que te paguen.

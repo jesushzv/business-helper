@@ -5,6 +5,7 @@ import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/ser
 import { issuePaymentComplement } from '@/lib/complementoPago';
 import { getAppBaseUrl } from '@/lib/url';
 import { track } from '@/lib/analytics';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Confirms that a milestone's payment was received.
@@ -69,7 +70,12 @@ export async function POST(
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json({ error: 'No se pudo confirmar el pago' }, { status: 500 });
+      // The confirmation is the record that money arrived. A failed write must
+      // never read as one — and it must say *why* it failed, since the founder
+      // chasing an unconfirmed payment is the person who needs the answer.
+      return dbWriteErrorResponse(error, 'la confirmación del pago', 'POST /api/receivables/[id]/confirm', {
+        verb: 'registrar',
+      });
     }
 
     if (!updated) {

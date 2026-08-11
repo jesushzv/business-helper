@@ -26,6 +26,14 @@ interface OtpSignatureModalProps {
 }
 
 const MAX_ATTEMPTS = 3;
+/**
+ * How long before a resend is offered again.
+ *
+ * The server owns the real rate limit (#22's escalating backoff and daily
+ * cap); this only stops a client tapping twice in three seconds and spending
+ * one of those sends on a code that is already in flight to their phone.
+ */
+const RESEND_COOLDOWN_SECONDS = 30;
 
 export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
   isOpen,
@@ -45,6 +53,14 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
   // Which channel the server actually sent over — the copy below must not
   // claim a destination ("su correo", "su celular") the server did not use.
   const [channel, setChannel] = useState<string | null>(null);
+  /** Seconds until "Reenviar Código" is tappable again. 0 = ready. */
+  const [cooldown, setCooldown] = useState<number>(0);
+
+  React.useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   if (!isOpen) return null;
 
@@ -67,11 +83,12 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
 
       setSent(true);
       setRemaining(MAX_ATTEMPTS);
+      setCooldown(RESEND_COOLDOWN_SECONDS);
       setChannel(typeof data?.channel === 'string' ? data.channel : null);
       // Only ever populated by a local dev server with no delivery provider wired up.
       setDevCode(data?.dev_code || null);
     } catch {
-      setError('No se pudo contactar al servidor. Intente de nuevo.');
+      setError('No se pudo contactar al servidor. Intenta de nuevo.');
     } finally {
       setSending(false);
     }
@@ -103,7 +120,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
         onClose();
       }, 1500);
     } catch {
-      setError('No se pudo contactar al servidor. Intente de nuevo.');
+      setError('No se pudo contactar al servidor. Intenta de nuevo.');
     } finally {
       setVerifying(false);
     }
@@ -129,8 +146,8 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
           </div>
           <h3 className="text-xl font-extrabold text-white">Firma Digital con Código OTP</h3>
           <p className="text-xs text-slate-400 mt-1">
-            Le enviaremos un código de verificación de 6 dígitos a su contacto registrado para
-            confirmar su firma.
+            Te enviaremos un código de verificación de 6 dígitos a tu contacto registrado para
+            confirmar tu firma.
           </p>
         </div>
 
@@ -149,16 +166,16 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
           <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 mb-5 text-center">
             <p className="text-xs font-semibold text-slate-300">
               {channel === 'email'
-                ? 'Código enviado a su correo electrónico registrado. Si no lo ve, revise su carpeta de spam.'
+                ? 'Código enviado a tu correo electrónico registrado. Si no lo ves, revisa tu carpeta de spam.'
                 : channel === 'sms' || channel === 'whatsapp'
-                  ? 'Código enviado a su número celular registrado.'
-                  : 'Código enviado a su contacto registrado.'}
+                  ? 'Código enviado a tu número celular registrado.'
+                  : 'Código enviado a tu contacto registrado.'}
             </p>
           </div>
         )}
 
         {error && (
-          <div className="bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-2xl p-3.5 mb-5 flex items-center gap-2.5 text-xs font-semibold">
+          <div role="alert" className="bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-2xl p-3.5 mb-5 flex items-center gap-2.5 text-xs font-semibold">
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <span>{error}</span>
           </div>
@@ -169,7 +186,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
             <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
             <p className="text-sm font-bold text-emerald-300">¡Firma Aceptada con Éxito!</p>
             <p className="text-[10px] font-mono text-emerald-400 truncate">
-              Sello HMAC-SHA256: {successSeal}
+              Folio de evidencia: {successSeal.slice(0, 12)}
             </p>
           </div>
         ) : !sent ? (
@@ -194,10 +211,11 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
         ) : (
           <form onSubmit={handleVerify} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+              <label htmlFor="otpsignaturemodal-ingresar-codigo-de-6" className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
                 Ingresar Código de 6 dígitos
               </label>
               <input
+                id="otpsignaturemodal-ingresar-codigo-de-6"
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
@@ -215,11 +233,13 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
               <button
                 type="button"
                 onClick={handleSendOtp}
-                disabled={sending}
-                className="text-emerald-400 font-bold hover:underline flex items-center gap-1 disabled:opacity-50"
+                disabled={sending || cooldown > 0}
+                className="text-emerald-400 font-bold hover:underline flex items-center gap-1 disabled:opacity-50 disabled:no-underline"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Reenviar Código</span>
+                <span>
+                  {cooldown > 0 ? `Reenviar en ${cooldown}s` : 'Reenviar Código'}
+                </span>
               </button>
             </div>
 

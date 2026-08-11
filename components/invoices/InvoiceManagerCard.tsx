@@ -165,7 +165,7 @@ function ComplementPanel({
           <button
             onClick={onSend}
             disabled={busy}
-            className="min-h-[40px] px-3 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all disabled:opacity-50"
+            className="min-h-[48px] px-3 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all disabled:opacity-50"
             title="Emitir el complemento de pago del saldo pendiente"
           >
             {busy ? 'Emitiendo...' : 'Emitir complemento de pago'}
@@ -446,7 +446,7 @@ export function InvoiceManagerCard() {
                     <button
                       onClick={() => handleNotaDeVenta(inv)}
                       disabled={!inv.clientPhone}
-                      className="min-h-[44px] px-3.5 bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-40"
+                      className="min-h-[48px] px-3.5 bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-40"
                       title={
                         inv.clientPhone
                           ? 'Generar Nota de Venta'
@@ -463,7 +463,7 @@ export function InvoiceManagerCard() {
                     <button
                       onClick={() => handleWhatsAppBroadcast(inv)}
                       disabled={!inv.clientPhone || !canSharePaymentLinks || !inv.publicToken}
-                      className="min-h-[44px] px-3 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-40"
+                      className="min-h-[48px] px-3 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-40"
                       title={
                         !canSharePaymentLinks
                           ? 'Agrega la CLABE de tu negocio para poder cobrar'
@@ -486,7 +486,7 @@ export function InvoiceManagerCard() {
                             href={inv.xmlUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="min-h-[44px] px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-700"
+                            className="min-h-[48px] px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-700"
                           >
                             <Download className="w-4 h-4 text-slate-400" />
                             CFDI XML
@@ -497,7 +497,7 @@ export function InvoiceManagerCard() {
                             href={inv.pdfUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="min-h-[44px] px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-700"
+                            className="min-h-[48px] px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl text-sm transition-all flex items-center gap-1.5 border border-slate-700"
                           >
                             <Download className="w-4 h-4 text-slate-400" />
                             CFDI PDF
@@ -522,7 +522,7 @@ export function InvoiceManagerCard() {
                             }))
                           }
                           disabled={stampingId !== null || inv.cfdiStatus === 'cancelled'}
-                          className="w-full min-w-0 max-w-full min-h-[44px] px-3 bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
+                          className="w-full min-w-0 max-w-full min-h-[48px] px-3 bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
                           title="PUE: el cobro ya está pagado. PPD: se pagará después, y cada pago emitirá su complemento."
                         >
                           <option value="PUE">PUE — Pago en una exhibición</option>
@@ -544,7 +544,7 @@ export function InvoiceManagerCard() {
                           })
                         }
                         disabled={stampingId !== null || inv.cfdiStatus === 'cancelled'}
-                        className="min-h-[44px] px-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/50 disabled:opacity-50"
+                        className="min-h-[48px] px-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/50 disabled:opacity-50"
                         title="Timbrar CFDI 4.0 con tu PAC"
                       >
                         <Send className="w-4 h-4" />

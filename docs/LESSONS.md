@@ -131,9 +131,6 @@ not earned. It has shipped here at least eight times.
 - **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93). Chrome identity
   comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
   `lib/whatsappLink.ts`. `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak.
-- **A modal is `components/shared/Modal.tsx`, never a hand-rolled `fixed inset-0` div** (#87, #100).
-  `role`/Escape/focus-trap and `max-h`+`overflow-y-auto` belong to the shell; 8 copies had none.
-  `tests/unit/modalShell.test.ts` fails the build on a new one.
 - **A form the user cannot get past is usually validation that returns at the first failure and
   names no field** (#146). Both clients routes checked name → RFC → crédito → teléfono in sequence
   and 400'd at the first, so each submit revealed one more problem; the envelope carried prose with
@@ -162,6 +159,10 @@ not earned. It has shipped here at least eight times.
   misconfigured production reporting payments nobody received.
 
 ## Tooling and process traps
+
+- **A gate that grades a whole *file* grades the wrong thing** (#148): one branch's consulted error
+  covers for another's discarded one. Scan the branch: brace-matched body, own `.from(` chain,
+  any `…Error` name. `tests/unit/writeErrorLegibility.test.ts`.
 
 - The lint gate is real: `next lint --max-warnings=0`, debt at zero. Any new warning fails
   `npm run lint`, `npm test` and CI. Existing `<img>` sites carry scoped per-site disables with

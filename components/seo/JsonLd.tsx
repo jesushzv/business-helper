@@ -48,7 +48,7 @@ export function JsonLd() {
         name: '¿Es seguro el manejo de comprobantes y pagos SPEI?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Tus clientes pueden cargar comprobantes SPEI directamente y los tokens de verificación OTP con firma digital SHA-256 garantizan total auditabilidad.',
+          text: 'Tus clientes pueden cargar comprobantes SPEI directamente y la firma digital con código OTP deja evidencia legal certificada de cada aprobación.',
         },
       },
     ],

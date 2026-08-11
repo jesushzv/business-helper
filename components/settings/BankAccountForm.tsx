@@ -149,7 +149,7 @@ export const BankAccountForm: React.FC<BankAccountFormProps> = ({
           aria-describedby={fieldErrors.label ? `${FIELD_IDS.label}_error` : undefined}
           className={inputClass}
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-slate-400">
           Para que distingas tus cuentas de un vistazo. Tus clientes no lo ven.
         </p>
         <FieldError message={fieldErrors.label} id={`${FIELD_IDS.label}_error`} />
@@ -187,7 +187,7 @@ export const BankAccountForm: React.FC<BankAccountFormProps> = ({
           aria-describedby={fieldErrors.clabe ? `${FIELD_IDS.clabe}_error` : undefined}
           className={`${inputClass} font-mono`}
         />
-        <p className="mt-1 text-xs text-slate-500">{clabeDigits.length} de 18 dígitos</p>
+        <p className="mt-1 text-xs text-slate-400">{clabeDigits.length} de 18 dígitos</p>
         <FieldError message={fieldErrors.clabe} id={`${FIELD_IDS.clabe}_error`} />
       </div>
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess, pickFields, MILESTONE_WRITABLE_FIELDS } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Single-milestone operations.
@@ -77,7 +78,9 @@ export async function PUT(
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to update milestone' }, { status: 500 });
+      return dbWriteErrorResponse(error, 'el cobro', 'PUT /api/receivables/[id]', {
+        verb: 'actualizar',
+      });
     }
 
     if (!updated) {
@@ -110,7 +113,9 @@ export async function DELETE(
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to delete milestone' }, { status: 500 });
+      return dbWriteErrorResponse(error, 'el cobro', 'DELETE /api/receivables/[id]', {
+        verb: 'eliminar',
+      });
     }
 
     if (!deleted) {

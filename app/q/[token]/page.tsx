@@ -64,7 +64,7 @@ export default function PublicQuotePage() {
         if (!res.ok) {
           // 404 falls through with quote === null → "no encontrada".
           if (res.status !== 404) {
-            setLoadError('No se pudo cargar la cotización. Intente de nuevo más tarde.');
+            setLoadError('No se pudo cargar la cotización. Intenta de nuevo más tarde.');
           }
           return;
         }
@@ -79,7 +79,7 @@ export default function PublicQuotePage() {
         }
       } catch {
         if (!cancelled) {
-          setLoadError('No se pudo cargar la cotización. Revise su conexión e intente de nuevo.');
+          setLoadError('No se pudo cargar la cotización. Revisa tu conexión e intenta de nuevo.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -236,7 +236,7 @@ export default function PublicQuotePage() {
             <div className="bg-emerald-950/80 border border-emerald-500/30 rounded-2xl p-5 text-center space-y-2">
               <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
               <h4 className="text-base font-extrabold text-white">Propuesta Aceptada y Firmada</h4>
-              <p className="text-xs text-emerald-300">Sello Digital de Confirmación SHA-256 generado exitosamente.</p>
+              <p className="text-xs text-emerald-300">Firma registrada con evidencia legal certificada.</p>
               <p className="text-[10px] font-mono text-emerald-400 break-all bg-slate-950/80 p-2 rounded-xl border border-emerald-500/30">
                 {signedSeal}
               </p>
@@ -276,7 +276,7 @@ export default function PublicQuotePage() {
         {/* Footer */}
         <div className="text-center text-xs text-slate-400 space-y-1">
           <p className="flex items-center justify-center gap-1 font-medium">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Protegido por Business Helper & Criptosello SHA-256
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Protegido por Business Helper — Evidencia Legal Certificada
           </p>
         </div>
       </div>

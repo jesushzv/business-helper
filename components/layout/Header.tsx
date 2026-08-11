@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton
           {/* View Tiers Modal Button */}
           <button
             onClick={() => setIsTierModalOpen(true)}
-            className="flex min-h-[40px] items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs font-bold text-slate-300 transition-all hover:bg-slate-800 hover:text-white active:scale-95"
+            className="flex min-h-[48px] items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs font-bold text-slate-300 transition-all hover:bg-slate-800 hover:text-white active:scale-95"
             title="Ver Planes y Funcionalidades"
           >
             <Layers className="h-4 w-4 text-emerald-400" />
@@ -102,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton
           {onNewClient && (
             <button
               onClick={onNewClient}
-              className="flex min-h-[40px] items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-md shadow-emerald-950/50 transition-all hover:bg-emerald-400 active:scale-95"
+              className="flex min-h-[48px] items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-md shadow-emerald-950/50 transition-all hover:bg-emerald-400 active:scale-95"
               aria-label="Nuevo Cliente"
             >
               <Plus className="h-4 w-4" />
@@ -152,7 +152,7 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton
                 )}
                 <button
                   onClick={signOut}
-                  className="mt-1 flex min-h-[44px] w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                  className="mt-1 flex min-h-[48px] w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
                 >
                   <LogOut className="h-4 w-4 text-rose-400" />
                   <span>Cerrar sesión</span>

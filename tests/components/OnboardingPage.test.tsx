@@ -199,7 +199,8 @@ describe('OnboardingPage — SPEI settlement account (#14)', () => {
     // Same account with the last digit off by one — 18 digits, wrong checksum.
     await reachBankStep('0121 8000 1234 5678 90');
 
-    expect(screen.getByText(/Revise la CLABE/i)).toBeInTheDocument();
+    // "Revisa", tú form, from #194's copy pass.
+    expect(screen.getByText(/Revisa la CLABE/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
 

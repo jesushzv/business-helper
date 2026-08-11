@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess, pickFields, QUOTE_WRITABLE_FIELDS } from '@/lib/apiAuth';
 import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Single-quote operations.
@@ -100,10 +101,9 @@ export async function PUT(
     // A failed or zero-row write is reported as such rather than echoing the
     // caller's own body back as a fake success.
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo actualizar la cotización' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'la cotización', 'PUT /api/quotes/[id]', {
+        verb: 'actualizar',
+      });
     }
 
     if (!updated) {
@@ -142,10 +142,9 @@ export async function DELETE(
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo eliminar la cotización' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'la cotización', 'DELETE /api/quotes/[id]', {
+        verb: 'eliminar',
+      });
     }
 
     if (!deleted) {
