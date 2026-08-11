@@ -203,19 +203,26 @@ fixture quote for every token (PR #57) — never listed as a P0 and worse than s
   doubling backoff, 15/day cap, and #60's decision: a provider failure throttles the phone but
   releases the quote's lifetime slot. Carries migration `20260809120000`; confirm it is applied
   before relying on OTP issuance (hard rule 6).
-- **Confirm a client can now be registered on the deployment**
+- **Register one client in the app, to close #146**
   ([#146](https://github.com/jesushzv/business-helper/issues/146)). Reported from real use on
   2026-08-10: registration could not be completed, and no message said which field was at fault.
-  Fixed in code — the two clients routes report every bad field at once keyed by column instead of
-  returning at the first failure; a failed write names its cause in Spanish and logs the raw error
-  instead of collapsing into one 500; the form pins each message under its own input and moves focus
-  there; and the RFC no longer gates the write on either route (it is enforced at stamping, where
-  `lib/facturapi.ts` already refuses a malformed receptor RFC). Verified by `typecheck` + `lint` +
-  vitest against a mocked Supabase client only. **The reporter's specific production failure was
-  never identified** — if it was a database-level rejection, this change makes it legible rather
-  than fixing it, so the next step is one real attempt on the deployment and reading the message it
-  now gives. The live schema was not inspected; the Supabase connector required interactive approval
-  in that session.
+  **The cause was RLS, not the form.** `user_organization_ids()` — the whole tenant check for nine
+  policies — resolved membership from `organization_members` alone, and nothing creates a member row
+  for an organization's *owner*. Both production organizations have none, so their owners were
+  denied every write to `clients`, `quotes`, `contracts`, `milestones`, `products` and four more.
+  `requireOrgAccess()` disagreed (it reads `organizations.owner_id` and returns `role: 'owner'`), so
+  auth passed and only the INSERT was refused, as `42501`, reported as a generic 500. Confirmed by
+  impersonating the founder's `auth.uid()` in production: 0 rows from the function, `42501` on
+  `clients` and `quotes`.
+  **Migration `20260811000000` was applied to production on 2026-08-11** and the new definition read
+  back from `pg_get_functiondef` — the UNION over owned organizations, `SECURITY DEFINER`,
+  `search_path` pinned. Its *behaviour* was proven pre-apply against the byte-identical definition in
+  a rolled-back transaction (own-org INSERT succeeded; other-tenant INSERT still refused `42501`);
+  the same probe **has not been re-run against the live function**, because the Supabase connector's
+  tool approvals reset mid-session. PR #150 carries the migration file and tests. Landed separately
+  in PR #147: every bad field reported at once keyed by column, a failed write naming its cause
+  instead of one opaque 500, per-field messages in the form, and the RFC no longer gating
+  registration. This row closes when a client is registered through the UI.
 - **One real production smoke test:** register → quote → WhatsApp send → OTP sign → SPEI upload → confirm.
 - **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).

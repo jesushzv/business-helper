@@ -206,9 +206,12 @@ describe('every validated column has an input to point at', () => {
    * hand-kept list here, so adding a validated column is what trips it.
    */
   it('reads a plausible set of validated columns (guards the guard)', () => {
-    expect(FIELD_ORDER.length).toBeGreaterThanOrEqual(7);
+    // Five: name, phone and the three credit columns. email and codigo_postal
+    // left this list deliberately — they are warned about, never refused.
+    expect(FIELD_ORDER.length).toBeGreaterThanOrEqual(5);
     expect(FIELD_ORDER).toContain('phone');
     expect(FIELD_ORDER).toContain('credit_limit');
+    expect(FIELD_ORDER).not.toContain('codigo_postal');
   });
 
   it('maps each one to an input that is actually rendered', () => {

@@ -125,8 +125,16 @@ describe('SECURITY DEFINER functions revoke EXECUTE from anon and authenticated 
   it('finds the SECURITY DEFINER functions at all', () => {
     // A scan that matches nothing passes vacuously. These three exist today;
     // if the count drops, the parser broke rather than the debt clearing.
-    const names = definers.map((d) => d.name).sort();
+    //
+    // Deduplicated by name: a function may be defined by one migration and
+    // redefined by a later `CREATE OR REPLACE`, which is how #146 restored
+    // owner access in 20260811000000 without editing the applied initial
+    // schema. Two definitions of one function is not a fourth function.
+    const names = [...new Set(definers.map((d) => d.name))].sort();
     expect(names).toEqual(['release_cfdi_folio', 'reserve_cfdi_folio', 'user_organization_ids']);
+    // The raw count must still be at least one per name, or the parser is
+    // matching fewer definitions than exist and the dedupe is hiding it.
+    expect(definers.length).toBeGreaterThanOrEqual(names.length);
   });
 
   it.each(findSecurityDefinerFunctions().filter((d) => !(d.name in EXEMPT)))(

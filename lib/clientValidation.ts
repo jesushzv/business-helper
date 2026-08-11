@@ -49,9 +49,7 @@ export interface ClientWriteOptions {
  */
 export const FIELD_ORDER = [
   'name',
-  'email',
   'phone',
-  'codigo_postal',
   'credit_limit',
   'credit_days',
   'credit_status',
@@ -60,8 +58,6 @@ export const FIELD_ORDER = [
 /** The machine code for the envelope, chosen from the highest-priority failure. */
 const FIELD_ERROR_CODES: Record<string, string> = {
   name: 'INVALID_INPUT',
-  email: 'INVALID_INPUT',
-  codigo_postal: 'INVALID_INPUT',
   phone: 'INVALID_PHONE',
   credit_limit: 'INVALID_CREDIT_TERMS',
   credit_days: 'INVALID_CREDIT_TERMS',
@@ -71,9 +67,7 @@ const FIELD_ERROR_CODES: Record<string, string> = {
 /** Field name as it appears in the summary line, matching the form's labels. */
 const FIELD_LABELS: Record<string, string> = {
   name: 'Nombre o Razón Social',
-  email: 'Correo Electrónico',
   phone: 'Teléfono WhatsApp',
-  codigo_postal: 'Código Postal',
   credit_limit: 'Límite de Crédito',
   credit_days: 'Plazo de Crédito',
   credit_status: 'Estatus de Crédito',
@@ -81,19 +75,12 @@ const FIELD_LABELS: Record<string, string> = {
 
 const CREDIT_FIELDS = ['credit_limit', 'credit_days', 'credit_status'] as const;
 
-/**
- * Deliberately forgiving: "something@something.something".
- *
- * A strict RFC 5322 pattern rejects addresses that deliver perfectly well, and
- * this check is not the authority on anything — the address is only ever used
- * to send mail, which fails loudly on its own. Same asymmetry the phone field
- * documents: a client-side gate stricter than reality blocks a value the
- * product could actually use, which is the worse direction to be wrong in.
- */
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-/** Mexican postal codes are exactly five digits; the CFDI receptor block needs one. */
-const CODIGO_POSTAL_SHAPE = /^\d{5}$/;
+/** '' and whitespace mean "cleared", which is a real answer and stores as NULL. */
+function blankToNull(raw: unknown): string | null {
+  if (raw === undefined || raw === null) return null;
+  const trimmed = String(raw).trim();
+  return trimmed || null;
+}
 
 /**
  * Normalizes an RFC without judging it.
@@ -160,29 +147,23 @@ export function validateClientWrite(
     fieldErrors.name = 'Escribe el nombre o razón social del cliente.';
   }
 
-  // --- Email ----------------------------------------------------------------
-  if ('email' in fields) {
-    const raw = fields.email;
-    if (raw === null || (typeof raw === 'string' && !raw.trim())) {
-      values.email = null;
-    } else if (typeof raw !== 'string' || !EMAIL_SHAPE.test(raw.trim())) {
-      fieldErrors.email = 'El correo debe tener la forma nombre@dominio.com, o déjalo vacío.';
-    } else {
-      values.email = raw.trim();
-    }
-  }
-
-  // --- Código postal --------------------------------------------------------
-  if ('codigo_postal' in fields) {
-    const raw = fields.codigo_postal;
-    if (raw === null || (typeof raw === 'string' && !raw.trim())) {
-      values.codigo_postal = null;
-    } else if (typeof raw !== 'string' || !CODIGO_POSTAL_SHAPE.test(raw.trim())) {
-      fieldErrors.codigo_postal = 'El código postal son 5 dígitos (ej. 64000), o déjalo vacío.';
-    } else {
-      values.codigo_postal = raw.trim();
-    }
-  }
+  // --- Email and código postal ----------------------------------------------
+  // Stored as typed. Neither blocks the write, for the same reason the RFC does
+  // not: they are optional contact/fiscal details, and refusing the whole client
+  // record over one is how registration became unfinishable in the first place.
+  //
+  // These two *were* blocking gates in the first pass at #146 — added in the very
+  // change that removed the RFC gate, which is the same mistake with a different
+  // field. A gate belongs where the value is load-bearing: `codigo_postal` is
+  // needed to stamp a CFDI, and `lib/facturapi.ts` refuses one whose receptor
+  // block is incomplete, loudly, at the moment it matters. The form warns beside
+  // each field so a malformed value is visible at entry rather than blessed.
+  //
+  // The phone is the exception below, and deliberately so: it is the channel a
+  // signature is delivered to, and an unusable value there resurfaces days later
+  // as a 502 from the OTP route blaming the provider (#40).
+  if ('email' in fields) values.email = blankToNull(fields.email);
+  if ('codigo_postal' in fields) values.codigo_postal = blankToNull(fields.codigo_postal);
 
   // --- Phone ----------------------------------------------------------------
   // Only when the caller is actually setting it: a patch of `notes` must not
