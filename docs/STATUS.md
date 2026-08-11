@@ -248,8 +248,9 @@ fixture quote for every token (PR #57) — never listed as a P0 and worse than s
 - **`organizations.owner_id`: no index, and the write path assumed one org per owner**
   ([#168](https://github.com/jesushzv/business-helper/issues/168),
   [#109](https://github.com/jesushzv/business-helper/issues/109)). **Code fixed; migration
-  `20260811140000` NOT applied** — no `SUPABASE_DB_URL` here and the connector's calls went
-  unapproved, so neither `db:migrate:dry` nor a live catalog read ran (hard rule 6). #109 decided
+  `20260811140000` applied to production 2026-08-11** and read back from `pg_indexes`:
+  `idx_organizations_owner_id`, `indisunique false`. Precondition checked first — 2 organizations,
+  0 owners holding two. #109 decided
   **Option B**: multi-org ownership stays possible (index not unique) and the app stops assuming one
   owned row. Two owned rows broke PostgREST's singular-response check, making every settings and bank
   save a 404 *"No se encontró una organización propia"*; `PATCH /api/organization` now filters by org
