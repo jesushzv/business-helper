@@ -13,6 +13,8 @@
  * so the SDK would be a dependency for a single request.
  */
 
+import { createHash } from 'node:crypto';
+
 const STRIPE_API_BASE = 'https://api.stripe.com/v1';
 const STRIPE_API_VERSION = '2024-06-20';
 
@@ -69,6 +71,31 @@ export function encodeStripeForm(
   }
 
   return params;
+}
+
+/**
+ * An idempotency key that is scoped to a tenant *and* to the exact request.
+ *
+ * Stripe rejects a key replayed with different parameters — HTTP 400,
+ * `idempotency_error` — so a key built from the tenant and the clock alone is a
+ * trap: `returnUrl` is the payer's current URL, and it changes the moment they
+ * come back from a cancelled session (`?status=cancelled`). Same key, different
+ * `success_url`, and every retry inside the same window fails with the generic
+ * "no se pudo iniciar el pago" until the hour rolls over.
+ *
+ * Folding a fingerprint of the payload into the key keeps what the key was for
+ * — a double-click sends byte-identical parameters and replays one session —
+ * while a genuinely different request gets a key of its own.
+ */
+export function checkoutIdempotencyKey(scope: string, payload: Record<string, unknown>): string {
+  const fingerprint = createHash('sha256')
+    // The encoder is the same one that builds the request body, so the
+    // fingerprint covers exactly what Stripe is asked to compare against.
+    .update(encodeStripeForm(payload).toString())
+    .digest('hex')
+    .slice(0, 32);
+
+  return `${scope}:${fingerprint}`;
 }
 
 /**

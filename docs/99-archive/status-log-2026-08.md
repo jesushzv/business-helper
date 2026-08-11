@@ -535,3 +535,17 @@ pins the render over that exact response body. The hydrated page — the *Cerrar
 org name after hydration — was confirmed by the founder in a browser on 2026-08-11, which closed
 the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
 no-invented-bank path stays pinned by unit tests until a first real payment.
+
+---
+
+## Modal-shell findings, moved off `docs/STATUS.md` (2026-08-11)
+
+Verbatim from §02; merged as PR #165, moved here when `STATUS.md` reached its size budget.
+
+**The responsiveness/accessibility audit's modal findings are closed in code** (#87, #100): every
+overlay in the app is now `components/shared/Modal.tsx` — `role="dialog"`, Escape, focus trap and
+return, a named ≥48px close control, and the `max-h`/`overflow-y-auto` containment that decides
+whether the OTP submit is reachable on a 375px phone with the keyboard open. Verified by unit and
+component tests only (`modalShell`, `Modal`), including a planted violation shown to fail; **not yet
+exercised on a real handset**, which is the part no agent can supply. The audit's remaining
+findings — #88, #89, #90, #99, #101, #103, #104 — are untouched.

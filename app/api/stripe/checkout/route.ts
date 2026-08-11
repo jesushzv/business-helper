@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { createCheckoutPayload, normalizeTierKey } from '@/lib/stripe';
-import { createCheckoutSession, isStripeConfigured } from '@/lib/stripeClient';
+import {
+  checkoutIdempotencyKey,
+  createCheckoutSession,
+  isStripeConfigured,
+} from '@/lib/stripeClient';
 import { hasCapability } from '@/lib/teamRBAC';
 
 /**
@@ -83,9 +87,30 @@ export async function POST(request: Request) {
     const built = createCheckoutPayload(normalizedTier, organizationId, safeReturnUrl);
 
     if (!built.ok) {
-      // The tier is valid but this deployment has no Price id for it. Say so —
-      // and log the variable, so the founder is not left comparing a generic
-      // payment error against a Stripe status page.
+      // The tier is valid but this deployment cannot bill it. Two different
+      // fixes, so two different logs and two different codes — the second one
+      // is what actually took the purchase flow down: all three
+      // `STRIPE_PRICE_*` variables held Stripe **Product** ids, which Checkout
+      // answers `No such price: 'prod_…'`, indistinguishable from an outage
+      // once it reached the caller as a 502.
+      if (built.code === 'PRICE_ID_MALFORMED') {
+        console.error(
+          `[stripe] ${built.envVar} is set to "${built.value}", which is ` +
+            `${built.shape === 'product' ? 'a Product id' : 'not a Stripe Price id'}. ` +
+            'Checkout bills a Price, not a Product: open the product in the Stripe ' +
+            'dashboard and copy the id under Pricing, which begins with price_.'
+        );
+        return NextResponse.json(
+          {
+            error: {
+              code: 'STRIPE_PRICE_MISCONFIGURED',
+              message: 'Este plan todavía no está disponible para contratación en línea.',
+            },
+          },
+          { status: 503 }
+        );
+      }
+
       console.error(
         `[stripe] no price id configured for tier ${normalizedTier}; set ${
           built.code === 'PRICE_NOT_CONFIGURED' ? built.envVar : 'STRIPE_PRICE_*'
@@ -121,8 +146,13 @@ export async function POST(request: Request) {
       // Scoped to the tenant and canonical tier so a double-click reuses one
       // session — and so an alias ('pro') and its canonical name ('negocio') do
       // not open two sessions for the same purchase — while a genuine later
-      // upgrade still creates its own.
-      `checkout:${organizationId}:${normalizedTier}:${new Date().toISOString().slice(0, 13)}`
+      // upgrade still creates its own. The payload fingerprint is what keeps a
+      // *changed* request from colliding with the key an earlier one claimed:
+      // Stripe answers that collision with a 400 nobody can read.
+      checkoutIdempotencyKey(
+        `checkout:${organizationId}:${normalizedTier}:${new Date().toISOString().slice(0, 13)}`,
+        payload
+      )
     );
 
     if (!result.ok) {

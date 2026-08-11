@@ -162,6 +162,69 @@ export function normalizeTierKey(tierKey: string): StripeTierId | null {
   return TIER_ALIASES[(tierKey || '').toLowerCase().trim()] ?? null;
 }
 
+/** Stripe Price ids — the only thing `line_items[0][price]` accepts. */
+const PRICE_ID_PATTERN = /^price_[A-Za-z0-9_]+$/;
+
+/**
+ * What a configured `STRIPE_PRICE_*` value actually is.
+ *
+ * `'product'` is not a hypothetical. Production ran for days with all three
+ * variables set to the **Product** ids from the Stripe dashboard
+ * (`prod_V0DOcZFUtjlMkb` and its two siblings): Checkout answered
+ * `No such price: 'prod_…'`, the route turned that into the same generic
+ * "no se pudo iniciar el pago" a Stripe outage produces, and the founder could
+ * not tell a typo from an incident. A product id is one dashboard click away
+ * from the price id underneath it, so it earns its own diagnosis.
+ */
+export function describePriceIdShape(value: string): 'price' | 'product' | 'other' {
+  const trimmed = (value || '').trim();
+  if (PRICE_ID_PATTERN.test(trimmed)) return 'price';
+  if (/^prod_[A-Za-z0-9_]+$/.test(trimmed)) return 'product';
+  return 'other';
+}
+
+/**
+ * The outcome of looking up a product's Price id in the environment.
+ *
+ * Three states, not two: unset and *set to something Stripe cannot bill* need
+ * different words to the person who has to fix it, and collapsing them is how
+ * the second one hid behind a 502 for as long as it did.
+ */
+export type PriceIdResolution =
+  | { ok: true; priceId: string; envVar: string }
+  | { ok: false; code: 'NOT_CONFIGURED'; envVar: string }
+  | { ok: false; code: 'NOT_A_PRICE_ID'; envVar: string; value: string; shape: 'product' | 'other' };
+
+function resolvePriceEnv(envVars: string[], env: EnvRecord): PriceIdResolution {
+  for (const name of envVars) {
+    const value = env[name]?.trim();
+    if (!value) continue;
+
+    const shape = describePriceIdShape(value);
+    if (shape === 'price') return { ok: true, priceId: value, envVar: name };
+    return { ok: false, code: 'NOT_A_PRICE_ID', envVar: name, value, shape };
+  }
+
+  return { ok: false, code: 'NOT_CONFIGURED', envVar: envVars[0] };
+}
+
+/** Resolves a tier's Price id, distinguishing "unset" from "not a price id". */
+export function resolveTierPriceEnv(tierKey: string, env: EnvRecord = process.env): PriceIdResolution {
+  const tierId = normalizeTierKey(tierKey);
+  if (!tierId) return { ok: false, code: 'NOT_CONFIGURED', envVar: 'STRIPE_PRICE_*' };
+  return resolvePriceEnv(TIER_PRICE_ENV_VARS[tierId], env);
+}
+
+/** Resolves a folio pack's Price id, with the same three states. */
+export function resolveFolioPackPriceEnv(
+  packKey: string,
+  env: EnvRecord = process.env
+): PriceIdResolution {
+  const names = FOLIO_PACK_PRICE_ENV_VARS[packKey as FolioPackId];
+  if (!names) return { ok: false, code: 'NOT_CONFIGURED', envVar: 'STRIPE_PRICE_FOLIO_*' };
+  return resolvePriceEnv(names, env);
+}
+
 /**
  * Entitlement lookup: an unrecognised key resolves to Inicial, the smallest
  * entitlement, so an unknown stored value never grants folios it did not buy.
@@ -172,32 +235,81 @@ export function getStripeTierConfig(tierKey: string): StripeTierConfig {
   return STRIPE_PLANS[normalizeTierKey(tierKey) ?? 'inicial'];
 }
 
-/** The configured Stripe Price id for a tier, or null when its variable is unset. */
+/**
+ * The configured Stripe Price id for a tier, or null when its variable is unset
+ * **or holds something that is not a Price id**.
+ *
+ * Null for a malformed value on purpose: every caller of this treats what it
+ * returns as billable, and `resolveTierFromPriceId` treats it as the identity
+ * of a tier. A value Checkout would reject must never be either.
+ */
 export function resolveTierPriceId(tierKey: string, env: EnvRecord = process.env): string | null {
-  const tierId = normalizeTierKey(tierKey);
-  if (!tierId) return null;
-  for (const name of TIER_PRICE_ENV_VARS[tierId]) {
-    const value = env[name]?.trim();
-    if (value) return value;
-  }
-  return null;
+  const resolved = resolveTierPriceEnv(tierKey, env);
+  return resolved.ok ? resolved.priceId : null;
 }
 
-/** The configured Stripe Price id for a folio pack, or null when its variable is unset. */
+/** The configured Stripe Price id for a folio pack, on the same terms. */
 export function resolveFolioPackPriceId(packKey: string, env: EnvRecord = process.env): string | null {
-  const names = FOLIO_PACK_PRICE_ENV_VARS[packKey as FolioPackId];
-  if (!names) return null;
-  for (const name of names) {
-    const value = env[name]?.trim();
-    if (value) return value;
+  const resolved = resolveFolioPackPriceEnv(packKey, env);
+  return resolved.ok ? resolved.priceId : null;
+}
+
+/**
+ * Where Checkout sends the payer back. `(dashboard)` is a route group, so the
+ * settings page is served at `/settings` — `/dashboard/settings`, which this
+ * default used to be, is a 404. It only ever showed up as one when a caller
+ * omitted `returnUrl`.
+ */
+const DEFAULT_RETURN_PATH = '/settings';
+
+/** Parameters checkout owns on the return URL; a stale copy of one is dropped. */
+const RESERVED_RETURN_PARAMS = ['session_id', 'status', 'pack'];
+
+/**
+ * Builds a return URL carrying checkout's outcome parameters.
+ *
+ * The old form was `${returnUrl}?session_id=…&status=success`, and `returnUrl`
+ * is `window.location.href` — which, the moment a payer comes back from a
+ * cancelled session, already ends in `?status=cancelled`. That produced
+ * `…?status=cancelled?session_id={CHECKOUT_SESSION_ID}&status=success`: two
+ * `?`, and a `status` whose *first* value — the one `URLSearchParams.get`
+ * returns — says the payment was cancelled on the URL Stripe redirects to
+ * after a successful one.
+ *
+ * The parameters are appended as raw text rather than through `searchParams`
+ * so `{CHECKOUT_SESSION_ID}` reaches Stripe literally; percent-encoded braces
+ * are not the placeholder Stripe substitutes.
+ */
+function buildReturnUrl(returnUrl: string | undefined, params: string): string {
+  let url: URL;
+  try {
+    url = new URL(returnUrl || `${getAppBaseUrl()}${DEFAULT_RETURN_PATH}`);
+  } catch {
+    url = new URL(`${getAppBaseUrl()}${DEFAULT_RETURN_PATH}`);
   }
-  return null;
+
+  // A fragment after the query would swallow the parameters we are adding.
+  url.hash = '';
+  for (const name of RESERVED_RETURN_PARAMS) url.searchParams.delete(name);
+
+  const kept = url.searchParams.toString();
+  url.search = '';
+
+  return `${url.toString()}?${kept ? `${kept}&` : ''}${params}`;
 }
 
 export type CheckoutPayloadResult =
   | { ok: true; payload: Record<string, unknown>; tierId: StripeTierId }
   | { ok: false; code: 'UNKNOWN_TIER' }
-  | { ok: false; code: 'PRICE_NOT_CONFIGURED'; tierId: StripeTierId; envVar: string };
+  | { ok: false; code: 'PRICE_NOT_CONFIGURED'; tierId: StripeTierId; envVar: string }
+  | {
+      ok: false;
+      code: 'PRICE_ID_MALFORMED';
+      tierId: StripeTierId;
+      envVar: string;
+      value: string;
+      shape: 'product' | 'other';
+    };
 
 /**
  * Builds the Checkout Session payload for a subscription tier.
@@ -217,17 +329,27 @@ export function createCheckoutPayload(
   const tierId = normalizeTierKey(tierKey);
   if (!tierId) return { ok: false, code: 'UNKNOWN_TIER' };
 
-  const priceId = resolveTierPriceId(tierId, env);
-  if (!priceId) {
+  const resolved = resolveTierPriceEnv(tierId, env);
+  if (!resolved.ok) {
+    if (resolved.code === 'NOT_A_PRICE_ID') {
+      return {
+        ok: false,
+        code: 'PRICE_ID_MALFORMED',
+        tierId,
+        envVar: resolved.envVar,
+        value: resolved.value,
+        shape: resolved.shape,
+      };
+    }
     return {
       ok: false,
       code: 'PRICE_NOT_CONFIGURED',
       tierId,
-      envVar: TIER_PRICE_ENV_VARS[tierId][0],
+      envVar: resolved.envVar,
     };
   }
 
-  const baseUrl = returnUrl || `${getAppBaseUrl()}/dashboard/settings`;
+  const priceId = resolved.priceId;
   const metadata = {
     organization_id: organizationId,
     tier_id: tierId,
@@ -252,8 +374,8 @@ export function createCheckoutPayload(
       // `customer.subscription.*` event would arrive unattributable.
       subscription_data: { metadata },
       client_reference_id: organizationId,
-      success_url: `${baseUrl}?session_id={CHECKOUT_SESSION_ID}&status=success`,
-      cancel_url: `${baseUrl}?status=cancelled`,
+      success_url: buildReturnUrl(returnUrl, 'session_id={CHECKOUT_SESSION_ID}&status=success'),
+      cancel_url: buildReturnUrl(returnUrl, 'status=cancelled'),
     },
   };
 }
@@ -261,7 +383,15 @@ export function createCheckoutPayload(
 export type FolioPackPayloadResult =
   | { ok: true; payload: Record<string, unknown>; packId: FolioPackId }
   | { ok: false; code: 'UNKNOWN_PACK' }
-  | { ok: false; code: 'PRICE_NOT_CONFIGURED'; packId: FolioPackId; envVar: string };
+  | { ok: false; code: 'PRICE_NOT_CONFIGURED'; packId: FolioPackId; envVar: string }
+  | {
+      ok: false;
+      code: 'PRICE_ID_MALFORMED';
+      packId: FolioPackId;
+      envVar: string;
+      value: string;
+      shape: 'product' | 'other';
+    };
 
 export function createFolioPackCheckoutPayload(
   packKey: string,
@@ -272,17 +402,27 @@ export function createFolioPackCheckoutPayload(
   const pack = STRIPE_FOLIO_PACKS[packKey];
   if (!pack) return { ok: false, code: 'UNKNOWN_PACK' };
 
-  const priceId = resolveFolioPackPriceId(pack.id, env);
-  if (!priceId) {
+  const resolved = resolveFolioPackPriceEnv(pack.id, env);
+  if (!resolved.ok) {
+    if (resolved.code === 'NOT_A_PRICE_ID') {
+      return {
+        ok: false,
+        code: 'PRICE_ID_MALFORMED',
+        packId: pack.id,
+        envVar: resolved.envVar,
+        value: resolved.value,
+        shape: resolved.shape,
+      };
+    }
     return {
       ok: false,
       code: 'PRICE_NOT_CONFIGURED',
       packId: pack.id,
-      envVar: FOLIO_PACK_PRICE_ENV_VARS[pack.id][0],
+      envVar: resolved.envVar,
     };
   }
 
-  const baseUrl = returnUrl || `${getAppBaseUrl()}/dashboard/settings`;
+  const priceId = resolved.priceId;
   return {
     ok: true,
     packId: pack.id,
@@ -300,8 +440,11 @@ export function createFolioPackCheckoutPayload(
         pack_id: pack.id,
         folios: pack.folios.toString(),
       },
-      success_url: `${baseUrl}?session_id={CHECKOUT_SESSION_ID}&status=success&pack=${pack.id}`,
-      cancel_url: `${baseUrl}?status=cancelled`,
+      success_url: buildReturnUrl(
+        returnUrl,
+        `session_id={CHECKOUT_SESSION_ID}&status=success&pack=${pack.id}`
+      ),
+      cancel_url: buildReturnUrl(returnUrl, 'status=cancelled'),
     },
   };
 }
@@ -478,10 +621,12 @@ export interface StripeEnvironmentAudit {
   isReady: boolean;
   isWebhookConfigured: boolean;
   hasSecretKey: boolean;
-  /** null for any tier whose STRIPE_PRICE_* variable is unset. */
+  /** null for any tier whose STRIPE_PRICE_* variable is unset or holds a non-price id. */
   priceIds: Record<StripeTierId, string | null>;
-  /** Tiers that cannot be sold because they have no Price id. */
+  /** Tiers that cannot be sold because they have no usable Price id. */
   unconfiguredTiers: StripeTierId[];
+  /** Variables that are set to something Stripe cannot bill — a product id, usually. */
+  malformedPriceVars: Array<{ tierId: StripeTierId; envVar: string; value: string; shape: 'product' | 'other' }>;
   missingKeys: string[];
 }
 
@@ -508,15 +653,27 @@ export function auditStripeEnvironment(env: EnvRecord = process.env): StripeEnvi
   const isWebhookConfigured = webhookSecret.startsWith('whsec_');
 
   const tierIds = Object.keys(TIER_PRICE_ENV_VARS) as StripeTierId[];
-  const priceIds = tierIds.reduce(
-    (acc, tierId) => {
-      acc[tierId] = resolveTierPriceId(tierId, env);
+  const resolutions = tierIds.map((tierId) => [tierId, resolveTierPriceEnv(tierId, env)] as const);
+
+  const priceIds = resolutions.reduce(
+    (acc, [tierId, resolved]) => {
+      acc[tierId] = resolved.ok ? resolved.priceId : null;
       return acc;
     },
     {} as Record<StripeTierId, string | null>
   );
 
   const unconfiguredTiers = tierIds.filter((tierId) => !priceIds[tierId]);
+
+  // Set-but-unbillable is a different fix from unset, and it is the one that
+  // actually shipped: reporting it as "missing" would send the founder to add a
+  // variable that is already there.
+  const malformedPriceVars = resolutions.flatMap(([tierId, resolved]) =>
+    !resolved.ok && resolved.code === 'NOT_A_PRICE_ID'
+      ? [{ tierId, envVar: resolved.envVar, value: resolved.value, shape: resolved.shape }]
+      : []
+  );
+
   const isReady = mode !== 'unconfigured' && isWebhookConfigured && unconfiguredTiers.length === 0;
 
   return {
@@ -526,10 +683,13 @@ export function auditStripeEnvironment(env: EnvRecord = process.env): StripeEnvi
     hasSecretKey: Boolean(secretKey),
     priceIds,
     unconfiguredTiers,
+    malformedPriceVars,
     missingKeys: [
       !secretKey ? 'STRIPE_SECRET_KEY' : null,
       !webhookSecret ? 'STRIPE_WEBHOOK_SECRET' : null,
-      ...unconfiguredTiers.map((tierId) => TIER_PRICE_ENV_VARS[tierId][0]),
+      ...unconfiguredTiers
+        .filter((tierId) => !malformedPriceVars.some((v) => v.tierId === tierId))
+        .map((tierId) => TIER_PRICE_ENV_VARS[tierId][0]),
     ].filter((k): k is string => k !== null)
   };
 }
