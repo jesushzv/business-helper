@@ -79,13 +79,12 @@ not earned. It has shipped here at least eight times.
 
 ## Database and migrations
 
-- **`REVOKE … FROM PUBLIC` does not lock down a `SECURITY DEFINER` function.** Supabase grants
-  `EXECUTE` to `anon` and `authenticated` as *named roles*; revoking the implicit `PUBLIC` grant
-  leaves those standing, and PostgREST serves the function at
-  `/rest/v1/rpc/<name>` outside RLS (#76 — unlimited folio minting). Always
-  `REVOKE EXECUTE ON FUNCTION public.f(<signature>) FROM anon, authenticated;`.
-  `tests/unit/securityDefinerGrants.test.ts` fails the build on a new one without it and holds the
-  one exemption. It reads migration *files*; live grants still need #76's `aclexplode` query.
+- **`REVOKE … FROM PUBLIC` does not lock down a `SECURITY DEFINER` function** (#76 — unlimited
+  folio minting). Supabase grants `EXECUTE` to `anon`/`authenticated` as *named roles*, so
+  PostgREST keeps serving `/rest/v1/rpc/<name>` outside RLS. Always
+  `REVOKE EXECUTE ON FUNCTION public.f(<sig>) FROM anon, authenticated;`.
+  `tests/unit/securityDefinerGrants.test.ts` is the gate and holds the one exemption; it reads
+  migration *files*, so live grants still need #76's `aclexplode` query.
 - **Never edit a migration after it has been applied anywhere.** `ADD COLUMN IF NOT EXISTS` is
   idempotent but not convergent, and `db:migrate` skips files the ledger lists — an edited file
   leaves repo and production silently disagreeing. Reconcile the live DB explicitly (an `ALTER`
@@ -100,6 +99,14 @@ not earned. It has shipped here at least eight times.
   so `unpaid`/`incomplete` read as **Activo** (#95). Check `pg_get_constraintdef` before narrowing,
   and map an unrecognised value to `null`, never the nearest listed — `'free'` mapped to `'inicial'`
   showed a $299 plan nobody bought and disabled its own subscribe button.
+- **When the app and RLS each decide "which tenants may this user act on", they will disagree**
+  (#146). `requireOrgAccess()` read `organizations.owner_id` and returned `role: 'owner'`;
+  `user_organization_ids()`, the whole check behind nine policies, read `organization_members` only
+  — and nothing creates a member row for an owner. Auth passed, the route ran, every INSERT came
+  back `42501`: the org row visible, none of its contents. Derive both from the same fact, and prove
+  access by impersonating a real `auth.uid()` (`set_config('request.jwt.claims', …)` then INSERT):
+  it must **succeed for the caller's org and be refused for another's**.
+  `tests/unit/orgOwnerAccess.test.ts` pins the definition; only the catalog proves the deployment.
 - **Nullable-with-no-default is a decision.** Where the UI must tell "never set" from "set to zero",
   refuse `DEFAULT 0`/`'active'` — the #64 tri-state rule at the column — and keep such columns
   independent in the form: coupling `credit_status` to `credit_limit` discarded an owner blocking a
@@ -122,27 +129,21 @@ not earned. It has shipped here at least eight times.
   name as a parameter, signature omitted when unknown). `tests/unit/demoIdentityLeak.test.ts` fails
   the build on a leak and keeps the allowlist.
 - **A form the user cannot get past is usually validation that returns at the first failure and
-  names no field** (#146). Registering a client was unfinishable: both routes checked name → RFC →
-  crédito → teléfono in sequence and 400'd at the first, so each submit revealed one more problem;
-  the envelope carried prose with no field attached; and the form dropped that prose into one banner
-  at the top of a modal taller than a 375px viewport, so tapping *Guardar* at the bottom looked like
-  nothing happened. Validate everything, key each message by **column** in `error.fields`, and pin
-  it under its own input with focus moved there — a message the tenant must scroll to find is not a
-  message. Corollary: **a validation gate belongs where the value is load-bearing.** The RFC gate
-  cost the whole client record for a field only CFDI stamping needs, which `lib/facturapi.ts`
-  already refuses loudly on its own.
-- **A layer-by-layer suite cannot see a defect that lives between the layers** (#146). The clients
-  coverage invoked both handlers, pinned the phone normalizer and the credit maths — and never
-  rendered the form, so three defects that together made registration impossible were all invisible
-  to it. Ask the tenant's question, not the function's: *can I complete this?* A form component
-  gets a test that fills the minimum and submits;
-  `tests/unit/formComponentsAreTested.test.ts` fails the build on a new one without it.
-- **One `catch`-all 500 on a write is a diagnosis you threw away** (#146). `if (error) return 500
-  'No se pudo crear el cliente'` made a missing column (`PGRST204` — #96's exact shape), a CHECK,
-  an RLS denial and an outage identical on screen *and* in the logs, since the raw error was
-  discarded. Map the code to a Spanish cause naming the column, and `captureException` the original
-  every time: `lib/dbWriteError.ts` is the reference, and
-  `tests/unit/writeErrorLegibility.test.ts` fails the build on a new one.
+  names no field** (#146). Both clients routes checked name → RFC → crédito → teléfono in sequence
+  and 400'd at the first, so each submit revealed one more problem; the envelope carried prose with
+  no field attached; and the form put it in one banner atop a modal taller than a 375px viewport, so
+  tapping *Guardar* at the bottom looked like nothing happened. Validate everything, key each
+  message by **column** in `error.fields`, and pin it under its own input with focus moved there — a
+  message the tenant must scroll to find is not a message. Corollary: **a validation gate belongs
+  where the value is load-bearing.** The RFC gate cost the whole client record for a field only CFDI
+  stamping needs, which `lib/facturapi.ts` already refuses loudly on its own.
+- **A layer-by-layer suite cannot see a defect between the layers** (#146). Ask the tenant's
+  question, not the function's — *can I complete this?* A form component gets a test that fills the
+  minimum and submits; `tests/unit/formComponentsAreTested.test.ts` fails the build on a new one.
+- **One `catch`-all 500 on a write is a diagnosis you threw away** (#146) — a missing column, a
+  CHECK, an RLS denial and an outage, identical on screen *and* in the logs. Map the code to a
+  Spanish cause naming the column and `captureException` the original: `lib/dbWriteError.ts` is the
+  reference, `tests/unit/writeErrorLegibility.test.ts` the gate.
 - **localStorage is demo-sandbox state, never a real tenant's store.** Real tenants read the API
   (an empty list is a real answer), see errors as errors, and their mutations apply the server row
   or throw. Seeding fixtures on a failed fetch is how a new tenant's directory opened with three
