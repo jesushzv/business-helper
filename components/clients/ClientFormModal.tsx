@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, AlertCircle, Building2, User, Mail, FileText, MapPin } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Info, Building2, User, Mail, FileText, MapPin } from 'lucide-react';
 import { Client } from '@/types';
 import { validateRFC } from '@/lib/rfcValidator';
+import { ClientWriteError } from '@/lib/clientWriteError';
 import { PhoneField } from '@/components/shared/PhoneField';
 
 interface ClientFormModalProps {
@@ -30,6 +31,36 @@ const CFDI_USES = [
   { code: 'S01', label: 'S01 - Sin efectos fiscales' },
 ];
 
+/**
+ * The input each column's error message belongs to.
+ *
+ * The API reports failures keyed by column name; this is the only translation
+ * needed to move focus to the offending field. Keys must stay in step with
+ * `FIELD_ORDER` in `lib/clientValidation.ts` — `tests/components/
+ * ClientFormModal.test.tsx` fails the build when a validated column has no
+ * input to point at.
+ */
+export const FIELD_INPUT_IDS: Record<string, string> = {
+  name: 'client-name',
+  contact_name: 'client-contact-name',
+  email: 'client-email',
+  phone: 'client-phone',
+  rfc: 'client-rfc',
+  regimen_fiscal: 'client-regimen-fiscal',
+  codigo_postal: 'client-codigo-postal',
+  cfdi_use: 'client-cfdi-use',
+  credit_limit: 'client-credit-limit',
+  credit_days: 'client-credit-days',
+  credit_status: 'client-credit-status',
+};
+
+/** Border + ring for an input the server or the form has objected to. */
+function fieldClass(base: string, invalid: boolean): string {
+  return invalid
+    ? `${base} border-rose-500/70 focus:border-rose-400`
+    : `${base} border-slate-800 focus:border-emerald-500`;
+}
+
 export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   isOpen,
   onClose,
@@ -51,6 +82,16 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Column name → Spanish message, rendered under the matching input.
+   *
+   * The form used to hold a single `error` string and show it in one banner at
+   * the top of a modal that, at 375px, is taller than the screen. Tapping
+   * "Guardar Cliente" at the bottom therefore looked like it did nothing, and
+   * the message — when it was finally scrolled to — named no field. Both
+   * halves of "no sé qué me falta" came from that.
+   */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (initialClient) {
@@ -81,25 +122,75 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setNotes('');
     }
     setError(null);
+    setFieldErrors({});
   }, [initialClient, isOpen]);
 
-  // Live RFC Modulo 11 Validation
-  const rfcValidation = rfc ? validateRFC(rfc) : { isValid: false, type: null };
+  /**
+   * RFC shape, shown as guidance and **never** as a gate.
+   *
+   * A client is a directory entry first. The RFC is only load-bearing when a
+   * CFDI is stamped, and `lib/facturapi.ts` refuses to stamp one with a bad
+   * receptor RFC and says why — so blocking registration over it lost the
+   * client to keep a field the owner may not have been given yet.
+   */
+  const rfcLooksValid = rfc.trim() ? validateRFC(rfc.trim()).isValid : true;
+  const rfcType = rfc.trim() ? validateRFC(rfc.trim()).type : null;
+
+  /** Drops a field's error as soon as the tenant touches it. */
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  /**
+   * Puts the first bad field on screen and in focus.
+   *
+   * Without this the messages exist but the tenant never reaches them: the
+   * banner is above the fold, the submit button is below it, and a phone shows
+   * one of the two.
+   */
+  const focusFirstError = (errors: Record<string, string>) => {
+    const first = Object.keys(errors)[0];
+    const inputId = first && FIELD_INPUT_IDS[first];
+    if (!inputId || typeof document === 'undefined') return;
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    // `focus` is the load-bearing half and every environment has it;
+    // `scrollIntoView` is the enhancement and jsdom does not implement it.
+    if (typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    el.focus({ preventScroll: true });
+  };
+
+  const applyErrors = (errors: Record<string, string>, summary: string | null) => {
+    setFieldErrors(errors);
+    setError(summary);
+    focusFirstError(errors);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setError('El nombre o razón social del cliente es obligatorio.');
-      return;
-    }
 
-    if (rfc.trim() && !rfcValidation.isValid) {
-      setError('El RFC ingresado no tiene una sintaxis válida de SAT (12 o 13 caracteres).');
+    // Only the name is checked here. Everything else is the server's call and
+    // comes back attributed — duplicating those rules in the browser is how a
+    // client and a server come to disagree about the same client (#95's class),
+    // and a stricter copy would refuse values the product can actually store.
+    if (!name.trim()) {
+      applyErrors(
+        { name: 'Escribe el nombre o razón social del cliente.' },
+        'Falta el nombre del cliente. Es el único dato obligatorio.'
+      );
       return;
     }
 
     setSaving(true);
     setError(null);
+    setFieldErrors({});
     try {
       await onSave({
         // null, not undefined: the write path skips undefined keys so it can
@@ -131,13 +222,43 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al guardar cliente';
-      setError(msg);
+      // A ClientWriteError carries the API's per-field map; anything else is a
+      // failure with no field to blame, and stays in the banner alone.
+      const fields = err instanceof ClientWriteError ? err.fields : {};
+      applyErrors(fields, msg);
     } finally {
       setSaving(false);
     }
   };
 
   if (!isOpen) return null;
+
+  const errorCount = Object.keys(fieldErrors).length;
+
+  /** Message + wiring for one input, so every field reports the same way. */
+  const fieldProps = (field: string) => {
+    const message = fieldErrors[field];
+    return {
+      id: FIELD_INPUT_IDS[field],
+      'aria-invalid': message ? true : undefined,
+      'aria-describedby': message ? `${FIELD_INPUT_IDS[field]}-error` : undefined,
+    };
+  };
+
+  const FieldError: React.FC<{ field: string }> = ({ field }) => {
+    const message = fieldErrors[field];
+    if (!message) return null;
+    return (
+      <p
+        id={`${FIELD_INPUT_IDS[field]}-error`}
+        role="alert"
+        className="mt-1.5 flex items-start gap-1.5 text-[11px] font-semibold text-rose-400"
+      >
+        <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+        <span>{message}</span>
+      </p>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-md">
@@ -155,120 +276,194 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           {initialClient ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}
         </h3>
         <p className="mt-1 text-xs text-slate-400">
-          Captura los datos del cliente para cotizaciones y cobranza SAT.
+          Solo el nombre es obligatorio. Todo lo demás lo puedes completar después.
         </p>
 
         {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-xl bg-rose-950/80 border border-rose-500/30 p-3 text-xs font-semibold text-rose-400">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{error}</span>
+          <div
+            role="alert"
+            className="mt-4 flex items-start gap-2 rounded-xl bg-rose-950/80 border border-rose-500/30 p-3 text-xs font-semibold text-rose-400"
+          >
+            <AlertCircle className="mt-px h-4 w-4 shrink-0" />
+            <span>
+              {error}
+              {errorCount > 1 && (
+                <span className="mt-1 block font-medium text-rose-300/80">
+                  Marcamos en rojo cada campo que hay que corregir.
+                </span>
+              )}
+            </span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        {/* noValidate: the browser's own bubbles arrive in the device language,
+            not the product's, and they stop at the first field. Every message
+            here is ours, in Spanish, and they all appear at once. */}
+        <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
           {/* Business / Client Name */}
           <div>
-            <label className="block text-xs font-bold text-slate-300">
+            <label htmlFor={FIELD_INPUT_IDS.name} className="block text-xs font-bold text-slate-300">
               Nombre o Razón Social <span className="text-rose-400">*</span>
             </label>
             <div className="relative mt-1.5">
               <Building2 className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
               <input
+                {...fieldProps('name')}
                 type="text"
-                required
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  clearFieldError('name');
+                }}
                 placeholder="Ej. Construcciones Maya S.A. de C.V."
-                className="w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                className={fieldClass(
+                  'w-full min-h-[48px] rounded-xl border bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:outline-none',
+                  !!fieldErrors.name
+                )}
               />
             </div>
+            <FieldError field="name" />
           </div>
 
           {/* Contact Person & Phone */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-bold text-slate-300">Persona de Contacto</label>
+              <label
+                htmlFor={FIELD_INPUT_IDS.contact_name}
+                className="block text-xs font-bold text-slate-300"
+              >
+                Persona de Contacto
+              </label>
               <div className="relative mt-1.5">
                 <User className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
+                  {...fieldProps('contact_name')}
                   type="text"
                   value={contactName}
-                  onChange={(e) => setContactName(e.target.value)}
+                  onChange={(e) => {
+                    setContactName(e.target.value);
+                    clearFieldError('contact_name');
+                  }}
                   placeholder="Ej. Arq. Fernando Maya"
-                  className="w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  className={fieldClass(
+                    'w-full min-h-[48px] rounded-xl border bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:outline-none',
+                    !!fieldErrors.contact_name
+                  )}
                 />
               </div>
+              <FieldError field="contact_name" />
             </div>
 
-            <PhoneField
-              inputId="client-phone"
-              value={phone}
-              onChange={setPhone}
-              hint="Es el número al que se envía el código de firma. Si tu cliente está en otro país, elige su bandera."
-            />
+            <div>
+              <PhoneField
+                inputId={FIELD_INPUT_IDS.phone}
+                value={phone}
+                onChange={(next) => {
+                  setPhone(next);
+                  clearFieldError('phone');
+                }}
+                hint="Opcional. Es el número al que se envía el código de firma. Si tu cliente está en otro país, elige su bandera."
+              />
+              <FieldError field="phone" />
+            </div>
           </div>
 
           {/* Email & RFC */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-bold text-slate-300">Correo Electrónico</label>
+              <label
+                htmlFor={FIELD_INPUT_IDS.email}
+                className="block text-xs font-bold text-slate-300"
+              >
+                Correo Electrónico
+              </label>
               <div className="relative mt-1.5">
                 <Mail className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
+                  {...fieldProps('email')}
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    clearFieldError('email');
+                  }}
                   placeholder="contacto@cliente.com"
-                  className="w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  className={fieldClass(
+                    'w-full min-h-[48px] rounded-xl border bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:outline-none',
+                    !!fieldErrors.email
+                  )}
                 />
               </div>
+              <FieldError field="email" />
             </div>
 
             <div>
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-300">RFC del Cliente</label>
-                {rfc && (
-                  <span
-                    className={`flex items-center gap-1 text-[11px] font-bold ${
-                      rfcValidation.isValid ? 'text-emerald-400' : 'text-amber-400'
-                    }`}
-                  >
-                    {rfcValidation.isValid ? (
-                      <>
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span>RFC Válido ({rfcValidation.type})</span>
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="h-3.5 w-3.5" />
-                        <span>Incompleto</span>
-                      </>
-                    )}
-                  </span>
-                )}
-              </div>
+              <label
+                htmlFor={FIELD_INPUT_IDS.rfc}
+                className="block text-xs font-bold text-slate-300"
+              >
+                RFC del Cliente <span className="font-medium text-slate-500">(opcional)</span>
+              </label>
               <div className="relative mt-1.5">
                 <FileText className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
+                  {...fieldProps('rfc')}
                   type="text"
                   maxLength={13}
                   value={rfc}
-                  onChange={(e) => setRfc(e.target.value.toUpperCase())}
+                  onChange={(e) => {
+                    setRfc(e.target.value.toUpperCase());
+                    clearFieldError('rfc');
+                  }}
                   placeholder="CMA120315HD9"
-                  className="w-full min-h-[48px] font-mono uppercase rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-bold text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  className={fieldClass(
+                    'w-full min-h-[48px] font-mono uppercase rounded-xl border bg-slate-950/80 pl-11 pr-4 text-sm font-bold text-white placeholder-slate-500 focus:outline-none',
+                    !!fieldErrors.rfc
+                  )}
                 />
               </div>
+              {/* Guidance, not a gate: the RFC never blocks the save. Saying so
+                  next to the field is what keeps accepting a half-typed one
+                  from reading as the product blessing it. */}
+              {rfc.trim() &&
+                (rfcLooksValid ? (
+                  <p className="mt-1.5 flex items-center gap-1 text-[11px] font-bold text-emerald-400">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                    <span>RFC válido ({rfcType})</span>
+                  </p>
+                ) : (
+                  <p className="mt-1.5 flex items-start gap-1.5 text-[11px] font-semibold text-amber-400">
+                    <Info className="mt-px h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      No parece un RFC del SAT (12 o 13 caracteres). Puedes guardar el cliente
+                      así; solo lo necesitarás correcto para facturarle.
+                    </span>
+                  </p>
+                ))}
+              <FieldError field="rfc" />
             </div>
           </div>
 
           {/* SAT Tax Regime & Postal Code */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-300">Régimen Fiscal SAT</label>
+              <label
+                htmlFor={FIELD_INPUT_IDS.regimen_fiscal}
+                className="block text-xs font-bold text-slate-300"
+              >
+                Régimen Fiscal SAT <span className="font-medium text-slate-500">(opcional)</span>
+              </label>
               <select
+                {...fieldProps('regimen_fiscal')}
                 value={regimenFiscal}
-                onChange={(e) => setRegimenFiscal(e.target.value)}
-                className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
+                onChange={(e) => {
+                  setRegimenFiscal(e.target.value);
+                  clearFieldError('regimen_fiscal');
+                }}
+                className={fieldClass(
+                  'mt-1.5 w-full min-h-[48px] rounded-xl border bg-slate-950/80 px-3 text-xs font-medium text-white focus:outline-none',
+                  !!fieldErrors.regimen_fiscal
+                )}
               >
                 {/* The régimen decides how a CFDI is stamped, so it is the
                     client's own answer or nothing — the form used to preselect
@@ -283,31 +478,58 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                   </option>
                 ))}
               </select>
+              <FieldError field="regimen_fiscal" />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300">Código Postal</label>
+              <label
+                htmlFor={FIELD_INPUT_IDS.codigo_postal}
+                className="block text-xs font-bold text-slate-300"
+              >
+                Código Postal
+              </label>
               <div className="relative mt-1.5">
                 <MapPin className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
+                  {...fieldProps('codigo_postal')}
                   type="text"
+                  inputMode="numeric"
                   maxLength={5}
                   value={codigoPostal}
-                  onChange={(e) => setCodigoPostal(e.target.value)}
+                  onChange={(e) => {
+                    setCodigoPostal(e.target.value);
+                    clearFieldError('codigo_postal');
+                  }}
                   placeholder="64000"
-                  className="w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white focus:border-emerald-500 focus:outline-none"
+                  className={fieldClass(
+                    'w-full min-h-[48px] rounded-xl border bg-slate-950/80 pl-11 pr-4 text-sm font-medium text-white focus:outline-none',
+                    !!fieldErrors.codigo_postal
+                  )}
                 />
               </div>
+              <FieldError field="codigo_postal" />
             </div>
           </div>
 
           {/* CFDI Usage */}
           <div>
-            <label className="block text-xs font-bold text-slate-300">Uso de CFDI Preferente</label>
+            <label
+              htmlFor={FIELD_INPUT_IDS.cfdi_use}
+              className="block text-xs font-bold text-slate-300"
+            >
+              Uso de CFDI Preferente
+            </label>
             <select
+              {...fieldProps('cfdi_use')}
               value={cfdiUse}
-              onChange={(e) => setCfdiUse(e.target.value)}
-              className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950/80 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
+              onChange={(e) => {
+                setCfdiUse(e.target.value);
+                clearFieldError('cfdi_use');
+              }}
+              className={fieldClass(
+                'mt-1.5 w-full min-h-[48px] rounded-xl border bg-slate-950/80 px-3 text-xs font-medium text-white focus:outline-none',
+                !!fieldErrors.cfdi_use
+              )}
             >
               {CFDI_USES.map((u) => (
                 <option key={u.code} value={u.code} className="bg-slate-900 text-white">
@@ -315,36 +537,62 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 </option>
               ))}
             </select>
+            <FieldError field="cfdi_use" />
           </div>
 
           {/* B2B Credit Conditions */}
           <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 space-y-4">
             <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-400">
-              Condiciones de Crédito B2B
+              Condiciones de Crédito B2B <span className="font-bold text-slate-500">(opcional)</span>
             </h4>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {/* Credit Limit */}
               <div>
-                <label className="block text-xs font-bold text-slate-300">Límite de Crédito ($ MXN)</label>
+                <label
+                  htmlFor={FIELD_INPUT_IDS.credit_limit}
+                  className="block text-xs font-bold text-slate-300"
+                >
+                  Límite de Crédito ($ MXN)
+                </label>
                 <input
+                  {...fieldProps('credit_limit')}
                   type="number"
                   min={0}
                   step={1000}
                   value={creditLimit}
-                  onChange={(e) => setCreditLimit(e.target.value ? Number(e.target.value) : '')}
+                  onChange={(e) => {
+                    setCreditLimit(e.target.value ? Number(e.target.value) : '');
+                    clearFieldError('credit_limit');
+                  }}
                   placeholder="Ej. 50000"
-                  className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-900 px-3 text-sm font-semibold text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  className={fieldClass(
+                    'mt-1.5 w-full min-h-[48px] rounded-xl border bg-slate-900 px-3 text-sm font-semibold text-white placeholder-slate-500 focus:outline-none',
+                    !!fieldErrors.credit_limit
+                  )}
                 />
+                <FieldError field="credit_limit" />
               </div>
 
               {/* Credit Days / Payment Terms */}
               <div>
-                <label className="block text-xs font-bold text-slate-300">Plazo de Crédito (Días)</label>
+                <label
+                  htmlFor={FIELD_INPUT_IDS.credit_days}
+                  className="block text-xs font-bold text-slate-300"
+                >
+                  Plazo de Crédito (Días)
+                </label>
                 <select
+                  {...fieldProps('credit_days')}
                   value={creditDays}
-                  onChange={(e) => setCreditDays(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
+                  onChange={(e) => {
+                    setCreditDays(e.target.value === '' ? '' : Number(e.target.value));
+                    clearFieldError('credit_days');
+                  }}
+                  className={fieldClass(
+                    'mt-1.5 w-full min-h-[48px] rounded-xl border bg-slate-900 px-3 text-xs font-medium text-white focus:outline-none',
+                    !!fieldErrors.credit_days
+                  )}
                 >
                   <option value="" className="bg-slate-900 text-white">Sin definir</option>
                   <option value={0} className="bg-slate-900 text-white">0 días (Contado)</option>
@@ -355,21 +603,35 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                   <option value={60} className="bg-slate-900 text-white">60 días</option>
                   <option value={90} className="bg-slate-900 text-white">90 días</option>
                 </select>
+                <FieldError field="credit_days" />
               </div>
 
               {/* Credit Status */}
               <div>
-                <label className="block text-xs font-bold text-slate-300">Estatus de Crédito</label>
+                <label
+                  htmlFor={FIELD_INPUT_IDS.credit_status}
+                  className="block text-xs font-bold text-slate-300"
+                >
+                  Estatus de Crédito
+                </label>
                 <select
+                  {...fieldProps('credit_status')}
                   value={creditStatus}
-                  onChange={(e) => setCreditStatus(e.target.value as '' | 'active' | 'suspended' | 'blocked')}
-                  className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none"
+                  onChange={(e) => {
+                    setCreditStatus(e.target.value as '' | 'active' | 'suspended' | 'blocked');
+                    clearFieldError('credit_status');
+                  }}
+                  className={fieldClass(
+                    'mt-1.5 w-full min-h-[48px] rounded-xl border bg-slate-900 px-3 text-xs font-medium text-white focus:outline-none',
+                    !!fieldErrors.credit_status
+                  )}
                 >
                   <option value="" className="bg-slate-900 text-white">Sin asignar</option>
                   <option value="active" className="bg-slate-900 text-emerald-400">Activo (Crédito Permitido)</option>
                   <option value="suspended" className="bg-slate-900 text-amber-400">Suspendido (Requiere Revisión)</option>
                   <option value="blocked" className="bg-slate-900 text-rose-400">Bloqueado (Solo Contado)</option>
                 </select>
+                <FieldError field="credit_status" />
               </div>
             </div>
           </div>

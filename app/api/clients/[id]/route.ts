@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
+import { requireOrgAccess, pickFields, CLIENT_WRITABLE_FIELDS } from '@/lib/apiAuth';
 import {
-  requireOrgAccess,
-  pickFields,
-  validateCreditTerms,
-  CLIENT_WRITABLE_FIELDS,
-} from '@/lib/apiAuth';
-import { validateRFC } from '@/lib/rfcValidator';
-import { normalizeClientPhone } from '@/lib/phoneValidator';
+  validateClientWrite,
+  summarizeFieldErrors,
+  fieldErrorCode,
+} from '@/lib/clientValidation';
+import { describeDbWriteError } from '@/lib/dbWriteError';
 
 /**
  * Single-client operations.
@@ -67,52 +66,34 @@ export async function PUT(
     // the body the form sends, so editing régimen fiscal, código postal, uso de
     // CFDI or contact name was a silent no-op reported as saved (#96).
     const fields = pickFields<Record<string, unknown>>(body, CLIENT_WRITABLE_FIELDS);
-    const { name, rfc, phone } = fields as {
-      name?: unknown;
-      rfc?: unknown;
-      phone?: unknown;
-    };
 
-    if (rfc && typeof rfc === 'string' && rfc.trim()) {
-      const v = validateRFC(rfc.trim());
-      if (!v.isValid) {
-        return NextResponse.json(
-          { error: { code: 'INVALID_RFC', message: 'El RFC no tiene un formato SAT válido' } },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Only when the caller is actually setting the phone — a PATCH of, say,
-    // `notes` must not fail over a value already in the column (#40).
-    const phoneNormalized = normalizeClientPhone(phone);
-    if (phone !== undefined && phoneNormalized.error) {
+    // Same all-at-once, per-field validation as create, so the edit form can
+    // pin each message under its own input instead of showing one at a time.
+    // `requireName: false` keeps the patch semantics: a caller sending only
+    // `notes` is not made to resend the name, and an unusable name leaves the
+    // stored one alone rather than renaming the client to "null".
+    const { fieldErrors, values } = validateClientWrite(fields, { requireName: false });
+    if (Object.keys(fieldErrors).length > 0) {
       return NextResponse.json(
-        { error: { code: 'INVALID_PHONE', message: phoneNormalized.error } },
-        { status: 400 }
-      );
-    }
-
-    const credit = validateCreditTerms(fields);
-    if (!credit.ok) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_CREDIT_TERMS', message: credit.message } },
+        {
+          error: {
+            code: fieldErrorCode(fieldErrors),
+            message: summarizeFieldErrors(fieldErrors),
+            fields: fieldErrors,
+          },
+        },
         { status: 400 }
       );
     }
 
     const updates: Record<string, unknown> = {
       ...fields,
-      ...credit.values,
+      ...values,
       updated_at: new Date().toISOString(),
     };
-    // Leave the stored name alone unless the caller sent a usable one. The
-    // typeof guard matters: `String(null).trim()` is the truthy string "null",
-    // so a `{"name": null}` body used to rename the client to "null".
-    if (typeof name !== 'string' || !name.trim()) delete updates.name;
-    else updates.name = name.trim();
-    if (phone !== undefined) updates.phone = phoneNormalized.value;
-    if (rfc !== undefined) updates.rfc = rfc ? String(rfc).toUpperCase().trim() : null;
+    // `values.name` is present only when the caller sent a usable one; the raw
+    // key has to go with it, or the spread above would still write the junk.
+    if (values.name === undefined) delete updates.name;
 
     const { data: updated, error } = await supabase
       .from('clients')
@@ -123,9 +104,16 @@ export async function PUT(
       .maybeSingle();
 
     if (error) {
+      const failure = describeDbWriteError(error, 'el cliente', 'PUT /api/clients/[id]');
       return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'Error al actualizar el cliente' } },
-        { status: 500 }
+        {
+          error: {
+            code: failure.code,
+            message: failure.message,
+            ...(failure.field ? { fields: { [failure.field]: failure.message } } : {}),
+          },
+        },
+        { status: failure.status }
       );
     }
 

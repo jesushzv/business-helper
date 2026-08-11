@@ -107,26 +107,23 @@ describe('international numbers are in scope (#94)', () => {
 });
 
 describe('the routes actually call it', () => {
-  const post = readFileSync(join(process.cwd(), 'app/api/clients/route.ts'), 'utf8');
-  const patch = readFileSync(join(process.cwd(), 'app/api/clients/[id]/route.ts'), 'utf8');
-
-  it('POST /api/clients validates and stores the normalized value', () => {
-    expect(post).toContain('normalizeClientPhone');
-    expect(post).toContain("code: 'INVALID_PHONE'");
-    // The pre-#40 line. Storing the raw trim is the defect itself.
-    expect(post).not.toContain('phone: phone ? String(phone).trim() : null');
-  });
-
-  it('PATCH /api/clients/[id] validates and stores the normalized value', () => {
-    expect(patch).toContain('normalizeClientPhone');
-    expect(patch).toContain("code: 'INVALID_PHONE'");
-    expect(patch).not.toMatch(/updates\.phone = phone;/);
-  });
-
-  it('PATCH only rejects when the caller is setting the phone', () => {
-    // A PATCH of `notes` on a client whose stored phone predates this
-    // validation must still succeed; the guard is keyed on `phone !== undefined`.
-    expect(patch).toMatch(/phone !== undefined && phoneNormalized\.error/);
+  /**
+   * These three used to grep the two route files for `normalizeClientPhone`,
+   * `code: 'INVALID_PHONE'` and the literal `phone !== undefined &&
+   * phoneNormalized.error`. That pins a *spelling*, not a behaviour: moving the
+   * identical logic into `lib/clientValidation.ts` — which no tenant can tell
+   * apart — turned all three red, while deleting the `.eq('organization_id')`
+   * beside them would have kept them green.
+   *
+   * The behaviour they meant to assert now lives in `clientWritePath.test.ts`
+   * under "the phone is validated on the way into the column (#40)", where the
+   * handlers are actually invoked and the assertion is on what reaches the DB
+   * layer. What is left here is the unit-level contract of the validator
+   * itself, which is the part this file is the right home for.
+   */
+  it('is reachable from both routes through the shared validator', () => {
+    const validation = readFileSync(join(process.cwd(), 'lib/clientValidation.ts'), 'utf8');
+    expect(validation).toContain('normalizeClientPhone');
   });
 });
 
