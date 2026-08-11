@@ -35,6 +35,16 @@ const LIVE_CONNECTION = {
   connectedAt: '2026-08-01T10:00:00Z',
 };
 
+/**
+ * Disconnecting now goes through a confirmation dialog (#99): the key is
+ * write-only, so the action cannot be undone from inside the app. Both steps
+ * are the user's path, so both belong in the helper rather than in each case.
+ */
+async function disconnect() {
+  fireEvent.click(await screen.findByRole('button', { name: /^Desconectar$/i }));
+  fireEvent.click(await screen.findByRole('button', { name: /Sí, desconectar/i }));
+}
+
 /** The GET the card issues on mount. */
 function loadWith(body: unknown, status = 200) {
   fetchMock.mockResolvedValueOnce(jsonResponse(status, body));
@@ -162,15 +172,26 @@ describe('once connected', () => {
     expect(screen.getByText(/38 disponibles/)).toBeTruthy();
   });
 
+  it('asks before disconnecting, and sends nothing until confirmed', async () => {
+    loadWith({ connection: LIVE_CONNECTION, folios: null });
+    render(<PacConnectionCard />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Desconectar$/i }));
+
+    // The dialog states what cannot be undone: the key is never shown back.
+    await screen.findByText(/tendrás que capturar de nuevo tu llave/i);
+    // Only the mount GET so far — no DELETE on the strength of one tap.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the connection on screen when disconnecting fails', async () => {
     loadWith({ connection: LIVE_CONNECTION, folios: null });
     render(<PacConnectionCard />);
-    const disconnect = await screen.findByRole('button', { name: /Desconectar/i });
 
     fetchMock.mockResolvedValueOnce(
       jsonResponse(500, { error: { code: 'SERVER_ERROR', message: 'No se pudo desconectar tu PAC' } })
     );
-    fireEvent.click(disconnect);
+    await disconnect();
 
     await screen.findByText('No se pudo desconectar tu PAC');
     // Still connected: the card must not show a disconnection that did not happen.
@@ -180,10 +201,9 @@ describe('once connected', () => {
   it('confirms a disconnection only after the server accepted it', async () => {
     loadWith({ connection: LIVE_CONNECTION, folios: null });
     render(<PacConnectionCard />);
-    const disconnect = await screen.findByRole('button', { name: /Desconectar/i });
 
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { disconnected: true }));
-    fireEvent.click(disconnect);
+    await disconnect();
 
     await screen.findByText(/Tu PAC quedó desconectado/i);
     expect(screen.getByText(/conserva|conservan su folio fiscal/i)).toBeTruthy();

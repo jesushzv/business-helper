@@ -50,6 +50,7 @@ function jsonResponse(status: number, body: unknown): Response {
 }
 
 const fetchMock = vi.fn<typeof fetch>();
+let originalCreateObjectURL: typeof URL.createObjectURL;
 
 /** A payer's receipt: the validator accepts PNG/JPG/PDF under 5MB. */
 function receiptFile(name = 'comprobante-spei.pdf', type = 'application/pdf', size = 240_000) {
@@ -82,12 +83,18 @@ function fillMinimum(reference = 'SPEI20260830123456') {
 beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
-  vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:receipt' });
+  // Only the static method — replacing the whole `URL` global takes the
+  // *constructor* with it, and jsdom's own fetch plumbing calls `new URL`.
+  // In isolation that never surfaces; in a full run it fails four cases here
+  // with an unhandled "URL is not a constructor" from tough-cookie.
+  originalCreateObjectURL = URL.createObjectURL;
+  URL.createObjectURL = (() => 'blob:receipt') as typeof URL.createObjectURL;
   // The real-tenant path. Without this the submit never reaches the API.
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
 });
 
 afterEach(() => {
+  URL.createObjectURL = originalCreateObjectURL;
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
