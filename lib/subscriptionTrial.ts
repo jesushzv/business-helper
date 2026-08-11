@@ -29,6 +29,8 @@
  * a countdown a tenant can see — and nothing more.
  */
 
+import { normalizeSubscriptionStatus } from './stripe';
+
 /** How long a new organization gets. One month, in whole days. */
 export const TRIAL_DAYS = 30;
 
@@ -109,7 +111,11 @@ export function resolveTrialState(
     return { kind: 'unknown', daysLeft: null, endsAt: null, blocksNewWork: false, ...base };
   }
 
-  const status = typeof row.subscription_status === 'string' ? row.subscription_status.toLowerCase() : '';
+  // Read through the app's one subscription vocabulary (#171), not a second
+  // copy of it: anything the column's CHECK would reject is not a status, and
+  // normalizeSubscriptionStatus answers null rather than the nearest listed one.
+  // A null lands in the unmodelled branch below, which does not gate.
+  const status = normalizeSubscriptionStatus(row.subscription_status);
   const endsAtDate = parseDate(row.trial_ends_at);
   const endsAt = endsAtDate ? endsAtDate.toISOString() : null;
 
