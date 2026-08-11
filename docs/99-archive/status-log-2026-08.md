@@ -496,3 +496,42 @@ Postgres. Invalid input surfaced as an error, not a success: `INVALID_RFC` and `
 both 400 with Spanish messages. The throwaway user and organization were deleted; the account is
 back to its single real user and organization. Not covered: a non-owner's read-only view, which
 needs a second account and stays pinned by unit tests only.
+
+---
+
+## #93's production walkthrough (2026-08-11)
+
+*Moved from `docs/STATUS.md` on 2026-08-11 (PR #162) when the UX-audit trio's row closed with the
+last of its three issues. Reproduced here because the transcript is recorded nowhere else. For live
+status read [`../STATUS.md`](../STATUS.md).*
+
+**The trio** — demo identity in the chrome and outbound WhatsApp (#93), a settings save that was a
+405 reported as success (#95), a client detail page built from fixtures (#96) — was found in a
+single UX audit on 2026-08-08 and fixed in code the same day. #95 closed 2026-08-09 (PR #125, its
+production check above), #96 on 2026-08-11 after a live check that **failed** and surfaced two
+further defects: three `clients.credit_*` columns the code read that no migration had created, and
+both clients routes dropping four snake_case fields on every write. Migration `20260809180000`
+applied and confirmed; residue tracked in #103/#99 and #113/#114/#123/#124.
+
+**#93's last exit criterion — a real deployment with a real organization row — was taken from the
+connector on 2026-08-11**, against production `d3d7cde` as the owner of the `Hector test`
+organization. The shell cannot reach `businesshelper.app` (egress policy) and neither can the
+preview URL or a local Chromium, so the checks ran from inside the database over the `http`
+extension. What made the *authenticated* app reachable, which #95's throwaway-tenant run had not
+established: an owner's session mints from a dormant `auth.refresh_tokens` row through GoTrue
+(`grant_type=refresh_token`), and the session JSON encodes to the `@supabase/ssr` cookie the app
+reads — `base64-` prefix, base64url, chunked at 3180 into `sb-<ref>-auth-token.0/.1`.
+
+- `GET /api/organization` with that cookie → **200**, `{"name":"Hector test", …, "role":"owner"}`.
+  The one source the header, sidebar, greeting and WhatsApp builders read.
+- The same route without it → **401 `UNAUTHENTICATED`**; no demo data for an unauthenticated caller.
+- `GET /api/quotes/public/<token>`, the surface the tenant's *client* sees → **200** carrying
+  `organizations.name: "Hector test"`.
+- `GET /dashboard` with the cookie → **200**, containing no `Distribuidora del Norte`, no
+  `Don Roberto`, no `DNO850101`, and greeting a neutral `¡Hola!` before hydration.
+
+The `http` extension was dropped again afterwards. `tests/components/ChromeIdentityRealTenant.test.tsx`
+pins the render over that exact response body. The hydrated page — the *Cerrar sesión* click, the
+org name after hydration — was confirmed by the founder in a browser on 2026-08-11, which closed
+the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
+no-invented-bank path stays pinned by unit tests until a first real payment.
