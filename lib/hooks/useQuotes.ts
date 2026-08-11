@@ -30,6 +30,7 @@ const INITIAL_DEMO_QUOTES: Quote[] = [
     notes: 'Entrega directa en obra en 48 horas hábiles tras recibir anticipo.',
     public_token: 'a1b2c3d4e5f678901234567890abcdef',
     converted_contract_id: null,
+    bank_account_id: null,
     created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -54,6 +55,7 @@ const INITIAL_DEMO_QUOTES: Quote[] = [
     notes: 'Cotización emitida bajo Régimen RESICO.',
     public_token: 'ff99887766554433221100aabbccdde',
     converted_contract_id: null,
+    bank_account_id: null,
     created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -183,6 +185,8 @@ export function useQuotes() {
         line_items: data.line_items as unknown as Quote['line_items'],
         public_token: generatePublicToken(),
         converted_contract_id: null,
+        // No account named: this quote settles at the organization default (#164).
+        bank_account_id: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

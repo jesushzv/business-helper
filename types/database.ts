@@ -247,6 +247,43 @@ export interface Database {
           updated_at?: string;
         };
       };
+      bank_accounts: {
+        Row: {
+          id: string;
+          organization_id: string;
+          /** What the owner calls it — two 18-digit strings are indistinguishable by sight. */
+          label: string;
+          bank_name: string;
+          clabe: string;
+          account_holder: string | null;
+          is_default: boolean;
+          /** Archived accounts keep resolving for the quotes that named them, but receive no new money. */
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          label: string;
+          bank_name: string;
+          clabe: string;
+          account_holder?: string | null;
+          is_default?: boolean;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          label?: string;
+          bank_name?: string;
+          clabe?: string;
+          account_holder?: string | null;
+          is_default?: boolean;
+          archived_at?: string | null;
+          updated_at?: string;
+        };
+      };
       quotes: {
         Row: {
           id: string;
@@ -275,6 +312,8 @@ export interface Database {
           accepted_by_name: string | null;
           accepted_ip: string | null;
           converted_contract_id: string | null;
+          /** Which settlement account this quote's client pays into; NULL = the org default (#164). */
+          bank_account_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -305,6 +344,7 @@ export interface Database {
           accepted_by_name?: string | null;
           accepted_ip?: string | null;
           converted_contract_id?: string | null;
+          bank_account_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -335,6 +375,7 @@ export interface Database {
           accepted_by_name?: string | null;
           accepted_ip?: string | null;
           converted_contract_id?: string | null;
+          bank_account_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
