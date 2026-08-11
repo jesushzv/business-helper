@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, AlertCircle, Info, Building2, User, Mail, FileText, MapPin } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, Building2, User, Mail, FileText, MapPin, Lock } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 import { Client } from '@/types';
 import { validateRFC } from '@/lib/rfcValidator';
@@ -9,6 +9,8 @@ import { looksLikeEmail, looksLikeCodigoPostal } from '@/lib/clientFieldHints';
 import { ClientWriteError } from '@/lib/clientWriteError';
 import { PhoneField } from '@/components/shared/PhoneField';
 import { regimenOptions } from '@/lib/satRegimenes';
+import { canManageCredit } from '@/lib/clientCreditAuthorization';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
 
 interface ClientFormModalProps {
   isOpen: boolean;
@@ -73,6 +75,19 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [creditDays, setCreditDays] = useState<number | ''>('');
   const [creditStatus, setCreditStatus] = useState<'' | 'active' | 'suspended' | 'blocked'>('');
   const [notes, setNotes] = useState('');
+
+  /**
+   * Whether this tenant may set the credit terms (#123).
+   *
+   * Three states, not two. `role === null` is **unknown** — still loading, or
+   * the org read failed — and unknown must not disable the section: locking a
+   * healthy owner out of their own credit line on a network blip is the #64
+   * mistake in reverse. The permissive choice is safe because the client is not
+   * the enforcement: both clients routes refuse a credit change from a role
+   * without the capability, with a 403 the form pins under the field.
+   */
+  const { role, loading: roleLoading } = useCurrentOrg();
+  const creditLocked = !roleLoading && role !== null && !canManageCredit(role);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -208,9 +223,16 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         // an owner cutting off a defaulting client picks "Bloqueado" and
         // clears the limit, and the block would never persist while the modal
         // closed reporting success.
-        credit_limit: creditLimit === '' ? null : Number(creditLimit),
-        credit_days: creditDays === '' ? null : Number(creditDays),
-        credit_status: creditStatus || null,
+        // Omitted entirely, not sent as the stored values, when the tenant
+        // cannot set them: the routes read a present key as an intent, and a
+        // patch that never mentions a column cannot be misread as clearing it.
+        ...(creditLocked
+          ? {}
+          : {
+              credit_limit: creditLimit === '' ? null : Number(creditLimit),
+              credit_days: creditDays === '' ? null : Number(creditDays),
+              credit_status: creditStatus || null,
+            }),
         notes: notes.trim() || null,
       });
       onClose();
@@ -553,6 +575,19 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
               Condiciones de Crédito B2B <span className="font-bold text-slate-500">(opcional)</span>
             </h4>
 
+            {/* Says who can change it and why it is locked, rather than
+                presenting a control that answers 403. Plain language: no
+                "capability", no role matrix. */}
+            {creditLocked && (
+              <p className="flex items-start gap-2 rounded-xl bg-slate-900/80 p-3 text-[11px] font-semibold text-slate-400">
+                <Lock className="mt-px h-3.5 w-3.5 shrink-0 text-slate-500" />
+                <span>
+                  Cuánto crédito se le da a un cliente lo decide el dueño o un administrador de
+                  la cuenta. Puedes editar todo lo demás de este cliente.
+                </span>
+              </p>
+            )}
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 [&>*]:min-w-0">
               {/* Credit Limit */}
               <div>
@@ -564,6 +599,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 </label>
                 <input
                   {...fieldProps('credit_limit')}
+                  disabled={creditLocked}
                   type="number"
                   min={0}
                   step={1000}
@@ -591,6 +627,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 </label>
                 <select
                   {...fieldProps('credit_days')}
+                  disabled={creditLocked}
                   value={creditDays}
                   onChange={(e) => {
                     setCreditDays(e.target.value === '' ? '' : Number(e.target.value));
@@ -623,6 +660,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 </label>
                 <select
                   {...fieldProps('credit_status')}
+                  disabled={creditLocked}
                   value={creditStatus}
                   onChange={(e) => {
                     setCreditStatus(e.target.value as '' | 'active' | 'suspended' | 'blocked');

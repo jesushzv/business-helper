@@ -557,3 +557,36 @@ Settled history: all four verified closed on the tracker at the time, moved here
 | [#79](https://github.com/jesushzv/business-helper/issues/79) | The PGRST201 prediction confirmed against live PostgREST; both embeds hinted, scan test pinning the pattern |
 | [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
 | [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |
+
+
+## Decision narratives compressed on `docs/STATUS.md`, moved here 2026-08-11
+
+Settled reasoning behind §05 decisions 1, 2, 4 and 5. The decisions themselves are unchanged and
+still listed there in one line each; only the working-out moved, when `STATUS.md` reached its size
+budget again.
+
+1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships.** Deferral is off
+   the table, so [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through
+   a live Facturapi sandbox) is blocking, not negotiable.
+2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch; sms/whatsapp
+   deprecated but wired.** Supersedes 2026-08-10's "Twilio SMS at launch" (itself a same-day
+   reversal: WhatsApp OTP needs a business-owned WABA plus the #42 template — Meta policy — and
+   no WABA exists). Email needs one API key and a DNS-verified domain; no carrier registration,
+   no per-message cost.
+3. **Are there real CLABE account numbers for the pilot organizations?**
+4. ~~**`businesshelper.app` or `businesshelper.mx`?**~~ Resolved — `.app`; `.mx` was never
+   registered (#36).
+5. ~~**Does the September launch date hold?**~~ **Resolved 2026-08-07 — the September date holds,
+   at full scope.** Confirmed by the founder alongside decision 1.
+
+   > [!IMPORTANT]
+   > **Both halves of the trade were taken, so the schedule has no relief valve left.** The framing
+   > offered a choice — hold the date by cutting CFDI, or keep scope and slip. Keeping both means
+   > every P0 row in §03 must land, and the only remaining variable is hours (decision 7, open). If
+   > the list slips, the next lever is not scope or date but pilot count: fewer pilots, longer and
+   > more closely watched.
+6. **Ad budget and platform for pilot recruiting**, given pilots are being recruited cold rather than
+   from a warm list.
+7. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
+   "1–2 focused weeks" is two calendar weeks or closer to a month.
+8. ~~**Merge posture on PRs #20 and #23.**~~ Moot — both merged 2026-08-07 (§02).

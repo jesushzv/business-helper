@@ -14,7 +14,19 @@ export type Capability =
   | 'invite_members'
   | 'billing_management'
   | 'issue_cfdi'
-  | 'view_analytics';
+  | 'view_analytics'
+  /**
+   * Setting a client's trade-credit line: `credit_limit`, `credit_days`,
+   * `credit_status` (#123).
+   *
+   * Its own capability rather than `billing_management`, which is owner-only
+   * and about *this org's* Stripe subscription — a different decision from how
+   * much credit the business extends to a customer, and one a manager running
+   * the commercial side should be able to make. Members keep full client CRUD
+   * without it: a member may register and edit a client, not decide the terms
+   * on which it is trusted with money.
+   */
+  | 'manage_credit';
 
 const ROLE_CAPABILITIES: Record<UserRole, Set<Capability>> = {
   owner: new Set([
@@ -25,7 +37,8 @@ const ROLE_CAPABILITIES: Record<UserRole, Set<Capability>> = {
     'invite_members',
     'billing_management',
     'issue_cfdi',
-    'view_analytics'
+    'view_analytics',
+    'manage_credit'
   ]),
   manager: new Set([
     'create_quote',
@@ -34,7 +47,8 @@ const ROLE_CAPABILITIES: Record<UserRole, Set<Capability>> = {
     'request_payment',
     'invite_members',
     'issue_cfdi',
-    'view_analytics'
+    'view_analytics',
+    'manage_credit'
   ]),
   member: new Set([
     'create_quote',

@@ -467,7 +467,12 @@ describe('the writable list covers what the form sends', () => {
     const src = readFileSync(join(process.cwd(), 'components/clients/ClientFormModal.tsx'), 'utf8');
     const call = src.slice(src.indexOf('await onSave({'));
     const body = call.slice(0, call.indexOf('\n      });'));
-    return [...body.matchAll(/^\s{8}([a-z_]+):/gm)].map((m) => m[1]);
+    // `\s{8,}`, not `\s{8}`: the credit columns moved inside a conditional
+    // spread when they were gated (#123), so they sit one indent deeper. They
+    // are still keys the form submits, and a scan that stopped seeing them
+    // would go quietly vacuous — which is what the count assertion below
+    // caught the first time.
+    return [...new Set([...body.matchAll(/^\s{8,}([a-z_]+):/gm)].map((m) => m[1]))];
   }
 
   it('reads a non-trivial key set out of the modal (guards the guard)', () => {

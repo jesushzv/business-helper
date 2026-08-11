@@ -33,7 +33,7 @@ simulated, and nothing checked them. A convention nobody executes is how that ha
 Where this file and the code disagree, **the code wins** — fix this file in the same PR.
 
 An HTML rendering is published at
-<https://claude.ai/code/artifact/bce71e34-9298-436f-8dda-9e432ea9763a> (private to the owner).
+<https://claude.ai/code/artifact/bce71e34-9298-436f-8dda-9e432ea9763a> (private).
 
 ---
 
@@ -45,17 +45,16 @@ found that several features recorded as complete were **simulated**: the UI and 
 but the third-party call underneath was faked or stubbed.
 
 The most serious instance: `POST /api/invoices/issue` called `simulateInvoiceStamping()`, which
-fabricated an invoice ID and two `storage.businesshelper.mx` URLs, then wrote `cfdi_status: 'issued'`
-onto the milestone. No PAC was contacted and no tax document existed. A business owner could read
-their own dashboard, believe they had invoiced a client, and file accordingly. For a product whose
-core promise is Mexican tax compliance, that is a compliance defect, not a missing feature.
+fabricated an invoice ID and two URLs, then wrote `cfdi_status: 'issued'` onto the milestone. No PAC
+was contacted and no tax document existed, so an owner could read their own dashboard, believe they
+had invoiced a client, and file accordingly — a compliance defect, not a missing feature.
 
 The same pattern applied to Stripe checkout, team invitations, the accountant ZIP export, and
 outbound WhatsApp dispatch — all since remediated (see §02).
 
-**The takeaway is procedural, not just technical:** the sprint-by-sprint "Completed" history is not a
-reliable map of what is launch-safe. Every remaining completion claim should be treated as unverified
-until checked against source. This memo does that check; §06 records the method so it can be repeated.
+**The takeaway is procedural:** the sprint-by-sprint "Completed" history is not a reliable map of
+what is launch-safe, so every completion claim is unverified until checked against source. §06
+records the method.
 
 ---
 
@@ -103,11 +102,10 @@ into one line; their reasoning is in the frozen log.*
 
 ### Recently landed (2026-08-07 → 2026-08-08)
 
-Moved to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-09 —
-eight merged changes with their issues, PRs and commits. Settled history, and this file was over
-its 32 KB budget. **What none of it changed:** every row was verified by `typecheck` + `lint` +
-vitest against **mocked** providers. Not one was a live third-party round-trip; the §03 items
-needing a real handset, card, PAC stamp or deployed database are untouched by all of it.
+Eight merged changes, with issues, PRs and commits, in
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). **What none of it changed:**
+every row was verified against **mocked** providers, so the §03 items needing a real handset, card,
+PAC stamp or deployed database are untouched by all of it.
 
 ---
 
@@ -306,40 +304,35 @@ Launch Readiness ≥ 7.0, Mobile ≥ 6.0, Credibility ≥ 7.0.
 
 These require the founder and are not resolvable from the codebase.
 
-1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships.** Deferral is off
-   the table, so [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through
-   a live Facturapi sandbox) is blocking, not negotiable.
-2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch; sms/whatsapp
-   deprecated but wired.** Supersedes 2026-08-10's "Twilio SMS at launch" (itself a same-day
-   reversal: WhatsApp OTP needs a business-owned WABA plus the #42 template — Meta policy — and
-   no WABA exists). Email needs one API key and a DNS-verified domain; no carrier registration,
-   no per-message cost.
+1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships**, at full scope,
+   so [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through a live
+   Facturapi sandbox) is blocking, not negotiable.
+2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch**; sms/whatsapp
+   deprecated but wired. WhatsApp OTP needs a business-owned WABA that does not exist; email needs
+   one API key and a DNS-verified domain.
 3. **Are there real CLABE account numbers for the pilot organizations?**
-4. ~~**`businesshelper.app` or `businesshelper.mx`?**~~ Resolved — `.app`; `.mx` was never
-   registered (#36).
-5. ~~**Does the September launch date hold?**~~ **Resolved 2026-08-07 — the September date holds,
-   at full scope.** Confirmed by the founder alongside decision 1.
+4. ~~**`businesshelper.app` or `businesshelper.mx`?**~~ Resolved — `.app` (#36).
+5. ~~**Does the September launch date hold?**~~ **Resolved 2026-08-07 — it holds, at full scope.**
 
    > [!IMPORTANT]
-   > **Both halves of the trade were taken, so the schedule has no relief valve left.** The framing
-   > offered a choice — hold the date by cutting CFDI, or keep scope and slip. Keeping both means
-   > every P0 row in §03 must land, and the only remaining variable is hours (decision 7, open). If
-   > the list slips, the next lever is not scope or date but pilot count: fewer pilots, longer and
-   > more closely watched.
-6. **Ad budget and platform for pilot recruiting**, given pilots are being recruited cold rather than
-   from a warm list.
-7. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
+   > **Both halves of the trade were taken, so the schedule has no relief valve left.** Keeping the
+   > date *and* CFDI means every P0 row in §03 must land, and the only remaining variable is hours
+   > (decision 7, open). If the list slips, the next lever is not scope or date but pilot count:
+   > fewer pilots, longer and more closely watched.
+6. **Ad budget and platform for pilot recruiting**, given pilots are recruited cold.
+7. **Realistic weekly hours**, given the founder holds a full-time job — this decides whether
    "1–2 focused weeks" is two calendar weeks or closer to a month.
-8. ~~**Merge posture on PRs #20 and #23.**~~ Moot — both merged 2026-08-07 (§02).
-9. ~~**Does CFDI cancellation get a UI at launch?**~~ **Resolved 2026-08-11 — no, and the route
-   stays unreachable by design** ([#174](https://github.com/jesushzv/business-helper/issues/174)).
-   `POST /api/invoices/[id]/cancel` exists and works behind `issue_cfdi`, and nothing in the app
-   calls it. A tenant cancels at the PAC's own portal for launch, which keeps the stamping
-   confirmation's "Esta acción no se puede deshacer desde la app" true. Revisit with
-   [#30](https://github.com/jesushzv/business-helper/issues/30) — complemento cancellation and
-   invoice cancellation want designing together. `tests/unit/cfdiCancelEntryPoint.test.ts` fails
-   the build if a caller appears or the route's note goes missing.
-10. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
+8. ~~**Does CFDI cancellation get a UI at launch?**~~ **Resolved 2026-08-11 — no** (#174). The
+   route stays, unreachable by design and reachable by HTTP behind `issue_cfdi`; a tenant cancels
+   at the PAC's portal, which keeps "no se puede deshacer desde la app" true. Revisit with #30.
+   Pinned by `tests/unit/cfdiCancelEntryPoint.test.ts`.
+9. ~~**Which roles may set a client's trade-credit line?**~~ **Resolved 2026-08-11 — owners and
+   managers** (#123), via a `manage_credit` capability. Members keep full client CRUD; a credit
+   *change* from a role without it is a 403 per column, an unchanged echo is not.
+10. **What does an org that has never subscribed get?** (#128) — **decided: a time-boxed trial.**
+    Landing; see §03. Nothing can be charged until #68 (live Stripe) lands, so the trial gates
+   nothing yet by design.
+11. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
    narrow to one module, freeze for a validation-only sprint, or wind down and redirect the time.
    Worth deciding while calm rather than mid-crisis.
 
