@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Quote, Client } from '@/types';
 import { QuoteStatusBadge } from './QuoteStatusBadge';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
@@ -11,10 +11,30 @@ import { MessageSquare, ArrowRight, CheckCircle, FileText } from 'lucide-react';
 interface QuoteCardProps {
   quote: Quote;
   client?: Client;
-  onConvert?: (quoteId: string) => void;
+  /**
+   * Returns a promise so the button can stay disabled until the conversion
+   * actually finishes. Typed `=> void`, the card could not await the parent's
+   * async handler and never disabled, so two taps on a slow connection sent
+   * two POSTs to `/api/quotes/[id]/convert` — duplicate contracts, duplicate
+   * collection milestones (#99). The route also 409s on an already-converted
+   * quote, which is the enforcement that matters; this is the other half.
+   */
+  onConvert?: (quoteId: string) => void | Promise<void>;
 }
 
 export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }) => {
+  const [converting, setConverting] = useState(false);
+
+  const handleConvert = async () => {
+    if (!onConvert || converting) return;
+    setConverting(true);
+    try {
+      await onConvert(quote.id);
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const formattedTotal = new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: quote.currency || 'MXN',
@@ -75,7 +95,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
               type="button"
               disabled
               title="Agrega un teléfono al cliente para enviar por WhatsApp"
-              className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm whitespace-nowrap"
+              className="flex-1 min-w-0 min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm text-center"
             >
               <MessageSquare className="w-4 h-4 shrink-0" />
               <span>Agrega un teléfono para WhatsApp</span>
@@ -98,11 +118,12 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
         {/* Convert to Contract Action Button if Accepted */}
         {quote.status === 'accepted' && (
           <button
-            onClick={() => onConvert && onConvert(quote.id)}
-            className="w-full min-h-[44px] px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md text-xs sm:text-sm whitespace-nowrap"
+            onClick={handleConvert}
+            disabled={converting}
+            className="w-full min-h-[44px] px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md text-xs sm:text-sm whitespace-nowrap disabled:opacity-60"
           >
             <CheckCircle className="w-4 h-4 shrink-0" />
-            <span>Convertir a Contrato</span>
+            <span>{converting ? 'Convirtiendo…' : 'Convertir a Contrato'}</span>
           </button>
         )}
       </div>

@@ -9,19 +9,12 @@ import { validateRFC } from '@/lib/rfcValidator';
 import { isPlausibleE164 } from '@/lib/phoneCountries';
 import { PhoneField } from '@/components/shared/PhoneField';
 import { track } from '@/lib/analytics';
+import { withPlanParam } from '@/lib/upgradeIntent';
 import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
 import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 import { identifyPostHogUser } from '@/components/PostHogInit';
 import { exitDemoMode } from '@/lib/demoUtils';
-
-const REGIMENES_FISCALES = [
-  { code: '601', label: '601 - General de Ley Personas Morales' },
-  { code: '626', label: '626 - Régimen Simplificado de Confianza (RESICO)' },
-  { code: '612', label: '612 - Personas Físicas con Actividades Empresariales y Profesionales' },
-  { code: '606', label: '606 - Arrendamiento' },
-  { code: '621', label: '621 - Incorporación Fiscal (RIF)' },
-  { code: '603', label: '603 - Personas Morales con Fines no Lucrativos' },
-];
+import { regimenOptions } from '@/lib/satRegimenes';
 
 const COMPANY_SIZES = [
   { value: '1-5', label: '1 - 5 colaboradores (Micro)' },
@@ -162,7 +155,11 @@ function RegisterFormContent() {
         track('signup_completed', { company_size: companySize, tax_regime: taxRegime });
         // A real account exists now — demo-browsing flags must not survive it.
         exitDemoMode();
-        router.push('/onboarding');
+        // The plan they clicked on the pricing page rides along to onboarding
+        // and from there to Ajustes. It used to die here: this form reads four
+        // query params and `plan` was never one of them, so a visitor who chose
+        // Negocio finished signing up and was never shown a checkout for it.
+        router.push(withPlanParam('/onboarding', searchParams.get('plan')));
       } else {
         // Email confirmation pending — the account exists, the funnel step is done.
         track('signup_completed', { company_size: companySize, tax_regime: taxRegime, pending_email_confirmation: true });
@@ -368,7 +365,7 @@ function RegisterFormContent() {
                     onChange={(e) => setTaxRegime(e.target.value)}
                     className="block w-full px-4 py-3 min-h-[48px] bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-xs"
                   >
-                    {REGIMENES_FISCALES.map((r) => (
+                    {regimenOptions(taxRegime).map((r) => (
                       <option key={r.code} value={r.code}>
                         {r.label}
                       </option>

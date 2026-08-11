@@ -536,19 +536,34 @@ org name after hydration — was confirmed by the founder in a browser on 2026-0
 the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
 no-invented-bank path stays pinned by unit tests until a first real payment.
 
+## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
+
+Settled history: all four verified closed on the tracker at the time, moved here verbatim when
+`STATUS.md` reached its size budget.
+
+| Issue | What it was | Closed by |
+|:--|:--|:--|
+| [#33](https://github.com/jesushzv/business-helper/issues/33) | Payment confirmation | PR #55 |
+| [#36](https://github.com/jesushzv/business-helper/issues/36) | `.mx` quote links | PR #47 |
+| [#37](https://github.com/jesushzv/business-helper/issues/37) | Product analytics | PR #56 |
+| [#58](https://github.com/jesushzv/business-helper/issues/58) | The public signing page rendering a fixture quote for every token — never listed as a P0 and worse than several that were | PR #57 |
+
+
+## Rows resolved off `docs/STATUS.md` on 2026-08-08, moved here 2026-08-11
+
+| Issue | Resolution |
+|:--|:--|
+| [#79](https://github.com/jesushzv/business-helper/issues/79) | The PGRST201 prediction confirmed against live PostgREST; both embeds hinted, scan test pinning the pattern |
+| [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
+| [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |
+
 ---
 
-## #2 — OTP provider configuration (cleared 2026-08-11)
+## OTP email-channel verification, moved off `docs/STATUS.md` (2026-08-11)
 
-Moved here from `docs/STATUS.md` when that file went over its size budget; verbatim, so the
-evidence stays readable after the row collapsed into the "cleared" line.
+Verbatim from the §02 row, collapsed there to one line when the file reached its size budget.
 
-✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel;
-migration `20260811120000` applied to production and its constraint proven by making it reject and
-accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at
-04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and
-sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned,
-not separately exercised live. sms/whatsapp stay wired but deprecated.
+| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
 
 ---
 
@@ -563,3 +578,21 @@ OTP issuance (hard rule 6).
 cleared, failure verified with a planted warning. (The count was recorded as 1, 3 and 23 before
 settling at 22 — a fail-open gate is how the debt grew unnoticed.) Follow-up: `next/image` for the
 PNG sites, #82 (P2).
+
+
+---
+
+## #63 — Stripe webhook signature verification, six of eight checks (moved out of STATUS 2026-08-11)
+
+The P0 row stays open on the two checks that need a database. This is the detail behind it.
+
+Six of the eight checks pass against a real Next.js runtime (`localhost`, 2026-08-09, commit
+`5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that
+remain — a signed event is applied to a real row, and its redelivery is not — need a database, so
+they need a staging deployment; `npm run verify:webhook` exits non-zero and prints `INCOMPLETE`
+rather than reporting a pass without them.
+
+Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as
+four passing checks, and the route would report `200 { processed }` for an UPDATE matching no row —
+narrow, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) fails the
+claim insert first; what the guard closes is the deletion race.

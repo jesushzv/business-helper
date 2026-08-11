@@ -52,6 +52,23 @@ function fail(status: number, code: string, message: string): AuthResult {
 }
 
 /**
+ * Says out loud that the caller could have acted as more than one tenant.
+ *
+ * The request still proceeds — refusing every call from a two-organization
+ * user would lock them out of an app that has no "act as" switch yet — but the
+ * oldest row is a convention, not an answer, and the log is what turns "the
+ * dashboard showed the wrong company" into something diagnosable.
+ */
+function warnOnAmbiguousTenant(source: string, userId: string, rowsSeen: number): void {
+  if (rowsSeen < 2) return;
+  console.error(
+    `[apiAuth] user ${userId} resolves to more than one organization via ${source}; ` +
+      'acting as the oldest. The request scope is a convention, not the user\'s choice — ' +
+      'an organization switcher is needed before this is a supported state (#133).'
+  );
+}
+
+/**
  * Resolves the caller's session and the organization it may act on.
  *
  * Returns the organization the user owns, or failing that the first one they
@@ -59,19 +76,23 @@ function fail(status: number, code: string, message: string): AuthResult {
  * `organizationId` — RLS is a backstop, not the only control, and by-id routes
  * need the filter to return 404 instead of revealing that a row exists.
  *
- * **Which organization, when there is more than one.** `organizations.owner_id`
- * carries no unique constraint and #109 decided it should not gain one, so an
- * owner may hold several rows. Both lookups below therefore order explicitly
- * before taking one: an unordered `.limit(1)` lets Postgres return whichever
- * row it likes, and it is free to answer differently between two requests in
- * the same session — which would silently read one organization and write the
- * next. Oldest-first is the stable choice, since it is the organization
- * onboarding created and the one every existing tenant's data hangs off.
- * `id` breaks the tie for rows sharing a `created_at`, so the order is total.
+ * Both lookups take the **oldest** row explicitly. `LIMIT 1` with no `ORDER BY`
+ * returns an arbitrary row — Postgres guarantees nothing, and the choice can
+ * change between two calls in the same session as the physical layout shifts
+ * (an UPDATE moves a row, autovacuum runs, the planner switches scan type). A
+ * user with two organizations would get a non-deterministic tenant for the
+ * whole request, and every route downstream scopes its queries by it: the
+ * dashboard shows another organization's data, with no error anywhere (#133).
+ * The extra row fetched (`limit(2)`) is what makes the ambiguity *visible* —
+ * the schema already contemplates multi-organization users, so silently
+ * resolving it is a guess, and a guess about tenancy is the one this repo
+ * cannot afford.
  *
- * Until an organization switcher exists this is the *only* organization such an
- * owner can reach, which is a limitation rather than a defect: the alternative
- * shipped until #109 was a 500 or a 404 on every settings save.
+ * `id` breaks the tie as a second sort key (#109). `created_at` alone is not a
+ * total order — two rows can share a timestamp, and `now()` is fixed for a
+ * whole transaction, so two organizations inserted together get exactly the
+ * same one. Without the tiebreak the ordering is still ambiguous in precisely
+ * the case the ordering exists to remove.
  */
 export async function requireOrgAccess(): Promise<AuthResult> {
   if (isDemoDeployment()) {
@@ -95,9 +116,10 @@ export async function requireOrgAccess(): Promise<AuthResult> {
     .eq('owner_id', user.id)
     .order('created_at', { ascending: true })
     .order('id', { ascending: true })
-    .limit(1);
+    .limit(2);
 
   if (owned && owned.length > 0) {
+    warnOnAmbiguousTenant('organizations.owner_id', user.id, owned.length);
     return {
       ok: true,
       ctx: { supabase, userId: user.id, organizationId: owned[0].id, role: 'owner' },
@@ -108,11 +130,12 @@ export async function requireOrgAccess(): Promise<AuthResult> {
     .from('organization_members')
     .select('organization_id, role')
     .eq('user_id', user.id)
-    .order('invited_at', { ascending: true })
+    .order('created_at', { ascending: true })
     .order('id', { ascending: true })
-    .limit(1);
+    .limit(2);
 
   if (membership && membership.length > 0) {
+    warnOnAmbiguousTenant('organization_members.user_id', user.id, membership.length);
     return {
       ok: true,
       ctx: {

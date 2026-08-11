@@ -167,6 +167,8 @@ describe('requireOrgAccess picks an organization deterministically (#109)', () =
 
     expect(result.ok).toBe(true);
     const memberQuery = queries.find((q) => q.table === 'organization_members');
-    expect(memberQuery?.orders).toEqual(['invited_at', 'id']);
+    // `created_at`, not `invited_at`: #133 landed the read-path ordering first
+    // and chose that column; this branch adds only the `id` tiebreak on top.
+    expect(memberQuery?.orders).toEqual(['created_at', 'id']);
   });
 });

@@ -33,7 +33,7 @@ export function CookieBanner() {
     <div
       role="region"
       aria-label="Aviso de Cookies y Privacidad"
-      className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-md z-50 p-5 rounded-2xl bg-slate-900/95 border border-slate-800 shadow-2xl backdrop-blur-xl text-slate-200 animate-fadeIn"
+      className="fixed bottom-24 sm:bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-md z-50 p-5 rounded-2xl bg-slate-900/95 border border-slate-800 shadow-2xl backdrop-blur-xl text-slate-200 animate-fadeIn"
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
@@ -43,7 +43,7 @@ export function CookieBanner() {
         <button
           type="button"
           onClick={() => handleAccept('essential')}
-          className="text-slate-400 hover:text-white transition-colors p-1 cursor-pointer"
+          className="-m-2 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
           aria-label="Cerrar aviso de cookies"
         >
           <X className="w-4 h-4" />
@@ -65,7 +65,7 @@ export function CookieBanner() {
         <button
           type="button"
           onClick={() => handleAccept('all')}
-          className="flex-1 min-h-[44px] py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+          className="flex-1 min-h-[48px] py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
         >
           <CheckCircle2 className="w-4 h-4" />
           <span>Aceptar Todo</span>
@@ -73,7 +73,7 @@ export function CookieBanner() {
         <button
           type="button"
           onClick={() => handleAccept('essential')}
-          className="flex-1 min-h-[44px] py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition-all cursor-pointer"
+          className="flex-1 min-h-[48px] py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition-all cursor-pointer"
         >
           Solo Esenciales
         </button>

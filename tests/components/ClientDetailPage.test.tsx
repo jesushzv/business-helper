@@ -259,7 +259,10 @@ describe('the SAT fiscal card does not fake a profile the client does not have',
     renderPage();
 
     await screen.findAllByText('Aceros del Bajío S.A. de C.V.');
-    expect(screen.getByText('601')).toBeTruthy();
+    // Named, not a bare SAT code: "601" alone does not tell the owner which
+    // régimen their client is on (#127). The code is still there — the value
+    // is unchanged, only its presentation.
+    expect(screen.getByText(/601 — General de Ley Personas Morales/)).toBeTruthy();
     expect(screen.getByText('37000')).toBeTruthy();
     expect(screen.queryByText(/Falta capturar/i)).toBeNull();
     expect(screen.queryByText(/no podrás facturarle/i)).toBeNull();
