@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
+import { readOrganizationTrialState } from '@/lib/organizationTrialGate';
+import { TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE } from '@/lib/subscriptionTrial';
 import { requireSettlementAccount } from '@/lib/settlementAccount';
 import { dispatchWhatsAppReminder, WhatsAppReminderOptions } from '@/lib/whatsappOutbound';
 
@@ -16,6 +18,24 @@ export async function POST(req: NextRequest) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
   const { supabase, organizationId } = auth.ctx;
+
+  // #128 — the trial gate, above the settlement check because "activa un plan"
+  // is the more useful answer than "captura tu CLABE" for a tenant whose trial
+  // ended. This is an outbound push, not a collection: confirming a payment
+  // that arrives stays open.
+  const trial = await readOrganizationTrialState(supabase, organizationId);
+  if (trial.blocksNewWork) {
+    return NextResponse.json(
+      {
+        error: {
+          code: TRIAL_EXPIRED_CODE,
+          message: TRIAL_EXPIRED_MESSAGE,
+          trial_ended_at: trial.endsAt,
+        },
+      },
+      { status: 402 }
+    );
+  }
 
   // #64 — refuse before the link leaves rather than after the client opens it.
   // Without a CLABE the /pay/ page this message points at answers 409, so
