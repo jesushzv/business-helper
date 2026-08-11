@@ -3,8 +3,9 @@
 import React, { useState } from 'react';
 import { useTeamMembers } from '@/lib/hooks/useTeamMembers';
 import { UserRole } from '@/lib/teamRBAC';
-import { Users, UserPlus, Shield, Mail, Link2, Clock, Copy, Check } from 'lucide-react';
+import { Users, UserPlus, Shield, Mail, Link2, Clock, Copy, Check, MessageSquare } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { buildWhatsAppShareLink } from '@/lib/whatsappLink';
 
 /**
  * The invite modal used to close on a green "Invitación enviada exitosamente"
@@ -37,6 +38,12 @@ export function TeamMembersCard() {
     setInviteUrl(null);
     setCopied(false);
   };
+
+  // Built only from the link the server returned; there is no invite URL to
+  // share until then, and the block this feeds only renders when there is one.
+  const inviteWhatsAppUrl = buildWhatsAppShareLink(
+    `Te invito a colaborar en nuestro equipo en Business Helper. Entra con este enlace:\n${inviteUrl || ''}`
+  );
 
   const copyInviteUrl = async () => {
     if (!inviteUrl) return;
@@ -221,6 +228,24 @@ export function TeamMembersCard() {
                     {copied ? 'Copiado' : 'Copiar'}
                   </button>
                 </div>
+
+                {/*
+                  The copy above says "comparte este enlace por WhatsApp o
+                  correo" and the flow offered only a copy button — the clearest
+                  miss of the pre-filled-link rule in the app (#104). The link
+                  carries no recipient because an invitation identifies its
+                  person by email and no phone is ever recorded for them, so
+                  WhatsApp opens its own contact picker.
+                */}
+                <a
+                  href={inviteWhatsAppUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full min-h-[48px] px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-sm"
+                >
+                  <MessageSquare className="w-4 h-4 shrink-0" />
+                  <span>Enviar por WhatsApp</span>
+                </a>
 
                 <p className="text-xs text-slate-400">
                   El enlace vence en 7 días y solo funciona para {' '}

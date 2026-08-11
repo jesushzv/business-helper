@@ -20,8 +20,16 @@ vi.mock('@/lib/hooks/useReceivables', () => ({
   useReceivables: () => ({ receivables: [], loading: false, error: null }),
 }));
 
+// Carries a phone since #104: the submit button now promises a share only when
+// one is possible, so a client without a phone reads "Generar Cotización". The
+// no-phone case gets its own test below rather than being the default fixture,
+// because a client the tenant can actually reach is the ordinary case.
 const clients = [
-  { id: 'client-1', name: 'Constructora del Norte', rfc: 'CON010101AAA' },
+  { id: 'client-1', name: 'Constructora del Norte', rfc: 'CON010101AAA', phone: '+528112345678' },
+] as unknown as Client[];
+
+const clientsWithoutPhone = [
+  { id: 'client-1', name: 'Constructora del Norte', rfc: 'CON010101AAA', phone: null },
 ] as unknown as Client[];
 
 type SubmitFn = Parameters<typeof QuoteWizardModal>[0]['onSubmit'];
@@ -148,5 +156,39 @@ describe('an incomplete concepto says so', () => {
 
     fireEvent.click(next());
     expect(screen.getByText(/Resumen y Confirmación/i)).toBeTruthy();
+  });
+});
+
+/**
+ * #104 — the submit button said "Generar y Compartir" for every client,
+ * including one with no phone on record, where no share is possible at all.
+ * A label is a promise; this is the same rule as the disabled WhatsApp button
+ * on `QuoteCard`, applied to the wizard.
+ */
+describe('the submit label promises only what it can do (#104)', () => {
+  it('offers to share when the client has a phone', () => {
+    renderWizard();
+    goToLineItems();
+    fillFirstItem('1500');
+    fireEvent.click(next());
+
+    expect(screen.getByRole('button', { name: /Generar y Compartir/i })).toBeTruthy();
+  });
+
+  it('drops the share promise when the client has no phone', () => {
+    render(
+      <QuoteWizardModal
+        isOpen
+        onClose={vi.fn()}
+        clients={clientsWithoutPhone}
+        onSubmit={vi.fn<SubmitFn>(async () => {})}
+      />
+    );
+    goToLineItems();
+    fillFirstItem('1500');
+    fireEvent.click(next());
+
+    expect(screen.getByRole('button', { name: /Generar Cotización/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Generar y Compartir/i })).toBeNull();
   });
 });

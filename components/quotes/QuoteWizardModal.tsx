@@ -129,6 +129,12 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
 
   const effectiveClientId = clientId || (clients && clients.length > 0 ? clients[0].id : '');
 
+  // Whether the submit button may promise a share: only if the chosen client
+  // has a phone WhatsApp can reach (#104).
+  const canShareWithClient = Boolean(
+    clients.find((c) => c.id === effectiveClientId)?.phone
+  );
+
   const handleNext = () => {
     if (step === 1 && (!effectiveClientId || !title.trim())) return;
     if (step === 2) {
@@ -529,7 +535,20 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                 className="min-h-[48px] px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg text-sm"
               >
                 <Check className="w-5 h-5" />
-                <span>{submitting ? 'Creando...' : 'Generar y Compartir'}</span>
+                {/*
+                  The label states what the button will actually do. It read
+                  "Generar y Compartir" unconditionally, including for a client
+                  with no phone on record, where no share is possible at all —
+                  a promise the handler could not keep (#104). The share itself
+                  happens on the page, from the row the server returns.
+                */}
+                <span>
+                  {submitting
+                    ? 'Creando...'
+                    : canShareWithClient
+                      ? 'Generar y Compartir'
+                      : 'Generar Cotización'}
+                </span>
               </button>
             )}
           </div>

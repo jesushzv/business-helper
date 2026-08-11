@@ -44,7 +44,6 @@ const UNTESTED = new Set([
   'components/landing/BottomConversionForm.tsx',
   'components/products/ProductCatalogCard.tsx',
   'components/settings/PacConnectionCard.tsx',
-  'components/team/TeamMembersCard.tsx',
 ]);
 
 const HAS_FORM = /<form[\s>]/;

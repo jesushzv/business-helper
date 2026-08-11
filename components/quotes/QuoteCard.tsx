@@ -3,7 +3,7 @@
 import React from 'react';
 import { Quote, Client } from '@/types';
 import { QuoteStatusBadge } from './QuoteStatusBadge';
-import { generateWhatsAppLink } from '@/lib/whatsappLink';
+import { generateWhatsAppLink, buildQuoteShareMessage } from '@/lib/whatsappLink';
 import { track } from '@/lib/analytics';
 import { getQuotePublicUrl } from '@/lib/url';
 import { MessageSquare, ArrowRight, CheckCircle, FileText } from 'lucide-react';
@@ -27,7 +27,15 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
 
   const publicUrl = getQuotePublicUrl(quote.public_token);
 
-  const messageText = `Hola ${clientName}, le comparto la cotización "${quote.title}" por un total de ${formattedTotal}.\n\nPuede ver el detalle y firmar en línea aquí:\n${publicUrl}`;
+  // Shared with the wizard's "Generar y Compartir", so the message the owner
+  // sends straight after creating a quote is the same one this card sends
+  // later (#104).
+  const messageText = buildQuoteShareMessage({
+    clientName,
+    title: quote.title,
+    formattedTotal,
+    publicUrl,
+  });
   const whatsappUrl = clientPhone ? generateWhatsAppLink(clientPhone, messageText) : null;
 
   return (

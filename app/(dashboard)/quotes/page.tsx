@@ -7,6 +7,8 @@ import { useClients } from '@/lib/hooks/useClients';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { QuoteWizardModal } from '@/components/quotes/QuoteWizardModal';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
+import { buildQuoteWhatsAppUrl } from '@/lib/quoteShare';
+import { track } from '@/lib/analytics';
 import { Plus, Search, FileText, CheckCircle2, Clock, Send } from 'lucide-react';
 
 export default function QuotesPage() {
@@ -215,9 +217,44 @@ export default function QuotesPage() {
           // would claim a success the database has not confirmed (hard rule 1).
           const saved = await createQuote(data);
           setIsWizardOpen(false);
+
+          // "Generar y Compartir" now shares. The link is built from `saved`,
+          // never from the draft: `public_token` only exists on the stored row,
+          // and a share action whose row carries no token offers no link at all.
+          const shareUrl = buildQuoteWhatsAppUrl(saved, clients);
+
+          if (!shareUrl) {
+            result.succeed({
+              title: 'Cotización creada',
+              message:
+                `«${saved.title}» quedó lista. Para enviarla por WhatsApp, ` +
+                'agrega el teléfono del cliente en su ficha.',
+            });
+            return;
+          }
+
+          // Attempted, not assumed: a pop-up blocker can refuse this, and after
+          // an awaited network call some browsers no longer count the tap as a
+          // gesture. So the dialog carries the same link as an action the owner
+          // can tap — the outcome is never reported as "enviado", only as ready
+          // to send, because opening WhatsApp is not the client receiving it.
+          const opened = window.open(shareUrl, '_blank', 'noopener,noreferrer');
+
           result.succeed({
             title: 'Cotización creada',
-            message: `«${saved.title}» quedó lista para compartir con tu cliente.`,
+            message: opened
+              ? `Abrimos WhatsApp con «${saved.title}» lista para enviar a tu cliente.`
+              : `«${saved.title}» quedó lista. Tu navegador bloqueó la ventana de WhatsApp.`,
+            action: {
+              label: 'Enviar por WhatsApp',
+              onClick: () => {
+                track('quote_sent', {
+                  organization_id: saved.organization_id,
+                  quote_id: saved.id,
+                });
+                window.open(shareUrl, '_blank', 'noopener,noreferrer');
+              },
+            },
           });
           // On failure createQuote throws; the wizard catches it, stays open
           // and shows the message beside its own submit button — closer to
