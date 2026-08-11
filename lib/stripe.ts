@@ -306,6 +306,43 @@ export function createFolioPackCheckoutPayload(
   };
 }
 
+/**
+ * The subscription vocabulary this app stores, matching `chk_subscription_status`
+ * on `organizations` (widened in 20260806120000_security_hardening.sql).
+ *
+ * Anything outside this set is not a subscription status, and the column's CHECK
+ * rejects it — so writing a guess does not merely mislabel a tenant, it fails
+ * the UPDATE after the webhook has already claimed the event (#116).
+ */
+export const SUBSCRIPTION_STATUSES = [
+  'active',
+  'trialing',
+  'past_due',
+  'canceled',
+  'unpaid',
+  'incomplete',
+  'incomplete_expired',
+] as const;
+
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+/**
+ * Maps a raw value onto the stored vocabulary, or null when it is not one of
+ * them.
+ *
+ * Null is the point. A Checkout Session's `status` is
+ * `'complete' | 'open' | 'expired'` — a different vocabulary on a different
+ * object — and coercing it to the nearest subscription status is how a customer
+ * who has just paid gets labelled. Callers must handle null by writing nothing,
+ * never by substituting `'active'`.
+ */
+export function normalizeSubscriptionStatus(raw: unknown): SubscriptionStatus | null {
+  const value = typeof raw === 'string' ? raw.toLowerCase().trim() : '';
+  return (SUBSCRIPTION_STATUSES as readonly string[]).includes(value)
+    ? (value as SubscriptionStatus)
+    : null;
+}
+
 export interface SubscriptionStatusResult {
   status: string;
   isAccessible: boolean;
@@ -314,6 +351,19 @@ export interface SubscriptionStatusResult {
 }
 
 export function validateSubscriptionStatus(status: string = 'active'): SubscriptionStatusResult {
+  // An unrecognised value used to fall through to the `canceled` arm and badge
+  // "Cancelado" — a paying tenant told their subscription was cancelled because
+  // the column held a word this function had never heard of. Unknown is its own
+  // state and says so (#116).
+  if (!normalizeSubscriptionStatus(status)) {
+    return {
+      status,
+      isAccessible: false,
+      badgeText: 'Estado desconocido',
+      badgeColor: 'bg-slate-100 text-slate-800 border-slate-200',
+    };
+  }
+
   switch (status.toLowerCase()) {
     case 'active':
     case 'trialing':
@@ -328,6 +378,16 @@ export function validateSubscriptionStatus(status: string = 'active'): Subscript
         status,
         isAccessible: true,
         badgeText: 'Pago Pendiente',
+        badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
+      };
+    case 'incomplete':
+    case 'incomplete_expired':
+      // The checkout was started and never completed. Calling that "Cancelado"
+      // hides the one thing the tenant can act on: finishing the payment.
+      return {
+        status,
+        isAccessible: false,
+        badgeText: 'Pago sin completar',
         badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
       };
     case 'canceled':
@@ -366,7 +426,11 @@ export function resolveTierFromPriceId(
 
 export interface StripeWebhookOutcome {
   organizationId: string | null;
-  status: string;
+  /**
+   * null when the event carries no subscription status we recognise — do not
+   * write a guess. The subscription lifecycle events own this column.
+   */
+  status: SubscriptionStatus | null;
   /** null when the event names no tier we can attribute — do not write a guess. */
   tierId: StripeTierId | null;
   eventType: string;
@@ -383,9 +447,20 @@ export function handleStripeWebhookEvent(
 
   // A deletion means the subscription is gone regardless of the status on the
   // object, which Stripe may still report as 'active' at the moment of send.
-  const status = event?.type === 'customer.subscription.deleted'
-    ? 'canceled'
-    : obj?.status || 'active';
+  //
+  // Everything else reads `obj.status` through the app's own vocabulary, and an
+  // unrecognised value resolves to null rather than 'active'. The event that
+  // made this necessary is `checkout.session.completed`, whose `data.object` is
+  // a **Checkout Session**, not a Subscription: its `status` is 'complete', a
+  // word `chk_subscription_status` rejects and `validateSubscriptionStatus`
+  // never heard of. The session carries no subscription status at all, so the
+  // honest outcome is to write none and let `customer.subscription.*` — which
+  // fires for the same purchase — own the column. That also removes the
+  // arrival-order dependency between the two events (#116).
+  const status: SubscriptionStatus | null =
+    event?.type === 'customer.subscription.deleted'
+      ? 'canceled'
+      : normalizeSubscriptionStatus(obj?.status);
 
   const tierId =
     normalizeTierKey(obj?.metadata?.tier_id || '') ?? resolveTierFromPriceId(priceId, env);

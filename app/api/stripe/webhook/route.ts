@@ -115,22 +115,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo registrar el evento' }, { status: 500 });
     }
 
-    // The status is always known; the tier is not. An event carrying neither
-    // `metadata.tier_id` nor a price id this deployment has mapped used to
-    // resolve to 'negocio' by default, which wrote a tier nobody bought over
-    // the organization. When the tier is unknown the status still applies and
-    // the existing tier is left untouched.
+    // Neither field is guaranteed. An event carrying neither `metadata.tier_id`
+    // nor a price id this deployment has mapped used to resolve to 'negocio' by
+    // default, which wrote a tier nobody bought over the organization; and the
+    // status used to default to 'active' or — for `checkout.session.completed`,
+    // whose object is a Checkout Session — to the Session's own 'complete',
+    // which `chk_subscription_status` rejects, failing the UPDATE after this
+    // event was already claimed (#116). Whichever is known is written; the
+    // other column keeps whatever the subscription events last established.
     const update: Record<string, unknown> = {
-      subscription_status: handled.status,
       updated_at: new Date().toISOString(),
     };
+
+    if (handled.status) {
+      update.subscription_status = handled.status;
+    }
 
     if (handled.tierId) {
       update.subscription_tier = handled.tierId;
     } else {
       console.error(
         `[stripe] event ${eventId} (${handled.eventType}) names no attributable tier; ` +
-          'applying status only. Check STRIPE_PRICE_* against the price on the subscription.'
+          'leaving subscription_tier untouched. Check STRIPE_PRICE_* against the price ' +
+          'on the subscription.'
+      );
+    }
+
+    if (!handled.status && handled.eventType.startsWith('customer.subscription.')) {
+      // Expected for `checkout.session.completed`, which carries no subscription
+      // status; on a subscription lifecycle event it means Stripe reported a
+      // status this app does not model, and the column keeps its old value.
+      console.error(
+        `[stripe] event ${eventId} (${handled.eventType}) carries no recognised subscription ` +
+          'status; leaving subscription_status untouched.'
       );
     }
 
