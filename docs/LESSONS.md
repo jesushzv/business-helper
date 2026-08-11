@@ -5,12 +5,9 @@ this file is the authority for *the defects this repo actually produces*. Both a
 start of every session — if your harness did not inline this file, open it before your first edit.
 Where this file and the code disagree, the code wins: fix this file in the same PR.
 
-**Why it is a separate file.** `CLAUDE.md` ran at its byte budget with ~30 bytes of headroom, so
-every session that learned something had to compress unrelated prose to pay for it. Three PRs open
-at once all rewrote the same paragraphs to buy the same 200 bytes, and the only tractable way to
-resolve a twelve-hunk prose conflict — take one side wholesale — silently discards every lesson the
-other branch added, with a green build over the loss (#135). The churn is concentrated here, so
-here is where it now happens, with its own budget and its own headroom.
+**Why it is a separate file.** A shared always-read doc with no headroom manufactures merge
+conflicts, and the cheap resolution drops one side's lessons under a green build (#135). The churn
+is concentrated here, with its own budget and its own headroom — keep some.
 
 **How to add one.** New lessons go in this file, not `CLAUDE.md`; append to the section that fits
 rather than re-flowing its neighbours, so conflicts stay append-vs-append. A lesson backed by a
@@ -45,7 +42,9 @@ not earned. It has shipped here at least eight times.
 - **Placeholder identifiers are the same rule in a UI costume** (#44, #78, #96): `token || 'demo'`,
   `regimen_fiscal || '601'` render as a live control or a settled fact. Absent is absent — render
   the **disabled** control and **name the record** to fix; a missing CLABE reported as missing phone
-  sends the tenant to the wrong form.
+  sends the tenant to the wrong form. `tests/unit/placeholderIdentifiers.test.ts` scans for the
+  fallback shape, but only `demo*` and 10–13 digit literals — a short fiscal default like `'601'`
+  passes it, so the rule still needs reading.
 - **A verification script's exit code is a claim.** `verify:webhook` printed "All 4 checks passed"
   for a run that skipped the two protecting money — and those four passed against an endpoint with
   *no* secret, which rejects everything (#63; #118 is `verify:otp`'s). Incomplete runs exit non-zero
@@ -100,13 +99,12 @@ not earned. It has shipped here at least eight times.
   and map an unrecognised value to `null`, never the nearest listed — `'free'` mapped to `'inicial'`
   showed a $299 plan nobody bought and disabled its own subscribe button.
 - **When the app and RLS each decide "which tenants may this user act on", they will disagree**
-  (#146). `requireOrgAccess()` read `organizations.owner_id` and returned `role: 'owner'`;
-  `user_organization_ids()`, the whole check behind nine policies, read `organization_members` only
-  — and nothing creates a member row for an owner. Auth passed, the route ran, every INSERT came
-  back `42501`: the org row visible, none of its contents. Derive both from the same fact, and prove
-  access by impersonating a real `auth.uid()` (`set_config('request.jwt.claims', …)` then INSERT):
-  it must **succeed for the caller's org and be refused for another's**.
-  `tests/unit/orgOwnerAccess.test.ts` pins the definition; only the catalog proves the deployment.
+  (#146). `requireOrgAccess()` returned `role: 'owner'` from `organizations.owner_id` while
+  `user_organization_ids()` — the check behind nine policies — read `organization_members` only, and
+  nothing creates a member row for an owner. Auth passed, every INSERT came back `42501`. Derive
+  both from the same fact (`tests/unit/orgOwnerAccess.test.ts` pins it), and prove access by
+  impersonating a real `auth.uid()`: it must **succeed for the caller's org and be refused for
+  another's**. Only the catalog proves the deployment.
 - **Nullable-with-no-default is a decision.** Where the UI must tell "never set" from "set to zero",
   refuse `DEFAULT 0`/`'active'` — the #64 tri-state rule at the column — and keep such columns
   independent in the form: coupling `credit_status` to `credit_limit` discarded an owner blocking a
@@ -116,13 +114,12 @@ not earned. It has shipped here at least eight times.
 
 - **A client `fetch` calling a method its route does not export fails the build**
   (`tests/unit/clientFetchMethods.test.ts`). A PUT against a GET/PATCH/POST route made every save a
-  405, swallowed by `.catch(() => {})` and reported as success (#95) — the quietest
-  fabricated-success there is, invisible to any test that mocks `fetch`.
-  **The key *names* fail the same way:**
-  both clients routes destructured camelCase off a snake_case body, so four fields — two of them
-  required to stamp a CFDI — were written NULL and reported as saved (#96). Read bodies through
-  `pickFields(body, <ENTITY>_WRITABLE_FIELDS)`; `tests/unit/clientWritePath.test.ts` checks the
-  modal's keys against the allowlist. Assert on what reaches the DB layer, not on what `fetch` got.
+  405, swallowed by `.catch(() => {})` and reported as success (#95) — invisible to any test that
+  mocks `fetch`. **The key *names* fail the same way**: both clients routes destructured camelCase
+  off a snake_case body, so four fields — two required to stamp a CFDI — were written NULL and
+  reported as saved (#96). Read bodies through `pickFields(body, <ENTITY>_WRITABLE_FIELDS)`;
+  `tests/unit/clientWritePath.test.ts` checks the modal's keys against the allowlist. Assert on what
+  reaches the DB layer, not on what `fetch` got.
 - **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93). Chrome identity
   comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
   `lib/whatsappLink.ts`. `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak.
@@ -174,22 +171,12 @@ not earned. It has shipped here at least eight times.
   plant restores the *last commit*, wiping every uncommitted change with it. Reverse the exact edit
   instead, or plant only in already-committed files.
 - **A session with the Supabase connector can run "needs a deployment" checks itself — don't park
-  them on the founder.** Live schema/grants come from `execute_sql` against `pg_catalog` /
-  `information_schema`; migrations via `apply_migration` (keeping the ledger); PostgREST from inside
-  the database — `CREATE EXTENSION http`, call the project's own `/rest/v1/` with `http_get()` (anon
-  key as an `apikey=` param), `DROP EXTENSION` after, since the shell cannot reach `*.supabase.co`.
-  Confirm every claim by reading the catalog back, never by exit code, and prove a constraint by
-  making it *reject* something. **Run the check especially when it is the only thing left on an
-  issue**: #96 was merged and reviewed with just its deployed check outstanding, and running it
-  found a table missing three columns the shipped code read. Only the browser session and the real
-  credential are out of reach; schema, grants, constraints, PostgREST **and the deployed app
-  itself** are not — send an `@supabase/ssr` cookie on `extensions.http(('PATCH','https://…'))`
-  (recipe in #129). The shell's `403` on the app domain is not the last word: #95 sat three weeks
-  on that. **Nor is GoTrue** — `/auth/v1/settings?apikey=<anon>` returns the `external` provider
-  map, `/auth/v1/authorize?provider=…` the user's error, and `auth.identities` who has *ever*
-  signed in that way; #48 sat two days on it.
-- **A shared always-read document with no headroom manufactures merge conflicts** (#135). Adding a
-  line forces compressing an unrelated paragraph, two sessions compress the same paragraph two ways,
-  and the cheap resolution drops one side's lesson under a green build. Lessons live here, not in
-  `CLAUDE.md`; append rather than re-flow; and where a doc's content is load-bearing for correctness,
-  give the loss a gate — `tests/unit/lessonsCatalogue.test.ts` is this one's.
+  them on the founder**, especially when it is the only thing left on an issue: #96 was merged and
+  reviewed with just that outstanding, and running it found a table missing three columns the
+  shipped code read. Only the browser session and a real third-party credential are out of reach —
+  schema, grants, constraints, RLS, PostgREST, GoTrue and the deployed app are not (#129, #95, #48
+  each sat on an assumed-impossible check). Confirm by reading state back, never by exit code, and
+  prove a constraint by making it *reject* something. Recipes:
+  [`docs/04-execution-testing/live-verification-recipes.md`](04-execution-testing/live-verification-recipes.md).
+- **Where a doc's content is load-bearing for correctness, give the loss a gate** (#135) — prose
+  cannot survive a merge on its own. `tests/unit/lessonsCatalogue.test.ts` is this file's.

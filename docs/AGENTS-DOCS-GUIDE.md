@@ -106,6 +106,7 @@ These were deleted as redundant or spent; git history retains them.
 | **★ Asking "is this ready to launch?" or "what is actually done?"** | [`docs/STATUS.md`](../docs/STATUS.md) | [`security-p0-remediation.md`](../docs/security-p0-remediation.md) |
 | **★ Writing any code — what has already gone wrong here** | [`docs/LESSONS.md`](../docs/LESSONS.md) | [`CLAUDE.md`](../CLAUDE.md) |
 | **Executing a sprint task or building a feature with ECC** | [`ecc-execution-playbook.md`](../docs/04-execution-testing/ecc-execution-playbook.md) | [`feature_implementation_spec.md`](../docs/03-product-specs/feature_implementation_spec.md) |
+| **Verifying a claim against the live system ("needs a deployment")** | [`live-verification-recipes.md`](../docs/04-execution-testing/live-verification-recipes.md) | [`docs/LESSONS.md`](../docs/LESSONS.md) |
 | **Architecting a new feature or database table** | [`database-schema-design.md`](../docs/02-architecture/database-schema-design.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
 | **Implementing a single feature or UI component** | [`feature_implementation_spec.md`](../docs/03-product-specs/feature_implementation_spec.md) | [`user-personas.md`](../docs/01-strategy/user-personas.md) |
 | **Checking sprint schedule or launch gates** | [`product-roadmap.md`](../docs/03-product-specs/product-roadmap.md) | [`docs/STATUS.md`](../docs/STATUS.md) |
