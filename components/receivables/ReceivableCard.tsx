@@ -63,12 +63,23 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
   // absence into `/pay/demo` — a link that looks live, sends the client to
   // "Cobro no encontrado", and tells the tenant nothing. Absent is absent.
   const payToken = milestone.public_token || null;
-  const hasPayLink = Boolean(payToken);
+  /**
+   * The account this quote named has been archived (#164), so its `/pay/` page
+   * refuses — `resolveQuoteAccount` will not substitute another.
+   *
+   * The organization-level readiness gate cannot see this: a tenant with two
+   * accounts who archives the non-default one is still "ready", so without this
+   * the reminder goes out, the client opens the link, and it turns them away.
+   * The link is built here in the browser as a `wa.me/` URL, so the server
+   * refusal on the broadcast route cannot catch this path.
+   */
+  const payAccountArchived = milestone.pay_account_archived === true;
+  const hasPayLink = Boolean(payToken) && !payAccountArchived;
 
   // No fallback number: a payment reminder carries the amount owed and the
   // /pay/ link, and must never go to a phone the tenant did not record. The
   // previous default was a real, dialable Monterrey number (#44).
-  const whatsappUrl = milestone.client_phone && canShare && payToken
+  const whatsappUrl = milestone.client_phone && canShare && hasPayLink && payToken
     ? generatePaymentReminderLink({
         phone: milestone.client_phone,
         clientName: milestone.client_name || 'Cliente',
@@ -83,9 +94,11 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
   /** The one thing the tenant has to fix, named specifically. */
   const blockedReason = !canShare
     ? 'Agrega la CLABE de tu negocio para poder cobrar'
-    : !hasPayLink
-      ? 'Este cobro no tiene una cotización con liga de pago'
-      : 'Agrega un teléfono al cliente para enviar recordatorios por WhatsApp';
+    : payAccountArchived
+      ? 'La cuenta de cobro de esta cotización está archivada. Vuelve a cotizar con otra cuenta.'
+      : !hasPayLink
+        ? 'Este cobro no tiene una cotización con liga de pago'
+        : 'Agrega un teléfono al cliente para enviar recordatorios por WhatsApp';
 
   return (
     <div className="bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl hover:border-slate-700 transition-all p-5 flex flex-col justify-between text-white">
@@ -160,15 +173,17 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
                 <span>
                   {!canShare
                     ? 'Agrega tu CLABE para cobrar'
-                    : !hasPayLink
-                      ? 'Sin liga de pago'
-                      : 'Agrega un teléfono para WhatsApp'}
+                    : payAccountArchived
+                      ? 'Cuenta de cobro archivada'
+                      : !hasPayLink
+                        ? 'Sin liga de pago'
+                        : 'Agrega un teléfono para WhatsApp'}
                 </span>
               </button>
             )
           )}
 
-          {canShare && payToken ? (
+          {canShare && hasPayLink && payToken ? (
             <a
               href={`/pay/${payToken}`}
               target="_blank"

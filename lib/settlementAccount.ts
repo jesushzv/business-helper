@@ -80,8 +80,25 @@ export async function requireSettlementAccount(
     return { ok: false, response: settlementAccountMissingResponse() };
   }
 
-  // The default is what an unassigned quote settles at; with no row flagged —
-  // which the schema permits only transiently — the first live account stands
-  // in rather than the caller being told it has nothing.
-  return { ok: true, account: findDefaultAccount(live) ?? live[0], accounts: live };
+  /**
+   * The default is what an unassigned quote settles at — and *only* the row
+   * flagged as such.
+   *
+   * This used to fall back to `live[0]` (alphabetically first) when nothing
+   * held the flag, on the theory that the state was transient. It is not
+   * self-healing, and the fallback made this function disagree with the payer
+   * route, which resolves the same state through `resolveQuoteAccount(null,
+   * null)` and refuses. The two answering differently is #64's failure exactly:
+   * the tenant's dashboard shows no banner and share buttons stay live, while
+   * every quote that named no account dead-ends in front of its client.
+   *
+   * Naming an account nobody designated is also its own defect — it would send
+   * a payer to whichever CLABE sorted first.
+   */
+  const settlementAccount = findDefaultAccount(live);
+  if (!settlementAccount) {
+    return { ok: false, response: settlementAccountMissingResponse() };
+  }
+
+  return { ok: true, account: settlementAccount, accounts: live };
 }

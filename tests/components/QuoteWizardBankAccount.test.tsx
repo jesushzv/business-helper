@@ -182,6 +182,41 @@ describe('the picker', () => {
     expect(onSubmit.mock.calls[0][0].bank_account_id).toBe('acct-2');
   });
 
+  /**
+   * The modal is mounted permanently by the quotes page and only toggled with
+   * `isOpen`, so component state survives a close. Without a reset, a quote
+   * pinned to "Santander nómina" leaves the picker there and the **next**
+   * client — a different business entirely — is silently pinned to the same
+   * account. The money still reaches the tenant, but into a branch or partner
+   * account nobody chose for that client.
+   */
+  it('does not carry one quote’s account over to the next', async () => {
+    mockAccounts([BBVA, SANTANDER]);
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    const { rerender } = render(
+      <QuoteWizardModal isOpen onClose={() => {}} clients={CLIENTS} onSubmit={onSubmit} />
+    );
+    await reachConfirmStep();
+    await waitFor(() =>
+      expect(screen.getByLabelText(/En qué cuenta te paga/i)).toBeInTheDocument()
+    );
+    fireEvent.change(screen.getByLabelText(/En qué cuenta te paga/i), {
+      target: { value: 'acct-2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Generar y Compartir/i }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0].bank_account_id).toBe('acct-2');
+
+    // Closed and reopened for the next client.
+    rerender(<QuoteWizardModal isOpen={false} onClose={() => {}} clients={CLIENTS} onSubmit={onSubmit} />);
+    rerender(<QuoteWizardModal isOpen onClose={() => {}} clients={CLIENTS} onSubmit={onSubmit} />);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/En qué cuenta te paga/i)).toHaveValue('')
+    );
+  });
+
   /** A failed account read must not block quoting: the column is nullable. */
   it('still lets the tenant create a quote when the accounts could not be read', async () => {
     vi.stubGlobal(

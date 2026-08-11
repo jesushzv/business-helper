@@ -109,6 +109,26 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   // for a quote larger than the entire line (#96 money-path review).
   const { receivables, loading: receivablesLoading, error: receivablesError } = useReceivables();
 
+  /**
+   * Clears the per-quote account each time the wizard opens (#164).
+   *
+   * The modal is mounted permanently by `app/(dashboard)/quotes/page.tsx` and
+   * only toggled with `isOpen`, and the early return below unmounts nothing —
+   * so state survives a close. Without this, a quote pinned to "Santander
+   * nómina" leaves the picker on Santander, and the *next* client, a different
+   * business entirely, is silently pinned to the same account unless the tenant
+   * re-reads step 3. The money still reaches the tenant, but into a branch or
+   * partner account nobody chose for that client — and no surface shows which
+   * account a quote named after it is created.
+   *
+   * Deliberately only this field: the title, line items and tax toggles are
+   * cleared by their own flow, and wiping a half-typed quote on a stray reopen
+   * would cost the tenant real work.
+   */
+  React.useEffect(() => {
+    if (isOpen) setBankAccountId(null);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const lineItems: LineItem[] = toLineItems(drafts);

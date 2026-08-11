@@ -20,10 +20,11 @@ import { join } from 'node:path';
  *
  * Hence this gate. A component that owns a `<form>` and a submit handler is
  * where a user can get stuck, and a component test is where that can be caught.
- * Seven such components have no test that renders them and are allowlisted
- * below, tracked in #149 — among them `/pay/[token]`, the page a paying client
- * sees. (`OtpSignatureModal` left the list with the email-OTP migration, which
- * added its test.)
+ * Such components with no test that renders them are allowlisted below, tracked
+ * in #149 — each entry is live debt, and the gate fails when one acquires a
+ * test and keeps its entry. (`OtpSignatureModal` left the list with the
+ * email-OTP migration; `/pay/[token]` — the page a paying client sees — left it
+ * with #164's payer-facing archived-account rendering.)
  *
  * **Coverage is decided by import, not by filename.** `SettingsCards.test.tsx`
  * covers three cards, and every Next.js page is called `page.tsx`, so matching
@@ -38,7 +39,6 @@ const TEST_DIR = join(process.cwd(), 'tests', 'components');
  * Delete one in the PR that adds its test; that is how #149 closes.
  */
 const UNTESTED = new Set([
-  'app/pay/[token]/page.tsx',
   'components/assistant/AIAssistantCard.tsx',
   'components/help/HelpCenterView.tsx',
   'components/landing/BottomConversionForm.tsx',

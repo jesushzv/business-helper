@@ -36,8 +36,27 @@ interface BankAccountsCardProps {
 type Editing = { mode: 'none' } | { mode: 'add' } | { mode: 'edit'; account: BankAccount };
 
 export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) => {
-  const { accounts, loading, error, createAccount, updateAccount, makeDefault, archiveAccount } =
+  const { accounts, loading, error, role, createAccount, updateAccount, makeDefault, archiveAccount } =
     useBankAccounts();
+
+  /**
+   * Whether to offer the actions — a tri-state, not the `canEdit` boolean.
+   *
+   * `canEdit` is the page's answer, derived from `role === 'owner'` on a
+   * *separate* read of `/api/organization`. That read failing produces `false`,
+   * which is indistinguishable from "you are a member" — so an owner whose
+   * request dropped was told *"Solo el dueño de la cuenta puede…"* about their
+   * own business, on the card that decides where their money lands. The #64
+   * tri-state rule, inverted.
+   *
+   * This card fetched a `role` of its own alongside the accounts, so it can
+   * tell the two apart: either source saying "owner" is enough, and when
+   * neither knows, the actions stay hidden but the card says so honestly
+   * instead of asserting a role. The routes gate on `billing_management`
+   * regardless, so being permissive here could not let a member write.
+   */
+  const mayEdit = canEdit || role === 'owner';
+  const roleUnknown = !mayEdit && role === null;
 
   const [editing, setEditing] = useState<Editing>({ mode: 'none' });
   const [confirmingArchive, setConfirmingArchive] = useState<string | null>(null);
@@ -50,7 +69,7 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
   const live = accounts ? selectableAccounts(accounts) : null;
 
   const runRowAction = async (id: string, action: () => Promise<unknown>, success: { title: string; message: string }) => {
-    if (!canEdit) return;
+    if (!mayEdit) return;
     setBusyId(id);
     setRowError(null);
     try {
@@ -153,7 +172,7 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
                 </div>
               )}
 
-              {canEdit && confirmingArchive === account.id && (
+              {mayEdit && confirmingArchive === account.id && (
                 <div className="mt-3 rounded-2xl border border-rose-500/30 bg-rose-950/40 p-4">
                   <div className="flex items-start gap-2">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
@@ -190,7 +209,7 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
                 </div>
               )}
 
-              {canEdit && confirmingArchive !== account.id && editing.mode === 'none' && (
+              {mayEdit && confirmingArchive !== account.id && editing.mode === 'none' && (
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                   {!account.is_default && (
                     <button
@@ -232,7 +251,7 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
                 </div>
               )}
 
-              {canEdit && editing.mode === 'edit' && editing.account.id === account.id && (
+              {mayEdit && editing.mode === 'edit' && editing.account.id === account.id && (
                 <div className="mt-4 border-t border-slate-800 pt-4">
                   <BankAccountForm
                     account={editing.account}
@@ -254,7 +273,7 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
         </ul>
       )}
 
-      {canEdit && editing.mode === 'add' && (
+      {mayEdit && editing.mode === 'add' && (
         <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
           <h4 className="mb-4 text-sm font-extrabold text-white">Agregar una cuenta</h4>
           <BankAccountForm
@@ -276,12 +295,15 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
       )}
 
       {/*
-        Adding is offered even when the read failed: the tenant may genuinely
-        have no account, and the server refuses a duplicate CLABE on its own
-        terms. What is not offered is a per-row action against a list we could
-        not read — there are no rows to act on.
+        Adding stays offered when the read failed, because the tenant may
+        genuinely have no account and this is the only way to fix that. It is
+        not free of risk: there is no unique index on (organization_id, clabe),
+        so a tenant who cannot see their list could add a duplicate. That is
+        recoverable — archive it — whereas being unable to register an account
+        at all is not, so the trade goes this way deliberately. What is never
+        offered is a per-row action against a list we could not read.
       */}
-      {canEdit && editing.mode === 'none' && !confirmingArchive && (
+      {mayEdit && editing.mode === 'none' && !confirmingArchive && (
         <button
           type="button"
           onClick={() => {
@@ -295,9 +317,18 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
         </button>
       )}
 
-      {!canEdit && (
+      {!mayEdit && !roleUnknown && (
         <p className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-xs font-bold text-slate-400">
           Solo el dueño de la cuenta puede agregar o cambiar estas cuentas. Pídele que lo haga.
+        </p>
+      )}
+
+      {/* Neither read knew the role. Say that, rather than telling an owner
+          they are not the owner. */}
+      {roleUnknown && (
+        <p className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-xs font-bold text-slate-400">
+          No pudimos confirmar tu rol en el negocio. Vuelve a cargar la página para administrar tus
+          cuentas de cobro.
         </p>
       )}
 

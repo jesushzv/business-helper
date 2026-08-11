@@ -40,6 +40,16 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
   const [resuming, setResuming] = useState(false);
   const [organizationId, setOrganizationId] = useState<string>('');
+  /**
+   * The default account this form is *editing*, when resuming (#164).
+   *
+   * Empty means "create". Without it every visit to this form added a row:
+   * an owner whose bank changed would reopen onboarding, see their old CLABE
+   * prefilled, type the new one, and get a **second, non-default** account —
+   * with every new quote still settling at the old one, and no indication that
+   * the change they thought they made did not happen.
+   */
+  const [existingAccountId, setExistingAccountId] = useState<string>('');
   /** Keyed by input, pinned under it — never collected into one banner (#146). */
   const [bankFieldErrors, setBankFieldErrors] = useState<BankAccountFieldErrors>({});
 
@@ -79,18 +89,19 @@ export default function OnboardingPage() {
         setCodigoPostal(org.codigo_postal || '');
         if (org.industry) setIndustry(org.industry);
         setOrganizationId(org.id || '');
-        setBankName(org.bank_name || '');
-        setBankAccountHolder(org.bank_account_holder || '');
-        if (isValidClabeLength(String(org.bank_clabe || '')))
-          setBankClabe(formatClabe(org.bank_clabe as string));
-
         setStep(3);
 
-        // Prefill from the account list, which is what this step now writes.
-        // A tenant who got as far as saving an account and then closed the tab
-        // has it here and not necessarily in the legacy columns; a failed read
-        // leaves the fields as the organization row filled them rather than
-        // blanking a stored account (#96).
+        /**
+         * Prefill from the **account list**, never from `organizations.bank_*`.
+         *
+         * The legacy columns are not cleared when an account is archived, so
+         * prefilling from them re-offered a CLABE the owner had just taken out
+         * of service — and the #64 banner links here, so the one tap they are
+         * told to make would have re-registered a closed bank account as their
+         * default. Their clients would then wire SPEI into it.
+         *
+         * A tenant with no live account correctly prefills nothing.
+         */
         const accountsRes = await fetch('/api/organization/bank-accounts').catch(() => null);
         if (cancelled || !accountsRes?.ok) return;
         const accountsData = await accountsRes.json().catch(() => null);
@@ -98,6 +109,8 @@ export default function OnboardingPage() {
 
         const current = findDefaultAccount(accountsData.accounts as BankAccount[]);
         if (!current) return;
+        // Held so the submit edits this account instead of adding a second one.
+        setExistingAccountId(current.id);
         setBankName(current.bank_name || '');
         setBankAccountHolder(current.account_holder || '');
         if (isValidClabeLength(current.clabe)) setBankClabe(formatClabe(current.clabe));
@@ -234,11 +247,19 @@ export default function OnboardingPage() {
     }
 
     try {
-      const res = await fetch('/api/organization/bank-accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
+      // Editing the account this form was prefilled from, or creating the
+      // tenant's first. Always creating turns "I changed my CLABE" into a
+      // second account that receives nothing.
+      const res = await fetch(
+        existingAccountId
+          ? `/api/organization/bank-accounts/${existingAccountId}`
+          : '/api/organization/bank-accounts',
+        {
+          method: existingAccountId ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values),
+        }
+      );
 
       const data = await res.json().catch(() => null);
 

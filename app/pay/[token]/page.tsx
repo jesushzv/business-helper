@@ -35,6 +35,7 @@ export default function PublicPayPortalPage() {
   // business just has no CLABE yet — telling the payer "el enlace no existe"
   // would send them to re-ask the vendor for a link that works fine.
   const [loadErrorCode, setLoadErrorCode] = useState<string | null>(null);
+  const [loadErrorMessage, setLoadErrorMessage] = useState<string | null>(null);
   const [copiedClabe, setCopiedClabe] = useState(false);
 
   // Form states
@@ -59,6 +60,12 @@ export default function PublicPayPortalPage() {
         }
         if (data?.error?.code) {
           setLoadErrorCode(data.error.code);
+          // Every message in this envelope is Spanish and safe to render to the
+          // payer verbatim — that is what `publicApiError()` guarantees (#65).
+          // Keeping it means a refusal this page has no specific styling for is
+          // still said in the words the route chose, instead of being flattened
+          // into "no existe".
+          if (typeof data.error.message === 'string') setLoadErrorMessage(data.error.message);
         }
       } catch {
         // Network failure falls through to the not-found rendering below.
@@ -189,6 +196,24 @@ export default function PublicPayPortalPage() {
     // not a broken one. Saying "no existe" here would tell a payer who already
     // transferred that their cobro vanished.
     const alreadyRecorded = loadErrorCode === 'PAYMENT_ALREADY_RECORDED';
+    /**
+     * The account this quote named has been archived (#164).
+     *
+     * A real link, a real cobro, and a payer who must **not** transfer yet.
+     * Before this branch existed the page fell through to "Enlace de Pago No
+     * Encontrado", so a client holding a perfectly valid quote was told their
+     * cobro did not exist — they conclude the link is dead or the vendor is
+     * not real, and nobody contacts anybody.
+     */
+    const accountUnavailable = loadErrorCode === 'SETTLEMENT_ACCOUNT_UNAVAILABLE';
+    /**
+     * Anything else the route refuses with. `publicApiError()` guarantees a
+     * Spanish message safe to show the payer, so an unrecognised code says what
+     * the route said rather than being flattened into "no existe" — a claim
+     * this page cannot actually support for a code it does not know.
+     */
+    const unknownRefusal = Boolean(loadErrorCode) && !bankDetailsMissing && !alreadyRecorded && !accountUnavailable;
+
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 text-center max-w-md text-white">
@@ -197,6 +222,10 @@ export default function PublicPayPortalPage() {
               ? 'Pago No Disponible Por El Momento'
               : alreadyRecorded
               ? 'Este Cobro Ya Fue Registrado'
+              : accountUnavailable
+              ? 'Pago No Disponible Por El Momento'
+              : unknownRefusal
+              ? 'No Se Puede Completar El Pago'
               : 'Enlace de Pago No Encontrado'}
           </h2>
           <p className="text-sm text-slate-400 mt-2">
@@ -204,6 +233,9 @@ export default function PublicPayPortalPage() {
               ? 'El negocio aún no ha configurado su cuenta bancaria para recibir pagos SPEI. Contacte a su proveedor para completar el pago.'
               : alreadyRecorded
               ? 'El comprobante de este cobro ya fue enviado o el pago ya fue confirmado. Si tienes dudas, contacta directamente al negocio.'
+              : accountUnavailable || unknownRefusal
+              ? loadErrorMessage ||
+                'No se puede completar este pago por el momento. Contacta al negocio antes de transferir.'
               : 'La clave o ficha de cobro no existe o ha expirado.'}
           </p>
         </div>

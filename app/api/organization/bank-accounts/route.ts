@@ -122,6 +122,24 @@ export async function POST(request: Request) {
       );
     }
 
+    // Adding an account is how money starts arriving somewhere new. Audited
+    // like the archive and the default switch, best-effort and after the row is
+    // confirmed — never the CLABE itself, which `lib/analytics.ts` already
+    // treats as PII.
+    const { error: auditError } = await supabase.from('audit_logs').insert({
+      organization_id: organizationId,
+      action: 'settlement_account.added',
+      actor: auth.ctx.userId,
+      details: `Cuenta de cobro agregada: ${(data as BankAccount).label}`,
+    });
+
+    if (auditError) {
+      captureException(auditError, {
+        route: 'POST /api/organization/bank-accounts',
+        organization_id: organizationId,
+      });
+    }
+
     return NextResponse.json({ account: data as BankAccount });
   } catch {
     return NextResponse.json(
