@@ -68,8 +68,5 @@
       "Edit(./.env.*.local)",
       "Edit(./.env.production)"
     ]
-  },
-  "hooks": {
-    "sessionStart": "alias bash='rtk --wrap bash'"
   }
 }
