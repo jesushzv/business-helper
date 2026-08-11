@@ -108,7 +108,7 @@ describe('save honesty', () => {
       })
     );
 
-    let ok: boolean | undefined;
+    let ok: { ok: boolean; message: string | null } | undefined;
     await act(async () => {
       ok = await result.current.updateSettings({
         name: 'Ferretería La Central S.A.',
@@ -116,7 +116,7 @@ describe('save honesty', () => {
       });
     });
 
-    expect(ok).toBe(true);
+    expect(ok).toMatchObject({ ok: true });
     const [, init] = fetchMock.mock.calls[1];
     expect(init?.method).toBe('PATCH');
     expect(result.current.settings?.name).toBe('Ferretería La Central S.A.');
@@ -129,12 +129,13 @@ describe('save honesty', () => {
       jsonResponse(400, { error: { code: 'INVALID_RFC', message: 'El RFC no es válido' } })
     );
 
-    let ok: boolean | undefined;
+    let ok: { ok: boolean; message: string | null } | undefined;
     await act(async () => {
       ok = await result.current.updateSettings({ rfc: 'NOPE' });
     });
 
-    expect(ok).toBe(false);
+    expect(ok).toMatchObject({ ok: false });
+    expect(ok?.message).toBeTruthy();
     expect(result.current.error).toBe('El RFC no es válido');
     // The rejected value must not be presented as saved.
     expect(result.current.settings?.rfc).toBe('FCE900101AB1');
@@ -144,12 +145,13 @@ describe('save honesty', () => {
     const { result } = await mountLoaded();
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-    let ok: boolean | undefined;
+    let ok: { ok: boolean; message: string | null } | undefined;
     await act(async () => {
       ok = await result.current.updateSettings({ name: 'Otro Nombre' });
     });
 
-    expect(ok).toBe(false);
+    expect(ok).toMatchObject({ ok: false });
+    expect(ok?.message).toBeTruthy();
     expect(result.current.settings?.name).toBe('Ferretería La Central');
   });
 });

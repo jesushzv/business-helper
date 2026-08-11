@@ -67,7 +67,9 @@ describe('OrgProfileCard — the form follows the server row', () => {
     await waitFor(() =>
       expect((document.getElementById('org-phone') as HTMLInputElement).value).toBe('8112345678')
     );
-    expect(await screen.findByText(/se guardaron correctamente/i)).toBeTruthy();
+    // The "se guardaron correctamente" confirmation moved out of the card and
+    // into the settings page's ActionResultDialog, fired off the save outcome —
+    // the card no longer concludes anything about the result on its own.
   });
 
   it('does not offer a submit button to a role whose PATCH cannot match a row', () => {

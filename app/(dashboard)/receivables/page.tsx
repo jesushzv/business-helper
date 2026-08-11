@@ -6,10 +6,12 @@ import { useReceivables, MilestoneWithClient } from '@/lib/hooks/useReceivables'
 import { ReceivablesSummaryCards } from '@/components/receivables/ReceivablesSummaryCards';
 import { ReceivableCard } from '@/components/receivables/ReceivableCard';
 import { SpeiConfirmModal } from '@/components/receivables/SpeiConfirmModal';
+import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 import { useSettlementAccount } from '@/lib/hooks/useSettlementAccount';
 import { Search, Wallet } from 'lucide-react';
 
 export default function ReceivablesPage() {
+  const result = useActionResult();
   const {
     filteredReceivables,
     summary,
@@ -139,10 +141,26 @@ export default function ReceivablesPage() {
           setIsConfirmModalOpen(false);
           setSelectedMilestone(null);
         }}
-        onConfirm={(milestoneId, transferredAmount) =>
-          confirmPayment(milestoneId, transferredAmount)
-        }
+        onConfirm={async (milestoneId, transferredAmount) => {
+          const outcome = await confirmPayment(milestoneId, transferredAmount);
+          // Announce only the clean case, from the server's own outcome. A
+          // failure stays in the modal, which holds itself open; so does a
+          // confirmed payment whose SAT complement did not stamp — that
+          // warning is a live fiscal obligation, and a green dialog on top of
+          // it would bury exactly the thing the tenant must act on.
+          if (outcome.success && !outcome.complementError) {
+            result.succeed({
+              title: 'Pago confirmado',
+              message: outcome.milestone
+                ? `El cobro «${outcome.milestone.label}» quedó registrado como pagado.`
+                : 'El pago quedó registrado.',
+            });
+          }
+          return outcome;
+        }}
       />
+
+      <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
     </>
   );

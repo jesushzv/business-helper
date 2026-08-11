@@ -9,6 +9,7 @@ import { SubscriptionBillingCard } from '@/components/settings/SubscriptionBilli
 import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard';
 import { PacConnectionCard } from '@/components/settings/PacConnectionCard';
 import { track } from '@/lib/analytics';
+import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 
 export default function SettingsPage() {
   const { settings, role, subscriptionStatusInfo, updateSettings, loading, saving, error } =
@@ -20,6 +21,31 @@ export default function SettingsPage() {
   const canEdit = role === 'owner';
 
   const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
+  const result = useActionResult();
+
+  /**
+   * Adapts the hook's outcome to the confirmation dialog while preserving the
+   * cards' `Promise<boolean>` contract — they decide nothing about reporting.
+   *
+   * A save on this page used to confirm itself with a three-second inline
+   * banner *above* the form, and failures only through the page-top banner —
+   * both the #146 shape, on the page holding the CLABE payments settle to and
+   * the RFC every CFDI is stamped with. The success text is generic on
+   * purpose: the card re-renders from the row the server returned, so the
+   * fields themselves show what was actually stored.
+   */
+  const saveWithConfirmation = async (
+    patch: Partial<import('@/lib/hooks/useOrganizationSettings').OrganizationSettings>,
+    what: string
+  ): Promise<boolean> => {
+    const outcome = await updateSettings(patch);
+    if (outcome.ok) {
+      result.succeed({ title: 'Cambios guardados', message: `${what} se guardaron correctamente.` });
+    } else {
+      result.fail(new Error(outcome.message || ''), { title: 'No se guardaron los cambios' });
+    }
+    return outcome.ok;
+  };
 
   /**
    * Sends the owner to Stripe Checkout.
@@ -81,7 +107,7 @@ export default function SettingsPage() {
             {/* Organization Profile Settings */}
             <OrgProfileCard
               settings={settings}
-              onSave={updateSettings}
+              onSave={(patch) => saveWithConfirmation(patch, 'Los datos de tu empresa')}
               saving={saving}
               canEdit={canEdit}
             />
@@ -95,7 +121,7 @@ export default function SettingsPage() {
             {/* White-Labeling & Branding Settings */}
             <BrandingSettingsCard
               settings={settings}
-              onSave={updateSettings}
+              onSave={(patch) => saveWithConfirmation(patch, 'Tu logotipo y marca')}
               saving={saving}
               canEdit={canEdit}
             />
@@ -115,6 +141,8 @@ export default function SettingsPage() {
           </>
         )}
       </div>
+
+      <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
   );
 }

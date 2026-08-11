@@ -40,7 +40,6 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
   const [logoUrl, setLogoUrl] = useState<string>(settings?.logo_url || '');
   const [tagline, setTagline] = useState<string>(settings?.tagline || '');
   const [defaultCurrency, setDefaultCurrency] = useState<'MXN' | 'USD'>(settings?.default_currency === 'USD' ? 'USD' : 'MXN');
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Same reason as OrgProfileCard: the server trims the logo URL and rejects a
   // non-https one, and the hook then applies the row it returned. Without this
@@ -53,13 +52,11 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
   // nowhere to persist — the old card "saved" them into a request the server
   // ignored and reported success (#95); they are disabled until the feature
   // lands rather than pretending. Tracked in the branding-persistence issue.
+  // Reporting moved to the settings page's ActionResultDialog, fired off this
+  // save's outcome — the card only submits (#146's confirmation gap).
   const handleSaveBranding = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await onSave({ logo_url: logoUrl.trim() || null });
-    if (success) {
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    }
+    await onSave({ logo_url: logoUrl.trim() || null });
   };
 
   const cssVars = generateThemeCssVariables({ primaryColor });
@@ -195,7 +192,6 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
 
         {/* Submit Button — saves the logo, the only branding field with a server home */}
         <div className="flex items-center justify-end gap-3 pt-2">
-          {saveSuccess && <span className="text-xs font-bold text-emerald-400">Logotipo guardado con éxito.</span>}
           {canEdit ? (
             <button
               type="submit"
