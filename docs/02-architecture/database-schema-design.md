@@ -36,7 +36,7 @@
 - `logo_url`: text (nullable) -- Supabase Storage URL
 - `industry`: text (nullable) -- e.g., 'construction', 'services', 'retail'
 - `phone`: text (nullable) -- org WhatsApp contact, canonical 10-digit form (`20260809000000`; #95/#44)
-- `owner_id`: uuid (FK -> `auth.users.id`, not null, IDX)
+- `owner_id`: uuid (FK -> `auth.users.id` `ON DELETE RESTRICT`, not null, IDX `idx_organizations_owner_id`, **not unique**) -- the `IDX` here described an index that did not exist until `20260811140000` (#168). Non-uniqueness is deliberate (#109): an owner may hold several organizations, so every owner-scoped write filters by organization `id` as well, and `requireOrgAccess()` resolves oldest-first rather than by an unordered `limit(1)`.
 - `stripe_customer_id`: text (nullable, UQ)
 - `stripe_subscription_id`: text (nullable, UQ)
 - `subscription_tier`: text (not null, default: `'free'`) -- 'free' | 'emprendedor' | 'negocio' | 'empresa'

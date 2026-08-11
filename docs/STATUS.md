@@ -91,23 +91,23 @@ until checked against source. This memo does that check; §06 records the method
 
 ### Open and blocking
 
-*What remains here is configuration and one real transaction, not code. Cleared rows are collapsed
-into one line; their reasoning is in the frozen log.*
+*What remains here is configuration and one real transaction, not code. Cleared rows are collapsed;
+their reasoning is in the frozen log.*
 
 | Item | State | Blocks launch? |
 |:---|:---|:---|
 | **Live PAC stamp** | **The one that matters.** PR #23 merged, so stamping is real code — but its coverage runs against a mocked `fetch`, and no invoice has been issued through a live Facturapi sandbox. Merging is not verification. | **Yes** — CFDI ships at launch |
-| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
+| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11)**, migration `20260811120000` applied and its constraint proven by making it reject and accept; evidence read back from the live catalog and moved verbatim to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). sms/whatsapp stay wired but deprecated. | Cleared |
 | ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
-| ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
+| ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP backoff + daily cap (#22, PR #112, migration `20260809120000`). | Cleared |
 
 ### Recently landed (2026-08-07 → 2026-08-08)
 
 Moved to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-09 —
-eight merged changes with their issues, PRs and commits. Settled history, and this file was over
-its 32 KB budget. **What none of it changed:** every row was verified by `typecheck` + `lint` +
-vitest against **mocked** providers. Not one was a live third-party round-trip; the §03 items
-needing a real handset, card, PAC stamp or deployed database are untouched by all of it.
+eight merged changes with their issues, PRs and commits. **What none of it changed:** every row was
+verified by `typecheck` + `lint` + vitest against **mocked** providers. Not one was a live
+third-party round-trip; the §03 items needing a real handset, card, PAC stamp or deployed database
+are untouched by all of it.
 
 ---
 
@@ -147,14 +147,11 @@ needing a real handset, card, PAC stamp or deployed database are untouched by al
 | 4 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
 | 5 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that remain — a signed event is applied to a real row, and its redelivery is not — need a database, so they need a staging deployment; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE that matched no row — narrow in practice, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) already fails the claim insert for a nonexistent organization; what the guard closes is the deletion race. Least blocking of the P0s: it protects a path a SPEI-first pilot may barely exercise. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
-**The UX-audit trio is closed** (#93, #95, #96), and each was checked against production rather than
-argued: #95's save on 2026-08-09 — `PUT` 405, `PATCH`/`GET` 401, then a throwaway tenant's round trip
-persisting a normalized `phone`; #96's data layer the same day — a check that **failed**, finding two
-further defects since fixed; #93's chrome, public quote route and served dashboard on 2026-08-11 as
-the owner of a real organization, with the hydrated page confirmed by the founder in a browser.
-Transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays
-open in #103/#99 and #113/#114/#123/#124, plus two gaps pinned by unit tests only: a non-owner's
-read-only Ajustes, and `/pay`'s no-invented-bank path, which needs a tenant with a contract.
+**The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued —
+transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md); #96's check
+**failed** and found two further defects, since fixed. Residue stays open in #103/#99 and
+#113/#114/#123/#124, plus two gaps pinned by unit tests only: a non-owner's read-only Ajustes, and
+`/pay`'s no-invented-bank path, which needs a tenant with a contract.
 
 **The responsiveness/accessibility audit's modal findings are closed in code** (#87, #100): every
 overlay in the app is now `components/shared/Modal.tsx` — `role="dialog"`, Escape, focus trap and
@@ -215,10 +212,9 @@ fixture quote for every token (PR #57) — never listed as a P0 and worse than s
   CI was silently absent on PR #28 for ten hours across four pushes while Vercel and GitGuardian reported
   green, so the PR looked checked. The cause is still unexplained — which is the argument for a rule that
   fails closed rather than one that depends on understanding it.
-- ~~**OTP escalating backoff + daily cap** (#22).~~ **Merged 2026-08-09 (PR #112)** — per-phone
-  doubling backoff, 15/day cap, and #60's decision: a provider failure throttles the phone but
-  releases the quote's lifetime slot. Carries migration `20260809120000`; confirm it is applied
-  before relying on OTP issuance (hard rule 6).
+- ~~**OTP escalating backoff + daily cap** (#22).~~ **Merged 2026-08-09 (PR #112)**; carries
+  migration `20260809120000`, confirm it is applied before relying on OTP issuance (hard rule 6).
+  Detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 - **Register one client in the app, to close #146**
   ([#146](https://github.com/jesushzv/business-helper/issues/146)). Reported from real use on
   2026-08-10: registration could not be completed, and no message said which field was at fault.
@@ -244,13 +240,21 @@ fixture quote for every token (PR #57) — never listed as a P0 and worse than s
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
   CFDI ships at launch, so this is revenue the pricing page promises and the product cannot collect.
 - ~~**Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).~~
-  **Done 2026-08-08** — `--max-warnings=0`, 22 warnings cleared, failure verified with a planted
-  warning. (The count was recorded as 1, 3 and 23 before settling at 22 — a fail-open gate is how
-  the debt grew unnoticed.) Follow-up: `next/image` for the PNG sites,
+  **Done 2026-08-08**, detail archived. Follow-up: `next/image` for the PNG sites,
   [#82](https://github.com/jesushzv/business-helper/issues/82) (P2).
 
 ### P2 — Can trail launch by weeks
 
+- **`organizations.owner_id`: no index, and the write path assumed one org per owner**
+  ([#168](https://github.com/jesushzv/business-helper/issues/168),
+  [#109](https://github.com/jesushzv/business-helper/issues/109)). **Code fixed; migration
+  `20260811140000` NOT applied** — no `SUPABASE_DB_URL` here and the connector's calls went
+  unapproved, so neither `db:migrate:dry` nor a live catalog read ran (hard rule 6). #109 decided
+  **Option B**: multi-org ownership stays possible (index not unique) and the app stops assuming one
+  owned row. Two owned rows broke PostgREST's singular-response check, making every settings and bank
+  save a 404 *"No se encontró una organización propia"*; `PATCH /api/organization` now filters by org
+  `id` as well as `owner_id`, a member gets a 403 naming who may write, and `requireOrgAccess()`
+  orders both lookups. No org switcher, so a second owned org stays unreachable.
 - Complemento de pago gaps: the request body has never reached a real PAC ([#34](https://github.com/jesushzv/business-helper/issues/34)),
   the accountant export omits complementos ([#31](https://github.com/jesushzv/business-helper/issues/31)),
   and one stamped in error cannot be cancelled ([#30](https://github.com/jesushzv/business-helper/issues/30)).
