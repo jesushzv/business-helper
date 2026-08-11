@@ -164,19 +164,26 @@ component tests only (`modalShell`, `Modal`), including a planted violation show
 exercised on a real handset**, which is the part no agent can supply. The audit's remaining
 findings — #88, #89, #90, #99, #101, #103, #104 — are untouched.
 
-**Resolved off this table on 2026-08-08:** [#79](https://github.com/jesushzv/business-helper/issues/79)
-— the PGRST201 prediction was **confirmed against live PostgREST** (every `/pay/` link had 404'd
-since the route existed) and both embeds are hinted, with a scan test pinning the pattern; closes
-with the PR. [#76](https://github.com/jesushzv/business-helper/issues/76) — closed; live
-`aclexplode` sweep ran clean. [#59](https://github.com/jesushzv/business-helper/issues/59) —
-closed as already-done (PR #75).
+**The three open `bug`-tagged issues are closed in code** (#127, #116, #133), all three the same
+shape — a value the code did not know, resolved by guessing instead of by saying so. #127: the SAT
+régimen catalogue lived in four screens with four different contents, so a tenant registered under
+606 saw a blank select in Ajustes and the next dropdown touch would have overwritten the régimen a
+CFDI is stamped under; one `lib/satRegimenes.ts`, and a stored-but-unlisted code now renders as its
+own option. #116: `checkout.session.completed` carries a **Checkout Session**, whose `status` is
+`'complete'` — outside `chk_subscription_status`, so the write would have failed the CHECK after the
+event was claimed, and `validateSubscriptionStatus` badged it "Cancelado" for a customer who had
+just paid; the handler now reports `null` for anything outside the stored vocabulary and the route
+writes only what the event established. #133: `requireOrgAccess` chose the caller's tenant with
+`LIMIT 1` and no `ORDER BY`, which Postgres does not make deterministic; both lookups now order by
+`created_at` and fetch two rows so the ambiguity is logged rather than resolved silently — dormant
+today (one user, one organization) and fixed before it is not. Verified by `typecheck` + `lint` +
+vitest + `next build` only, each scan shown to fail on a planted violation; **no live Stripe event
+and no second organization row were exercised**, so #116's Session path is proven against a real
+Session *shape*, not a real delivery.
 
-**Cleared since this section was first written** (2026-08-07, all verified closed on the tracker):
-[#33](https://github.com/jesushzv/business-helper/issues/33) payment confirmation (PR #55) ·
-[#36](https://github.com/jesushzv/business-helper/issues/36) `.mx` quote links (PR #47) ·
-[#37](https://github.com/jesushzv/business-helper/issues/37) product analytics (PR #56) ·
-[#58](https://github.com/jesushzv/business-helper/issues/58) the public signing page rendering a
-fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
+**Settled resolutions off this table** (#79, #76, #59 on 2026-08-08; #33, #36, #37, #58 on
+2026-08-07) moved to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on
+2026-08-11 — all verified closed on the tracker, and this file is at its byte budget.
 
 > [!NOTE]
 > **Most remaining rows need the founder — and the note that said *every* row did was wrong.**
