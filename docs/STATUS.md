@@ -97,7 +97,7 @@ into one line; their reasoning is in the frozen log.*
 | Item | State | Blocks launch? |
 |:---|:---|:---|
 | **Live PAC stamp** | **The one that matters.** PR #23 merged, so stamping is real code — but its coverage runs against a mocked `fetch`, and no invoice has been issued through a live Facturapi sandbox. Merging is not verification. | **Yes** — CFDI ships at launch |
-| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
+| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11)** — a real inbox signed a real quote, evidence read back from the live catalog; detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). sms/whatsapp stay wired but deprecated. | Cleared |
 | ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
 | ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
 
@@ -145,13 +145,21 @@ needing a real handset, card, PAC stamp or deployed database are untouched by al
 | 2 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 | 3 | **Enable Stripe live mode.** **Checkout reaches Stripe as of 2026-08-11** — the founder set the three live Price ids in Vercel (they had held Stripe *Product* ids, so every tier answered 502) and all three now return a `cs_live_…` session billing the advertised amount, each carrying the `organization_id` and `tier_id` the webhook attributes by. History in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). **What is left is the money itself**: a real card charged end to end, and the webhook writing the tier onto the organization — this row's own exit criterion. `npm run verify:stripe` is read-only and catches the account and price-map failures before a card is involved. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
 | 4 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
-| 5 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that remain — a signed event is applied to a real row, and its redelivery is not — need a database, so they need a staging deployment; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE that matched no row — narrow in practice, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) already fails the claim insert for a nonexistent organization; what the guard closes is the deletion race. Least blocking of the P0s: it protects a path a SPEI-first pilot may barely exercise. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+| 5 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that remain — a signed event is applied to a real row, and its redelivery is not — need a database, so they need a staging deployment; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE matching no row — narrow, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) fails the claim insert first; what the guard closes is the deletion race. Least blocking of the P0s. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
-**The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued —
-#96's check **failed** and found two further defects, since fixed; transcripts in
-[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays open in
-#103/#99 and #113/#114/#123/#124, plus two gaps pinned by unit tests only: a non-owner's read-only
-Ajustes, and `/pay`'s no-invented-bank path, which needs a tenant with a contract.
+**The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued
+— transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays
+open in #103/#99 and #113/#114/#123/#124, plus two gaps pinned by unit tests only: a non-owner's
+read-only Ajustes, and `/pay`'s no-invented-bank path, which needs a tenant with a contract.
+
+**Both open `bug`-tagged issues are closed in code**, with #115 alongside them. #116: the webhook
+no longer writes a Checkout Session's `'complete'` into `subscription_status` — a value
+`chk_subscription_status` rejects, failing the write *after* the event is claimed — and an unknown
+status is no longer badged "Cancelado" to someone who has just paid. #133: `requireOrgAccess`
+resolves the tenant deterministically and logs the ambiguity instead of picking a row at random.
+#115: `stripe_customer_id` and `stripe_subscription_id` are stored for the first time, so upgrades
+stop minting duplicate Stripe customers and a subscription can be cancelled from the app at all.
+Tests, lint and build only: **no live Stripe event, no second organization row**.
 
 **UX-audit work landed since 2026-08-11.** All verified by unit/component tests only — none
 re-checked against production or a real handset, which is the part no agent supplies.
@@ -262,7 +270,7 @@ Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
   nothing said so — the one `isAccessible` flag in the tree was read by nothing. New orgs start
   `trialing`; on expiry the five routes creating commercial work answer 402, while reads, exports,
   payment confirmation, Stripe and every public `/q/` and `/pay/` page stay open: a supplier's
-  billing never blocks their client. Unknown state always permits — an outage is not a billing wall.
+  billing never blocks their client. Unknown state always permits — an outage is not a billing wall — and the status vocabulary is #116's `SUBSCRIPTION_STATUSES`, not a second copy.
   The two production orgs are grandfathered `active`, which is also the documented escape hatch.
   **Open risk:** if the webhook does not write the tier after a real payment (#63), a tenant who
   pays stays blocked.

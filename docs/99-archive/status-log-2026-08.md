@@ -536,7 +536,6 @@ org name after hydration — was confirmed by the founder in a browser on 2026-0
 the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
 no-invented-bank path stays pinned by unit tests until a first real payment.
 
-
 ## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
 
 Settled history: all four verified closed on the tracker at the time, moved here verbatim when
@@ -558,8 +557,13 @@ Settled history: all four verified closed on the tracker at the time, moved here
 | [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
 | [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |
 
-
 ---
+
+## OTP email-channel verification, moved off `docs/STATUS.md` (2026-08-11)
+
+Verbatim from the §02 row, collapsed there to one line when the file reached its size budget.
+
+| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
 
 ## #35 — migrations execute against a real Postgres in CI (merged; moved out of STATUS 2026-08-11)
 
@@ -575,6 +579,7 @@ non-idempotent statements, all fixed. Requiring the check in branch protection r
 
 ---
 
+
 ## Complemento de pago gaps (moved out of STATUS 2026-08-11, still open)
 
 The three issues remain open; only the prose moved. The request body has never reached a real PAC
@@ -583,6 +588,7 @@ The three issues remain open; only the prose moved. The request body has never r
 
 
 ---
+
 
 ## #68 — Stripe checkout reaches Stripe for the first time (2026-08-11)
 
@@ -605,3 +611,4 @@ was deleted.
 PR #166 also made a non-price value refuse with a 503 naming the variable rather than a 502 that
 reads as an outage, and cleared two walls behind it: a return URL that collided with itself, and an
 idempotency key that turned a retry into a 400.
+

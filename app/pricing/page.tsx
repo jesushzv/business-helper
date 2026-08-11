@@ -26,7 +26,7 @@ const PRICING_PLANS = [
       '1 usuario administrador',
     ],
     ctaText: 'Empezar Prueba 14 Días',
-    ctaHref: '/register?plan=starter',
+    ctaHref: '/upgrade?plan=starter',
   },
   {
     id: 'pro',
@@ -46,7 +46,7 @@ const PRICING_PLANS = [
       'Soporte prioritario WhatsApp 24/7',
     ],
     ctaText: 'Probar Gratis 14 Días',
-    ctaHref: '/register?plan=pro',
+    ctaHref: '/upgrade?plan=pro',
   },
   {
     id: 'business',
@@ -66,7 +66,7 @@ const PRICING_PLANS = [
       'Soporte prioritario VIP por WhatsApp',
     ],
     ctaText: 'Solicitar Plan Empresa',
-    ctaHref: '/register?plan=business',
+    ctaHref: '/upgrade?plan=business',
   },
 ];
 

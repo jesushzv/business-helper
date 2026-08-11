@@ -153,7 +153,7 @@ export function FolioCalculator() {
           </span>
         </div>
         <Link
-          href={`/register?plan=${bestPlan.toLowerCase()}`}
+          href={`/upgrade?plan=${bestPlan.toLowerCase()}`}
           className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl transition-all shadow-md shrink-0 flex items-center gap-1.5 min-h-[36px]"
         >
           <span>Elegir Plan {bestPlan}</span>

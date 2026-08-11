@@ -31,6 +31,8 @@
  * fails the build if a public route ever imports this module.
  */
 
+import { normalizeSubscriptionStatus } from '@/lib/stripe';
+
 /** Trial length for a new organization. Fixed at 30 days by #128. */
 export const TRIAL_PERIOD_DAYS = 30;
 
@@ -91,12 +93,22 @@ export function evaluateSubscriptionAccess(
 ): SubscriptionAccess {
   const { status, trialEndsAt, now } = input;
 
-  // A read that produced nothing is not a lapsed subscription. Rule 1.
-  if (status === null || status === undefined || status === '') {
-    return fullAccess('unknown');
-  }
+  // The stored vocabulary lives in `lib/stripe.ts` (#116) and is not restated
+  // here — a second copy is how the tier list and the status list drifted from
+  // their own CHECK constraints in the first place. `normalizeSubscriptionStatus`
+  // answers null for anything outside it, which covers a failed read, an empty
+  // string, and a value the constraint has grown that this code has not, in one
+  // branch.
+  //
+  // It resolves them all to full access. Note this is the **opposite** of
+  // `validateSubscriptionStatus`, which renders unknown as an inaccessible
+  // "Estado desconocido" badge — deliberately, and the two are not in conflict.
+  // A badge reporting uncertainty is honest; a *gate* that blocks on uncertainty
+  // invents the fact that a tenant has not paid, and acts on it.
+  const normalized = normalizeSubscriptionStatus(status);
+  if (!normalized) return fullAccess('unknown');
 
-  switch (status.toLowerCase()) {
+  switch (normalized) {
     case 'active':
       return fullAccess('active');
 
@@ -130,9 +142,10 @@ export function evaluateSubscriptionAccess(
     case 'incomplete':
       return fullAccess('unknown');
 
-    // A value the CHECK constraint has grown that this code has not. #95 is
-    // exactly this: a TS union narrower than the column mapped 'free' to
-    // 'inicial' and showed a $299 plan nobody bought. Never the nearest match.
+    // Unreachable: `normalizeSubscriptionStatus` has already rejected anything
+    // outside the vocabulary. Kept so a value added to SUBSCRIPTION_STATUSES
+    // without a decision here lands on access rather than falling through to
+    // the trial logic below with a status that is not 'trialing'.
     default:
       return fullAccess('unknown');
   }

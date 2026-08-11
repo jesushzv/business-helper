@@ -7,6 +7,7 @@ import {
   TRIAL_PERIOD_DAYS,
 } from '@/lib/subscriptionAccess';
 import { subscriptionAllowsWrite } from '@/lib/hooks/useSubscriptionAccess';
+import { SUBSCRIPTION_STATUSES, normalizeSubscriptionStatus } from '@/lib/stripe';
 
 /**
  * #128 — a 30-day trial, then read-only until a plan is bought.
@@ -294,6 +295,47 @@ describe('a supplier’s billing never blocks their customer (#128)', () => {
 
     for (const file of mustNotGate) {
       expect(readFileSync(file, 'utf8'), file).not.toMatch(/requireActiveSubscription/);
+    }
+  });
+});
+
+describe('one vocabulary, not two (#116)', () => {
+  it('decides every status the app stores, so a new one cannot slip through', () => {
+    // `SUBSCRIPTION_STATUSES` in lib/stripe.ts is the single list, matching
+    // `chk_subscription_status`. This asserts the gate has an opinion about each
+    // entry rather than re-deriving the list here — a second copy is how the
+    // tier and status lists drifted from their own constraints (#95, #116).
+    //
+    // Adding a value to SUBSCRIPTION_STATUSES without adding it below fails
+    // this test, which is the point: whether a new Stripe state may create a
+    // quote is a decision, not a default.
+    const expected: Record<(typeof SUBSCRIPTION_STATUSES)[number], boolean> = {
+      active: true,
+      trialing: true, // with a live date; expiry is covered above
+      past_due: true, // Stripe is still retrying the card
+      canceled: false,
+      unpaid: false,
+      incomplete_expired: false,
+      incomplete: true, // a checkout mid-flight — the worst moment to block
+    };
+
+    for (const status of SUBSCRIPTION_STATUSES) {
+      const access = evaluateSubscriptionAccess({
+        status,
+        trialEndsAt: status === 'trialing' ? at(10) : null,
+        now: NOW,
+      });
+      expect(access.canWrite, status).toBe(expected[status]);
+    }
+  });
+
+  it('agrees with normalizeSubscriptionStatus on what is unknown', () => {
+    for (const raw of ['complete', 'open', 'expired', 'free', '']) {
+      expect(normalizeSubscriptionStatus(raw), raw).toBeNull();
+      expect(
+        evaluateSubscriptionAccess({ status: raw, trialEndsAt: null, now: NOW }).state,
+        raw
+      ).toBe('unknown');
     }
   });
 });

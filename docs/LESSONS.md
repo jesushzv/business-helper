@@ -16,11 +16,10 @@ and names the test, nothing more — the test does the convincing. A lesson with
 test, or none, keeps its full narrative, because there the prose is the only thing standing between
 an agent and the defect. Cite the issue number: it is the lesson's identity.
 
-**How it is protected.** `tests/unit/lessonsCatalogue.test.ts` holds the inventory of every issue
-number cited below and fails the build when one disappears — that is what turns a lossy merge
-resolution from an invisible regression into a red build. Retiring a lesson is allowed and
-deliberate: delete it, remove its numbers from `LESSON_REFS`, and record why in `RETIRED`.
-`tests/unit/docsStatusAuthority.test.ts` holds this file's size budget; when it trips, retire
+**How it is protected.** `tests/unit/lessonsCatalogue.test.ts` inventories every issue number cited
+below and fails the build when one disappears, turning a lossy merge resolution into a red build.
+Retiring one is deliberate: delete it, remove its numbers from `LESSON_REFS`, record why in
+`RETIRED`. `tests/unit/docsStatusAuthority.test.ts` holds the size budget; when it trips, retire
 lessons a scanning gate now covers or move settled history to `docs/99-archive/`.
 
 ## Fabricated success — hard rule #1's recurring disguises
@@ -47,15 +46,13 @@ not earned. It has shipped here at least eight times.
   passes it, so the rule still needs reading.
 - **A verification script's exit code is a claim.** `verify:webhook` printed "All 4 checks passed"
   for a run that skipped the two protecting money — and those four passed against an endpoint with
-  *no* secret, which rejects everything (#63; #118 is `verify:otp`'s). Incomplete runs exit non-zero
-  naming what they skipped, no opt-out; negative checks carry a positive control; missing
-  credentials answer 503, not 400.
+  *no* secret, which rejects everything (#63; #118 is `verify:otp`'s). An incomplete run exits
+  non-zero naming what it skipped, no opt-out; negative checks carry a positive control.
 - **An all-optional interface cannot tell a mapping is missing** (#78). `MilestoneWithClient`
-  declared every field optional, so assigning raw API rows into it was not a type error — and only
-  the demo fixtures ever populated them, so real tenants got `undefined` throughout. Two
-  habits close it: a flattening is a **named exported function with its own test**
-  (`toMilestoneWithClient`); and where fixtures and server rows share a type, assert against a
-  **server-shaped** row. Required fields beat optional-everything.
+  declared every field optional, so assigning raw API rows into it was no type error, only the demo
+  fixtures ever populated them, and real tenants got `undefined` throughout. Two habits close it: a
+  flattening is a **named exported function with its own test** (`toMilestoneWithClient`), and where
+  fixtures and server rows share a type, assert against a **server-shaped** row.
 
 ## Client/server state
 
@@ -90,9 +87,9 @@ not earned. It has shipped here at least eight times.
   through the connector, read back) or add a new migration, saying which in the PR. New money
   columns are `numeric(12,2)`; new CHECKs take the `chk_` prefix.
 - **A column the code reads is not a column that exists.** `types/database.ts` declared three
-  `clients.credit_*` columns four modules used and no migration created, so every read was
-  `undefined` and `Number(x) || 0` / `x || 'active'` rendered "$0 límite, Activo" for every client
-  in production (#96). Types are a claim; `supabase/migrations/` and the live catalog are evidence.
+  `clients.credit_*` columns that four modules used and no migration created, so `Number(x) || 0`
+  rendered "$0 límite, Activo" for every client in production (#96). Types are a claim;
+  `supabase/migrations/` and the live catalog are evidence.
   A doc specifying a column *with a default* is the same trap. **So is a TS union narrower than the
   column's CHECK**: `subscription_status` kept three values after a migration widened it to seven,
   so `unpaid`/`incomplete` read as **Activo** (#95). Check `pg_get_constraintdef` before narrowing,
@@ -109,6 +106,17 @@ not earned. It has shipped here at least eight times.
   refuse `DEFAULT 0`/`'active'` — the #64 tri-state rule at the column — and keep such columns
   independent in the form: coupling `credit_status` to `credit_limit` discarded an owner blocking a
   defaulting client.
+- **`LIMIT 1` with no `ORDER BY` is a coin flip; on a tenancy lookup it is the worst kind** (#133).
+  `requireOrgAccess` chose the caller's organization that way and every route scopes by the id it
+  returns, so a user owning two sees another company's data, no error. Order it and select `n+1`:
+  the ambiguity must be fetched before it can be logged.
+- **A vocabulary the database enforces exists once in code, with `null` for everything else**
+  (#116). The Stripe webhook wrote `obj.status` off whatever object the event carried, and
+  `checkout.session.completed` carries a **Checkout Session**, whose status field holds
+  `'complete'` — which `chk_subscription_status` rejects: the write failed the CHECK *after* the
+  event was claimed, and the display read the unknown word as "Cancelado" to a customer who had just
+  paid. Export the union and a `normalize*` returning `null`; write only what the event established.
+  It survived because the tests fed one object shape — feed the others the event can carry.
 
 ## Client and API wiring
 

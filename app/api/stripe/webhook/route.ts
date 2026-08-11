@@ -115,36 +115,79 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo registrar el evento' }, { status: 500 });
     }
 
-    // The status is always known; the tier is not. An event carrying neither
-    // `metadata.tier_id` nor a price id this deployment has mapped used to
-    // resolve to 'negocio' by default, which wrote a tier nobody bought over
-    // the organization. When the tier is unknown the status still applies and
-    // the existing tier is left untouched.
+    // Neither field is guaranteed. An event carrying neither `metadata.tier_id`
+    // nor a price id this deployment has mapped used to resolve to 'negocio' by
+    // default, which wrote a tier nobody bought over the organization; and the
+    // status used to default to 'active' or — for `checkout.session.completed`,
+    // whose object is a Checkout Session — to the Session's own 'complete',
+    // which `chk_subscription_status` rejects, failing the UPDATE after this
+    // event was already claimed (#116). Whichever is known is written; the
+    // other column keeps whatever the subscription events last established.
     const update: Record<string, unknown> = {
-      subscription_status: handled.status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (handled.status) {
+      update.subscription_status = handled.status;
+
       // #128 — Stripe is the authority from here, so the app-side trial ends.
       //
       // Clearing it is not tidiness. `lib/subscriptionAccess.ts` only consults
       // `trial_ends_at` while the status is `'trialing'`, and **Stripe reports
-      // that status too** for a subscription in its own trial window. Leaving a
-      // stale app-side date behind would let a genuinely subscribed customer be
+      // that status too** for a subscription in its own trial window. A stale
+      // app-side date left behind would let a genuinely subscribed customer be
       // refused a quote because a trial they replaced by paying had lapsed —
       // hard rule #1 inverted, blocking on a fact the system no longer holds.
       //
-      // NULL is the honest value: no app trial applies to this organization any
-      // more. The evaluator resolves `trialing` with no end date to `unknown`
-      // and grants access, which is the right answer for a Stripe trial whose
-      // real end date lives at Stripe and not here.
-      trial_ends_at: null,
-      updated_at: new Date().toISOString(),
-    };
+      // Inside this branch, not beside `updated_at`, for #116's reason: an
+      // event that establishes no status establishes nothing, and must not
+      // quietly end a trial on its way past. NULL here means no app trial
+      // applies any more; the evaluator reads `trialing` with no end date as
+      // unknown and grants access, which is right for a Stripe trial whose real
+      // end date lives at Stripe.
+      update.trial_ends_at = null;
+    }
 
     if (handled.tierId) {
       update.subscription_tier = handled.tierId;
     } else {
       console.error(
         `[stripe] event ${eventId} (${handled.eventType}) names no attributable tier; ` +
-          'applying status only. Check STRIPE_PRICE_* against the price on the subscription.'
+          'leaving subscription_tier untouched. Check STRIPE_PRICE_* against the price ' +
+          'on the subscription.'
+      );
+    }
+
+    // The Stripe ids, which nothing has ever written (#115). The checkout route
+    // reads `stripe_customer_id` to reuse a customer and that column is always
+    // null, so every upgrade mints a new Stripe customer for the same
+    // organization — three customers, each billable, for an org that upgraded
+    // twice. Without `stripe_subscription_id` there is also no id to cancel or
+    // to open a Billing Portal against.
+    //
+    // Both columns are `text UNIQUE`, so a value belonging to another
+    // organization fails the UPDATE and lands in the `updateError` branch
+    // below: a 500 and a released claim, never a swallowed collision.
+    if (handled.customerId) {
+      update.stripe_customer_id = handled.customerId;
+    }
+
+    if (handled.clearsSubscriptionId) {
+      // The subscription is gone. Leaving its id behind would point cancel and
+      // portal calls at something Stripe refuses; the customer stays, because
+      // that is still who they are.
+      update.stripe_subscription_id = null;
+    } else if (handled.subscriptionId) {
+      update.stripe_subscription_id = handled.subscriptionId;
+    }
+
+    if (!handled.status && handled.eventType.startsWith('customer.subscription.')) {
+      // Expected for `checkout.session.completed`, which carries no subscription
+      // status; on a subscription lifecycle event it means Stripe reported a
+      // status this app does not model, and the column keeps its old value.
+      console.error(
+        `[stripe] event ${eventId} (${handled.eventType}) carries no recognised subscription ` +
+          'status; leaving subscription_status untouched.'
       );
     }
 
