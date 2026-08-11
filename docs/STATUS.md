@@ -156,16 +156,16 @@ Transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-0
 open in #103/#99 and #113/#114/#123/#124, plus two gaps pinned by unit tests only: a non-owner's
 read-only Ajustes, and `/pay`'s no-invented-bank path, which needs a tenant with a contract.
 
-**The SAT régimen catalogue is one file** (#127): `lib/satRegimenes.ts`, imported by all five
-screens offering or displaying one (the issue tabulated four). An unlisted stored code renders as
-itself instead of blanking, so a tenant on 606 keeps their régimen. Tests only; no fiscal behaviour
-changed — the stored value was always intact, showing it was what broke.
+**UX-audit work landed since 2026-08-11.** All verified by unit/component tests only — none
+re-checked against production or a real handset, which is the part no agent supplies.
 
-**The audit's modal findings are closed in code** (#87, #100): every overlay is now
-`components/shared/Modal.tsx` — `role="dialog"`, Escape, focus trap and return, a named ≥48px close,
-and the `max-h`/`overflow-y-auto` deciding whether the OTP submit is reachable at 375px with the
-keyboard open. Tests only (`modalShell`, `Modal`), planted violations shown to fail; **not exercised
-on a real handset**. Still open: #88, #89, #90, #99, #101, #103, #104.
+| Issues | What changed |
+|:--|:--|
+| #87, #100 | Every overlay is `components/shared/Modal.tsx`: `role="dialog"`, Escape, focus trap and return, a named ≥48px close, and the `max-h`/`overflow-y-auto` deciding whether the OTP submit is reachable at 375px with the keyboard open |
+| #127 | One SAT régimen catalogue (`lib/satRegimenes.ts`) across all five screens; an unlisted stored code renders as itself instead of blanking, so a tenant on 606 keeps their régimen |
+| #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
+
+Still open from the audit: #88, #89, #90, #99, #101, #103, #104.
 
 **Resolved off this table on 2026-08-08:** #79 (the PGRST201 prediction confirmed against live
 PostgREST, both embeds hinted, scan test pinning the pattern), #76 (live `aclexplode` sweep clean)
