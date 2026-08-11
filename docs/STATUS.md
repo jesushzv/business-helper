@@ -84,7 +84,7 @@ into one line; their reasoning is in the frozen log.*
 |:---|:---|:---|
 | **Live PAC stamp** | **The one that matters.** PR #23 merged, so stamping is real code — but its coverage runs against a mocked `fetch`, and no invoice has been issued through a live Facturapi sandbox. Merging is not verification. | **Yes** — CFDI ships at launch |
 | ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11)** — a real inbox signed a real quote, evidence read back from the live catalog; detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). sms/whatsapp stay wired but deprecated. | Cleared |
-| ~~**Stripe live mode**~~ | ✅ **A real card completed the loop (2026-08-11).** The `STRIPE_PRICE_*` variables held Stripe **Product** ids, so checkout answered `502 No such price: 'prod_…'` for every tier and the live account had never had a session; the founder set the Price ids, then paid $599 MXN and Ajustes showed "Activo" and "Tu Plan Actual" on Negocio — a badge that reads the organization row, which only the signature-verified webhook writes. Founder-confirmed in the browser; no catalog read-back this session. Code half in PR #166 (a non-price value now refuses with a 503 naming the variable) and #181 (plan CTAs stopped sending a signed-in owner into the registration form). | Cleared |
+| ~~**Stripe live mode**~~ | ✅ **A real card completed the loop (2026-08-11).** The `STRIPE_PRICE_*` variables held Stripe **Product** ids, so checkout answered `502 No such price: 'prod_…'` for every tier and the live account had never had a session; the founder set the Price ids, then subscribed and Ajustes showed "Activo". **Correction, same day, read back from Stripe and the catalog:** this row first said "$599, plan Negocio", founder-confirmed with no read-back — the account's full charge history shows **Plan Inicial, $299.00 MXN** (`price_1U0CxLDuvxyuzaREdO7Jsp3E`; one Mastercard success after three Amex declines — Amex is not accepted), the subscription's `metadata.tier_id` is `inicial`, and the organization row reads `inicial`/`active` with both Stripe ids stored (#115 working): the webhook wrote exactly what was bought. The charge was later **refunded**, but `sub_1U3L0tDuvxyuzaREpEbWl6eI` is still **active** and re-bills 2026-09-10 unless cancelled. If Ajustes really showed *Negocio*, that is a rendering defect only a browser can confirm. Code half in PR #166 (a non-price value now refuses with a 503 naming the variable) and #181 (plan CTAs stopped sending a signed-in owner into the registration form). | Cleared |
 | ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
 | ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
 
@@ -114,19 +114,23 @@ needing a real handset, card, PAC stamp or deployed database are untouched by al
 > issue appears below. **Verify this table against `is:issue is:open label:P0` before trusting
 > it** — rows drop off as they close, and the list is ordered by dependency, not just severity.
 >
-> That instruction has earned itself repeatedly: the count has disagreed with the table on
-> 2026-08-09 (11 open against 7 rows), and again on 2026-08-11, when #64 closed at 20:44Z and
-> the table still carried its row an hour later. **Re-derived 2026-08-11 22:00Z: 3 open P0s
-> against the 3 rows below** — #62, #26, #63. The invariant is only ever true because someone
-> ran the query; a rule nobody executes is how five documents once claimed completion for
-> simulated work (§01). Full re-derivation history in
+> That instruction has earned itself repeatedly — most sharply on 2026-08-11, when **two parallel
+> PRs each re-derived this table an hour apart and both got it wrong**. One dropped #64's row
+> (closed 20:44Z) and kept #63; the other dropped #63's row (last criterion met in production
+> 21:30Z) and kept #64. Each was right about the issue it had just closed and stale about the
+> other, and both wrote "3 open P0s". Merging them textually would have kept one number and lost
+> the other's row — #138's failure exactly. **Re-derived from the tracker at merge time,
+> 2026-08-11 22:30Z: 2 open P0s against the 2 rows below** — #62, #26.
+>
+> The lesson is not "run the query" but *run it at the moment you write the number*: it went stale
+> inside an hour, twice, while two sessions were each being careful. Earlier disagreements
+> (11 open against 7 rows on 2026-08-09) and the full re-derivation history are in
 > [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 
 | # | Item | Tracked |
 |:--|:---|:---|
 | 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path. **The OTP route got its real request on 2026-08-11** (the email-channel verification, §02); the invoice and complemento paths remain. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
 | 2 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
-| 3 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. **One of the two that remained was met in production on 2026-08-11**: the founder’s live subscription event was accepted, verified and applied — the tier reached the organization row, which nothing but this route writes. Redelivery idempotency is still unexercised against a database; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE matching no row — narrow, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) fails the claim insert first; what the guard closes is the deletion race. Least blocking of the P0s. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
 **The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued
 — transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays
@@ -180,7 +184,9 @@ The audit is closed. Deferred as decisions: #174 (CFDI cancel UI), #185 (plan na
 > (a table missing three columns the code depended on; a write path dropping four fields, two of
 > them required to stamp a CFDI). #95's passed, reaching `businesshelper.app` itself over the `http`
 > extension from inside Postgres — the shell's egress is blocked, the database's is not. #63's
-> signature half now passes against a real Next.js runtime; only its two database checks remain.
+> signature half passed against a real Next.js runtime, and on 2026-08-11 its two database checks
+> completed in production: the live subscription event applied, and a Dashboard resend proved
+> redelivery idempotent — the founder pressed the button, a session read the evidence back.
 > **The rule: ask whether a step needs a *human* or only *reach*.** Schema, grants, constraints,
 > PostgREST behaviour and the deployed API are all reachable from the connector. What genuinely
 > needs a human is the browser session and the real credential — the rendered page, the code on a
@@ -282,9 +288,9 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 
 ### Money path integrity
 - [ ] A CFDI issued in the app corresponds to a real SAT UUID ([#26](https://github.com/jesushzv/business-helper/issues/26)) — CFDI ships at launch, so this is required
-- [ ] Stripe checkout charges a real card in live mode ([#68](https://github.com/jesushzv/business-helper/issues/68)) with a verified webhook ([#63](https://github.com/jesushzv/business-helper/issues/63)) — two halves, tracked separately. Run `npm run verify:stripe` first: it is read-only, and it catches the account and price-map failures before a card is involved
+- [x] Stripe checkout charges a real card in live mode ([#68](https://github.com/jesushzv/business-helper/issues/68), closed 2026-08-11 — Plan Inicial at $299.00 MXN; the §02 record first said $599 Negocio and was corrected from Stripe's charge history) with a verified webhook ([#63](https://github.com/jesushzv/business-helper/issues/63) — four rejection checks against a real runtime 2026-08-09; accept-and-apply and redelivery idempotency in production 2026-08-11). `npm run verify:stripe` stays the read-only pre-check for account and price-map failures
 - [ ] Each tier's live Price ID bills the amount the pricing page advertises ([#68](https://github.com/jesushzv/business-helper/issues/68)) — a mismatched map charges the wrong amount and reports success everywhere; `npm run verify:stripe` is the check
-- [ ] Every pilot organization has a real CLABE, and payment confirmation reflects a real transfer — an operational check on live rows, which closing #64 (the code gate) does not satisfy: since #164 the accounts live in `bank_accounts`, so the query is `select o.id, o.name from organizations o where not exists (select 1 from bank_accounts b where b.organization_id = o.id and b.archived_at is null);` — the older `organizations.bank_clabe is null` form now reads a legacy mirror column, not the source. It must return no row belonging to a pilot tenant who intends to be paid — since #163 a tenant may also have removed their account deliberately, so a row here is a question to ask, not automatically a defect. Run against production 2026-08-11 22:00Z it returned one, `QA #128 trial default — BORRAR`, a test row that should be deleted rather than filled in. (The earlier `PRUEBA #62 — BORRAR` row is gone.) **Only two organizations exist in production at all** — the founder's and that QA row — so there is no pilot cohort behind this gate yet
+- [ ] Every pilot organization has a real CLABE, and payment confirmation reflects a real transfer — an operational check on live rows, which closing #64 (the code gate) does not satisfy: since #164 the accounts live in `bank_accounts`, so the query is `select o.id, o.name from organizations o where not exists (select 1 from bank_accounts b where b.organization_id = o.id and b.archived_at is null);` — the older `organizations.bank_clabe is null` form now reads a legacy mirror column, not the source. It must return no row belonging to a pilot tenant who intends to be paid — since #163 a tenant may also have removed their account deliberately, so a row here is a question to ask, not automatically a defect. Run against production 2026-08-11 22:00Z it returned one, `QA #128 trial default — BORRAR`, a test row that should be deleted rather than filled in. **Only two organizations exist in production at all** — the founder's and that QA row — so there is no pilot cohort behind this gate yet
 - [x] A failed confirmation write is reported as failed, not as `confirmed` (#33, PR #55)
 - [ ] A failed quote→contract conversion is reported as failed, not announced as a payment schedule ([#59](https://github.com/jesushzv/business-helper/issues/59) — fixed in code, unexercised against a deployment)
 
