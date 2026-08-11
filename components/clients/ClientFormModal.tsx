@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, CheckCircle2, AlertCircle, Info, Building2, User, Mail, FileText, MapPin } from 'lucide-react';
 import { Client } from '@/types';
 import { validateRFC } from '@/lib/rfcValidator';
+import { looksLikeEmail, looksLikeCodigoPostal } from '@/lib/clientFieldHints';
 import { ClientWriteError } from '@/lib/clientWriteError';
 import { PhoneField } from '@/components/shared/PhoneField';
 
@@ -394,6 +395,15 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                   )}
                 />
               </div>
+              {/* A hint, never a gate — same posture as the RFC below. A typo'd
+                  address is worth flagging; losing the client record over one
+                  is not. */}
+              {email.trim() && !looksLikeEmail(email) && (
+                <p className="mt-1.5 flex items-start gap-1.5 text-[11px] font-semibold text-amber-400">
+                  <Info className="mt-px h-3.5 w-3.5 shrink-0" />
+                  <span>Revisa el correo: parece incompleto. Puedes guardarlo así.</span>
+                </p>
+              )}
               <FieldError field="email" />
             </div>
 
@@ -507,6 +517,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                   )}
                 />
               </div>
+              {codigoPostal.trim() && !looksLikeCodigoPostal(codigoPostal) && (
+                <p className="mt-1.5 flex items-start gap-1.5 text-[11px] font-semibold text-amber-400">
+                  <Info className="mt-px h-3.5 w-3.5 shrink-0" />
+                  <span>Son 5 dígitos. Lo necesitarás completo solo para facturar.</span>
+                </p>
+              )}
               <FieldError field="codigo_postal" />
             </div>
           </div>

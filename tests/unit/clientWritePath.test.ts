@@ -321,9 +321,7 @@ describe('every bad field is reported at once, keyed by column', () => {
       postRequest(
         formPayload({
           name: '   ',
-          email: 'no-es-un-correo',
           phone: '1234567',
-          codigo_postal: '640',
           credit_limit: -5,
           credit_status: 'moroso',
         })
@@ -333,10 +331,8 @@ describe('every bad field is reported at once, keyed by column', () => {
     expect(res.status).toBe(400);
     const { error } = await res.json();
     expect(Object.keys(error.fields).sort()).toEqual([
-      'codigo_postal',
       'credit_limit',
       'credit_status',
-      'email',
       'name',
       'phone',
     ]);
@@ -348,24 +344,17 @@ describe('every bad field is reported at once, keyed by column', () => {
   });
 
   it('summarizes the count so the banner is worth reading', async () => {
-    const res = await POST(postRequest(formPayload({ email: 'x', codigo_postal: '1' })));
+    const res = await POST(postRequest(formPayload({ name: '  ', phone: 'x' })));
     const { error } = await res.json();
     expect(error.message).toMatch(/Revisa 2 campos/);
-    expect(error.message).toMatch(/Correo Electrónico/);
-    expect(error.message).toMatch(/Código Postal/);
+    expect(error.message).toMatch(/Nombre o Razón Social/);
+    expect(error.message).toMatch(/Teléfono WhatsApp/);
   });
 
   it('reads as itself when only one field is wrong', async () => {
-    const res = await POST(postRequest(formPayload({ email: 'x' })));
+    const res = await POST(postRequest(formPayload({ credit_limit: -1 })));
     const { error } = await res.json();
-    expect(error.message).toBe(error.fields.email);
-  });
-
-  it('accepts a blank email and a blank código postal rather than nagging', async () => {
-    const res = await POST(postRequest(formPayload({ email: null, codigo_postal: '' })));
-    expect(res.status).toBe(201);
-    expect(insertCalls[0].email).toBeNull();
-    expect(insertCalls[0].codigo_postal).toBeNull();
+    expect(error.message).toBe(error.fields.credit_limit);
   });
 
   it('registers a client from the name alone', async () => {
@@ -377,6 +366,49 @@ describe('every bad field is reported at once, keyed by column', () => {
       name: 'Ferretería Don Roberto',
       organization_id: 'org-1',
     });
+  });
+});
+
+describe('optional contact and fiscal details never cost the client record', () => {
+  /**
+   * The first pass at #146 removed the RFC gate and, in the same change, added
+   * blocking gates on `email` and `codigo_postal` — the identical mistake with
+   * different fields. Neither is load-bearing at registration: a malformed CP
+   * is refused by `lib/facturapi.ts` at stamping, loudly, where it matters.
+   */
+  it('stores a malformed email and a short código postal rather than refusing', async () => {
+    const res = await POST(
+      postRequest(formPayload({ email: 'no-es-un-correo', codigo_postal: '640' }))
+    );
+    expect(res.status).toBe(201);
+    expect(insertCalls[0].email).toBe('no-es-un-correo');
+    expect(insertCalls[0].codigo_postal).toBe('640');
+  });
+
+  it('never names either of them in a field error', async () => {
+    const res = await POST(postRequest(formPayload({ email: 'x', codigo_postal: '1', phone: 'no' })));
+    const { error } = await res.json();
+    expect(error.fields).not.toHaveProperty('email');
+    expect(error.fields).not.toHaveProperty('codigo_postal');
+    expect(error.fields).toHaveProperty('phone');
+  });
+
+  it('still treats blank as cleared, storing NULL', async () => {
+    const res = await POST(postRequest(formPayload({ email: null, codigo_postal: '   ' })));
+    expect(res.status).toBe(201);
+    expect(insertCalls[0].email).toBeNull();
+    expect(insertCalls[0].codigo_postal).toBeNull();
+  });
+
+  /**
+   * The phone is the deliberate exception. It is the channel a signature is
+   * delivered to, and an unusable value stored here resurfaces days later as a
+   * 502 from the OTP route, phrased as though the provider were at fault (#40).
+   */
+  it('but the phone still blocks, because an unusable one breaks signing later', async () => {
+    const res = await POST(postRequest(formPayload({ phone: 'llamar a la oficina' })));
+    expect(res.status).toBe(400);
+    expect(insertCalls).toHaveLength(0);
   });
 });
 
@@ -410,8 +442,13 @@ describe('the RFC does not block registration', () => {
   });
 
   it('is never named in a field error', async () => {
-    const res = await POST(postRequest(formPayload({ rfc: 'no-es-un-rfc', email: 'x' })));
+    // Forced to 400 by the phone, which does still block — so there is an
+    // `error.fields` to inspect at all. A malformed RFC alongside it must not
+    // appear in it.
+    const res = await POST(postRequest(formPayload({ rfc: 'no-es-un-rfc', phone: 'no' })));
+    expect(res.status).toBe(400);
     const { error } = await res.json();
+    expect(error.fields).toHaveProperty('phone');
     expect(error.fields).not.toHaveProperty('rfc');
   });
 });

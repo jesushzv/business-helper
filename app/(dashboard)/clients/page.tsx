@@ -5,15 +5,43 @@ import { Header } from '@/components/layout/Header';
 import { ClientCard } from '@/components/clients/ClientCard';
 import { ClientFormModal } from '@/components/clients/ClientFormModal';
 import { useClients } from '@/lib/hooks/useClients';
+import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 import { Search, Users, Plus, ShieldCheck } from 'lucide-react';
 import { Client } from '@/types';
 
 export default function ClientsPage() {
   const { filteredClients, searchQuery, setSearchQuery, addClient, loading } = useClients();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const result = useActionResult();
 
+  /**
+   * The modal closing was the only signal a save had worked, which on a phone
+   * is indistinguishable from the tap not registering (#146). Both outcomes now
+   * say so out loud.
+   *
+   * The success text is built from `saved` — the row the server returned — not
+   * from `clientData`. Naming what the tenant typed would report a success the
+   * database has not confirmed, and would show the pre-normalization value
+   * besides (hard rule #1, and #95's shape).
+   *
+   * The throw is re-raised so ClientFormModal still pins per-field messages
+   * under their inputs and keeps itself open: the dialog says *that* it failed,
+   * the form shows *where*. Swallowing it here would close the form over an
+   * unsaved client.
+   */
   const handleCreateClient = async (clientData: Partial<Client>) => {
-    await addClient(clientData as Omit<Client, 'id' | 'created_at' | 'updated_at' | 'health_score'>);
+    try {
+      const saved = await addClient(
+        clientData as Omit<Client, 'id' | 'created_at' | 'updated_at' | 'health_score'>
+      );
+      result.succeed({
+        title: 'Cliente registrado',
+        message: `${saved.name} ya está en tu directorio. Ya puedes cotizarle.`,
+      });
+    } catch (error) {
+      result.fail(error, { title: 'No se guardó el cliente' });
+      throw error;
+    }
   };
 
   const excellentCount = filteredClients.filter((c) => (c.health_score ?? 100) >= 90).length;
@@ -108,6 +136,8 @@ export default function ClientsPage() {
         onClose={() => setIsModalOpen(false)}
         onSave={handleCreateClient}
       />
+
+      <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
   );
 }
