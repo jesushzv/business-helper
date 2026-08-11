@@ -41,6 +41,9 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
   const [sending, setSending] = useState<boolean>(false);
   const [verifying, setVerifying] = useState<boolean>(false);
   const [devCode, setDevCode] = useState<string | null>(null);
+  // Which channel the server actually sent over — the copy below must not
+  // claim a destination ("su correo", "su celular") the server did not use.
+  const [channel, setChannel] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -63,6 +66,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
 
       setSent(true);
       setRemaining(MAX_ATTEMPTS);
+      setChannel(typeof data?.channel === 'string' ? data.channel : null);
       // Only ever populated by a local dev server with no delivery provider wired up.
       setDevCode(data?.dev_code || null);
     } catch {
@@ -115,7 +119,8 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
           </div>
           <h3 className="text-xl font-extrabold text-white">Firma Digital con Código OTP</h3>
           <p className="text-xs text-slate-400 mt-1">
-            Se enviará un código de verificación de 6 dígitos a su número celular registrado.
+            Le enviaremos un código de verificación de 6 dígitos a su contacto registrado para
+            confirmar su firma.
           </p>
         </div>
 
@@ -133,7 +138,11 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
         {sent && !devCode && !successSeal && (
           <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 mb-5 text-center">
             <p className="text-xs font-semibold text-slate-300">
-              Código enviado a su número celular registrado.
+              {channel === 'email'
+                ? 'Código enviado a su correo electrónico registrado. Si no lo ve, revise su carpeta de spam.'
+                : channel === 'sms' || channel === 'whatsapp'
+                  ? 'Código enviado a su número celular registrado.'
+                  : 'Código enviado a su contacto registrado.'}
             </p>
           </div>
         )}

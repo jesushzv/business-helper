@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { normalizeClientPhone, validatePhone } from '@/lib/phoneValidator';
 import { formatE164Phone } from '@/lib/whatsappOutbound';
-import { normalizeOtpRecipient } from '@/lib/otpRateLimit';
+import { normalizeOtpPhone } from '@/lib/otpRateLimit';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
 
 /**
@@ -152,14 +152,14 @@ describe('formatE164Phone fails closed (#40) and no longer assumes Mexico (#94)'
     // `\+[0-9]{10,15}` accepted `+81155599881` when the formatter passed
     // arbitrary digit counts through. Both layers now agree it is unusable.
     expect(formatE164Phone('81155599881')).toBe('');
-    expect(normalizeOtpRecipient('81155599881')).toBeNull();
+    expect(normalizeOtpPhone('81155599881')).toBeNull();
   });
 
   it('accepts a valid number through the OTP recipient check, MX or not', () => {
-    expect(normalizeOtpRecipient('8115559988')).toBe('+528115559988');
-    expect(normalizeOtpRecipient('+12125551234')).toBe('+12125551234');
+    expect(normalizeOtpPhone('8115559988')).toBe('+528115559988');
+    expect(normalizeOtpPhone('+12125551234')).toBe('+12125551234');
     // One handset, one rate-limit budget, however the row happens to spell it.
-    expect(normalizeOtpRecipient('+52 811 555 9988')).toBe(normalizeOtpRecipient('8115559988'));
+    expect(normalizeOtpPhone('+52 811 555 9988')).toBe(normalizeOtpPhone('8115559988'));
   });
 });
 

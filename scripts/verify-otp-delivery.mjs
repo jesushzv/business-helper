@@ -67,28 +67,36 @@ console.log('\nOTP delivery verification\n');
 console.log('Config');
 
 const channel =
-  env.OTP_DELIVERY_CHANNEL === 'sms' || env.OTP_DELIVERY_CHANNEL === 'whatsapp'
+  env.OTP_DELIVERY_CHANNEL === 'email' ||
+  env.OTP_DELIVERY_CHANNEL === 'sms' ||
+  env.OTP_DELIVERY_CHANNEL === 'whatsapp'
     ? env.OTP_DELIVERY_CHANNEL
     : 'console';
 
 if (channel === 'console') {
-  record('OTP_DELIVERY_CHANNEL is sms or whatsapp', false, `got ${env.OTP_DELIVERY_CHANNEL ?? '(unset)'}`);
+  record('OTP_DELIVERY_CHANNEL is email, sms or whatsapp', false, `got ${env.OTP_DELIVERY_CHANNEL ?? '(unset)'}`);
   fail(
     'No delivery channel selected.\n\n' +
-      '  export OTP_DELIVERY_CHANNEL=sms      # or whatsapp\n\n' +
+      '  export OTP_DELIVERY_CHANNEL=email    # sms and whatsapp still work, deprecated\n\n' +
       '  Unset means the console channel, which fails closed in production —\n' +
       '  the signing flow returns 502 and no code is ever issued.'
   );
 }
 
-record('OTP_DELIVERY_CHANNEL is sms or whatsapp', true, channel);
+record('OTP_DELIVERY_CHANNEL is email, sms or whatsapp', true, channel);
+if (channel === 'sms' || channel === 'whatsapp') {
+  console.log(`  · the ${channel} channel is deprecated — plan the move to OTP_DELIVERY_CHANNEL=email`);
+}
 
 // Mirrors describeDeliveryConfig(): on whatsapp, Twilio wins when its number is
 // set; otherwise Meta is the provider that would run.
 let provider;
 let missing;
 
-if (channel === 'sms') {
+if (channel === 'email') {
+  provider = 'resend_email';
+  missing = ['RESEND_API_KEY', 'OTP_EMAIL_FROM'].filter((key) => !env[key]);
+} else if (channel === 'sms') {
   provider = 'twilio_sms';
   missing = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'].filter((key) => !env[key]);
   if (!env.TWILIO_SMS_NUMBER && !env.TWILIO_PHONE_NUMBER) missing.push('TWILIO_SMS_NUMBER');
@@ -121,9 +129,46 @@ if (missing.length) {
 
 console.log('\nCredentials');
 
-const sender = channel === 'sms' ? env.TWILIO_SMS_NUMBER || env.TWILIO_PHONE_NUMBER : env.TWILIO_WHATSAPP_NUMBER;
+const sender =
+  channel === 'sms' ? env.TWILIO_SMS_NUMBER || env.TWILIO_PHONE_NUMBER : env.TWILIO_WHATSAPP_NUMBER;
 
-if (provider === 'twilio_sms' || provider === 'twilio_whatsapp') {
+if (provider === 'resend_email') {
+  // An authenticated read: the domains list. Sends nothing, but proves the key
+  // is real and shows whether the from-address's domain can actually send —
+  // Resend refuses sends from unverified domains, which otherwise surfaces
+  // only as a 403 on a signer's first request.
+  const domains = await request('https://api.resend.com/domains', {
+    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}` },
+  });
+
+  record(
+    'Resend credentials accepted',
+    domains.ok,
+    domains.transport ?? (domains.ok ? 'key valid' : `HTTP ${domains.status}${domains.json?.name ? ` / ${domains.json.name}` : ''}`)
+  );
+
+  if (domains.ok) {
+    const fromAddress = String(env.OTP_EMAIL_FROM);
+    const fromDomain = (fromAddress.match(/@([^\s>]+)>?$/) || [])[1]?.toLowerCase();
+    const list = Array.isArray(domains.json?.data) ? domains.json.data : [];
+    const entry = list.find((d) => String(d?.name).toLowerCase() === fromDomain);
+
+    if (!fromDomain) {
+      record('OTP_EMAIL_FROM parses to an address', false, `got "${fromAddress}"`);
+    } else if (!entry) {
+      // Not fatal by itself — a Resend sandbox address (onboarding@resend.dev)
+      // is not in the domains list but does send. Report without failing;
+      // stage 3 settles it.
+      console.log(`  · domain ${fromDomain} not among the account's domains — stage 3 settles whether it can send`);
+    } else {
+      record(
+        'sending domain is verified',
+        entry.status === 'verified',
+        `${fromDomain} — status ${entry.status}`
+      );
+    }
+  }
+} else if (provider === 'twilio_sms' || provider === 'twilio_whatsapp') {
   const sid = env.TWILIO_ACCOUNT_SID;
   const account = await request(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}.json`, {
     headers: { Authorization: basicAuth(sid, env.TWILIO_AUTH_TOKEN) },
@@ -186,20 +231,28 @@ if (failed) {
 // ---------------------------------------------------------------------------
 
 const testPhone = env.OTP_TEST_PHONE;
+const testEmail = env.OTP_TEST_EMAIL;
+const testRecipient = provider === 'resend_email' ? testEmail : testPhone;
 
-if (!testPhone) {
+if (!testRecipient) {
   console.log(
-    '\nSend stage skipped. Set OTP_TEST_PHONE=+52… to send a real message to a handset you control.'
+    provider === 'resend_email'
+      ? '\nSend stage skipped. Set OTP_TEST_EMAIL=you@… to send a real message to an inbox you control.'
+      : '\nSend stage skipped. Set OTP_TEST_PHONE=+52… to send a real message to a handset you control.'
   );
   console.log(`\n✓ Configuration and credentials verified for ${provider}.\n`);
   process.exit(0);
 }
 
-if (!/^\+\d{10,15}$/.test(testPhone)) {
+if (provider === 'resend_email') {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(testEmail)) {
+    fail(`OTP_TEST_EMAIL must be an email address — got "${testEmail}".`);
+  }
+} else if (!/^\+\d{10,15}$/.test(testPhone)) {
   fail(`OTP_TEST_PHONE must be E.164, e.g. +528115559988 — got "${testPhone}".`);
 }
 
-console.log(`\nSend  (real message to ${testPhone})`);
+console.log(`\nSend  (real message to ${testRecipient})`);
 
 // Deliberately not a valid-looking code: this script issues nothing, and a
 // sample that reads like an OTP would train recipients to trust it.
@@ -209,7 +262,23 @@ const body =
 
 let send;
 
-if (provider === 'twilio_sms' || provider === 'twilio_whatsapp') {
+if (provider === 'resend_email') {
+  send = await request('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: env.OTP_EMAIL_FROM,
+      to: [testEmail],
+      subject: 'Prueba de configuración — Business Helper',
+      text: body,
+    }),
+  });
+  record(
+    'provider accepted the message',
+    send.ok,
+    send.transport ?? (send.ok ? `id ${send.json?.id ?? 'sent'}` : `HTTP ${send.status}${send.json?.name ? ` / ${send.json.name}` : ''}`)
+  );
+} else if (provider === 'twilio_sms' || provider === 'twilio_whatsapp') {
   const prefix = provider === 'twilio_whatsapp' ? 'whatsapp:' : '';
   send = await request(
     `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(env.TWILIO_ACCOUNT_SID)}/Messages.json`,
@@ -277,7 +346,8 @@ if (failed) {
 // WhatsApp a template-less send outside a 24h window is accepted then dropped.
 console.log(
   `\n✓ ${provider} accepted the send.\n\n` +
-    `  Confirm the message actually arrived on ${testPhone} — acceptance is not delivery.\n` +
+    `  Confirm the message actually arrived at ${testRecipient} — acceptance is not delivery\n` +
+    `  (on email, check the spam folder too).\n` +
     `  Then complete the end-to-end check: issue a code from a real quote, sign with it,\n` +
     `  and confirm replaying the same code fails.\n`
 );

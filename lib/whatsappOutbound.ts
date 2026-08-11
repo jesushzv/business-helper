@@ -44,7 +44,7 @@ export interface WhatsAppDispatchMode {
  *    Mexican national numbers exactly as before.
  *  - It still has to **fail closed**. It used to return `+${digits}` for any
  *    input, so a 7-digit local number or an extension was handed to Twilio
- *    with a plus in front, and `normalizeOtpRecipient`'s `\+[0-9]{10,15}`
+ *    with a plus in front, and `normalizeOtpPhone`'s `\+[0-9]{10,15}`
  *    waved through everything from 10 to 15 digits (#40). Callers already
  *    treat `''` as "unusable number" and surface it, which tells the tenant
  *    their stored phone is the problem rather than blaming the provider.

@@ -20,10 +20,10 @@ import { join } from 'node:path';
  *
  * Hence this gate. A component that owns a `<form>` and a submit handler is
  * where a user can get stuck, and a component test is where that can be caught.
- * Eight such components have no test that renders them and are allowlisted
- * below, tracked in #149 — among them `OtpSignatureModal` and `/pay/[token]`,
- * which is to say most of the Quote → Contract → Pay loop and the page a paying
- * client sees.
+ * Seven such components have no test that renders them and are allowlisted
+ * below, tracked in #149 — among them `/pay/[token]`, the page a paying client
+ * sees. (`OtpSignatureModal` left the list with the email-OTP migration, which
+ * added its test.)
  *
  * **Coverage is decided by import, not by filename.** `SettingsCards.test.tsx`
  * covers three cards, and every Next.js page is called `page.tsx`, so matching
@@ -43,7 +43,6 @@ const UNTESTED = new Set([
   'components/help/HelpCenterView.tsx',
   'components/landing/BottomConversionForm.tsx',
   'components/products/ProductCatalogCard.tsx',
-  'components/quotes/OtpSignatureModal.tsx',
   'components/settings/PacConnectionCard.tsx',
   'components/team/TeamMembersCard.tsx',
 ]);

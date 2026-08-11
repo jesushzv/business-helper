@@ -36,7 +36,7 @@ project; agents author most PRs and the issue tracker doubles as the engineering
 - **Third-party integrations are raw REST — there are no provider SDKs installed:**
   - Stripe → `lib/stripeClient.ts`, `lib/stripeWebhook.ts`
   - Facturapi PAC (CFDI) → `lib/pacClient.ts`, `lib/facturapi.ts`
-  - Twilio / Meta WhatsApp → `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`
+  - Resend (email OTP, launch channel) → `lib/otpDelivery.ts`; Twilio / Meta WhatsApp (OTP deprecated) → `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`
   - Gemini → `lib/whatsappAI.ts` (NL parser is rules-based, `engine: 'rules'`)
 - **Error monitoring is NOT live.** `lib/sentry.ts` is a console shim; nothing transmits.
 

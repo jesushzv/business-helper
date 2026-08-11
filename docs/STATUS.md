@@ -97,7 +97,7 @@ into one line; their reasoning is in the frozen log.*
 | Item | State | Blocks launch? |
 |:---|:---|:---|
 | **Live PAC stamp** | **The one that matters.** PR #23 merged, so stamping is real code — but its coverage runs against a mocked `fetch`, and no invoice has been issued through a live Facturapi sandbox. Merging is not verification. | **Yes** — CFDI ships at launch |
-| **#2** — OTP provider configuration | Code merged; no credentials in the environment. `OTP_DELIVERY_CHANNEL` unset means 502 and **no quote can be signed**. Never tested on a real handset. The `sms` channel was retired with phone login (2026-08-10 am), then **restored the same day** once WhatsApp OTP proved to require a business-owned WABA plus the #42 template — overhead no provider can waive. SMS via Twilio is the launch channel; the whatsapp channel stays wired for when a WABA exists. | **Yes** — the core loop is dead without it |
+| **#2** — OTP provider configuration | Code merged; no credentials in the environment. `OTP_DELIVERY_CHANNEL` unset means 502 and **no quote can be signed**. **2026-08-11: email via Resend is the launch channel** (§05 decision 2) — implemented, unit-tested against a mocked `fetch` only; **no real email has been sent**; sms/whatsapp deprecated but wired. #2 closed at founder request; §03 row 2 tracks the steps. | **Yes** — the core loop is dead without it |
 | ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
 | ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
 
@@ -131,16 +131,15 @@ needing a real handset, card, PAC stamp or deployed database are untouched by al
 > for simulated work (§01). **Re-run after PR #137 merged the same day: 10 open P0s against the
 > nine rows below** (row 6 carries two, #93 and #96). #135's row dropped off with its issue.
 > **2026-08-10:** #122 resolved by decision — phone login removed, the product is email/OAuth
-> only (WhatsApp stays for OTP delivery and outbound messages). Its row dropped; eight remain.
-> **Re-derived 2026-08-11: 6 open P0s against the 7 rows below.** #48 closed (Google sign-in
-> verified live) and #96 closed (below) both dropped their rows. The one row not backed by an
-> open P0 is **row 2**: #2 was closed at the founder's request with its unmet end-to-end criterion
-> re-scoped onto this table by name, so the row outlives the issue deliberately.
+> only (outbound WhatsApp stays; OTP moved to email 2026-08-11). Its row dropped. **2026-08-11:** #2 closed at
+> founder request, criterion unmet — row 2 below now tracks the steps, and is the one row deliberately
+> **not** backed by an open issue. **Re-derived the same day: 6 open P0s against the 7 rows below** —
+> #48 (Google sign-in verified live) and #96 (row 6) had both closed, dropping their rows.
 
 | # | Item | Tracked |
 |:--|:---|:---|
 | 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path, which needs the founder. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
-| 2 | **Configure the SMS OTP channel.** Twilio SMS: fastest to provision, no business-verification wait, no WABA. (Retired with phone login on 2026-08-10 am, restored the same day: WhatsApp OTP cannot reach a cold recipient without a business-owned WABA and the approved authentication template tracked in #42 — Meta policy, so no provider waives it. Phone *login* stays removed; the whatsapp delivery channel stays wired for when a WABA exists.) Set `OTP_DELIVERY_CHANNEL=sms` plus the three Twilio variables, run `npm run verify:otp`, then verify a real code lands on a real handset and cannot be replayed. Per-recipient rate limiting is already in place (#20). Without this no quote can be signed at all, so it gates the end-to-end check for everything else. | [#2](https://github.com/jesushzv/business-helper/issues/2) |
+| 2 | **Configure the email OTP channel.** Email via Resend became the launch channel on 2026-08-11 (§05 decision 2): one API key and a DNS-verified sending domain — no WABA, no carrier registration. Code and tests are in place (mocked `fetch` only, PR #155); what remains is founder-side: create the Resend account, verify `businesshelper.app`, set `OTP_DELIVERY_CHANNEL=email` + `RESEND_API_KEY` + `OTP_EMAIL_FROM`, apply migration `20260811120000` (without it email sends fail closed), run `npm run verify:otp` with `OTP_TEST_EMAIL`, then a real code in a real inbox that cannot be replayed. Signers need `clients.email` on file (422 otherwise). Gates the end-to-end check for everything else. | ~~[#2](https://github.com/jesushzv/business-helper/issues/2)~~ closed 2026-08-11 — this row tracks it |
 | 3 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 | 4 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. **Code side landed 2026-08-09**: price ids no longer default to invented literals (an unmapped tier answers 503 and names the variable), an unrecognised price no longer resolves to the Negocio tier, and `npm run verify:stripe` reads the account and every price back from Stripe — it fails if the account cannot take charges or a tier bills an amount the pricing page does not advertise. Unrun against a real account; nothing here charges anyone. The issue stays open on its own exit criterion: a real card, in live mode, recorded by a signature-verified webhook. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
 | 5 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
@@ -269,10 +268,10 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 - [ ] A failed quote→contract conversion is reported as failed, not announced as a payment schedule ([#59](https://github.com/jesushzv/business-helper/issues/59) — fixed in code, unexercised against a deployment)
 
 ### Signature & communications integrity
-- [ ] A signer receives a real OTP on a real handset within ~10s on the configured channel ([#2](https://github.com/jesushzv/business-helper/issues/2))
+- [ ] A signer receives a real OTP in a real inbox within ~10s on the configured channel ([#2](https://github.com/jesushzv/business-helper/issues/2))
 - [x] The quote link a client receives resolves (#36, PR #47)
 - [x] The page behind that link shows the client's real quote, not a fixture (#58, PR #57)
-- [x] OTP issuance is capped per recipient phone, not per quote (#20 merged)
+- [x] OTP issuance is capped per recipient contact (email or phone), not per quote (#20 merged; recipient key widened for email 2026-08-11)
 - [x] Outbound WhatsApp reminders actually send (#13)
 
 ### Operational floor
@@ -300,11 +299,11 @@ These require the founder and are not resolvable from the codebase.
 1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships.** Deferral is off
    the table, so [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through
    a live Facturapi sandbox) is blocking, not negotiable.
-2. ~~**Which OTP channel?**~~ **Resolved 2026-08-10 — Twilio SMS at launch.** The morning's
-   WhatsApp-only decision was reversed the same day, on new information: WhatsApp OTP requires a
-   business-owned WABA, business verification, and an approved authentication template (#42) on
-   every provider — Meta policy, not a vendor gap — and no WABA exists. SMS needs none of that.
-   The whatsapp channel stays implemented; revisit when a WABA is provisioned.
+2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch; sms/whatsapp
+   deprecated but wired.** Supersedes 2026-08-10's "Twilio SMS at launch" (itself a same-day
+   reversal: WhatsApp OTP needs a business-owned WABA plus the #42 template — Meta policy — and
+   no WABA exists). Email needs one API key and a DNS-verified domain; no carrier registration,
+   no per-message cost.
 3. **Are there real CLABE account numbers for the pilot organizations?**
 4. ~~**`businesshelper.app` or `businesshelper.mx`?**~~ Resolved — `.app`; `.mx` was never
    registered (#36).

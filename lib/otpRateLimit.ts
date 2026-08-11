@@ -3,16 +3,21 @@
  *
  * The signing endpoint's original bound was a 30s cooldown on
  * `quotes.client_otp_sent_at` — per quote. One client with several open quotes
- * has several valid public tokens resolving to a single `clients.phone`, so
- * cycling between tokens issued a code per request with no cooldown ever
- * applying. Every send is a billable message, so the meaningful budget is the
- * one the recipient's phone spends, not the one a quote spends.
+ * has several valid public tokens resolving to a single contact, so cycling
+ * between tokens issued a code per request with no cooldown ever applying.
+ * The meaningful budget is the one the recipient's inbox or handset spends,
+ * not the one a quote spends.
+ *
+ * The key is the recipient the database holds for the client — the email
+ * address on the email channel, the E.164 phone on the deprecated sms and
+ * whatsapp channels. Both normalize to a single canonical form so two rows
+ * spelling the same contact differently share one budget.
  *
  * Two properties matter and neither is available in process:
  *
- *  - The key is the recipient phone, resolved server-side from the database.
- *    The endpoint is unauthenticated, so nothing the caller supplies can be
- *    trusted to identify who is being messaged.
+ *  - The key is resolved server-side from the database. The endpoint is
+ *    unauthenticated, so nothing the caller supplies can be trusted to
+ *    identify who is being messaged.
  *  - The counter is persisted. Serverless invocations share no memory; a
  *    module-level Map would reset on a cold start and limit nothing on Vercel.
  *
@@ -23,11 +28,12 @@
  */
 
 import { formatE164Phone } from './whatsappOutbound';
+import { looksLikeEmail } from './clientFieldHints';
 
-/** Rolling window over which sends to one phone are counted. */
+/** Rolling window over which sends to one recipient are counted. */
 export const OTP_PHONE_WINDOW_MS = 60 * 60 * 1000;
 
-/** Codes one phone may receive within `OTP_PHONE_WINDOW_MS`, across all quotes. */
+/** Codes one recipient may receive within `OTP_PHONE_WINDOW_MS`, across all quotes. */
 export const OTP_PHONE_WINDOW_MAX_SENDS = 5;
 
 /**
@@ -92,9 +98,20 @@ export type OtpRateLimitDecision =
  * Without this, "8115559988" on one client row and "+52 811 555 9988" on
  * another would be two budgets for one handset.
  */
-export function normalizeOtpRecipient(phone: string | null | undefined): string | null {
+export function normalizeOtpPhone(phone: string | null | undefined): string | null {
   const e164 = formatE164Phone(phone || '');
   return /^\+[0-9]{10,15}$/.test(e164) ? e164 : null;
+}
+
+/**
+ * The email counterpart: one inbox, one budget, however the address is cased
+ * or padded on the client row. Validation is deliberately the forgiving
+ * `looksLikeEmail` shape — the gate that matters is whether Resend can
+ * deliver, and a strict pattern here would refuse addresses that can receive.
+ */
+export function normalizeOtpEmail(email: string | null | undefined): string | null {
+  const canonical = (email || '').trim().toLowerCase();
+  return looksLikeEmail(canonical) ? canonical : null;
 }
 
 interface PhoneWindowOptions {
@@ -119,7 +136,7 @@ export function evaluatePhoneWindow(
     windowMs = OTP_PHONE_WINDOW_MS,
     maxSends = OTP_PHONE_WINDOW_MAX_SENDS,
     scope = 'phone',
-    error = 'Se enviaron demasiados códigos a este número. Intente de nuevo más tarde.',
+    error = 'Se enviaron demasiados códigos de verificación. Intente de nuevo más tarde.',
   }: PhoneWindowOptions = {}
 ): OtpRateLimitDecision {
   const nowMs = now.getTime();
@@ -236,7 +253,13 @@ export interface OtpLedgerClient {
 }
 
 export interface OtpSendContext {
-  phoneE164: string;
+  /**
+   * The normalized limit key — an email or an E.164 phone. Stored in the
+   * ledger's `phone_e164` column, whose name predates the email channel; the
+   * column is not renamed because Vercel deploys `main` before migrations run
+   * by hand, and the old code must keep writing during that window.
+   */
+  recipient: string;
   quoteId: string;
   channel?: string | null;
   now?: Date;
@@ -251,7 +274,7 @@ function ledgerError(operation: string, error: unknown): Error {
 }
 
 /**
- * The sends to `phoneE164` inside the last `windowMs`, oldest first.
+ * The sends to `recipient` inside the last `windowMs`, oldest first.
  *
  * `id` breaks ties on `created_at` so the ordering is total — `reserveOtpSend`
  * relies on every invocation agreeing on which rows hold the window's slots.
@@ -261,7 +284,7 @@ function ledgerError(operation: string, error: unknown): Error {
  */
 async function readPhoneWindow(
   client: OtpLedgerClient,
-  phoneE164: string,
+  recipient: string,
   now: Date,
   windowMs: number = OTP_PHONE_WINDOW_MS
 ): Promise<OtpSendLogRow[]> {
@@ -270,7 +293,7 @@ async function readPhoneWindow(
   const { data, error } = await client
     .from(OTP_SEND_LOG_TABLE)
     .select('id, created_at')
-    .eq('phone_e164', phoneE164)
+    .eq('phone_e164', recipient)
     .gte('created_at', windowStart)
     .order('created_at', { ascending: true })
     .order('id', { ascending: true });
@@ -318,9 +341,9 @@ function hourSubset(rows: OtpSendLogRow[], now: Date): OtpSendLogRow[] {
  */
 export async function checkResendBackoff(
   client: OtpLedgerClient,
-  { phoneE164, now = new Date() }: Pick<OtpSendContext, 'phoneE164' | 'now'>
+  { recipient, now = new Date() }: Pick<OtpSendContext, 'recipient' | 'now'>
 ): Promise<OtpRateLimitDecision> {
-  const window = await readPhoneWindow(client, phoneE164, now);
+  const window = await readPhoneWindow(client, recipient, now);
   return evaluateResendBackoff(
     window.map((row) => row.created_at),
     now
@@ -330,11 +353,11 @@ export async function checkResendBackoff(
 /** Reads every cap without consuming any. Exported for diagnostics and tests. */
 export async function checkOtpSendAllowance(
   client: OtpLedgerClient,
-  { phoneE164, quoteId, now = new Date() }: OtpSendContext
+  { recipient, quoteId, now = new Date() }: OtpSendContext
 ): Promise<OtpRateLimitDecision> {
-  // One read covers both phone windows: the hourly rows are a subset of the
-  // daily ones.
-  const dayWindow = await readPhoneWindow(client, phoneE164, now, OTP_PHONE_DAY_WINDOW_MS);
+  // One read covers both recipient windows: the hourly rows are a subset of
+  // the daily ones.
+  const dayWindow = await readPhoneWindow(client, recipient, now, OTP_PHONE_DAY_WINDOW_MS);
   const hourTimes = hourSubset(dayWindow, now).map((row) => row.created_at);
 
   const hourly = evaluatePhoneWindow(hourTimes, now);
@@ -347,7 +370,7 @@ export async function checkOtpSendAllowance(
       windowMs: OTP_PHONE_DAY_WINDOW_MS,
       maxSends: OTP_PHONE_DAY_MAX_SENDS,
       scope: 'phone_day',
-      error: 'Este número alcanzó el límite diario de códigos. Intente de nuevo mañana.',
+      error: 'Se alcanzó el límite diario de códigos de verificación. Intente de nuevo mañana.',
     }
   );
   if (!daily.allowed) return daily;
@@ -358,12 +381,12 @@ export async function checkOtpSendAllowance(
 /** Appends one send to the ledger and returns the row that now represents it. */
 export async function recordOtpSend(
   client: OtpLedgerClient,
-  { phoneE164, quoteId, channel = null }: OtpSendContext
+  { recipient, quoteId, channel = null }: OtpSendContext
 ): Promise<OtpSendLogRow> {
   const { data, error } = await client
     .from(OTP_SEND_LOG_TABLE)
     .insert({
-      phone_e164: phoneE164,
+      phone_e164: recipient,
       quote_id: quoteId,
       channel,
     })
@@ -432,7 +455,7 @@ export async function reserveOtpSend(
 
   const dayWindow = await readPhoneWindow(
     client,
-    context.phoneE164,
+    context.recipient,
     now,
     OTP_PHONE_DAY_WINDOW_MS
   );
@@ -470,7 +493,7 @@ export async function reserveOtpSend(
         windowMs: OTP_PHONE_DAY_WINDOW_MS,
         maxSends: OTP_PHONE_DAY_MAX_SENDS,
         scope: 'phone_day',
-        error: 'Este número alcanzó el límite diario de códigos. Intente de nuevo mañana.',
+        error: 'Se alcanzó el límite diario de códigos de verificación. Intente de nuevo mañana.',
       }
     );
     if (!dailyDenial.allowed) return dailyDenial;
