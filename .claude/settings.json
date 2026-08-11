@@ -1,4 +1,74 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(npm ci)",
+      "Bash(npm install)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm test)",
+      "Bash(npm run test:coverage)",
+      "Bash(npx vitest run)",
+      "Bash(npx vitest run *)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx eslint *)",
+      "Bash(npm run db:migrate:dry)",
+      "Bash(npm run verify:webhook)",
+      "Bash(node scripts/ci-verify-migrations.sh)",
+
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git remote -v)",
+      "Bash(git fetch origin *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout -b *)",
+      "Bash(git switch *)",
+      "Bash(git stash *)",
+      "Bash(git merge origin/main)",
+      "Bash(git rebase origin/main)",
+      "Bash(git push -u origin claude/*)",
+      "Bash(git push origin claude/*)",
+
+      "mcp__github__get_*",
+      "mcp__github__list_*",
+      "mcp__github__search_*",
+      "mcp__github__pull_request_read",
+      "mcp__github__issue_read",
+      "mcp__github__actions_list",
+      "mcp__github__actions_get"
+    ],
+    "ask": [
+      "Bash(npm run db:migrate)",
+      "Bash(npm run verify:otp)",
+      "Bash(npm run verify:stripe)",
+      "Bash(npm run sync-blob)",
+      "Bash(git reset --hard *)",
+      "Bash(git checkout -- *)",
+      "Bash(git clean -f*)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(rm -rf *)"
+    ],
+    "deny": [
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push * main)",
+      "Bash(git push origin main*)",
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.*.local)",
+      "Read(./.env.production)",
+      "Edit(./.env)",
+      "Edit(./.env.local)",
+      "Edit(./.env.*.local)",
+      "Edit(./.env.production)"
+    ]
+  },
   "hooks": {
     "sessionStart": "alias bash='rtk --wrap bash'"
   }
