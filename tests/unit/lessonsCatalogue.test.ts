@@ -35,7 +35,7 @@ const AUTHORITY = 'CLAUDE.md';
  * committed. Not hand-curated prose: it must equal what the file contains, in both directions.
  */
 const LESSON_REFS: number[] = [
-  33, 38, 44, 48, 50, 58, 59, 63, 64, 76, 78, 82, 86, 93, 95, 96, 118, 129, 135,
+  33, 38, 44, 48, 50, 58, 59, 63, 64, 76, 78, 82, 86, 93, 95, 96, 118, 129, 135, 146,
 ];
 
 /**

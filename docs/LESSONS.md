@@ -121,6 +121,21 @@ not earned. It has shipped here at least eight times.
   `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in `lib/whatsappLink.ts` (org
   name as a parameter, signature omitted when unknown). `tests/unit/demoIdentityLeak.test.ts` fails
   the build on a leak and keeps the allowlist.
+- **A form the user cannot get past is usually validation that returns at the first failure and
+  names no field** (#146). Registering a client was unfinishable: both routes checked name → RFC →
+  crédito → teléfono in sequence and 400'd at the first, so each submit revealed one more problem;
+  the envelope carried prose with no field attached; and the form dropped that prose into one banner
+  at the top of a modal taller than a 375px viewport, so tapping *Guardar* at the bottom looked like
+  nothing happened. Validate everything, key each message by **column** in `error.fields`, and pin
+  it under its own input with focus moved there — a message the tenant must scroll to find is not a
+  message. Corollary: **a validation gate belongs where the value is load-bearing.** The RFC gate
+  cost the whole client record for a field only CFDI stamping needs, which `lib/facturapi.ts`
+  already refuses loudly on its own.
+- **One `catch`-all 500 on a write is a diagnosis you threw away** (#146). `if (error) return 500
+  'No se pudo crear el cliente'` made a missing column (`PGRST204` — #96's exact shape), a CHECK,
+  an RLS denial and an outage identical on screen *and* in the logs, since the raw error was
+  discarded. Map the code to a Spanish cause naming the column, and `captureException` the original
+  every time: `lib/dbWriteError.ts` is the reference.
 - **localStorage is demo-sandbox state, never a real tenant's store.** Real tenants read the API
   (an empty list is a real answer), see errors as errors, and their mutations apply the server row
   or throw. Seeding fixtures on a failed fetch is how a new tenant's directory opened with three
