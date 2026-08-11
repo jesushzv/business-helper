@@ -308,16 +308,13 @@ These require the founder and are not resolvable from the codebase.
 1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships.** Deferral is off
    the table, so [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through
    a live Facturapi sandbox) is blocking, not negotiable.
-2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch; sms/whatsapp
-   deprecated but wired.** Supersedes 2026-08-10's "Twilio SMS at launch" (itself a same-day
-   reversal: WhatsApp OTP needs a business-owned WABA plus the #42 template — Meta policy — and
-   no WABA exists). Email needs one API key and a DNS-verified domain; no carrier registration,
-   no per-message cost.
+2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch**; sms/whatsapp
+   deprecated but wired. WhatsApp OTP needs a business-owned WABA that does not exist; email needs
+   one API key and a DNS-verified domain.
 3. **Are there real CLABE account numbers for the pilot organizations?**
 4. ~~**`businesshelper.app` or `businesshelper.mx`?**~~ Resolved — `.app`; `.mx` was never
    registered (#36).
-5. ~~**Does the September launch date hold?**~~ **Resolved 2026-08-07 — the September date holds,
-   at full scope.** Confirmed by the founder alongside decision 1.
+5. ~~**Does the September launch date hold?**~~ **Resolved 2026-08-07 — it holds, at full scope.**
 
    > [!IMPORTANT]
    > **Both halves of the trade were taken, so the schedule has no relief valve left.** The framing
@@ -330,7 +327,13 @@ These require the founder and are not resolvable from the codebase.
 7. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
    "1–2 focused weeks" is two calendar weeks or closer to a month.
 8. ~~**Merge posture on PRs #20 and #23.**~~ Moot — both merged 2026-08-07 (§02).
-9. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
+9. ~~**Which roles may set a client's trade-credit line?**~~ **Resolved — owners and managers**
+   (#123), via `manage_credit`; a change without it is a 403 per column. Whether the limit
+   restrains a quote is #203.
+10. ~~**What does a never-subscribed org get?**~~ **Resolved — a 30-day trial** (#128). Expiry
+    blocks *creating a quote* only, and stays inert until #68 makes a checkout reachable. Both
+    migrations applied and read back.
+11. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
    narrow to one module, freeze for a validation-only sprint, or wind down and redirect the time.
    Worth deciding while calm rather than mid-crisis.
 

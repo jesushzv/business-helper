@@ -5,7 +5,12 @@ import {
   summarizeFieldErrors,
   fieldErrorCode,
 } from '@/lib/clientValidation';
-import { describeDbWriteError, dbWriteErrorResponse } from '@/lib/dbWriteError';
+import {
+  authorizeCreditWrite,
+  canManageCredit,
+  CLIENT_CREDIT_FIELDS,
+} from '@/lib/clientCreditAuthorization';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Single-client operations.
@@ -56,7 +61,7 @@ export async function PUT(
 ) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId } = auth.ctx;
+  const { supabase, organizationId, role } = auth.ctx;
 
   try {
     const { id } = await params;
@@ -65,7 +70,40 @@ export async function PUT(
     // fiscal/contact fields the old destructuring named were never present on
     // the body the form sends, so editing régimen fiscal, código postal, uso de
     // CFDI or contact name was a silent no-op reported as saved (#96).
-    const fields = pickFields<Record<string, unknown>>(body, CLIENT_WRITABLE_FIELDS);
+    let fields = pickFields<Record<string, unknown>>(body, CLIENT_WRITABLE_FIELDS);
+
+    // Trade credit is gated (#123). The stored values are read first because
+    // the form sends the whole record on every edit: a member fixing a phone
+    // number echoes the credit columns back unchanged, and refusing *that* would
+    // gate the whole client, not the credit line. Only a real change is refused.
+    // The read is skipped for roles that may write these columns anyway.
+    if (!canManageCredit(role)) {
+      const { data: current, error: readError } = await supabase
+        .from('clients')
+        .select(CLIENT_CREDIT_FIELDS.join(', '))
+        .eq('id', id)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (readError) {
+        return dbWriteErrorResponse(readError, 'el cliente', 'PUT /api/clients/[id]');
+      }
+      if (!current) {
+        return NextResponse.json(
+          { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
+          { status: 404 }
+        );
+      }
+
+      const credit = authorizeCreditWrite(fields, role, current as Record<string, unknown>);
+      if (!credit.ok) {
+        return NextResponse.json(
+          { error: { code: 'FORBIDDEN', message: credit.message, fields: credit.fields } },
+          { status: 403 }
+        );
+      }
+      fields = credit.fields;
+    }
 
     // Same all-at-once, per-field validation as create, so the edit form can
     // pin each message under its own input instead of showing one at a time.
@@ -104,17 +142,7 @@ export async function PUT(
       .maybeSingle();
 
     if (error) {
-      const failure = describeDbWriteError(error, 'el cliente', 'PUT /api/clients/[id]');
-      return NextResponse.json(
-        {
-          error: {
-            code: failure.code,
-            message: failure.message,
-            ...(failure.field ? { fields: { [failure.field]: failure.message } } : {}),
-          },
-        },
-        { status: failure.status }
-      );
+      return dbWriteErrorResponse(error, 'el cliente', 'PUT /api/clients/[id]');
     }
 
     if (!updated) {
