@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { useTeamMembers } from '@/lib/hooks/useTeamMembers';
 import { UserRole } from '@/lib/teamRBAC';
-import { Users, UserPlus, Shield, Mail, Link2, Clock, Copy, Check } from 'lucide-react';
+import { Users, UserPlus, Shield, Mail, Link2, Clock, Copy, Check, MessageSquare } from 'lucide-react';
+import { generateWhatsAppShareLink } from '@/lib/whatsappLink';
 import { Modal } from '@/components/shared/Modal';
 
 /**
@@ -217,12 +218,28 @@ export function TeamMembersCard() {
                   <button
                     type="button"
                     onClick={copyInviteUrl}
-                    className="min-h-[48px] px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl flex items-center gap-2 shrink-0"
+                    className="min-h-[48px] px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl flex items-center gap-2 shrink-0"
                   >
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     {copied ? 'Copiado' : 'Copiar'}
                   </button>
                 </div>
+
+                {/* The copy above promises WhatsApp; only a copy button
+                    delivered it. No number is on file for an invitee, so this
+                    opens WhatsApp with the message ready and lets the inviter
+                    pick the contact — the pre-filled-link rule (#104). */}
+                <a
+                  href={generateWhatsAppShareLink(
+                    `Te invito a colaborar en Business Helper. Entra con este enlace para unirte al equipo:\n${inviteUrl}\n\nEl enlace vence en 7 días.`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 font-bold text-slate-950 shadow-md hover:bg-emerald-400 active:scale-95"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Enviar por WhatsApp</span>
+                </a>
 
                 <p className="text-xs text-slate-400">
                   El enlace vence en 7 días y solo funciona para {' '}

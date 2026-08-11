@@ -97,9 +97,7 @@ into one line; their reasoning is in the frozen log.*
 | Item | State | Blocks launch? |
 |:---|:---|:---|
 | **Live PAC stamp** | **The one that matters.** PR #23 merged, so stamping is real code — but its coverage runs against a mocked `fetch`, and no invoice has been issued through a live Facturapi sandbox. Merging is not verification. | **Yes** — CFDI ships at launch |
-| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
-| ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
-| ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
+| ~~Eight cleared rows~~ | ✅ OTP email channel live end to end (2026-08-11), production migrations applied, and six more — detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). | Cleared |
 
 ### Recently landed (2026-08-07 → 2026-08-08)
 
@@ -166,6 +164,8 @@ re-checked against production or a real handset, which is the part no agent supp
 | #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email); the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
 | #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
 | #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
+
+| #104 | Create-a-quote loses its navigation-only tap (`/quotes?nueva=1`); "Generar y Compartir" now shares; team invites get the WhatsApp link their own copy promised; the wizard asks before discarding typed work; empty-vs-filtered states split; skeletons unified; OTP resend cooled down. Gate: `flowPolish.test.ts` |
 
 Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
 

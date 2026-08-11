@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { useReceivables, MilestoneWithClient } from '@/lib/hooks/useReceivables';
 import { ReceivablesSummaryCards } from '@/components/receivables/ReceivablesSummaryCards';
@@ -8,7 +9,7 @@ import { ReceivableCard } from '@/components/receivables/ReceivableCard';
 import { SpeiConfirmModal } from '@/components/receivables/SpeiConfirmModal';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 import { useSettlementAccount } from '@/lib/hooks/useSettlementAccount';
-import { Search, Wallet } from 'lucide-react';
+import { Search, Wallet, FileText } from 'lucide-react';
 
 export default function ReceivablesPage() {
   const result = useActionResult();
@@ -25,6 +26,10 @@ export default function ReceivablesPage() {
   } = useReceivables();
 
   const { ready: settlementReady } = useSettlementAccount();
+
+  // "Nothing matches your filter" and "you have nothing yet" are different
+  // facts, and only the second one warrants a route onward (#104).
+  const isFiltering = searchQuery.trim() !== '' || statusFilter !== 'all';
 
   const [selectedMilestone, setSelectedMilestone] = useState<MilestoneWithClient | null>(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -96,7 +101,11 @@ export default function ReceivablesPage() {
           must never render "todas tus cuentas están al día" — a factual claim
           about money the app cannot back while holding an error. */}
       {loading ? (
-        <div className="p-12 text-center text-slate-400 font-medium">Cargando cuentas por cobrar...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-48 animate-pulse rounded-2xl bg-slate-800/80" />
+          ))}
+        </div>
       ) : error ? (
         <div className="bg-rose-950/60 rounded-3xl border border-rose-500/30 p-12 text-center space-y-3">
           <Wallet className="w-12 h-12 text-rose-400 mx-auto" />
@@ -112,10 +121,25 @@ export default function ReceivablesPage() {
       ) : filteredReceivables.length === 0 ? (
         <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-12 text-center space-y-3 text-white">
           <Wallet className="w-12 h-12 text-slate-600 mx-auto" />
-          <h3 className="text-lg font-bold text-white">No hay cobros en este filtro</h3>
+          <h3 className="text-lg font-bold text-white">
+            {isFiltering ? 'Ningún cobro coincide' : 'Todavía no tienes cobros registrados'}
+          </h3>
           <p className="text-sm text-slate-400 max-w-sm mx-auto">
-            Todas tus cuentas por cobrar están al día o no hay registros que coincidan con la búsqueda.
+            {isFiltering
+              ? 'Prueba con otra búsqueda o quita el filtro para ver todos.'
+              : 'Los cobros nacen de una cotización aceptada: conviértela en contrato y aquí aparecerán sus pagos programados.'}
           </p>
+          {/* This screen had no route onward at all — a dead end for a new
+              tenant who does not yet know where cobros come from (#104). */}
+          {!isFiltering && (
+            <Link
+              href="/quotes"
+              className="inline-flex min-h-[48px] items-center gap-2 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 shadow-md hover:bg-emerald-400 active:scale-95"
+            >
+              <FileText className="h-5 w-5" />
+              <span>Ir a Cotizaciones</span>
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
