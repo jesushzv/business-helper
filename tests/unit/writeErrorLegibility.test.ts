@@ -17,11 +17,12 @@ import { join } from 'node:path';
  * and branches on `error` must consult that error — through
  * `describeDbWriteError`, or by reading `error.code` / `error.message` itself.
  *
- * **This gate does not claim the tree is clean.** Eleven routes carried the
- * same shape when it was written and are allowlisted below by name, tracked in
- * #148. What it does is stop the twelfth, and make removing an entry from the
- * list the way that debt is paid down. An allowlist that shrinks is a plan; a
- * grep nobody runs is not.
+ * Eleven routes carried the same shape when this gate was written and were
+ * allowlisted by name under #148. The list is now **empty**: every one of them
+ * routes its failure through `dbWriteErrorResponse` (or, on the two public
+ * routes, `publicDbWriteErrorResponse`). The gate therefore covers the whole
+ * tree — an allowlist that shrank to nothing is what closing that issue means,
+ * and re-adding an entry now needs the same argument as writing the defect.
  */
 
 const API_ROOT = join(process.cwd(), 'app', 'api');
@@ -31,24 +32,17 @@ const API_ROOT = join(process.cwd(), 'app', 'api');
  * exemption — the entry says "not fixed yet", never "fine as it is". Delete an
  * entry in the PR that fixes its route; nothing else may be added without one.
  */
-const PRE_EXISTING = new Set([
-  'app/api/organization/members/route.ts',
-  'app/api/organization/route.ts',
-  'app/api/products/[id]/route.ts',
-  'app/api/products/route.ts',
-  'app/api/quotes/[id]/route.ts',
-  'app/api/quotes/public/[token]/route.ts',
-  'app/api/quotes/route.ts',
-  'app/api/receivables/[id]/confirm/route.ts',
-  'app/api/receivables/[id]/route.ts',
-  'app/api/receivables/public/[token]/route.ts',
-  'app/api/receivables/route.ts',
-]);
+const PRE_EXISTING = new Set<string>([]);
 
 const WRITES = /\.(insert|update|upsert|delete)\(/;
 const BRANCHES_ON_ERROR = /if \(\s*error/;
-/** Consulting the error: the shared describer, or reading it directly. */
-const CONSULTS_ERROR = /describeDbWriteError|error\.(code|message)|error\?\.(code|message)/;
+/**
+ * Consulting the error: either shared helper (which classify it, log the
+ * original and build the envelope), the describer directly, or reading the
+ * error's own fields.
+ */
+const CONSULTS_ERROR =
+  /describeDbWriteError|dbWriteErrorResponse|publicDbWriteErrorResponse|error\.(code|message)|error\?\.(code|message)/;
 
 function routeFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -105,6 +99,36 @@ describe('a failed write names its cause (#146)', () => {
         CONSULTS_ERROR.test(route!.source),
         `${rel} now reads its error — delete its allowlist entry (that is how #148 closes)`
       ).toBe(false);
+    }
+  });
+
+  it('the eleven routes #148 tracked each consult their error (pins the closure)', () => {
+    // The allowlist being empty proves nothing on its own — deleting the names
+    // and the routes both empty it. These are the eleven, by name, asserted
+    // from the other side: a revert of any one of them fails here as well.
+    const FIXED_IN_148 = [
+      'app/api/organization/members/route.ts',
+      'app/api/organization/route.ts',
+      'app/api/products/[id]/route.ts',
+      'app/api/products/route.ts',
+      'app/api/quotes/[id]/route.ts',
+      'app/api/quotes/public/[token]/route.ts',
+      'app/api/quotes/route.ts',
+      'app/api/receivables/[id]/confirm/route.ts',
+      'app/api/receivables/[id]/route.ts',
+      'app/api/receivables/public/[token]/route.ts',
+      'app/api/receivables/route.ts',
+    ];
+
+    const routes = writeRoutes();
+    for (const rel of FIXED_IN_148) {
+      const route = routes.find((r) => r.rel === rel);
+      expect(route, `${rel} no longer exists as a write route — update this list and say so`)
+        .toBeTruthy();
+      expect(
+        CONSULTS_ERROR.test(route!.source),
+        `${rel} stopped consulting its failed write — that is #148 coming back`
+      ).toBe(true);
     }
   });
 

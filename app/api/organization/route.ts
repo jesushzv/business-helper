@@ -3,6 +3,7 @@ import { requireOrgAccess, requireUser, isDemoDeployment } from '@/lib/apiAuth';
 import { normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 export async function GET() {
   // No backend means no tenant data; the demo organization is honest here.
@@ -253,10 +254,7 @@ export async function PATCH(request: Request) {
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo guardar la cuenta bancaria' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'los datos de tu negocio', 'PATCH /api/organization');
     }
 
     if (!data) {
@@ -312,10 +310,7 @@ export async function POST(request: Request) {
     // or without a session, so onboarding appeared to succeed while creating
     // nothing.
     if (error || !data) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo crear la organización' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'tu negocio', 'POST /api/organization', { verb: 'crear' });
     }
 
     return NextResponse.json({ organization: data });
