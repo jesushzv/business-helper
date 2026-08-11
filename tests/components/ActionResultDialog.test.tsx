@@ -96,6 +96,26 @@ describe('ActionResultDialog', () => {
     expect(text).toContain('Límite inválido.');
   });
 
+  it('shows the envelope code on a failure, so it can be quoted for help', () => {
+    // The round trip this saves: "it still fails" with no way to tell
+    // FORBIDDEN from SCHEMA_OUT_OF_DATE from INVALID_PHONE.
+    render(
+      <Harness
+        run={(r) =>
+          r.fail(new ClientWriteError('Sin permiso.', {}, 'FORBIDDEN'), { title: 'No se guardó' })
+        }
+      />
+    );
+    go();
+    expect(screen.getByRole('alertdialog').textContent).toContain('FORBIDDEN');
+  });
+
+  it('never shows a code on success', () => {
+    render(<Harness run={(r) => r.succeed({ title: 'Listo', message: 'Guardado.' })} />);
+    go();
+    expect(screen.getByRole('alertdialog').textContent).not.toMatch(/Código:/);
+  });
+
   it('falls back to a message rather than showing an empty dialog', () => {
     render(<Harness run={(r) => r.fail(null, { title: 'No se guardó' })} />);
     go();

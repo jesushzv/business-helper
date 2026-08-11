@@ -35,6 +35,17 @@ export interface ActionResult {
   fields?: Record<string, string>;
   /** Optional extra action, e.g. "Ver cliente" or "Crear cotización". */
   action?: { label: string; onClick: () => void };
+  /**
+   * Machine code from the API envelope, shown small under a failure.
+   *
+   * Jargon is banned from user-facing copy (hard rule 8) and this is the
+   * deliberate exception, because it is not addressed to the tenant as
+   * language — it is a token to quote when asking for help. A solo founder
+   * debugging with an agent otherwise has to describe a red box from memory,
+   * and `FORBIDDEN` vs `SCHEMA_OUT_OF_DATE` vs `INVALID_PHONE` point at three
+   * unrelated causes. Labelled as such, and never shown on success.
+   */
+  code?: string;
 }
 
 interface ActionResultDialogProps {
@@ -137,6 +148,13 @@ export const ActionResultDialog: React.FC<ActionResultDialogProps> = ({
           </ul>
         )}
 
+        {result.outcome === 'error' && result.code && (
+          <p className="mt-3 text-[10px] font-medium text-slate-500">
+            Código: <span className="font-mono text-slate-400">{result.code}</span> · compártelo si
+            necesitas ayuda
+          </p>
+        )}
+
         <div className="mt-6 flex flex-col gap-2">
           {result.action && (
             <button
@@ -196,9 +214,14 @@ export function useActionResult() {
         error && typeof error === 'object' && 'fields' in error
           ? ((error as { fields?: Record<string, string> }).fields ?? undefined)
           : undefined;
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: unknown }).code || '')
+          : '';
       setValue({
         ...fallback,
         outcome: 'error',
+        code: code || undefined,
         message: message || 'No se pudo completar la acción. Vuelve a intentarlo.',
         // A single field message is already the `message`; listing it twice is noise.
         fields: fields && Object.keys(fields).length > 1 ? fields : undefined,
