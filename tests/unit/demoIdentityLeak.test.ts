@@ -28,7 +28,6 @@ const ALLOWED = new Set([
   'app/api/receivables/public/[token]/route.ts', // DEMO_MILESTONE behind !isServiceRoleConfigured()
   'components/demo/DemoBanner.tsx', // renders only on the demo deployment, and says so
   'app/onboarding/page.tsx', // placeholder= examples
-  'components/settings/BankAccountCard.tsx', // placeholder= example
 ]);
 
 const ROOTS = ['app', 'components', 'lib'];

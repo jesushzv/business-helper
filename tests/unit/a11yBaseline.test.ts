@@ -148,7 +148,10 @@ describe('accessibility baseline (#101)', () => {
     // only statement of the constraint; both were 3.75:1.
     const gating = [
       ['app/onboarding/page.tsx', 'de 18 dígitos'],
-      ['components/settings/BankAccountCard.tsx', 'de 18 dígitos'],
+      // Was `BankAccountCard.tsx`; #164 replaced that card with the accounts
+      // list, and the CLABE counter now lives in the shared add/edit form. The
+      // rule follows the counter rather than the filename.
+      ['components/settings/BankAccountForm.tsx', 'de 18 dígitos'],
       ['app/pay/[token]/page.tsx', 'Máximo 5MB'],
     ] as const;
     for (const [file, needle] of gating) {

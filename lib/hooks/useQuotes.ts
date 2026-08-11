@@ -30,6 +30,7 @@ const INITIAL_DEMO_QUOTES: Quote[] = [
     notes: 'Entrega directa en obra en 48 horas hábiles tras recibir anticipo.',
     public_token: 'a1b2c3d4e5f678901234567890abcdef',
     converted_contract_id: null,
+    bank_account_id: null,
     created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -54,6 +55,7 @@ const INITIAL_DEMO_QUOTES: Quote[] = [
     notes: 'Cotización emitida bajo Régimen RESICO.',
     public_token: 'ff99887766554433221100aabbccdde',
     converted_contract_id: null,
+    bank_account_id: null,
     created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -150,6 +152,8 @@ export function useQuotes() {
     currency?: string;
     valid_until?: string;
     notes?: string;
+    /** The account this quote's client pays into; `null` = the org default (#164). */
+    bank_account_id?: string | null;
     taxOptions?: { applyIva?: boolean; applyRetencionIsr?: boolean; applyRetencionIva?: boolean };
   }): Promise<Quote> => {
     const totals = calculateQuoteTotals(data.line_items, data.taxOptions);
@@ -167,6 +171,9 @@ export function useQuotes() {
       status: 'sent' as const,
       valid_until: data.valid_until || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       notes: data.notes || '',
+      // Null, not omitted: "no account named" is a meaning this column carries
+      // (settle at the organization's default), not a missing value.
+      bank_account_id: data.bank_account_id ?? null,
     };
 
     // The demo deployment has no backend; a locally minted quote is the honest
@@ -183,6 +190,9 @@ export function useQuotes() {
         line_items: data.line_items as unknown as Quote['line_items'],
         public_token: generatePublicToken(),
         converted_contract_id: null,
+        // `bank_account_id` comes from the payload above: overriding it to null
+        // here would silently discard the account the demo visitor picked in
+        // the wizard, showing them a feature that appears not to work (#164).
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

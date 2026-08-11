@@ -1,24 +1,23 @@
 import { NextResponse } from 'next/server';
-import { isValidClabeLength } from '@/lib/clabe';
+import {
+  BANK_ACCOUNT_COLUMNS,
+  findDefaultAccount,
+  selectableAccounts,
+  type BankAccount,
+} from '@/lib/bankAccounts';
 
 /**
- * The settlement-account gate (#64).
+ * The settlement-account gate (#64), now over a list of accounts (#164).
  *
- * An organization with no CLABE has nowhere for its customers to send money.
- * The public payment page already refuses to render instructions without one
- * (409 `ORG_BANK_DETAILS_MISSING`), but that refusal fires at the worst possible
- * moment — in front of the paying client, after the link has been shared.
+ * An organization with nowhere to receive money has nothing a `/pay/` link can
+ * show. The public payment page already refuses to render instructions in that
+ * state, but that refusal fires at the worst possible moment — in front of the
+ * paying client, after the link has been shared. This module moves the refusal
+ * one step earlier, so the tenant sees the problem instead of their customer.
  *
- * This module moves the refusal one step earlier: any server path that hands a
- * `/pay/` link to a client checks here first, so the tenant sees the problem
- * instead of their customer. The public route keeps its own check; this is a
- * gate in front of it, not a replacement for it.
- *
- * Two ways an organization ends up here, both of which predate the onboarding
- * step that collects the account:
- *   1. It was created before that step existed and is never asked again.
- *   2. Onboarding was abandoned between the step-2 `POST` that creates the
- *      organization and the step-3 `PATCH` that sets the account.
+ * "Ready" used to mean one column held 18 digits. It now means the organization
+ * has at least one account that is not archived. The question is the same one:
+ * can this business receive a transfer at all?
  */
 
 /** Shared so the route, the hook and the tests cannot disagree on the wording. */
@@ -27,23 +26,15 @@ export const SETTLEMENT_ACCOUNT_MISSING_CODE = 'ORG_BANK_DETAILS_MISSING';
 export const SETTLEMENT_ACCOUNT_MISSING_MESSAGE =
   'Agrega tu cuenta de cobro (CLABE de 18 dígitos) antes de compartir enlaces de pago con tus clientes.';
 
-/** Just enough of an organization row to answer the question. */
-export interface OrganizationSettlementFields {
-  bank_clabe?: string | null;
-}
-
 /**
- * True when the organization can actually receive a SPEI transfer.
+ * Whether this organization can receive a transfer.
  *
- * Applies the same 18-digit rule `PATCH /api/organization` enforces rather than
- * a truthiness check, so a row carrying a partial or whitespace CLABE — which a
- * direct database edit can produce — is treated as missing rather than ready.
+ * Takes the account list rather than an organization row: since #164 the
+ * `organizations.bank_*` columns are a legacy mirror, and asking them would
+ * answer for the wrong thing the moment a tenant keeps two accounts.
  */
-export function hasSettlementAccount(
-  organization: OrganizationSettlementFields | null | undefined
-): boolean {
-  const clabe = organization?.bank_clabe;
-  return typeof clabe === 'string' && isValidClabeLength(clabe);
+export function hasSettlementAccount(accounts: BankAccount[] | null | undefined): boolean {
+  return selectableAccounts(accounts ?? []).length > 0;
 }
 
 /** 409, in the `{ error: { code, message } }` shape every authenticated route uses. */
@@ -60,14 +51,14 @@ export function settlementAccountMissingResponse(): NextResponse {
 }
 
 export type SettlementAccountResult =
-  | { ok: true; clabe: string }
+  | { ok: true; account: BankAccount; accounts: BankAccount[] }
   | { ok: false; response: NextResponse };
 
 /**
- * Reads the caller's organization and refuses when it has no settlement account.
+ * Reads the caller's accounts and refuses when none can receive money.
  *
- * Scoped by the `organizationId` from `requireOrgAccess()` — a gate that reads
- * an unscoped row would answer for the wrong tenant. A lookup that fails or
+ * Scoped by the `organizationId` from `requireOrgAccess()` — a gate that read
+ * an unscoped list would answer for the wrong tenant. A lookup that fails or
  * returns nothing is treated as *not ready*: the alternative is letting a
  * payment link out on the strength of a query that did not run.
  */
@@ -76,15 +67,38 @@ export async function requireSettlementAccount(
   supabase: any,
   organizationId: string
 ): Promise<SettlementAccountResult> {
-  const { data: organization } = await supabase
-    .from('organizations')
-    .select('bank_clabe')
-    .eq('id', organizationId)
-    .maybeSingle();
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .select(BANK_ACCOUNT_COLUMNS)
+    .eq('organization_id', organizationId)
+    .is('archived_at', null);
 
-  if (!hasSettlementAccount(organization)) {
+  const accounts: BankAccount[] = error ? [] : ((data as BankAccount[]) ?? []);
+  const live = selectableAccounts(accounts);
+
+  if (live.length === 0) {
     return { ok: false, response: settlementAccountMissingResponse() };
   }
 
-  return { ok: true, clabe: organization.bank_clabe as string };
+  /**
+   * The default is what an unassigned quote settles at — and *only* the row
+   * flagged as such.
+   *
+   * This used to fall back to `live[0]` (alphabetically first) when nothing
+   * held the flag, on the theory that the state was transient. It is not
+   * self-healing, and the fallback made this function disagree with the payer
+   * route, which resolves the same state through `resolveQuoteAccount(null,
+   * null)` and refuses. The two answering differently is #64's failure exactly:
+   * the tenant's dashboard shows no banner and share buttons stay live, while
+   * every quote that named no account dead-ends in front of its client.
+   *
+   * Naming an account nobody designated is also its own defect — it would send
+   * a payer to whichever CLABE sorted first.
+   */
+  const settlementAccount = findDefaultAccount(live);
+  if (!settlementAccount) {
+    return { ok: false, response: settlementAccountMissingResponse() };
+  }
+
+  return { ok: true, account: settlementAccount, accounts: live };
 }

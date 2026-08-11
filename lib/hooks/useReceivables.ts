@@ -19,6 +19,16 @@ export interface MilestoneWithClient extends MilestoneItem {
    * rather than substitute a placeholder.
    */
   public_token?: string;
+  /**
+   * Whether the account **this quote named** has since been archived (#164).
+   *
+   * Required rather than optional: the org-level readiness gate cannot answer
+   * this, so a tenant with two accounts who archives the non-default one keeps
+   * `ready: true` everywhere while the `/pay/` links of the quotes that named
+   * it refuse. Optional-everything is how the last flattening shipped
+   * undefined for every real tenant (#78), so this one is stated.
+   */
+  pay_account_archived: boolean;
 }
 
 /**
@@ -47,6 +57,12 @@ interface RelatedClient {
 
 interface RelatedQuote {
   public_token?: string | null;
+  bank_account_id?: string | null;
+  bank_accounts?: RelatedQuoteAccount | RelatedQuoteAccount[] | null;
+}
+
+interface RelatedQuoteAccount {
+  archived_at?: string | null;
 }
 
 /** Unwraps a PostgREST to-one embed that may arrive as an object or a 1-element array. */
@@ -87,6 +103,10 @@ export function toMilestoneWithClient(row: ReceivableApiRow): MilestoneWithClien
     client_email: client?.email || undefined,
     contract_title: contract?.title || undefined,
     public_token: quote?.public_token || undefined,
+    // Only a quote that *named* an account can have a dead one: an unassigned
+    // quote follows the organization's current default, which the org-level
+    // gate already covers.
+    pay_account_archived: Boolean(quote?.bank_account_id && firstOf(quote?.bank_accounts)?.archived_at),
   };
 }
 
@@ -110,6 +130,8 @@ const INITIAL_DEMO_RECEIVABLES: MilestoneWithClient[] = [
     client_email: 'contacto@construccionesmaya.mx',
     contract_title: 'Suministro de Cemento y Varilla',
     public_token: 'a1b2c3d4e5f678901234567890abcdef',
+    // Demo fixtures name no account, so nothing can be archived out from under them.
+    pay_account_archived: false,
   },
   {
     id: 'milestone-demo-2',
@@ -130,6 +152,8 @@ const INITIAL_DEMO_RECEIVABLES: MilestoneWithClient[] = [
     client_email: 'sgarza@dinorte.com.mx',
     contract_title: 'Estudio de Suelo e Ingeniería',
     public_token: 'ff99887766554433221100aabbccdde',
+    // Demo fixtures name no account, so nothing can be archived out from under them.
+    pay_account_archived: false,
   },
   {
     id: 'milestone-demo-3',
@@ -150,6 +174,8 @@ const INITIAL_DEMO_RECEIVABLES: MilestoneWithClient[] = [
     client_email: 'contacto@construccionesmaya.mx',
     contract_title: 'Suministro de Cemento y Varilla',
     public_token: 'a1b2c3d4e5f678901234567890abcdef',
+    // Demo fixtures name no account, so nothing can be archived out from under them.
+    pay_account_archived: false,
   },
   {
     id: 'milestone-demo-4',
@@ -170,6 +196,8 @@ const INITIAL_DEMO_RECEIVABLES: MilestoneWithClient[] = [
     client_email: 'rgomez@tiregno.com',
     contract_title: 'Remodelación NAVE 4',
     public_token: '1234567890abcdef1234567890abcdef',
+    // Demo fixtures name no account, so nothing can be archived out from under them.
+    pay_account_archived: false,
   },
 ];
 

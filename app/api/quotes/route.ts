@@ -5,6 +5,7 @@ import {
   pickFields,
   QUOTE_WRITABLE_FIELDS,
 } from '@/lib/apiAuth';
+import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
 import { readOrganizationTrialState } from '@/lib/organizationTrialGate';
 import { TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE } from '@/lib/subscriptionTrial';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
@@ -79,6 +80,10 @@ export async function POST(request: Request) {
     // (#68): a paywall with no way through is a dead end, not a forcing
     // function. `readOrganizationTrialState` answers "unknown" — and so does not
     // gate — for any read it could not complete.
+    //
+    // Ahead of the account check below: "may you start new work at all" is a
+    // different question from "is this input valid", and a tenant whose trial
+    // ended should read that rather than a complaint about a field.
     const trial = await readOrganizationTrialState(supabase, organizationId);
     if (trial.blocksNewWork) {
       return NextResponse.json(
@@ -90,6 +95,22 @@ export async function POST(request: Request) {
           },
         },
         { status: 402 }
+      );
+    }
+
+    // The account this quote's client will be told to pay must belong to this
+    // organization (#164). The FK proves the row exists, not whose it is, and
+    // the public payer route renders whatever it names through the service
+    // client.
+    const accountCheck = await checkQuoteAccountOwnership(
+      supabase,
+      organizationId,
+      fields.bank_account_id
+    );
+    if (!accountCheck.ok) {
+      return NextResponse.json(
+        { error: { code: accountCheck.code, message: accountCheck.message } },
+        { status: accountCheck.status }
       );
     }
 

@@ -30,6 +30,15 @@ const fetchMock = vi.fn<typeof fetch>();
 
 const VALID_CLABE = '0121 8000 1234 5678 99';
 const ORG_CREATED = { organization: { id: 'org-1', name: 'Ferretería La Silla' } };
+const CREATED_ACCOUNT = {
+  id: 'acct-1',
+  label: 'BBVA México',
+  bank_name: 'BBVA México',
+  clabe: '012180001234567899',
+  account_holder: null,
+  is_default: true,
+  archived_at: null,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -118,20 +127,29 @@ describe('OnboardingPage — organization creation (#49)', () => {
 });
 
 describe('OnboardingPage — SPEI settlement account (#14)', () => {
-  it('saves the CLABE as digits only and then enters the app', async () => {
+  /**
+   * Writes through the accounts API rather than the legacy
+   * `organizations.bank_*` PATCH (#164). Onboarding creates the tenant's first
+   * account, which the route flags as their default, so quotes resolve to
+   * something from the moment they leave this form.
+   */
+  it('creates the first account through the accounts API and then enters the app', async () => {
     await reachBankStep();
 
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, ORG_CREATED));
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { account: CREATED_ACCOUNT }));
     fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'));
 
     const [url, init] = fetchMock.mock.calls[1];
-    expect(String(url)).toBe('/api/organization');
-    expect(init?.method).toBe('PATCH');
+    expect(String(url)).toBe('/api/organization/bank-accounts');
+    expect(init?.method).toBe('POST');
     const sent = JSON.parse(String(init?.body));
-    expect(sent.bankClabe).toBe('012180001234567899');
+    expect(sent.clabe).toBe('012180001234567899');
     expect(sent.bankName).toBe('BBVA México');
+    // Nothing asks a new tenant to name their only account; the bank's name is
+    // the honest label, and Ajustes renames it when a second one arrives.
+    expect(sent.label).toBe('BBVA México');
   });
 
   it('cannot be submitted until the CLABE is complete', async () => {
@@ -169,14 +187,29 @@ describe('OnboardingPage — SPEI settlement account (#14)', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it('warns on a checksum-invalid CLABE without blocking submission', async () => {
+  /**
+   * The checksum used to be advisory here, because the legacy PATCH accepted
+   * any 18 digits. Since this step writes through the accounts route (#164),
+   * `validateBankAccount` refuses a failed checksum on both sides — so the
+   * warning while typing is now a heads-up for a rule that is actually
+   * enforced, and a transposed digit cannot become the account money is wired
+   * to.
+   */
+  it('warns while typing a checksum-invalid CLABE, and refuses to save it', async () => {
     // Same account with the last digit off by one — 18 digits, wrong checksum.
     await reachBankStep('0121 8000 1234 5678 90');
 
+    // "Revisa", tú form, from #194's copy pass.
     expect(screen.getByText(/Revisa la CLABE/i)).toBeInTheDocument();
-    // Advisory only: the server accepts any 18 digits, so the UI must not
-    // claim an authority it does not have.
-    expect(screen.getByRole('button', { name: /Comenzar en Business Helper/i })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/La CLABE no parece válida/i)).toBeInTheDocument()
+    );
+    // Nothing was sent, and nobody was told they are ready to be paid.
+    expect(fetchMock.mock.calls.filter(([, i]) => i?.method === 'POST')).toHaveLength(1);
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
 
@@ -230,8 +263,81 @@ describe('OnboardingPage — resuming an existing organization (#64)', () => {
     expect(screen.queryByRole('button', { name: /Continuar a Datos Fiscales/i })).toBeNull();
   });
 
+  /**
+   * Resuming edits the account it prefilled from; it does not add a second one.
+   *
+   * Onboarding always POSTed, and the route flags only a *first* account as the
+   * default. So an owner whose bank changed would reopen this form, see their
+   * old CLABE, type the new one, get a success and a redirect — and end up with
+   * a second, non-default account while every new quote kept settling at the
+   * old one. They believe they changed where they get paid; they have not.
+   */
+  it('edits the existing default rather than adding a second account', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, EXISTING_ORG));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { accounts: [CREATED_ACCOUNT], role: 'owner' })
+    );
+
+    render(<OnboardingPage />);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/CLABE Interbancaria/i)).toHaveValue('0121 8000 1234 5678 99')
+    );
+
+    fireEvent.change(screen.getByLabelText(/CLABE Interbancaria/i), {
+      target: { value: '0141 8000 1234 5678 97' },
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { account: { ...CREATED_ACCOUNT, clabe: '014180001234567897' } })
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'));
+
+    const write = fetchMock.mock.calls.find(([, init]) =>
+      ['POST', 'PATCH'].includes(String(init?.method))
+    );
+    expect(write?.[1]?.method).toBe('PATCH');
+    expect(String(write?.[0])).toBe('/api/organization/bank-accounts/acct-1');
+    // Never a second POST: that is the duplicate this holds shut.
+    expect(fetchMock.mock.calls.filter(([, i]) => i?.method === 'POST')).toHaveLength(0);
+  });
+
+  /**
+   * The banner links here, so prefilling from `organizations.bank_*` — which is
+   * never cleared when an account is archived — re-offered a CLABE the owner
+   * had just taken out of service, one tap from re-registering a closed bank
+   * account as their default.
+   */
+  it('prefills nothing when the tenant has no live account, even if the legacy column holds one', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        organization: {
+          id: 'org-1',
+          name: 'Ferretería La Silla',
+          bank_name: 'Banco Viejo',
+          bank_clabe: '012180001234567899',
+          bank_account_holder: 'Titular Viejo',
+        },
+        role: 'owner',
+      })
+    );
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { accounts: [], role: 'owner' }));
+
+    render(<OnboardingPage />);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/CLABE Interbancaria/i)).toBeInTheDocument()
+    );
+    expect(screen.getByLabelText(/CLABE Interbancaria/i)).toHaveValue('');
+    expect(screen.getByLabelText(/^Banco/i)).toHaveValue('');
+  });
+
   it('saves the account against the organization that already exists', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, EXISTING_ORG));
+    // The resume path also reads the account list, to prefill from what this
+    // step now writes rather than from the legacy columns.
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { accounts: [], role: 'owner' }));
 
     render(<OnboardingPage />);
     await waitFor(() =>
@@ -243,12 +349,12 @@ describe('OnboardingPage — resuming an existing organization (#64)', () => {
       target: { value: VALID_CLABE },
     });
 
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { organization: { id: 'org-1' } }));
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { account: CREATED_ACCOUNT }));
     fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'));
-    const [, patchCall] = fetchMock.mock.calls;
-    expect(patchCall?.[1]).toMatchObject({ method: 'PATCH' });
+    const writeCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+    expect(String(writeCall?.[0])).toBe('/api/organization/bank-accounts');
   });
 
   it('starts at step 1 when the caller has no organization yet', async () => {

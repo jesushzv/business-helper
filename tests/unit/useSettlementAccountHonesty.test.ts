@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useSettlementAccount } from '@/lib/hooks/useSettlementAccount';
+import {
+  useSettlementAccount,
+  notifySettlementAccountChanged,
+  settlementAccountListenerCount,
+} from '@/lib/hooks/useSettlementAccount';
 
 /**
  * #64 — the hook behind the settlement-account banner.
@@ -49,10 +53,20 @@ async function mountHook() {
 }
 
 describe('useSettlementAccount', () => {
-  it('reports ready when the organization has an 18-digit CLABE', async () => {
+  it('reports ready when the organization has a live account', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
-        organization: { id: 'org-1', bank_clabe: '012180001234567899' },
+        accounts: [
+          {
+            id: 'a1',
+            label: 'BBVA',
+            bank_name: 'BBVA',
+            clabe: '012180001234567899',
+            account_holder: null,
+            is_default: true,
+            archived_at: null,
+          },
+        ],
         role: 'owner',
       })
     );
@@ -63,9 +77,9 @@ describe('useSettlementAccount', () => {
     expect(result.current.canFix).toBe(true);
   });
 
-  it('reports not-ready when the organization has no CLABE', async () => {
+  it('reports not-ready when the organization has no account', async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'owner' })
+      jsonResponse(200, { accounts: [], role: 'owner' })
     );
 
     const { result } = await mountHook();
@@ -96,7 +110,7 @@ describe('useSettlementAccount', () => {
     // The PATCH is scoped by owner_id, so pointing a member at the bank form
     // sends them somewhere they cannot save.
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'member' })
+      jsonResponse(200, { accounts: [], role: 'member' })
     );
 
     const { result } = await mountHook();
@@ -112,5 +126,55 @@ describe('useSettlementAccount', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.ready).toBe(true);
+  });
+});
+
+/**
+ * #163 — the gate must not go stale after the account changes.
+ *
+ * The banner is mounted in the dashboard shell and the share actions live on
+ * Cobranza and Facturación; none of them remount on a client-side navigation.
+ * So a tenant who removed their account in Ajustes kept `ready: true` for the
+ * rest of the session and could still hand a client a `/pay/` link that answers
+ * 409 — the precise failure #64 exists to prevent, reachable in one tap once
+ * removal existed.
+ */
+describe('staying current after the account changes (#163)', () => {
+  it('refetches when the write path announces a change', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { accounts: [{ id: 'a1', label: 'BBVA', bank_name: 'BBVA', clabe: '012180001234567890', account_holder: null, is_default: true, archived_at: null }], role: 'owner' })
+    );
+
+    const { result } = await mountHook();
+    expect(result.current.ready).toBe(true);
+
+    // The account is removed elsewhere in the app.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { accounts: [], role: 'owner' })
+    );
+    notifySettlementAccountChanged();
+
+    await waitFor(() => {
+      expect(result.current.ready).toBe(false);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('unsubscribes on unmount instead of leaking a listener per visit', async () => {
+    // Counted, not inferred from behaviour: `refresh` on an unmounted component
+    // is a no-op React swallows, so "no refetch happened" is satisfied whether
+    // or not the cleanup ran. The first version of this test asserted exactly
+    // that and stayed green with the cleanup deleted.
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { accounts: [], role: 'owner' })
+    );
+
+    const before = settlementAccountListenerCount();
+    const { unmount } = await mountHook();
+    expect(settlementAccountListenerCount()).toBe(before + 1);
+
+    unmount();
+
+    expect(settlementAccountListenerCount()).toBe(before);
   });
 });

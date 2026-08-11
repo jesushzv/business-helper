@@ -61,7 +61,7 @@ long ago and none of it is live state.
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **1449 tests / 157 files**, `npx vitest run` (2026-08-11, this branch merged with `main` @ `a4ea82d`) — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **1576 tests / 165 files**, measured on this branch merged with `main` @ `aedf521` (2026-08-11), `npx vitest run` — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -175,9 +175,9 @@ The audit is closed. Deferred as decisions: #174 (CFDI cancel UI), #185 (plan na
 
 > [!NOTE]
 > **Most remaining rows need the founder — and the note that said *every* row did was wrong.**
-> Rows 1–4 are credentials, accounts, a real handset and a real card; no agent supplies those.
-> Rows 5, 6 and 7 were filed here too, and on 2026-08-09 three sessions took their "needs a
-> deployment" criteria directly. #96's check **failed**, surfacing two live defects nobody had seen
+> The credential rows (#62, #26, #68) are accounts, keys and a real card; no agent supplies those.
+> The "needs a deployment" criteria (#96, #95, #63) were filed here too, and on 2026-08-09 three
+> sessions took them directly. #96's check **failed**, surfacing two live defects nobody had seen
 > (a table missing three columns the code depended on; a write path dropping four fields, two of
 > them required to stamp a CFDI). #95's passed, reaching `businesshelper.app` itself over the `http`
 > extension from inside Postgres — the shell's egress is blocked, the database's is not. #63's
@@ -189,7 +189,10 @@ The audit is closed. Deferred as decisions: #174 (CFDI cancel UI), #185 (plan na
 > of this distinction. **2026-08-11:** #93 went the same way and moved the line again — an owner's
 > session mints from `auth.refresh_tokens` through GoTrue, so the *authenticated* deployed app is
 > reachable, not just its public routes. What stayed human was smaller than the criterion implied:
-> the hydrated page alone, confirmed in a browser the same day. #64 is next.
+> the hydrated page alone, confirmed in a browser the same day. **#64 followed the same day**: its server-side refusals were confirmed against the deployed
+> app — 409 before a WhatsApp dispatch and on the public payer route, the gate then shown to open
+> once a CLABE was saved. Its rendered-page half was waived by the founder rather than taken, the
+> one criterion here closed by decision instead of by evidence.
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without
@@ -274,7 +277,7 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 - [ ] A CFDI issued in the app corresponds to a real SAT UUID ([#26](https://github.com/jesushzv/business-helper/issues/26)) — CFDI ships at launch, so this is required
 - [ ] Stripe checkout charges a real card in live mode ([#68](https://github.com/jesushzv/business-helper/issues/68)) with a verified webhook ([#63](https://github.com/jesushzv/business-helper/issues/63)) — two halves, tracked separately. Run `npm run verify:stripe` first: it is read-only, and it catches the account and price-map failures before a card is involved
 - [ ] Each tier's live Price ID bills the amount the pricing page advertises ([#68](https://github.com/jesushzv/business-helper/issues/68)) — a mismatched map charges the wrong amount and reports success everywhere; `npm run verify:stripe` is the check
-- [ ] Every pilot organization has a real CLABE, and payment confirmation reflects a real transfer ([#64](https://github.com/jesushzv/business-helper/issues/64))
+- [ ] Every pilot organization has a real CLABE, and payment confirmation reflects a real transfer — an operational check on live rows, which closing #64 (the code gate) does not satisfy: `select id, name from organizations where bank_clabe is null;` must return no row belonging to a pilot tenant who intends to be paid — since #163 a tenant may also have removed their account deliberately, so a row here is a question to ask, not automatically a defect. On 2026-08-11 it returned one, `PRUEBA #62 — BORRAR`, a test row that should be deleted rather than filled in
 - [x] A failed confirmation write is reported as failed, not as `confirmed` (#33, PR #55)
 - [ ] A failed quote→contract conversion is reported as failed, not announced as a payment schedule ([#59](https://github.com/jesushzv/business-helper/issues/59) — fixed in code, unexercised against a deployment)
 
@@ -305,43 +308,41 @@ Launch Readiness ≥ 7.0, Mobile ≥ 6.0, Credibility ≥ 7.0.
 
 ## 05 Open Decisions
 
-These require the founder and are not resolvable from the codebase.
+These require the founder and are not resolvable from the codebase. **Still open:**
 
-1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships.** Deferral is off
-   the table, so [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through
-   a live Facturapi sandbox) is blocking, not negotiable.
-2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch**; sms/whatsapp
-   deprecated but wired. WhatsApp OTP needs a business-owned WABA that does not exist; email needs
-   one API key and a DNS-verified domain.
-3. **Are there real CLABE account numbers for the pilot organizations?**
-4. ~~**`businesshelper.app` or `businesshelper.mx`?**~~ Resolved — `.app`; `.mx` was never
-   registered (#36).
-5. ~~**Does the September launch date hold?**~~ **Resolved 2026-08-07 — it holds, at full scope.**
-
-   > [!IMPORTANT]
-   > **Both halves of the trade were taken, so the schedule has no relief valve left.** The framing
-   > offered a choice — hold the date by cutting CFDI, or keep scope and slip. Keeping both means
-   > every P0 row in §03 must land, and the only remaining variable is hours (decision 7, open). If
-   > the list slips, the next lever is not scope or date but pilot count: fewer pilots, longer and
-   > more closely watched.
-6. **Ad budget and platform for pilot recruiting**, given pilots are being recruited cold rather than
-   from a warm list.
-7. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
+1. **Are there real CLABE account numbers for the pilot organizations?** Each pilot can now hold
+   several (#164), so this is per-organization rather than one CLABE for the account.
+2. **Ad budget and platform for pilot recruiting**, given pilots are being recruited cold rather
+   than from a warm list.
+3. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
    "1–2 focused weeks" is two calendar weeks or closer to a month.
-8. ~~**Merge posture on PRs #20 and #23.**~~ Moot — both merged 2026-08-07 (§02).
-9. ~~**Which roles may set a client's trade-credit line?**~~ **Resolved — owners and managers**
-   (#123), via `manage_credit`; a change without it is a 403 per column. Whether the limit
-   restrains a quote is #203.
-10. ~~**What does a never-subscribed org get?**~~ **Resolved — a 30-day trial** (#128). Expiry
-    blocks new quotes, contract conversion, CFDI stamping, complementos and outbound reminders
-    (#195 widened this past quotes alone); collecting, correcting and every public `/q/` and
-    `/pay/` page stay open. Both migrations applied and read back.
-11. ~~**Is one organization per owner the invariant?**~~ **Resolved 2026-08-11 — yes, and it is in
-    the schema** (`uq_organizations_owner_id`, `20260811150000`). Closes #109 and #168. Multi-org
-    ownership now needs that index dropped deliberately, not merely permitted by omission.
-12. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
+4. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
    narrow to one module, freeze for a validation-only sprint, or wind down and redirect the time.
    Worth deciding while calm rather than mid-crisis.
+
+**Resolved recently**, kept here because live work still references them:
+
+- ~~**Which roles may set a client's trade-credit line?**~~ **Owners and managers** (#123), via
+  `manage_credit`; a change without it is a 403 per column. Whether the limit restrains a quote is
+  #203.
+- ~~**What does a never-subscribed org get?**~~ **A 30-day trial** (#128). Expiry blocks new
+  quotes, contract conversion, CFDI stamping, complementos and outbound reminders (#195 widened
+  this past quotes alone); collecting, correcting and every public `/q/` and `/pay/` page stay
+  open. Both migrations applied and read back.
+- ~~**Is one organization per owner the invariant?**~~ **Yes, and it is in the schema**
+  (`uq_organizations_owner_id`, `20260811150000`; #109/#168). Multi-org ownership now needs that
+  index dropped deliberately, rather than being permitted by omission.
+
+> [!IMPORTANT]
+> **The schedule has no relief valve left.** CFDI ships *and* the September date holds — both
+> halves of the trade were taken (resolved 2026-08-07), so every P0 row in §03 must land and the
+> only remaining variable is hours, decision 3 above. If the list slips, the next lever is not
+> scope or date but pilot count: fewer pilots, longer and more closely watched.
+
+Five older resolved decisions — CFDI ships at launch, email/Resend as the OTP channel, `.app` over
+`.mx`, the September date, and the #20/#23 merge posture — are in
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) with their reasoning, moved
+on 2026-08-11 when this file reached its budget.
 
 ---
 
@@ -351,8 +352,8 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 1295 tests / 139 files as of 2026-08-11
-                               # (earlier counts are in 99-archive/status-log-2026-08.md)
+npx vitest run                 # figure in the §02 metrics row; earlier counts
+                               # are in 99-archive/status-log-2026-08.md
 npm run typecheck
 npm run lint
 node -e "console.log(Object.keys(require('./package.json').dependencies))"

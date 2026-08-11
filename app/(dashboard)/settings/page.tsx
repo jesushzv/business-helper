@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { useOrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 import { OrgProfileCard } from '@/components/settings/OrgProfileCard';
-import { BankAccountCard } from '@/components/settings/BankAccountCard';
+import { BankAccountsCard } from '@/components/settings/BankAccountsCard';
 import { SubscriptionBillingCard } from '@/components/settings/SubscriptionBillingCard';
 import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard';
 import { PacConnectionCard } from '@/components/settings/PacConnectionCard';
@@ -127,7 +127,7 @@ function SettingsPageContent() {
             />
 
             {/* SPEI Settlement Account */}
-            <BankAccountCard />
+            <BankAccountsCard canEdit={canEdit} />
 
             {/* CFDI 4.0 stamping credentials */}
             <PacConnectionCard />

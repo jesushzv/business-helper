@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { hasSettlementAccount } from '@/lib/settlementAccount';
+import type { BankAccount } from '@/lib/bankAccounts';
 import type { UserRole } from '@/lib/teamRBAC';
 
 /**
@@ -39,6 +40,44 @@ export interface SettlementAccountState {
   refresh: () => void;
 }
 
+/**
+ * Subscribers to "this organization's settlement account just changed".
+ *
+ * The banner lives in the dashboard shell and the share actions live on
+ * Cobranza and Facturación, none of which remount on a client-side navigation
+ * — so a tenant who removed their account in Ajustes kept a stale `ready: true`
+ * for the rest of the session and could still hand a client a `/pay/` link that
+ * answers 409. That is the exact failure #64 exists to move off the client's
+ * screen, so the write path announces the change and every mounted reader
+ * refetches (#163).
+ */
+const settlementAccountListeners = new Set<() => void>();
+
+/**
+ * Called by whatever writes the account, **after** the server confirms it.
+ *
+ * Not during a render: this calls `setState` on every mounted subscriber, so a
+ * caller inside a render body would warn and could loop. Both call sites today
+ * are inside event handlers, past an `await`.
+ */
+export function notifySettlementAccountChanged(): void {
+  settlementAccountListeners.forEach((listener) => listener());
+}
+
+/**
+ * How many hooks are currently subscribed. Exported for tests only.
+ *
+ * The unsubscription cannot be observed through behaviour: `refresh` on an
+ * unmounted component is a no-op React swallows, so a test that leaves a
+ * listener behind and asserts "no refetch happened" passes either way — it
+ * measures React's no-op, not the cleanup. The leak it means to catch is this
+ * set growing a dead closure (and its retained fiber) on every visit to
+ * Ajustes, which is only visible by counting.
+ */
+export function settlementAccountListenerCount(): number {
+  return settlementAccountListeners.size;
+}
+
 export function useSettlementAccount(): SettlementAccountState {
   const [ready, setReady] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +85,13 @@ export function useSettlementAccount(): SettlementAccountState {
   const [reloadToken, setReloadToken] = useState(0);
 
   const refresh = useCallback(() => setReloadToken((n) => n + 1), []);
+
+  useEffect(() => {
+    settlementAccountListeners.add(refresh);
+    return () => {
+      settlementAccountListeners.delete(refresh);
+    };
+  }, [refresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,19 +105,22 @@ export function useSettlementAccount(): SettlementAccountState {
 
     setLoading(true);
 
-    fetch('/api/organization')
+    // The account list, not the organization row: since #164 readiness means
+    // "has at least one account that is not archived", which one column on
+    // `organizations` cannot answer for a tenant keeping two banks.
+    fetch('/api/organization/bank-accounts')
       .then(async (res) => {
         const data = await res.json().catch(() => null);
         if (cancelled) return;
 
-        if (!res.ok || !data?.organization) {
+        if (!res.ok || !Array.isArray(data?.accounts)) {
           // Unknown, not "missing". See the tri-state note above.
           setReady(null);
           setRole(null);
           return;
         }
 
-        setReady(hasSettlementAccount(data.organization));
+        setReady(hasSettlementAccount(data.accounts as BankAccount[]));
         setRole((data.role as UserRole) || null);
       })
       .catch(() => {

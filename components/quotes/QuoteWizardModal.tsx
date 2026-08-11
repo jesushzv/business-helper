@@ -11,6 +11,9 @@ import {
 import { calculateQuoteTotals } from '@/lib/quoteCalculator';
 import { calculateClientCreditSummary, validateQuoteCreditLimit } from '@/lib/clientCredit';
 import { useReceivables } from '@/lib/hooks/useReceivables';
+import { useBankAccounts } from '@/lib/hooks/useBankAccounts';
+import { selectableAccounts, findDefaultAccount } from '@/lib/bankAccounts';
+import { formatClabe } from '@/lib/clabe';
 import { Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles, AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 import { userFacingMessage } from '@/lib/errorCopy';
@@ -27,6 +30,12 @@ interface QuoteWizardModalProps {
     currency: string;
     valid_until: string;
     notes: string;
+    /**
+     * The settlement account this quote's client pays into (#164), or `null`
+     * for "whatever the organization's default is at the time" — which is what
+     * every quote written before the picker existed means.
+     */
+    bank_account_id: string | null;
     taxOptions: { applyIva: boolean; applyRetencionIsr: boolean; applyRetencionIva: boolean };
   }) => Promise<void>;
 }
@@ -64,6 +73,21 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  /**
+   * Where this quote's client pays (#164).
+   *
+   * `null` until the accounts load, and it stays `null` for a tenant with one
+   * account or none: the picker only appears when there is a real choice to
+   * make, and a NULL column means "the organization's default at render time".
+   * Sending the default's id explicitly would freeze this quote to today's
+   * default, which is a different promise than the tenant made.
+   */
+  const { accounts: bankAccounts } = useBankAccounts();
+  const [bankAccountId, setBankAccountId] = useState<string | null>(null);
+
+  const liveAccounts = bankAccounts ? selectableAccounts(bankAccounts) : [];
+  const defaultAccount = bankAccounts ? findDefaultAccount(bankAccounts) : null;
+
   React.useEffect(() => {
     if (isOpen && clients && clients.length > 0 && (!clientId || !clients.some(c => c.id === clientId))) {
       const selected = clients[0];
@@ -87,6 +111,26 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   // line was shown "$50,000 MXN Disp." and the over-limit warning only fired
   // for a quote larger than the entire line (#96 money-path review).
   const { receivables, loading: receivablesLoading, error: receivablesError } = useReceivables();
+
+  /**
+   * Clears the per-quote account each time the wizard opens (#164).
+   *
+   * The modal is mounted permanently by `app/(dashboard)/quotes/page.tsx` and
+   * only toggled with `isOpen`, and the early return below unmounts nothing —
+   * so state survives a close. Without this, a quote pinned to "Santander
+   * nómina" leaves the picker on Santander, and the *next* client, a different
+   * business entirely, is silently pinned to the same account unless the tenant
+   * re-reads step 3. The money still reaches the tenant, but into a branch or
+   * partner account nobody chose for that client — and no surface shows which
+   * account a quote named after it is created.
+   *
+   * Deliberately only this field: the title, line items and tax toggles are
+   * cleared by their own flow, and wiping a half-typed quote on a stray reopen
+   * would cost the tenant real work.
+   */
+  React.useEffect(() => {
+    if (isOpen) setBankAccountId(null);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -161,6 +205,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
         valid_until: validUntil,
         line_items: lineItems,
         notes: notes.trim(),
+        bank_account_id: bankAccountId,
         taxOptions: { applyIva, applyRetencionIsr, applyRetencionIva },
       });
       onClose();
@@ -482,6 +527,53 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                     <span className="text-emerald-400">${totals.totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} {currency}</span>
                   </div>
                 </div>
+
+                {/*
+                  Which account this client pays into (#164).
+                  Shown only when the tenant actually keeps more than one: with
+                  a single account there is no choice to make, and a picker with
+                  one option is a decision the tenant must read and dismiss on a
+                  375px screen. Leaving it on "principal" stores NULL, so the
+                  quote follows whatever the default is — the same meaning every
+                  pre-#164 quote carries.
+                */}
+                {liveAccounts.length > 1 && (
+                  <div className="border-t border-slate-800 pt-4">
+                    <label
+                      htmlFor="quote_bank_account"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-400"
+                    >
+                      ¿En qué cuenta te paga este cliente?
+                    </label>
+                    <select
+                      id="quote_bank_account"
+                      value={bankAccountId ?? ''}
+                      onChange={(e) => setBankAccountId(e.target.value || null)}
+                      className="mt-1.5 min-h-[48px] w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-base font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none"
+                    >
+                      <option value="">
+                        {defaultAccount
+                          ? `Mi cuenta principal (${defaultAccount.label})`
+                          : 'Mi cuenta principal'}
+                      </option>
+                      {liveAccounts
+                        .filter((account) => !account.is_default)
+                        .map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.label} — {account.bank_name}
+                          </option>
+                        ))}
+                    </select>
+                    {bankAccountId && (
+                      <p className="mt-1.5 font-mono text-xs text-slate-400">
+                        {formatClabe(liveAccounts.find((a) => a.id === bankAccountId)?.clabe || '')}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-slate-500">
+                      Tu cliente verá los datos de esta cuenta en su página de pago.
+                    </p>
+                  </div>
+                )}
 
                 {creditValidation.warningMessage && (
                   <div className="rounded-xl bg-amber-950/80 border border-amber-500/40 p-3.5 text-xs text-amber-300 font-semibold flex items-start gap-2">

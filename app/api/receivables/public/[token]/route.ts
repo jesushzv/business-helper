@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { publicApiError } from '@/lib/publicApiError';
+import {
+  resolveQuoteAccount,
+  findDefaultAccount,
+  SETTLEMENT_ACCOUNT_ARCHIVED_CODE,
+  SETTLEMENT_ACCOUNT_ARCHIVED_MESSAGE,
+  type BankAccount,
+} from '@/lib/bankAccounts';
 import { publicDbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
@@ -81,7 +88,14 @@ export async function GET(
         // two foreign keys (contracts.quote_id and quotes.converted_contract_id),
         // and PostgREST answers an unhinted embed with PGRST201 — which made this
         // handler 404 for every token ever issued (#79, confirmed live 2026-08-08).
-        'id, title, contracts!quote_id(id, title, milestones(id, label, amount, due_date, status)), clients(name), organizations(name, bank_name, bank_clabe, bank_account_holder)'
+        // `bank_accounts!bank_account_id` is the account this quote's client was
+        // told to pay (#164); `organizations.bank_accounts` is the tenant's list,
+        // from which the default is taken when the quote names none — which is
+        // what every quote written before #164 means. Both embeds are hinted by
+        // FK column, per the rule #79 earned.
+        'id, title, bank_account_id, contracts!quote_id(id, title, milestones(id, label, amount, due_date, status)), clients(name), ' +
+          'bank_accounts!bank_account_id(id, label, bank_name, clabe, account_holder, is_default, archived_at), ' +
+          'organizations(name, bank_accounts(id, label, bank_name, clabe, account_holder, is_default, archived_at))'
       )
       .eq('public_token', token)
       .maybeSingle();
@@ -102,12 +116,32 @@ export async function GET(
     }
     const org = quote.organizations;
 
+    // Which account this payer is sent to (#164). The quote's own account wins
+    // over the organization's current default: the tenant chose where this
+    // client's money lands, and a later change of default must not redirect an
+    // already-shared link.
+    const resolved = resolveQuoteAccount(
+      quote.bank_accounts as BankAccount | null,
+      findDefaultAccount((org?.bank_accounts as BankAccount[]) ?? [])
+    );
+
     // Refuse to render payment instructions rather than fall back to any
-    // default account: sending a payer to the wrong CLABE misdirects real money.
+    // other account: sending a payer to the wrong CLABE misdirects real money.
     // `code` used to sit as a sibling of `error` — the one route with a
     // fourth body shape (#65). It now lives inside the envelope like every
     // other public error; app/pay/[token]/page.tsx branches on it.
-    if (!org?.bank_clabe) {
+    if (!resolved.ok) {
+      if (resolved.reason === 'archived') {
+        // The account this quote names has been archived — a closed bank
+        // account being the obvious cause. Substituting the current default
+        // would send money somewhere nobody chose for this client.
+        return publicApiError(
+          409,
+          SETTLEMENT_ACCOUNT_ARCHIVED_CODE,
+          SETTLEMENT_ACCOUNT_ARCHIVED_MESSAGE
+        );
+      }
+
       return publicApiError(
         409,
         'ORG_BANK_DETAILS_MISSING',
@@ -124,10 +158,10 @@ export async function GET(
         status: milestone.status,
         contract_title: quote.contracts.title || quote.title,
         client_name: quote.clients?.name,
-        org_name: org.name,
-        bank_name: org.bank_name,
-        clabe: org.bank_clabe,
-        beneficiary: org.bank_account_holder || org.name,
+        org_name: org?.name,
+        bank_name: resolved.account.bank_name,
+        clabe: resolved.account.clabe,
+        beneficiary: resolved.account.account_holder || org?.name,
       },
     });
   } catch {
