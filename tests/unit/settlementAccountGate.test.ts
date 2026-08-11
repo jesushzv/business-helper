@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /**
- * #64 — the settlement-account gate.
+ * #64 — the settlement-account gate, over a list of accounts since #164.
  *
- * The public payment page already refuses without a CLABE, but that refusal
+ * The public payment page already refuses without an account, but that refusal
  * fires in front of the paying client, after the link has been shared. These
  * tests pin the refusal one step earlier: on the server path that hands a
  * `/pay/` link to a client.
  *
  * The failure this guards against is not "a 409 is missing" — it is a tenant
- * spending their credibility on a link that dead-ends, and the two holes the
- * issue names (an organization created before onboarding collected an account,
- * and one abandoned between the step-2 POST and the step-3 PATCH) both produce
- * exactly that state.
+ * spending their credibility on a link that dead-ends. "Ready" now means the
+ * organization has at least one account that is not archived; the question is
+ * unchanged, but a tenant with two banks can no longer be told they have none
+ * because one column happens to be empty.
  */
 
 import {
@@ -20,55 +20,83 @@ import {
   requireSettlementAccount,
   SETTLEMENT_ACCOUNT_MISSING_CODE,
 } from '@/lib/settlementAccount';
+import type { BankAccount } from '@/lib/bankAccounts';
 
-describe('hasSettlementAccount', () => {
-  it('accepts an 18-digit CLABE', () => {
-    expect(hasSettlementAccount({ bank_clabe: '012180001234567899' })).toBe(true);
-  });
-
-  it('rejects a null, missing or empty account', () => {
-    expect(hasSettlementAccount({ bank_clabe: null })).toBe(false);
-    expect(hasSettlementAccount({})).toBe(false);
-    expect(hasSettlementAccount(null)).toBe(false);
-    expect(hasSettlementAccount(undefined)).toBe(false);
-    expect(hasSettlementAccount({ bank_clabe: '' })).toBe(false);
-  });
-
-  it('rejects a partial CLABE rather than treating any string as ready', () => {
-    // A truthiness check would pass these. A 12-digit value in the column is
-    // not an account anyone can wire to.
-    expect(hasSettlementAccount({ bank_clabe: '012180001234' })).toBe(false);
-    expect(hasSettlementAccount({ bank_clabe: '   ' })).toBe(false);
-  });
-});
-
-/** Minimal Supabase double: `.from().select().eq().maybeSingle()`. */
-function supabaseReturning(result: { data: unknown; error?: unknown }) {
+function account(overrides: Partial<BankAccount> = {}): BankAccount {
   return {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ error: null, ...result }),
-    })),
+    id: 'acct-1',
+    label: 'BBVA obra',
+    bank_name: 'BBVA México',
+    clabe: '012180001234567899',
+    account_holder: null,
+    is_default: true,
+    archived_at: null,
+    ...overrides,
   };
 }
 
+describe('hasSettlementAccount', () => {
+  it('accepts an organization with one live account', () => {
+    expect(hasSettlementAccount([account()])).toBe(true);
+  });
+
+  it('accepts an organization with several accounts', () => {
+    expect(hasSettlementAccount([account(), account({ id: 'acct-2', is_default: false })])).toBe(true);
+  });
+
+  it('rejects an empty, null or missing list', () => {
+    expect(hasSettlementAccount([])).toBe(false);
+    expect(hasSettlementAccount(null)).toBe(false);
+    expect(hasSettlementAccount(undefined)).toBe(false);
+  });
+
+  it('rejects an organization whose only account is archived', () => {
+    // Archived accounts stay readable for the quotes that named them, but they
+    // are not somewhere new money can be sent.
+    expect(hasSettlementAccount([account({ archived_at: '2026-08-11T00:00:00Z' })])).toBe(false);
+  });
+});
+
+/** Minimal Supabase double for `.from().select().eq().is()`, which resolves as a list. */
+function supabaseReturning(result: { data: unknown; error?: unknown }) {
+  const chain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    is: vi.fn().mockResolvedValue({ error: null, ...result }),
+  };
+  return { from: vi.fn(() => chain), __chain: chain };
+}
+
 describe('requireSettlementAccount', () => {
-  it('passes through the CLABE when the organization has one', async () => {
+  it('passes through the default account when the organization has one', async () => {
     const result = await requireSettlementAccount(
-      supabaseReturning({ data: { bank_clabe: '012180001234567899' } }),
+      supabaseReturning({ data: [account({ id: 'acct-default' })] }),
       'org-1'
     );
 
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.clabe).toBe('012180001234567899');
+    if (result.ok) {
+      expect(result.account.id).toBe('acct-default');
+      expect(result.account.clabe).toBe('012180001234567899');
+    }
   });
 
-  it('refuses with 409 ORG_BANK_DETAILS_MISSING when there is no CLABE', async () => {
+  it('prefers the default over another live account', async () => {
     const result = await requireSettlementAccount(
-      supabaseReturning({ data: { bank_clabe: null } }),
+      supabaseReturning({
+        data: [
+          account({ id: 'secondary', is_default: false, label: 'Aaa first alphabetically' }),
+          account({ id: 'primary', is_default: true }),
+        ],
+      }),
       'org-1'
     );
+
+    expect(result.ok && result.account.id).toBe('primary');
+  });
+
+  it('refuses with 409 ORG_BANK_DETAILS_MISSING when there are no accounts', async () => {
+    const result = await requireSettlementAccount(supabaseReturning({ data: [] }), 'org-1');
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -80,30 +108,32 @@ describe('requireSettlementAccount', () => {
     expect(body.error.message).toMatch(/CLABE/);
   });
 
-  it('refuses when the lookup returns nothing', async () => {
-    // Letting a payment link out on the strength of a query that found no row
-    // is the fail-open half of this gate.
-    const result = await requireSettlementAccount(supabaseReturning({ data: null }), 'org-1');
+  it('refuses when every account is archived', async () => {
+    const result = await requireSettlementAccount(
+      supabaseReturning({ data: [account({ archived_at: '2026-08-11T00:00:00Z' })] }),
+      'org-1'
+    );
     expect(result.ok).toBe(false);
   });
 
-  it('scopes the read to the caller organization', async () => {
-    const eq = vi.fn().mockReturnThis();
-    const supabase = {
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq,
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: { bank_clabe: '012180001234567899' },
-          error: null,
-        }),
-      })),
-    };
+  it('refuses when the lookup fails rather than assuming an empty list means ready', async () => {
+    // Letting a payment link out on the strength of a query that did not run is
+    // the fail-open half of this gate.
+    const result = await requireSettlementAccount(
+      supabaseReturning({ data: null, error: { message: 'boom' } }),
+      'org-1'
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it('scopes the read to the caller organization and to live accounts', async () => {
+    const supabase = supabaseReturning({ data: [account()] });
 
     await requireSettlementAccount(supabase, 'org-42');
 
-    // An unscoped gate would answer for whichever row came back first.
-    expect(eq).toHaveBeenCalledWith('id', 'org-42');
+    // An unscoped gate would answer for whichever tenant came back first.
+    expect(supabase.__chain.eq).toHaveBeenCalledWith('organization_id', 'org-42');
+    expect(supabase.__chain.is).toHaveBeenCalledWith('archived_at', null);
   });
 });
 
@@ -112,8 +142,8 @@ describe('requireSettlementAccount', () => {
 /* ------------------------------------------------------------------ */
 
 const authState: {
-  organization: Record<string, unknown> | null;
-} = { organization: null };
+  accounts: unknown[];
+} = { accounts: [] };
 
 const dispatchWhatsAppReminder = vi.fn();
 
@@ -129,7 +159,7 @@ vi.mock('@/lib/apiAuth', async () => {
           from: () => ({
             select: () => ({
               eq: () => ({
-                maybeSingle: async () => ({ data: authState.organization, error: null }),
+                is: async () => ({ data: authState.accounts, error: null }),
               }),
             }),
           }),
@@ -169,8 +199,8 @@ beforeEach(() => {
 });
 
 describe('POST /api/whatsapp/broadcast — settlement account gate (#64)', () => {
-  it('refuses to send a payment reminder when the organization has no CLABE', async () => {
-    authState.organization = { bank_clabe: null };
+  it('refuses to send a payment reminder when the organization has no account', async () => {
+    authState.accounts = [];
 
     const res = await postReminder();
     const body = await res.json();
@@ -183,7 +213,7 @@ describe('POST /api/whatsapp/broadcast — settlement account gate (#64)', () =>
   });
 
   it('sends the reminder once the organization has an account', async () => {
-    authState.organization = { bank_clabe: '012180001234567899' };
+    authState.accounts = [account()];
 
     const res = await postReminder();
 

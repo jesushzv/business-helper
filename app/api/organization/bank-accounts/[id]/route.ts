@@ -1,0 +1,236 @@
+import { NextResponse } from 'next/server';
+import { requireOrgAccess } from '@/lib/apiAuth';
+import { hasCapability } from '@/lib/teamRBAC';
+import { BANK_ACCOUNT_COLUMNS, validateBankAccount, type BankAccount } from '@/lib/bankAccounts';
+import { captureException } from '@/lib/sentry';
+import { describeDbWriteError } from '@/lib/dbWriteError';
+
+/**
+ * One settlement account: edit it, make it the default, or archive it (#164).
+ *
+ * **Archive, never delete.** A quote that has already been sent names the
+ * account its client was told to pay; deleting that row would rewrite a money
+ * record after the fact, so the FK from `quotes` is `ON DELETE RESTRICT` and
+ * this route only ever sets `archived_at`. An archived account keeps resolving
+ * for the quotes that named it — the public payer route refuses those rather
+ * than substituting a different account (see `resolveQuoteAccount`).
+ */
+
+function forbidden(): NextResponse {
+  return NextResponse.json(
+    {
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Solo el dueño de la cuenta puede cambiar las cuentas de cobro.',
+      },
+    },
+    { status: 403 }
+  );
+}
+
+function notFound(): NextResponse {
+  // Scoped by organization_id as well as id: a by-id route without the filter
+  // tells one tenant whether another tenant's row exists.
+  return NextResponse.json(
+    { error: { code: 'NOT_FOUND', message: 'No se encontró esa cuenta de cobro' } },
+    { status: 404 }
+  );
+}
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId, role } = auth.ctx;
+
+  if (!hasCapability(role, 'billing_management')) return forbidden();
+
+  try {
+    const body = await request.json();
+
+    const { data: existing } = await supabase
+      .from('bank_accounts')
+      .select(BANK_ACCOUNT_COLUMNS)
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (!existing) return notFound();
+
+    // Making this account the default: clear the current one first, because the
+    // partial unique index allows exactly one live default per organization and
+    // would otherwise refuse the write.
+    if (body?.makeDefault === true) {
+      if ((existing as BankAccount).archived_at) {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'ACCOUNT_ARCHIVED',
+              message: 'No puedes usar una cuenta archivada como principal. Reactívala primero.',
+            },
+          },
+          { status: 409 }
+        );
+      }
+
+      const { error: clearError } = await supabase
+        .from('bank_accounts')
+        .update({ is_default: false, updated_at: new Date().toISOString() })
+        .eq('organization_id', organizationId)
+        .eq('is_default', true);
+
+      if (clearError) {
+        const failure = describeDbWriteError(clearError, 'la cuenta principal', 'PATCH /api/organization/bank-accounts/[id]');
+        return NextResponse.json(
+          { error: { code: failure.code, message: failure.message } },
+          { status: failure.status }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from('bank_accounts')
+        .update({ is_default: true, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('organization_id', organizationId)
+        .select(BANK_ACCOUNT_COLUMNS)
+        .maybeSingle();
+
+      if (error || !data) {
+        const failure = describeDbWriteError(error, 'la cuenta principal', 'PATCH /api/organization/bank-accounts/[id]');
+        return NextResponse.json(
+          { error: { code: failure.code, message: failure.message } },
+          { status: failure.status }
+        );
+      }
+
+      return NextResponse.json({ account: data as BankAccount });
+    }
+
+    // Otherwise this is an edit of the account's own fields. Validated whole,
+    // exactly as on create — the CLABE here is where money lands.
+    const validated = validateBankAccount({
+      label: body?.label,
+      bankName: body?.bankName,
+      clabe: body?.clabe,
+      accountHolder: body?.accountHolder,
+    });
+
+    if (!validated.ok) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_INPUT', message: validated.message, field: validated.field } },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabase
+      .from('bank_accounts')
+      .update({ ...validated.value, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select(BANK_ACCOUNT_COLUMNS)
+      .maybeSingle();
+
+    if (error || !data) {
+      const failure = describeDbWriteError(error, 'la cuenta de cobro', 'PATCH /api/organization/bank-accounts/[id]');
+      return NextResponse.json(
+        { error: { code: failure.code, message: failure.message } },
+        { status: failure.status }
+      );
+    }
+
+    return NextResponse.json({ account: data as BankAccount });
+  } catch {
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'Error interno' } },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const auth = await requireOrgAccess();
+  if (!auth.ok) return auth.response;
+  const { supabase, organizationId, role } = auth.ctx;
+
+  if (!hasCapability(role, 'billing_management')) return forbidden();
+
+  const { data: existing } = await supabase
+    .from('bank_accounts')
+    .select(BANK_ACCOUNT_COLUMNS)
+    .eq('id', id)
+    .eq('organization_id', organizationId)
+    .maybeSingle();
+
+  if (!existing) return notFound();
+
+  const account = existing as BankAccount;
+  if (account.archived_at) {
+    return NextResponse.json({ account });
+  }
+
+  // Archiving the default would leave unassigned quotes resolving to nothing
+  // while other live accounts exist — a tenant who can be paid, being told they
+  // cannot. Naming the replacement is the caller's decision, not this route's.
+  if (account.is_default) {
+    const { data: others } = await supabase
+      .from('bank_accounts')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .is('archived_at', null)
+      .neq('id', id);
+
+    if ((others?.length ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'DEFAULT_ACCOUNT',
+            message:
+              'Esta es tu cuenta principal. Marca otra como principal antes de archivarla.',
+          },
+        },
+        { status: 409 }
+      );
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .update({
+      archived_at: new Date().toISOString(),
+      // The CHECK forbids an archived row from holding the default flag, and
+      // the tenant is knowingly leaving themselves with no account here.
+      is_default: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('organization_id', organizationId)
+    .select(BANK_ACCOUNT_COLUMNS)
+    .maybeSingle();
+
+  if (error || !data) {
+    const failure = describeDbWriteError(error, 'la cuenta de cobro', 'DELETE /api/organization/bank-accounts/[id]');
+    return NextResponse.json(
+      { error: { code: failure.code, message: failure.message } },
+      { status: failure.status }
+    );
+  }
+
+  // Removing where money lands is at least as consequential as disconnecting
+  // the PAC, which has written an audit row since it shipped.
+  const { error: auditError } = await supabase.from('audit_logs').insert({
+    organization_id: organizationId,
+    action: 'settlement_account.archived',
+    actor: auth.ctx.userId,
+    details: `Cuenta de cobro archivada: ${account.label}`,
+  });
+
+  if (auditError) {
+    captureException(auditError, {
+      route: 'DELETE /api/organization/bank-accounts/[id]',
+      organization_id: organizationId,
+    });
+  }
+
+  return NextResponse.json({ account: data as BankAccount });
+}

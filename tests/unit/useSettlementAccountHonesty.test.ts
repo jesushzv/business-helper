@@ -53,10 +53,20 @@ async function mountHook() {
 }
 
 describe('useSettlementAccount', () => {
-  it('reports ready when the organization has an 18-digit CLABE', async () => {
+  it('reports ready when the organization has a live account', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
-        organization: { id: 'org-1', bank_clabe: '012180001234567899' },
+        accounts: [
+          {
+            id: 'a1',
+            label: 'BBVA',
+            bank_name: 'BBVA',
+            clabe: '012180001234567899',
+            account_holder: null,
+            is_default: true,
+            archived_at: null,
+          },
+        ],
         role: 'owner',
       })
     );
@@ -67,9 +77,9 @@ describe('useSettlementAccount', () => {
     expect(result.current.canFix).toBe(true);
   });
 
-  it('reports not-ready when the organization has no CLABE', async () => {
+  it('reports not-ready when the organization has no account', async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'owner' })
+      jsonResponse(200, { accounts: [], role: 'owner' })
     );
 
     const { result } = await mountHook();
@@ -100,7 +110,7 @@ describe('useSettlementAccount', () => {
     // The PATCH is scoped by owner_id, so pointing a member at the bank form
     // sends them somewhere they cannot save.
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'member' })
+      jsonResponse(200, { accounts: [], role: 'member' })
     );
 
     const { result } = await mountHook();
@@ -132,7 +142,7 @@ describe('useSettlementAccount', () => {
 describe('staying current after the account changes (#163)', () => {
   it('refetches when the write path announces a change', async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: '012180001234567890' }, role: 'owner' })
+      jsonResponse(200, { accounts: [{ id: 'a1', label: 'BBVA', bank_name: 'BBVA', clabe: '012180001234567890', account_holder: null, is_default: true, archived_at: null }], role: 'owner' })
     );
 
     const { result } = await mountHook();
@@ -140,7 +150,7 @@ describe('staying current after the account changes (#163)', () => {
 
     // The account is removed elsewhere in the app.
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'owner' })
+      jsonResponse(200, { accounts: [], role: 'owner' })
     );
     notifySettlementAccountChanged();
 
@@ -156,7 +166,7 @@ describe('staying current after the account changes (#163)', () => {
     // or not the cleanup ran. The first version of this test asserted exactly
     // that and stayed green with the cleanup deleted.
     fetchMock.mockResolvedValue(
-      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'owner' })
+      jsonResponse(200, { accounts: [], role: 'owner' })
     );
 
     const before = settlementAccountListenerCount();

@@ -36,6 +36,16 @@ const WITH_ACCOUNT = {
   role: 'owner',
 };
 
+const ACCOUNT = {
+  id: 'acct-1',
+  label: 'BBVA México',
+  bank_name: 'BBVA México',
+  clabe: '012180001234567890',
+  account_holder: 'Ferretería La Central',
+  is_default: true,
+  archived_at: null,
+};
+
 const WITHOUT_ACCOUNT = {
   organization: { id: 'org-1', bank_name: null, bank_clabe: null, bank_account_holder: null },
   role: 'owner',
@@ -60,6 +70,11 @@ describe('the gate follows the account without a page reload (#163)', () => {
         if (init?.method === 'PATCH') {
           removed = true;
           return jsonResponse(WITHOUT_ACCOUNT);
+        }
+        // The card reads the organization row; the readiness hook reads the
+        // account list. Both must reflect the same removal.
+        if (String(url).includes('bank-accounts')) {
+          return jsonResponse(removed ? { accounts: [], role: 'owner' } : { accounts: [ACCOUNT], role: 'owner' });
         }
         return jsonResponse(removed ? WITHOUT_ACCOUNT : WITH_ACCOUNT);
       })
@@ -96,6 +111,9 @@ describe('the gate follows the account without a page reload (#163)', () => {
         if (init?.method === 'PATCH') {
           saved = true;
           return jsonResponse(WITH_ACCOUNT);
+        }
+        if (String(url).includes('bank-accounts')) {
+          return jsonResponse(saved ? { accounts: [ACCOUNT], role: 'owner' } : { accounts: [], role: 'owner' });
         }
         return jsonResponse(saved ? WITH_ACCOUNT : WITHOUT_ACCOUNT);
       })

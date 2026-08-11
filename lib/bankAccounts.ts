@@ -1,0 +1,217 @@
+import { normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
+
+/**
+ * Several settlement accounts per organization, chosen per quote (#164).
+ *
+ * An organization used to settle at exactly one account, held in three columns
+ * on `organizations`. It now keeps a list, one row flagged `is_default`, and a
+ * quote may name the account its client pays into.
+ *
+ * The rules money depends on live here rather than in the routes, so the payer
+ * page, the share gate and the settings UI cannot disagree about which account
+ * a given quote resolves to.
+ */
+
+export interface BankAccount {
+  id: string;
+  organization_id?: string;
+  label: string;
+  bank_name: string;
+  clabe: string;
+  account_holder: string | null;
+  is_default: boolean;
+  archived_at: string | null;
+}
+
+/** Columns every consumer needs; named explicitly so a future column is a decision. */
+export const BANK_ACCOUNT_COLUMNS =
+  'id, organization_id, label, bank_name, clabe, account_holder, is_default, archived_at';
+
+export const SETTLEMENT_ACCOUNT_MISSING_CODE = 'ORG_BANK_DETAILS_MISSING';
+export const SETTLEMENT_ACCOUNT_ARCHIVED_CODE = 'SETTLEMENT_ACCOUNT_UNAVAILABLE';
+
+export const SETTLEMENT_ACCOUNT_ARCHIVED_MESSAGE =
+  'La cuenta de cobro de esta cotización ya no está disponible. Contacta al negocio antes de transferir.';
+
+/** Archived accounts stay readable — old quotes name them — but never receive new money. */
+export function isLiveAccount(account: Pick<BankAccount, 'archived_at'> | null | undefined): boolean {
+  return Boolean(account) && !account!.archived_at;
+}
+
+export function findDefaultAccount(accounts: BankAccount[]): BankAccount | null {
+  return accounts.find((a) => a.is_default && isLiveAccount(a)) ?? null;
+}
+
+/** Accounts a new quote may be pointed at, default first. */
+export function selectableAccounts(accounts: BankAccount[]): BankAccount[] {
+  return accounts
+    .filter(isLiveAccount)
+    .sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.label.localeCompare(b.label));
+}
+
+export type AccountResolution =
+  | { ok: true; account: BankAccount; source: 'quote' | 'default' }
+  | { ok: false; reason: 'none' | 'archived' };
+
+/**
+ * Which account a quote's client pays into.
+ *
+ * Two rules, both deliberate:
+ *
+ * - A quote that names an account uses **that** account, never the current
+ *   default. The tenant chose where this client's money lands, and quietly
+ *   redirecting it because the default changed later would move real money to
+ *   an account nobody picked for it.
+ * - If the named account has since been archived, this **refuses** rather than
+ *   falling back to the default. The tenant archived it for a reason — a closed
+ *   bank account being the obvious one — and sending a payer there, or to a
+ *   substitute they did not choose, are both worse than saying so.
+ *
+ * A quote with no account named is every quote written before #164, and means
+ * "whatever the organization settles at": the live default.
+ */
+export function resolveQuoteAccount(
+  namedAccount: BankAccount | null | undefined,
+  defaultAccount: BankAccount | null | undefined
+): AccountResolution {
+  if (namedAccount) {
+    if (!isLiveAccount(namedAccount)) return { ok: false, reason: 'archived' };
+    return { ok: true, account: namedAccount, source: 'quote' };
+  }
+
+  if (defaultAccount && isLiveAccount(defaultAccount)) {
+    return { ok: true, account: defaultAccount, source: 'default' };
+  }
+
+  return { ok: false, reason: 'none' };
+}
+
+export interface BankAccountInput {
+  label?: unknown;
+  bankName?: unknown;
+  clabe?: unknown;
+  accountHolder?: unknown;
+}
+
+export interface ValidatedBankAccount {
+  label: string;
+  bank_name: string;
+  clabe: string;
+  account_holder: string | null;
+}
+
+export type BankAccountValidation =
+  | { ok: true; value: ValidatedBankAccount }
+  | { ok: false; field: string; message: string };
+
+/**
+ * Validates a whole account at once, keyed by field.
+ *
+ * Every field is checked before returning rather than bailing at the first
+ * failure: a form that reveals one problem per submit is #146's shape, and this
+ * one is filled in on a phone.
+ */
+export function validateBankAccount(input: BankAccountInput): BankAccountValidation {
+  const label = typeof input.label === 'string' ? input.label.trim() : '';
+  const bankName = typeof input.bankName === 'string' ? input.bankName.trim() : '';
+  const clabe = typeof input.clabe === 'string' ? normalizeClabe(input.clabe) : '';
+
+  if (!label) {
+    return { ok: false, field: 'label', message: 'Ponle un nombre a esta cuenta (ej. "BBVA obra")' };
+  }
+  if (!bankName) {
+    return { ok: false, field: 'bankName', message: 'El nombre del banco es obligatorio' };
+  }
+  if (!isValidClabeLength(clabe)) {
+    return { ok: false, field: 'clabe', message: 'La CLABE debe tener exactamente 18 dígitos' };
+  }
+  // Same checksum the single-account form has enforced since #66: it catches
+  // the transposed digit a length check cannot, before money is wired.
+  if (!hasValidClabeCheckDigit(clabe)) {
+    return {
+      ok: false,
+      field: 'clabe',
+      message: 'La CLABE no parece válida. Revísala dígito por dígito tal como aparece en tu banco.',
+    };
+  }
+
+  const holder = typeof input.accountHolder === 'string' ? input.accountHolder.trim() : '';
+
+  return {
+    ok: true,
+    value: { label, bank_name: bankName, clabe, account_holder: holder || null },
+  };
+}
+
+/**
+ * Mirrors a legacy single-account write into `bank_accounts` (#164).
+ *
+ * `PATCH /api/organization` still accepts the three `organizations.bank_*`
+ * columns the original settings form posts, while the gate and the payer page
+ * now read the account list. If those two ever disagree, the tenant gets #64's
+ * failure back: told they can be paid while their client's payment page
+ * refuses, or the reverse.
+ *
+ * - A cleared account archives every live row, since the tenant has just said
+ *   they have nowhere to receive money.
+ * - A saved account updates the live default in place when there is one, so a
+ *   tenant editing a typo does not accumulate a second account; otherwise it
+ *   creates the default.
+ *
+ * Best-effort and never throws: the organization row is already written by the
+ * time this runs, and failing the request would report a save that did happen
+ * as a failure. A divergence is reported through `captureException` instead.
+ */
+export async function syncLegacyDefaultAccount(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  organizationId: string,
+  values: Record<string, unknown> | null
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  try {
+    if (!values) {
+      await supabase
+        .from('bank_accounts')
+        .update({ archived_at: now, is_default: false, updated_at: now })
+        .eq('organization_id', organizationId)
+        .is('archived_at', null);
+      return;
+    }
+
+    const clabe = typeof values.bank_clabe === 'string' ? values.bank_clabe : '';
+    if (!isValidClabeLength(clabe)) return;
+
+    const bankName = typeof values.bank_name === 'string' ? values.bank_name : 'Banco';
+    const holder = typeof values.bank_account_holder === 'string' ? values.bank_account_holder : null;
+
+    const { data: current } = await supabase
+      .from('bank_accounts')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .eq('is_default', true)
+      .is('archived_at', null)
+      .maybeSingle();
+
+    if (current?.id) {
+      await supabase
+        .from('bank_accounts')
+        .update({ label: bankName, bank_name: bankName, clabe, account_holder: holder, updated_at: now })
+        .eq('id', current.id);
+      return;
+    }
+
+    await supabase.from('bank_accounts').insert({
+      organization_id: organizationId,
+      label: bankName,
+      bank_name: bankName,
+      clabe,
+      account_holder: holder,
+      is_default: true,
+    });
+  } catch {
+    // Deliberately swallowed — see the docblock. The mirror failing must not
+    // turn a completed organization write into an error the tenant retries.
+  }
+}

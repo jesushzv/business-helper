@@ -4,6 +4,7 @@ import { normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/l
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
 import { captureException } from '@/lib/sentry';
+import { syncLegacyDefaultAccount } from '@/lib/bankAccounts';
 
 export async function GET() {
   // No backend means no tenant data; the demo organization is honest here.
@@ -305,6 +306,18 @@ export async function PATCH(request: Request) {
     // into a second, identical change).
     if ('bank_clabe' in update) {
       const removed = update.bank_clabe === null;
+
+      // Keep `bank_accounts` in step with the legacy columns (#164).
+      //
+      // The settlement gate and the payer page read the account list now, while
+      // this route still writes the three `organizations.bank_*` columns the
+      // single-account form posts to. Letting those two diverge would recreate
+      // the exact failure #64 closed: a gate reporting the tenant can be paid
+      // while the payer page 409s in front of their client, or the reverse.
+      //
+      // Mirrors rather than replaces, because the columns are still read by
+      // code deployed between this migration and this merge (hard rule #6).
+      await syncLegacyDefaultAccount(supabase, data.id, removed ? null : update);
       // supabase-js resolves `{ data, error }` rather than throwing, so the
       // error channel has to be *read* — an RLS denial or a schema drift here
       // would otherwise leave no audit row and no trace of why. `try` covers

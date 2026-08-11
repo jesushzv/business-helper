@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { hasSettlementAccount } from '@/lib/settlementAccount';
+import type { BankAccount } from '@/lib/bankAccounts';
 import type { UserRole } from '@/lib/teamRBAC';
 
 /**
@@ -104,19 +105,22 @@ export function useSettlementAccount(): SettlementAccountState {
 
     setLoading(true);
 
-    fetch('/api/organization')
+    // The account list, not the organization row: since #164 readiness means
+    // "has at least one account that is not archived", which one column on
+    // `organizations` cannot answer for a tenant keeping two banks.
+    fetch('/api/organization/bank-accounts')
       .then(async (res) => {
         const data = await res.json().catch(() => null);
         if (cancelled) return;
 
-        if (!res.ok || !data?.organization) {
+        if (!res.ok || !Array.isArray(data?.accounts)) {
           // Unknown, not "missing". See the tri-state note above.
           setReady(null);
           setRole(null);
           return;
         }
 
-        setReady(hasSettlementAccount(data.organization));
+        setReady(hasSettlementAccount(data.accounts as BankAccount[]));
         setRole((data.role as UserRole) || null);
       })
       .catch(() => {

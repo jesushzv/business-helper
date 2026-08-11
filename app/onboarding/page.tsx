@@ -6,7 +6,6 @@ import { Building2, ArrowRight, ShieldCheck, FileText, MapPin, Landmark } from '
 import { validateRFC } from '@/lib/rfcValidator';
 import { formatClabe, normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
-import { hasSettlementAccount } from '@/lib/settlementAccount';
 import { track } from '@/lib/analytics';
 
 const REGIMENES_FISCALES = [
@@ -76,7 +75,11 @@ export default function OnboardingPage() {
         if (org.industry) setIndustry(org.industry);
         setBankName(org.bank_name || '');
         setBankAccountHolder(org.bank_account_holder || '');
-        if (hasSettlementAccount(org)) setBankClabe(formatClabe(org.bank_clabe as string));
+        // Reads the legacy column directly: since #164 `hasSettlementAccount` answers
+        // about the account *list*, and this step is resuming the form that writes
+        // the single legacy account.
+        if (isValidClabeLength(String(org.bank_clabe || '')))
+          setBankClabe(formatClabe(org.bank_clabe as string));
 
         setStep(3);
       })

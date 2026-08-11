@@ -38,7 +38,7 @@ afterEach(() => {
 describe('SettlementAccountBanner', () => {
   it('warns the owner and links to the form when there is no CLABE', async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'owner' })
+      jsonResponse(200, { accounts: [], role: 'owner' })
     );
 
     render(<SettlementAccountBanner />);
@@ -53,7 +53,17 @@ describe('SettlementAccountBanner', () => {
   it('stays hidden once the organization has an account', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
-        organization: { id: 'org-1', bank_clabe: '012180001234567899' },
+        accounts: [
+          {
+            id: 'a1',
+            label: 'BBVA',
+            bank_name: 'BBVA México',
+            clabe: '012180001234567899',
+            account_holder: null,
+            is_default: true,
+            archived_at: null,
+          },
+        ],
         role: 'owner',
       })
     );
@@ -78,7 +88,7 @@ describe('SettlementAccountBanner', () => {
 
   it('tells a member to ask the owner instead of offering a form they cannot save', async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'member' })
+      jsonResponse(200, { accounts: [], role: 'member' })
     );
 
     render(<SettlementAccountBanner />);
