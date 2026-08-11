@@ -536,7 +536,6 @@ org name after hydration — was confirmed by the founder in a browser on 2026-0
 the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
 no-invented-bank path stays pinned by unit tests until a first real payment.
 
-
 ## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
 
 Settled history: all four verified closed on the tracker at the time, moved here verbatim when
@@ -572,3 +571,10 @@ The 2026-08-07 doc-vs-reality audit. Live figures stay in `STATUS.md`; this is t
 | E2E | "14/14 Playwright scenarios passing" | `playwright.config.ts` and `tests/e2e/` exist; not run in this verification pass — treat as unverified |
 | Zero-warning lint gate | "ESLint passes with `--max-warnings=0`" (5 docs) | ~~Gate was nominal — bare `next lint`, exit 0 with warnings.~~ **Enforced since 2026-08-08 (#46):** script is `next lint --max-warnings=0`, debt cleared to 0, failure verified with a planted warning. |
 
+---
+
+## OTP email-channel verification, moved off `docs/STATUS.md` (2026-08-11)
+
+Verbatim from the §02 row, collapsed there to one line when the file reached its size budget.
+
+| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |

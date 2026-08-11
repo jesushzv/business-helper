@@ -8,6 +8,7 @@ import { formatClabe, normalizeClabe, isValidClabeLength, hasValidClabeCheckDigi
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { hasSettlementAccount } from '@/lib/settlementAccount';
 import { track } from '@/lib/analytics';
+import { postOnboardingPath } from '@/lib/upgradeIntent';
 import { regimenOptions } from '@/lib/satRegimenes';
 
 const INDUSTRIES = [
@@ -143,7 +144,7 @@ export default function OnboardingPage() {
       // form — a dashboard without an organization answers 403 NO_ORGANIZATION
       // on every route, with no way back to this form.
       if (res.status === 503 && data?.error?.code === 'BACKEND_NOT_CONFIGURED') {
-        router.push('/dashboard');
+        router.push(postOnboardingPath(typeof window === 'undefined' ? '' : window.location.search));
         return;
       }
 
@@ -196,7 +197,7 @@ export default function OnboardingPage() {
           organization_id: data.organization.id,
           has_account_holder: Boolean(bankAccountHolder.trim()),
         });
-        router.push('/dashboard');
+        router.push(postOnboardingPath(typeof window === 'undefined' ? '' : window.location.search));
         return;
       }
 

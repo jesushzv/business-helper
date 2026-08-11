@@ -551,7 +551,7 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Facturación CFDI 4.0 disponible ($5 MXN/folio)</li>
                 </ul>
               </div>
-              <Link href="/register?plan=starter" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
+              <Link href="/upgrade?plan=starter" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
                 Probar 14 Días Gratis
               </Link>
             </div>
@@ -575,7 +575,7 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Score de Salud del Cliente</li>
                 </ul>
               </div>
-              <Link href="/register?plan=pro" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-md active:scale-95">
+              <Link href="/upgrade?plan=pro" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-md active:scale-95">
                 Probar 14 Días Gratis
               </Link>
             </div>
@@ -595,7 +595,7 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Roles de equipo y Multi-sucursal</li>
                 </ul>
               </div>
-              <Link href="/register?plan=business" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
+              <Link href="/upgrade?plan=business" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
                 Probar 14 Días Gratis
               </Link>
             </div>
