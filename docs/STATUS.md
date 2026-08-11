@@ -147,26 +147,26 @@ needing a real handset, card, PAC stamp or deployed database are untouched by al
 | 4 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
 | 5 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that remain — a signed event is applied to a real row, and its redelivery is not — need a database, so they need a staging deployment; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE matching no row — narrow, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) fails the claim insert first; what the guard closes is the deletion race. Least blocking of the P0s. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
-**The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued:
-#95's save on 2026-08-09 (`PUT` 405, `PATCH`/`GET` 401, then a throwaway tenant's round trip
-persisting a normalized `phone`); #96's data layer the same day — a check that **failed**, finding
-two further defects since fixed; #93's chrome, public quote route and served dashboard on
-2026-08-11 as the owner of a real organization, confirmed by the founder in a browser.
+**The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued
+— transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 Transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays
 open in #103/#99 and #113/#114/#123/#124, plus two gaps pinned by unit tests only: a non-owner's
 read-only Ajustes, and `/pay`'s no-invented-bank path, which needs a tenant with a contract.
 
-**The audit's modal findings are closed in code** (#87, #100, PR #165) — detail moved to
-[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-11. Tests only,
-not a real handset. Still open: #88, #89, #90, #99, #101, #103, #104.
+**The audit's modal findings are closed in code** (#87, #100, PR #165) — detail in the archive log.
+Tests only, not a real handset. Still open: #88, #89, #90, #99, #101, #103, #104.
 
-**Two of the three open `bug`-tagged issues are closed in code** (#116, #133; #127 is PR #167's).
-#116: `checkout.session.completed` carries a **Checkout Session**, whose status field holds
-`'complete'` — outside `chk_subscription_status`, so that write fails the CHECK *after* the event is
-claimed, and the badge read "Cancelado" to a customer who had just paid. The handler now reports
-`null` outside the vocabulary and the route writes only what the event set. #133: `requireOrgAccess`
-chose the tenant with `LIMIT 1` and no `ORDER BY`; both lookups now order and fetch two rows, so the
-ambiguity is logged. Tests, lint and build only: **no live Stripe event, no second org row**.
+**Both open `bug`-tagged issues are closed in code** (#116, #133; #127 was PR #167's), and #115
+rides with them. #116: `checkout.session.completed` carries a **Checkout Session**, whose status
+field holds `'complete'` — outside `chk_subscription_status`, so that write fails the CHECK *after*
+the event is claimed, and the badge read "Cancelado" to a customer who had just paid; the handler
+now reports `null` outside the vocabulary and writes only what the event set. #133:
+`requireOrgAccess` chose the tenant with `LIMIT 1` and no `ORDER BY`; both lookups now order and
+fetch two rows, so the ambiguity is logged. #115: the webhook stores `stripe_customer_id` and
+`stripe_subscription_id`, which nothing had written — the checkout route's customer-reuse branch
+read a column that is always null, so every upgrade minted a new Stripe customer, and no stored
+subscription id meant nothing could be cancelled from the app. Tests, lint and build only: **no live
+Stripe event, no second organization row**.
 
 **Resolved off this table on 2026-08-08:** #79 (the PGRST201 prediction confirmed against live
 PostgREST, both embeds hinted, scan test pinning the pattern), #76 (live `aclexplode` sweep clean)

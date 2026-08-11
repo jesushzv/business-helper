@@ -549,3 +549,15 @@ whether the OTP submit is reachable on a 375px phone with the keyboard open. Ver
 component tests only (`modalShell`, `Modal`), including a planted violation shown to fail; **not yet
 exercised on a real handset**, which is the part no agent can supply. The audit's remaining
 findings — #88, #89, #90, #99, #101, #103, #104 — are untouched.
+
+---
+
+## UX-audit trio verification transcripts, moved off `docs/STATUS.md` (2026-08-11)
+
+Verbatim from §02; all three closed, moved here when `STATUS.md` reached its size budget.
+
+**The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued:
+#95's save on 2026-08-09 (`PUT` 405, `PATCH`/`GET` 401, then a throwaway tenant's round trip
+persisting a normalized `phone`); #96's data layer the same day — a check that **failed**, finding
+two further defects since fixed; #93's chrome, public quote route and served dashboard on
+2026-08-11 as the owner of a real organization, confirmed by the founder in a browser.
