@@ -535,3 +535,47 @@ pins the render over that exact response body. The hydrated page — the *Cerrar
 org name after hydration — was confirmed by the founder in a browser on 2026-08-11, which closed
 the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
 no-invented-bank path stays pinned by unit tests until a first real payment.
+
+---
+
+## #64's CLABE gate — production verification and closure (2026-08-11)
+
+*Moved from `docs/STATUS.md` on 2026-08-11 when the file hit its 32 KB budget again. #64 is closed
+and the checks are settled; reproduced here because the transcript is recorded nowhere else outside
+the issue. For live status read [`../STATUS.md`](../STATUS.md).*
+
+**The code half** merged as PR #75 (detail earlier in this log): a server-side 409 in front of every
+path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an
+onboarding that resumes at the settlement-account step.
+
+**The third exit criterion — "verified against a real deployment with a real organization row" —
+split per #129 into *reach* and *eyes*.**
+
+*Reach half, passed live 2026-08-11*, from inside Postgres over the `http` extension against
+`https://businesshelper.app`, with every claim confirmed by reading the row back rather than by
+response body. A throwaway tenant was created through the deployed `POST /api/organization`, leaving
+`bank_clabe` NULL — the exact state hole 2 of the issue describes. Then: `GET /api/organization` →
+200 with `bank_clabe: null` and `role: "owner"` (the shape the banner reads); `POST
+/api/whatsapp/broadcast` with a fully valid reminder body → **409 `ORG_BANK_DETAILS_MISSING`**,
+refused before `dispatchWhatsAppReminder`, so nothing could send; the public, sessionless `GET
+/api/receivables/public/<token>` on a seeded quote → contract → pending milestone → **409
+`ORG_BANK_DETAILS_MISSING`** in the public envelope with no fallback account. As a positive control
+the gate was then shown to open: `PATCH /api/organization` with a valid CLABE → 200, the row read
+back holding `646180157012345676`, and the *same token* now serving payment instructions carrying
+exactly that CLABE. All QA rows, the QA user, the scratch schema and the `http` extension were
+removed afterwards, every count read back zero. Not run deliberately: a positive-path broadcast
+(with credentials configured it would dispatch a real WhatsApp message).
+
+*Eyes half, waived by the founder 2026-08-11.* The three rendered-page checks in
+`../security-p0-remediation.md` §5 — banner shows and clears, Cobranza/Facturación share buttons
+visibly disabled, member view without the "Agregar mi CLABE" link — were never performed. The
+founder accepted the component tests in their place and directed the issue closed on merge.
+**Recorded as a decision, not a pass:** if the banner is invisible for a reason the tests cannot see
+(a layout or z-index fault, a shell that never mounts it), this gate is blind to it. The server-side
+refusals are unaffected — those are verified above and are what actually protects a paying client.
+
+**Found while doing this**, both raised by the founder and filed separately: **#163** (a saved CLABE
+could be replaced but never removed, so the only route back to "no account" was a hand edit against
+production — fixed in the same PR that closed #64) and **#164** (one organization settles at one
+account; recorded as a deliberate boundary in `../02-architecture/database-schema-design.md` rather
+than built out, since no tenant has yet needed a second account).
