@@ -85,11 +85,12 @@ into one line; their reasoning is in the frozen log.*
 | ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
 | ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
 
-**One organization per owner is now a schema invariant** (`uq_organizations_owner_id`,
-`20260811150000` — #109 decided, #168 closed). `owner_id` had neither an index nor uniqueness while
-every owner-scoped route assumed both: a second owned row would have made `.maybeSingle()` 404 the
-owner off their own settlement account. `POST /api/organization` no longer answers the
-now-reachable collision with a generic 500.
+**One organization per owner is a schema invariant, applied to production 2026-08-11**
+(`uq_organizations_owner_id`, `20260811150000` — #109 decided, #168 closed). Verified live: the
+index reads back `indisunique`/`indisvalid`, and a probe INSERT of a second organization for an
+existing owner was **refused** with `23505`. Two blocking rows were found first — one owner held two
+`— BORRAR` test organizations, so #168's "0 duplicates" was stale — and the older was deleted with
+its client and quote.
 
 ### Recently landed (2026-08-07 → 2026-08-08)
 

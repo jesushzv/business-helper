@@ -28,10 +28,24 @@
 -- a plain btree does, so the second would be dead weight paid for on every
 -- INSERT and UPDATE of the table.
 --
--- Safe to build: `owners_with_multiple_orgs` was verified 0 against production
--- on 2026-08-11 before this ran. If a future database holds a duplicate the
--- build fails loudly here rather than corrupting anything, which is the
--- behaviour we want.
+-- Two facts about the live database, read on 2026-08-11 and neither inferred
+-- from this repo:
+--
+--   * Production already carries a *non-unique* `idx_organizations_owner_id`
+--     that **no migration here creates** — applied by hand, along with
+--     `trial_ends_at` and its index. This file does not drop it: silently
+--     removing an object another change may be about to declare is worse than
+--     the redundancy. Filed separately; repo-versus-catalog drift is the #96
+--     class and outlives any one PR.
+--   * `owners_with_multiple_orgs` was **1**, not the 0 #168 measured that
+--     morning: one owner held two `— BORRAR` test organizations. The older was
+--     deleted (with its client and quote) before this was applied. A duplicate
+--     makes the build fail loudly rather than corrupt anything, so re-run that
+--     count before applying this anywhere else.
+--
+-- Applied to production 2026-08-11 through the Supabase connector, read back
+-- from `pg_index` (`indisunique`, `indisvalid`), then proven by a probe INSERT
+-- refused `23505`.
 --
 -- What this does NOT do: multi-organization ownership stays impossible until
 -- the routes take an organization id instead of deriving one from `owner_id`.
