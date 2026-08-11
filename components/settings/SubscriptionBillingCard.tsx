@@ -9,14 +9,31 @@ interface SubscriptionBillingCardProps {
   settings: OrganizationSettings;
   statusInfo: SubscriptionStatusResult;
   onSelectTier: (tierId: 'inicial' | 'negocio' | 'empresa') => Promise<void>;
+  /**
+   * The plan the owner chose on the pricing page before landing here, carried
+   * by `/upgrade?plan=…`. Marked, not bought: the tap that starts a payment is
+   * theirs to make, and auto-opening Checkout on load would trap anyone who
+   * pressed Back on Stripe in a redirect loop.
+   */
+  highlightTier?: 'inicial' | 'negocio' | 'empresa' | null;
 }
 
 export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = ({
   settings,
   statusInfo,
   onSelectTier,
+  highlightTier = null,
 }) => {
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const highlightRef = React.useRef<HTMLDivElement | null>(null);
+
+  // The billing card sits below four others, so on a 375px screen the plan they
+  // asked for is several screens down — an invisible highlight is no highlight.
+  React.useEffect(() => {
+    if (highlightTier && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightTier]);
 
   const handleUpgrade = async (tierId: 'inicial' | 'negocio' | 'empresa') => {
     try {
@@ -75,16 +92,25 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
         {plansList.map((plan) => {
           const isCurrentPlan = settings.subscription_tier === plan.id;
           const isLoadingThis = loadingTier === plan.id;
+          const isRequested = highlightTier === plan.id && !isCurrentPlan;
 
           return (
             <div
               key={plan.id}
+              ref={isRequested ? highlightRef : undefined}
               className={`relative flex flex-col justify-between rounded-3xl border p-6 transition-all ${
-                plan.popular
+                isRequested
+                  ? 'border-emerald-500/70 bg-slate-950/90 shadow-xl ring-2 ring-emerald-400/50'
+                  : plan.popular
                   ? 'border-indigo-500/60 bg-slate-950/90 shadow-xl ring-2 ring-indigo-500/30'
                   : 'border-slate-800 bg-slate-950/80 hover:border-slate-700 shadow-md'
               }`}
             >
+              {isRequested && (
+                <p className="mb-3 rounded-xl border border-emerald-500/30 bg-emerald-950/60 px-3 py-2 text-[11px] font-bold text-emerald-300">
+                  Este es el plan que elegiste. Continúa para pagarlo.
+                </p>
+              )}
               {plan.popular && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3.5 py-1 text-[11px] font-black tracking-wider uppercase text-white shadow-md">
                   Más Popular
