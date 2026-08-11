@@ -4,7 +4,14 @@ import { normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/l
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
 import { captureException } from '@/lib/sentry';
-import { syncLegacyDefaultAccount } from '@/lib/bankAccounts';
+import {
+  syncLegacyDefaultAccount,
+  countLiveAccounts,
+  SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS_CODE,
+  SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS_MESSAGE,
+  SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_CODE,
+  SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_MESSAGE,
+} from '@/lib/bankAccounts';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 export async function GET() {
@@ -91,7 +98,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, userId, role } = auth.ctx;
+  const { supabase, userId, role, organizationId } = auth.ctx;
 
   // A member reaching this route gets a straight answer, rather than falling
   // through to the `owner_id` filter matching nothing and answering 404 "No se
@@ -155,6 +162,54 @@ export async function PATCH(request: Request) {
       const isExplicitClear = typeof bankClabe === 'string' && bankClabe.trim().length === 0;
 
       if (isExplicitClear) {
+        // #198 — a single-account payload cannot express intent about several.
+        //
+        // This clear is the pre-#164 settings card's "Quitar cuenta", written
+        // when an organization settled at exactly one account. An organization
+        // now holds a list, and the mirror below archives *every* live row, so
+        // one tap on a browser tab left open across the deploy would take all of
+        // a tenant's accounts with it — and every /pay/ link naming any of them
+        // starts refusing, in front of their clients.
+        //
+        // Nothing in the current UI sends this payload; the settings card is the
+        // accounts list and onboarding writes to the accounts route. So refusing
+        // costs a current tenant nothing, and the one caller it does stop is the
+        // one that cannot have meant it. A tenant who really wants an account
+        // gone has a screen that names which.
+        //
+        // Refused *before* the organization row is written: the mirror is
+        // best-effort and never throws by design, so a guard there could not
+        // reach the caller.
+        const live = await countLiveAccounts(supabase, organizationId);
+
+        if (!live.known) {
+          // We could not read the list. Refusing is recoverable by retrying;
+          // guessing "one" and being wrong destroys accounts that cannot be
+          // un-archived from any screen. The message says what we don't know
+          // rather than asserting a count we never read (hard rule #1).
+          return NextResponse.json(
+            {
+              error: {
+                code: SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_CODE,
+                message: SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_MESSAGE,
+              },
+            },
+            { status: 503 }
+          );
+        }
+
+        if (live.count > 1) {
+          return NextResponse.json(
+            {
+              error: {
+                code: SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS_CODE,
+                message: SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS_MESSAGE,
+              },
+            },
+            { status: 409 }
+          );
+        }
+
         update.bank_clabe = null;
         update.bank_name = null;
         update.bank_account_holder = null;

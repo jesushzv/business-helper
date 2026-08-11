@@ -20,6 +20,11 @@ const insertCalls: Array<{ table: string; values: Record<string, unknown> }> = [
 const mirrorCalls: Array<{ table: string; values: Record<string, unknown> }> = [];
 /** What the mirror finds as the org's current live default; null = none yet. */
 let defaultAccountRow: { id: string } | null = { id: 'acct-1' };
+/**
+ * The org's live accounts, as `countLiveAccounts` reads them (#198).
+ * `null` stands for a failed read — an RLS denial arrives exactly that way.
+ */
+let liveAccountRows: Array<{ id: string }> | null = [{ id: 'acct-1' }];
 let updateResult: { data: unknown; error: unknown } = { data: { id: 'org-1' }, error: null };
 /** The role requireOrgAccess reports — 'owner' unless a test says otherwise. */
 let callerRole = 'owner';
@@ -59,6 +64,15 @@ const supabaseStub = {
         eq: () => chain,
         is: () => chain,
         maybeSingle: async () => ({ data: defaultAccountRow, error: null }),
+        // Awaited with no `.maybeSingle()` — `countLiveAccounts`' list read.
+        // `liveAccountRows: null` is the failed-read case, which must reach the
+        // route as "unknown" rather than as zero accounts (#198).
+        then: (resolve: (v: unknown) => void) =>
+          Promise.resolve(
+            liveAccountRows === null
+              ? { data: null, error: { message: 'permission denied' } }
+              : { data: liveAccountRows, error: null }
+          ).then(resolve),
       };
       return chain;
     },
@@ -84,6 +98,7 @@ beforeEach(() => {
   insertCalls.length = 0;
   mirrorCalls.length = 0;
   defaultAccountRow = { id: 'acct-1' };
+  liveAccountRows = [{ id: 'acct-1' }];
   callerRole = 'owner';
 
   // Re-installed each test: the GET block below sets its own mockResolvedValue
@@ -381,5 +396,165 @@ describe('PATCH /api/organization — changing the account is recorded too (#163
   it('records nothing for a profile-only save', async () => {
     await PATCH(patchRequest({ name: 'Ferretería La Central' }));
     expect(insertCalls.find((c) => c.table === 'audit_logs')).toBeUndefined();
+  });
+});
+
+/**
+ * #198 — the mirror's writes, asserted at the DB layer.
+ *
+ * `syncLegacyDefaultAccount` is the one function keeping `organizations.bank_*`
+ * and `bank_accounts` in agreement. When they diverge the tenant gets #64's
+ * failure back: told they can be paid while their client's `/pay/` page
+ * refuses, or the reverse.
+ *
+ * It is also the worst possible place for a false green. The function never
+ * throws by design — a mirror failure must not turn a completed organization
+ * write into an error the tenant retries — so its only other failure signal is
+ * `captureException`, and `lib/sentry.ts` transmitted nothing until #52. A stub
+ * that made it throw into that empty `catch` therefore looked exactly like a
+ * stub that made it work.
+ *
+ * The stub was widened for this (`select`/`is`/`maybeSingle`, an awaited
+ * `update`) but nothing read `mirrorCalls` back, so the mirror could still
+ * no-op unnoticed. These assert what reaches the DB layer on all three paths,
+ * per the repo's rule about asserting the write rather than the fetch.
+ */
+describe('PATCH /api/organization — the legacy mirror actually writes (#198)', () => {
+  const mirrorWrites = () => mirrorCalls.filter((c) => c.table === 'bank_accounts');
+  const mirrorInserts = () => insertCalls.filter((c) => c.table === 'bank_accounts');
+
+  it('archives the live accounts when the account is cleared', async () => {
+    const res = await PATCH(patchRequest({ bankClabe: '' }));
+
+    expect(res.status).toBe(200);
+    const [write] = mirrorWrites();
+    expect(write, 'the mirror issued no write on a clear').toBeDefined();
+    expect(write.values).toMatchObject({ is_default: false });
+    expect(write.values.archived_at).toEqual(expect.any(String));
+  });
+
+  it('updates the live default in place rather than accumulating a second account', async () => {
+    // A tenant fixing a typo must not end up with two accounts, one of which
+    // their client's payment page might resolve to.
+    defaultAccountRow = { id: 'acct-1' };
+
+    const res = await PATCH(
+      patchRequest({ bankName: 'BBVA', bankClabe: '012180001234567899', bankAccountHolder: 'Ana' })
+    );
+
+    expect(res.status).toBe(200);
+    const [write] = mirrorWrites();
+    expect(write, 'the mirror issued no write on a save').toBeDefined();
+    expect(write.values).toMatchObject({
+      bank_name: 'BBVA',
+      clabe: '012180001234567899',
+      account_holder: 'Ana',
+    });
+    expect(mirrorInserts(), 'a second account was created instead of an update').toHaveLength(0);
+  });
+
+  it('creates the default when the organization has no account yet', async () => {
+    defaultAccountRow = null;
+
+    const res = await PATCH(
+      patchRequest({ bankName: 'BBVA', bankClabe: '012180001234567899', bankAccountHolder: 'Ana' })
+    );
+
+    expect(res.status).toBe(200);
+    const [created] = mirrorInserts();
+    expect(created, 'the mirror created no account').toBeDefined();
+    expect(created.values).toMatchObject({
+      organization_id: 'org-1',
+      bank_name: 'BBVA',
+      clabe: '012180001234567899',
+      is_default: true,
+    });
+  });
+
+  it('leaves the accounts alone on a profile-only save', async () => {
+    const res = await PATCH(patchRequest({ name: 'Ferretería La Central' }));
+
+    expect(res.status).toBe(200);
+    expect(mirrorWrites()).toHaveLength(0);
+    expect(mirrorInserts()).toHaveLength(0);
+  });
+});
+
+/**
+ * #198 — the legacy clear refuses when it cannot have meant what it says.
+ *
+ * `PATCH { bankClabe: '' }` is the pre-#164 settings card's "Quitar cuenta",
+ * written when an organization settled at exactly one account. An organization
+ * now holds a list and the mirror archives every live row, so this payload
+ * arriving from a stale browser tab would take all of a tenant's accounts and
+ * start refusing every `/pay/` link that names one — in front of their clients.
+ *
+ * The refusal is in the route rather than the mirror because the mirror runs
+ * after the organization row is written and never throws by design.
+ */
+describe('PATCH /api/organization — a legacy clear cannot speak for several accounts (#198)', () => {
+  it('refuses with 409 when the organization holds more than one live account', async () => {
+    liveAccountRows = [{ id: 'acct-1' }, { id: 'acct-2' }, { id: 'acct-3' }];
+
+    const res = await PATCH(patchRequest({ bankClabe: '' }));
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.code).toBe('SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS');
+    expect(body.error.message).toMatch(/Ajustes/);
+    // Nothing may be written: not the organization row, not the accounts.
+    expect(updateCalls).toHaveLength(0);
+    expect(mirrorCalls).toHaveLength(0);
+    expect(insertCalls).toHaveLength(0);
+  });
+
+  it('still lets a single-account tenant remove their account', async () => {
+    // The whole point of scoping the refusal to >1: today's tenants are
+    // single-account, and #163's removal must keep working for them.
+    liveAccountRows = [{ id: 'acct-1' }];
+
+    const res = await PATCH(patchRequest({ bankClabe: '' }));
+
+    expect(res.status).toBe(200);
+    expect(updateCalls[0]).toMatchObject({ bank_clabe: null });
+  });
+
+  it('lets the clear through when the organization has no accounts at all', async () => {
+    liveAccountRows = [];
+
+    const res = await PATCH(patchRequest({ bankClabe: '' }));
+
+    expect(res.status).toBe(200);
+    expect(updateCalls[0]).toMatchObject({ bank_clabe: null });
+  });
+
+  it('refuses with 503 when the account list cannot be read, and claims no count', async () => {
+    // An RLS denial resolves as `{ data: null, error }`, not a throw. Reading
+    // that as "no accounts" would let the clear through and archive the list.
+    // Refusing is recoverable by retrying; the archive is not.
+    liveAccountRows = null;
+
+    const res = await PATCH(patchRequest({ bankClabe: '' }));
+
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error.code).toBe('SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED');
+    // Hard rule #1: the message must not assert a number we never read.
+    expect(body.error.message).not.toMatch(/varias/);
+    expect(updateCalls).toHaveLength(0);
+    expect(mirrorCalls).toHaveLength(0);
+  });
+
+  it('leaves a real account save untouched by the guard', async () => {
+    // The guard is keyed on the clear, not on the bank payload. A tenant with
+    // three accounts saving through the legacy card still updates the default.
+    liveAccountRows = [{ id: 'acct-1' }, { id: 'acct-2' }, { id: 'acct-3' }];
+
+    const res = await PATCH(
+      patchRequest({ bankName: 'BBVA', bankClabe: '012180001234567899', bankAccountHolder: 'Ana' })
+    );
+
+    expect(res.status).toBe(200);
+    expect(updateCalls[0]).toMatchObject({ bank_clabe: '012180001234567899' });
   });
 });
