@@ -536,6 +536,15 @@ org name after hydration — was confirmed by the founder in a browser on 2026-0
 the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
 no-invented-bank path stays pinned by unit tests until a first real payment.
 
+## Moved out of STATUS §03 P1 on 2026-08-11 (settled; §02's metrics row carries the live state)
+
+- ~~**Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).~~
+  **Done 2026-08-08** — `--max-warnings=0`, 22 warnings cleared, failure verified with a planted
+  warning. (The count was recorded as 1, 3 and 23 before settling at 22 — a fail-open gate is how
+  the debt grew unnoticed.) Follow-up: `next/image` for the PNG sites,
+  [#82](https://github.com/jesushzv/business-helper/issues/82) (P2).
+
+
 ## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
 
 Settled history: all four verified closed on the tracker at the time, moved here verbatim when
@@ -556,6 +565,21 @@ Settled history: all four verified closed on the tracker at the time, moved here
 | [#79](https://github.com/jesushzv/business-helper/issues/79) | The PGRST201 prediction confirmed against live PostgREST; both embeds hinted, scan test pinning the pattern |
 | [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
 | [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |
+
+
+## "Merged and real", moved from `docs/STATUS.md` 2026-08-11
+
+Settled history: work merged well before this date, kept for provenance.
+
+| Change | PR | What it actually closed |
+|:---|:---|:---|
+| P0 money-path hardening | #1 | API auth enforcement across `app/api/*`; simulated writes relabelled so they cannot be mistaken for real ones |
+| Outbound WhatsApp dispatch | #13 | Reminders now send via Twilio / Meta Cloud API instead of reporting fabricated success |
+| Post-merge security setup | #16 | `lib/otpDelivery.ts` — real Twilio SMS, Twilio WhatsApp, and Meta Cloud API paths; per-org bank account (CLABE) UI; Stripe webhook signature verification |
+| Real checkout, invites, export | #19 | `lib/stripeClient.ts`, `lib/teamInvitations.ts`, and `lib/accountantExport.ts` read real data instead of hardcoded fixtures |
+| CI workflow + migration tooling | #11 | `.github/workflows/ci.yml`, `scripts/db-migrate.mjs`, `scripts/verify-stripe-webhook.mjs` |
+| Test consolidation | #21 | `scripts/test-runner.js` (2,751 lines) retired; coverage folded into vitest |
+| Agent authority split in two | #137 | The defect-class catalogue moved to `docs/LESSONS.md` under its own budget, with `tests/unit/lessonsCatalogue.test.ts` failing the build when a merge resolution drops a lesson (#135) |
 
 ---
 

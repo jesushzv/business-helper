@@ -9,6 +9,7 @@ import {
   isInvitableRole,
   normalizeInviteEmail,
 } from '@/lib/teamInvitations';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Team members and invitations.
@@ -221,10 +222,9 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !invitation) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo crear la invitación' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'la invitación', 'POST /api/organization/members', {
+        verb: 'crear',
+      });
     }
 
     const inviteUrl = buildInvitationUrl(token);
@@ -317,10 +317,9 @@ export async function PATCH(request: Request) {
       .eq('organization_id', organizationId);
 
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo actualizar el rol' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'el rol del integrante', 'PATCH /api/organization/members', {
+        verb: 'actualizar',
+      });
     }
 
     return NextResponse.json({ success: true, memberId, role: nextRole });
