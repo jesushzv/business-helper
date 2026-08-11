@@ -196,3 +196,65 @@ describe('PATCH /api/organization — bank payload keeps its contract', () => {
     expect(updateCalls[0]).toMatchObject({ bank_name: 'BBVA', bank_clabe: '012180001234567899' });
   });
 });
+
+/**
+ * #163 — a saved account could be replaced but never removed.
+ *
+ * Any bank payload was required to carry a valid 18-digit CLABE, so the only
+ * route back to "no account" was a hand edit against production. The database
+ * always allowed the state (`chk_org_bank_clabe_format` is
+ * `bank_clabe IS NULL OR ~ '^[0-9]{18}$'`); only this route refused it.
+ *
+ * The distinction that makes it safe: an *explicitly empty* CLABE is a
+ * deliberate clear, while an absent key stays absent — a profile save must
+ * never wipe the account as a side effect. #64's gate is what makes the empty
+ * state honest rather than a silent hole: no CLABE means a banner, disabled
+ * share actions, and a 409 before any /pay/ link leaves the server.
+ */
+describe('PATCH /api/organization — removing the account (#163)', () => {
+  it('clears all three bank columns when the CLABE is explicitly emptied', async () => {
+    const res = await PATCH(patchRequest({ bankName: '', bankClabe: '', bankAccountHolder: '' }));
+
+    expect(res.status).toBe(200);
+    expect(updateCalls[0]).toMatchObject({
+      bank_clabe: null,
+      bank_name: null,
+      bank_account_holder: null,
+    });
+  });
+
+  it('clears on an empty CLABE even when a bank name is still filled in', async () => {
+    // The card sends whatever is in the inputs. An emptied CLABE is the signal;
+    // leaving "BBVA" in the name field must not resurrect a half-account, which
+    // hasSettlementAccount would read as not-ready anyway.
+    const res = await PATCH(patchRequest({ bankName: 'BBVA', bankClabe: '' }));
+
+    expect(res.status).toBe(200);
+    expect(updateCalls[0]).toMatchObject({ bank_clabe: null, bank_name: null });
+  });
+
+  it('treats a whitespace-only CLABE as a clear, not as an invalid account', async () => {
+    const res = await PATCH(patchRequest({ bankClabe: '   ' }));
+
+    expect(res.status).toBe(200);
+    expect(updateCalls[0]).toMatchObject({ bank_clabe: null });
+  });
+
+  it('does not touch the account when no bank key is present at all', async () => {
+    // The regression this guards: a profile save silently wiping the CLABE.
+    const res = await PATCH(patchRequest({ name: 'Ferretería La Central' }));
+
+    expect(res.status).toBe(200);
+    expect(updateCalls[0]).not.toHaveProperty('bank_clabe');
+    expect(updateCalls[0]).not.toHaveProperty('bank_name');
+  });
+
+  it('still rejects a partial CLABE — a typo is not a removal', async () => {
+    const res = await PATCH(patchRequest({ bankName: 'BBVA', bankClabe: '01218000123' }));
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe('INVALID_CLABE');
+    expect(updateCalls).toHaveLength(0);
+  });
+});

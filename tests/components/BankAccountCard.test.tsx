@@ -173,3 +173,94 @@ describe('saving', () => {
     });
   });
 });
+
+/**
+ * #163 — removing the account.
+ *
+ * The card could replace an account but never take one away, so a tenant whose
+ * bank account had closed could not stop advertising it. The removal is
+ * deliberate (a confirmation step) because it stops payment links working —
+ * which #64's banner and server-side 409 then say plainly.
+ */
+describe('removing the account (#163)', () => {
+  it('offers no removal when there is no account saved', async () => {
+    mockFetch(() => jsonResponse({ organization: { bank_name: null, bank_clabe: null } }));
+
+    render(<BankAccountCard />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Banco/i)).toHaveValue('');
+    });
+    expect(screen.queryByRole('button', { name: /Quitar cuenta/i })).not.toBeInTheDocument();
+  });
+
+  it('asks for confirmation before removing, and names the consequence', async () => {
+    mockFetch(() => jsonResponse(CONFIGURED_ORG));
+
+    render(<BankAccountCard />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
+
+    // Plain language, not "el campo se borrará": what stops working.
+    expect(await screen.findByText(/tus enlaces de pago dejarán de funcionar/i)).toBeInTheDocument();
+  });
+
+  it('does not PATCH anything while the confirmation is open', async () => {
+    const spy = mockFetch(() => jsonResponse(CONFIGURED_ORG));
+
+    render(<BankAccountCard />);
+    fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
+
+    expect(spy.mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(0);
+  });
+
+  it('sends an empty CLABE and clears the form once confirmed', async () => {
+    const spy = mockFetch((url, init) => {
+      if (init?.method === 'PATCH') {
+        return jsonResponse({
+          organization: { bank_name: null, bank_clabe: null, bank_account_holder: null },
+        });
+      }
+      return jsonResponse(CONFIGURED_ORG);
+    });
+
+    render(<BankAccountCard />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Sí, quitar cuenta/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/CLABE/i)).toHaveValue('');
+    });
+
+    const patch = spy.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(patch).toBeDefined();
+    expect(JSON.parse(patch![1]!.body as string).bankClabe).toBe('');
+    // The form reflects the server's answer, not an optimistic local wipe.
+    expect(screen.getByLabelText(/Banco/i)).toHaveValue('');
+  });
+
+  it('keeps the account on screen when the server refuses the removal', async () => {
+    mockFetch((url, init) => {
+      if (init?.method === 'PATCH') {
+        return jsonResponse(
+          { error: { code: 'SERVER_ERROR', message: 'No se pudo guardar la cuenta bancaria' } },
+          false,
+          500
+        );
+      }
+      return jsonResponse(CONFIGURED_ORG);
+    });
+
+    render(<BankAccountCard />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Sí, quitar cuenta/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/No se pudo guardar la cuenta bancaria/i)).toBeInTheDocument();
+    });
+    // Hard rule #1: the row still holds the account, so the form must too.
+    expect(screen.getByLabelText(/CLABE/i)).toHaveValue('0121 8000 1234 5678 90');
+  });
+});

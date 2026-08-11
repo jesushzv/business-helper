@@ -102,18 +102,39 @@ export async function PATCH(request: Request) {
     if (hasBankPayload) {
       const clabe = typeof bankClabe === 'string' ? normalizeClabe(bankClabe) : '';
 
-      if (!isValidClabeLength(clabe)) {
+      // An explicitly emptied CLABE removes the account (#163). Until this
+      // branch existed a saved account could be replaced but never taken away,
+      // so a tenant whose bank account had closed had no way to stop
+      // advertising it short of a hand edit against production — while the
+      // schema had allowed the state all along (`chk_org_bank_clabe_format` is
+      // `bank_clabe IS NULL OR ~ '^[0-9]{18}$'`).
+      //
+      // Safe precisely because of #64: with no CLABE the tenant gets a
+      // non-dismissable banner, disabled share actions, and a 409 before any
+      // /pay/ link reaches a client. Removal produces a handled state, not a
+      // silent hole.
+      //
+      // Keyed on the CLABE being *present and empty*, never on the key being
+      // absent — a profile save carries no bank keys and must not wipe the
+      // account as a side effect (the `hasBankPayload` guard above), and the
+      // other two columns follow the CLABE out so no half-account is left
+      // behind for the payer page to read.
+      const isExplicitClear = typeof bankClabe === 'string' && clabe.length === 0;
+
+      if (isExplicitClear) {
+        update.bank_clabe = null;
+        update.bank_name = null;
+        update.bank_account_holder = null;
+      } else if (!isValidClabeLength(clabe)) {
         return NextResponse.json(
           { error: { code: 'INVALID_CLABE', message: 'La CLABE debe tener exactamente 18 dígitos' } },
           { status: 400 }
         );
-      }
-
-      // Enforced server-side since #66 (decided 2026-08-08): this is the
-      // account a tenant's clients wire real money to, and the checksum
-      // catches the transposition and single-digit typos a length check
-      // cannot. Rejecting here beats a misdirected SPEI transfer later.
-      if (!hasValidClabeCheckDigit(clabe)) {
+      } else if (!hasValidClabeCheckDigit(clabe)) {
+        // Enforced server-side since #66 (decided 2026-08-08): this is the
+        // account a tenant's clients wire real money to, and the checksum
+        // catches the transposition and single-digit typos a length check
+        // cannot. Rejecting here beats a misdirected SPEI transfer later.
         return NextResponse.json(
           {
             error: {
@@ -124,21 +145,19 @@ export async function PATCH(request: Request) {
           },
           { status: 400 }
         );
-      }
-
-      if (!bankName || typeof bankName !== 'string' || !bankName.trim()) {
+      } else if (!bankName || typeof bankName !== 'string' || !bankName.trim()) {
         return NextResponse.json(
           { error: { code: 'INVALID_INPUT', message: 'El nombre del banco es obligatorio' } },
           { status: 400 }
         );
+      } else {
+        update.bank_name = bankName.trim();
+        update.bank_clabe = clabe;
+        update.bank_account_holder =
+          typeof bankAccountHolder === 'string' && bankAccountHolder.trim()
+            ? bankAccountHolder.trim()
+            : null;
       }
-
-      update.bank_name = bankName.trim();
-      update.bank_clabe = clabe;
-      update.bank_account_holder =
-        typeof bankAccountHolder === 'string' && bankAccountHolder.trim()
-          ? bankAccountHolder.trim()
-          : null;
     }
 
     if (body.name !== undefined) {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Landmark, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Landmark, Save, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 import { formatClabe, normalizeClabe, isValidClabeLength } from '@/lib/clabe';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 
@@ -28,6 +28,8 @@ export const BankAccountCard: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [confirmingRemoval, setConfirmingRemoval] = useState(false);
+  const [savedClabe, setSavedClabe] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +44,10 @@ export const BankAccountCard: React.FC = () => {
           bank_clabe: org.bank_clabe ? formatClabe(org.bank_clabe) : '',
           bank_account_holder: org.bank_account_holder || '',
         });
+        // What the *server* holds, kept apart from what is typed in the form:
+        // the removal action is offered against the saved account, not against
+        // whatever is in the inputs at the moment (#163).
+        setSavedClabe(org.bank_clabe || null);
       })
       .catch(() => {})
       .finally(() => {
@@ -91,6 +97,7 @@ export const BankAccountCard: React.FC = () => {
       // confirmation, not a modal that just closes (#146's shape). The inline
       // `saved` state stays as the persistent marker next to the field.
       setSaved(true);
+      setSavedClabe(data?.organization?.bank_clabe || null);
       setTimeout(() => setSaved(false), 3000);
       result.succeed({
         title: 'Cuenta bancaria guardada',
@@ -98,6 +105,52 @@ export const BankAccountCard: React.FC = () => {
       });
     } catch {
       setError('No se pudo guardar la cuenta bancaria');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Removes the account (#163).
+   *
+   * An empty `bankClabe` is the API's explicit-clear signal; the route nulls
+   * all three columns together. The form is repainted from the **server's**
+   * answer rather than blanked optimistically, so a refused removal leaves the
+   * account visible exactly as the row still holds it (hard rule #1).
+   */
+  const handleRemove = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/organization', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bankName: '', bankClabe: '', bankAccountHolder: '' }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(data?.error?.message || 'No se pudo quitar la cuenta bancaria');
+        return;
+      }
+
+      const org = data?.organization ?? {};
+      setForm({
+        bank_name: org.bank_name || '',
+        bank_clabe: org.bank_clabe ? formatClabe(org.bank_clabe) : '',
+        bank_account_holder: org.bank_account_holder || '',
+      });
+      setSavedClabe(org.bank_clabe || null);
+      setConfirmingRemoval(false);
+      result.succeed({
+        title: 'Cuenta bancaria quitada',
+        message:
+          'Tus enlaces de pago ya no muestran instrucciones. Guarda una cuenta nueva cuando la tengas.',
+      });
+    } catch {
+      setError('No se pudo quitar la cuenta bancaria');
     } finally {
       setSaving(false);
     }
@@ -207,6 +260,57 @@ export const BankAccountCard: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {/*
+        Removal (#163). Offered only against an account the server actually
+        holds, and only through a confirmation that says what stops working —
+        this is where a tenant's clients send money, so "quitar" is not an
+        action to fire on one tap.
+      */}
+      {savedClabe && !confirmingRemoval && (
+        <div className="mt-4 border-t border-slate-800 pt-4">
+          <button
+            type="button"
+            onClick={() => setConfirmingRemoval(true)}
+            disabled={saving}
+            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/60 px-6 py-3.5 text-sm font-bold text-slate-300 transition-all hover:border-rose-500/40 hover:text-rose-300 active:scale-95 disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span>Quitar cuenta</span>
+          </button>
+        </div>
+      )}
+
+      {savedClabe && confirmingRemoval && (
+        <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-950/40 p-4">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+            <p className="text-xs font-bold text-rose-200">
+              Si quitas esta cuenta, tus enlaces de pago dejarán de funcionar y tus clientes no
+              podrán pagarte por transferencia hasta que guardes otra.
+            </p>
+          </div>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={saving}
+              className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-2xl bg-rose-500 px-6 py-3.5 text-sm font-bold text-slate-950 shadow-md transition-all hover:bg-rose-400 active:scale-95 disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>{saving ? 'Quitando...' : 'Sí, quitar cuenta'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingRemoval(false)}
+              disabled={saving}
+              className="flex min-h-[48px] flex-1 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/60 px-6 py-3.5 text-sm font-bold text-slate-300 transition-all hover:text-white active:scale-95 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
       <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
   );
