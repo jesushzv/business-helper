@@ -544,6 +544,7 @@ no-invented-bank path stays pinned by unit tests until a first real payment.
   the debt grew unnoticed.) Follow-up: `next/image` for the PNG sites,
   [#82](https://github.com/jesushzv/business-helper/issues/82) (P2).
 
+
 ## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
 
 Settled history: all four verified closed on the tracker at the time, moved here verbatim when
@@ -564,3 +565,11 @@ Settled history: all four verified closed on the tracker at the time, moved here
 | [#79](https://github.com/jesushzv/business-helper/issues/79) | The PGRST201 prediction confirmed against live PostgREST; both embeds hinted, scan test pinning the pattern |
 | [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
 | [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |
+
+---
+
+## OTP email-channel verification, moved off `docs/STATUS.md` (2026-08-11)
+
+Verbatim from the §02 row, collapsed there to one line when the file reached its size budget.
+
+| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
