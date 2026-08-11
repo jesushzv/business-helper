@@ -92,12 +92,12 @@ graph TD
      - `STRIPE_PRICE_EMPRESA`: Exact Stripe Price ID for Empresa tier
      - **Verify before charging anyone**: `npm run verify:stripe` with the same variables exported locally. It reads the account and every price back from Stripe and fails if the account cannot take charges, a price id does not exist in that mode, or a tier bills an amount the pricing page does not advertise. Every request it makes is a GET, so it is safe against the live account. A tier with no Price ID cannot be sold at all — checkout answers `503 STRIPE_PRICE_NOT_CONFIGURED`.
    - **OTP Delivery (Required for e-signature)**:
-     - `OTP_DELIVERY_CHANNEL`: `sms` or `whatsapp`. Unset fails closed in production — the signing flow returns 502.
-     - For `sms`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER`
-     - For `whatsapp` via Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`
-     - For `whatsapp` via Meta: `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID`
-     - **Verify before trusting the channel**: `npm run verify:otp` with the same variables exported locally. It names any variable the selected provider is missing and authenticates against Twilio/Meta without sending. Add `OTP_TEST_PHONE=+52…` to send one sample message to a handset you control. Half-configured credentials return the same 502 as no configuration at all, so the first person to notice would otherwise be a signer.
-     - Clients need `clients.phone` populated; the issue endpoint answers 422 without it.
+     - `OTP_DELIVERY_CHANNEL`: `email` (launch channel), or the deprecated `sms` / `whatsapp`. Unset fails closed in production — the signing flow returns 502.
+     - For `email`: `RESEND_API_KEY`, `OTP_EMAIL_FROM` (the from-domain must be verified in Resend — DNS records on `businesshelper.app`). The code goes to `clients.email`; a client without one gets a 422 naming the missing field.
+     - For `sms` (deprecated): `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER`
+     - For `whatsapp` (deprecated) via Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`; via Meta: `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID`
+     - **Verify before trusting the channel**: `npm run verify:otp` with the same variables exported locally. It names any variable the selected provider is missing and authenticates against Resend/Twilio/Meta without sending. Add `OTP_TEST_EMAIL=you@…` (or `OTP_TEST_PHONE=+52…` on the deprecated channels) to send one sample message to an inbox or handset you control. Half-configured credentials return the same 502 as no configuration at all, so the first person to notice would otherwise be a signer.
+     - Clients need the channel's contact populated — `clients.email` on the email channel, `clients.phone` on the deprecated ones; the issue endpoint answers 422 naming the missing field.
    - **CFDI 4.0 Invoicing**:
      - `PAC_ENCRYPTION_KEY`: 32 bytes (base64 or hex) sealing the PAC API keys tenants connect. Required before anyone can connect a PAC; without it `/api/organization/pac` answers 503 rather than storing a credential in plaintext.
      - `FACTURAPI_SECRET_KEY` (optional): the platform's own PAC key (`sk_live_...`), used by tenants who have not connected one. Their stamps consume the folios their plan includes. A `sk_test_` key is refused in production — it produces documents with no fiscal validity.
@@ -308,14 +308,19 @@ the webhook that recorded it passed signature verification.
 is not logged in and the quote token is the whole credential. Until the
 remediation of issue #17 its only bound was a 30s cooldown on
 `quotes.client_otp_sent_at`, which is per quote: a client with several open
-quotes has several valid tokens resolving to one `clients.phone`, so cycling
-between them issued a code on every request. Every send is a billable
-Twilio/Meta message, and on SMS that is the pattern carriers flag as pumping.
+quotes has several valid tokens resolving to one client contact, so cycling
+between them issued a code on every request. On the deprecated sms/whatsapp
+channels every send is a billable Twilio/Meta message — on SMS the pattern
+carriers flag as pumping; on email an unmetered loop is how a sending domain
+lands on a blocklist.
 
 **Migrations required.** `20260807000000_otp_send_rate_limit.sql` creates
-`otp_send_log`, the persisted counter the limit reads, and
+`otp_send_log`, the persisted counter the limit reads,
 `20260809120000_otp_send_delivery_failed.sql` adds the flag that lets a
-provider failure release its lifetime slot (#60). Counters have to be
+provider failure release its lifetime slot (#60), and
+`20260811120000_otp_email_recipient.sql` widens the ledger's recipient CHECK so
+the email channel's keys (lowercased addresses) are accepted alongside E.164
+phones — without it every email-channel send fails closed. Counters have to be
 persisted: Vercel functions share no memory, so an in-process counter would
 reset on a cold start and limit nothing. **Without the table the endpoint
 returns 500 rather than sending unmetered codes** — apply migrations before
@@ -325,9 +330,9 @@ Current limits (`lib/otpRateLimit.ts`, revised for #22/#60):
 
 | Bound | Value | Keyed on |
 |---|---|---|
-| Resend backoff | 30s doubling per send this hour (30s → 60s → 120s → …), capped at 15 min | The recipient phone |
-| Hourly window | 5 codes per rolling hour | The recipient phone, across every quote |
-| Daily window | 15 codes per rolling 24h | The recipient phone, across every quote |
+| Resend backoff | 30s doubling per send this hour (30s → 60s → 120s → …), capped at 15 min | The recipient (email or phone) |
+| Hourly window | 5 codes per rolling hour | The recipient, across every quote |
+| Daily window | 15 codes per rolling 24h | The recipient, across every quote |
 | Lifetime cap | 10 **delivered** codes | One quote |
 
 The backoff replaced the flat 30-second per-quote cooldown: same first step,
@@ -345,8 +350,8 @@ on the lifetime cap, where waiting does not help.
 **Checklist:**
 - [ ] Two quotes belonging to the same client share one budget: alternating between their tokens stops at the hourly cap instead of sending on every request
 - [ ] The cap holds across separate serverless invocations (verify from the deployed URL, not `next dev`)
-- [ ] A different client's phone still receives codes while the first is capped
-- [ ] Rows appear in `otp_send_log` with `phone_e164` in E.164, and the table returns nothing to the anon key
+- [ ] A different client's contact still receives codes while the first is capped
+- [ ] Rows appear in `otp_send_log` with `phone_e164` holding the normalized recipient (lowercased email on the email channel; E.164 on the deprecated ones), and the table returns nothing to the anon key
 
 ---
 

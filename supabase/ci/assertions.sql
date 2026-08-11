@@ -101,17 +101,29 @@ END
 $$;
 
 -- ---------------------------------------------------------------------------
--- 3. The OTP ledger's phone CHECK: rejects a bare national number, accepts
---    E.164 (the constraint #17 verified by hand, now verified on every PR).
+-- 3. The OTP ledger's recipient CHECK: rejects a bare national number and an
+--    uppercased email, accepts E.164 and a lowercased email (the E.164 half is
+--    the constraint #17 verified by hand; the email half is the launch
+--    channel's key).
 -- ---------------------------------------------------------------------------
 DO $$
 BEGIN
   BEGIN
     INSERT INTO public.otp_send_log (phone_e164) VALUES ('8115559988');
-    RAISE EXCEPTION 'chk_otp_send_log_phone_e164 accepted a non-E.164 number';
+    RAISE EXCEPTION 'chk_otp_send_log_recipient accepted a non-E.164 number';
   EXCEPTION
     WHEN check_violation THEN NULL; -- correct
   END;
+  BEGIN
+    INSERT INTO public.otp_send_log (phone_e164) VALUES ('Cliente@CI.example');
+    RAISE EXCEPTION 'chk_otp_send_log_recipient accepted a non-lowercased email — two casings, two budgets';
+  EXCEPTION
+    WHEN check_violation THEN NULL; -- correct
+  END;
+  -- The accepting side, so the rejections above cannot pass vacuously against
+  -- a constraint that refuses everything.
+  INSERT INTO public.otp_send_log (phone_e164, quote_id, channel)
+  VALUES ('cliente@ci.example', '00000000-0000-4000-8000-0000000000d1', 'email');
 END
 $$;
 

@@ -18,7 +18,8 @@ vi.mock('@/lib/otpDelivery', () => ({
 
 const markOtpSendDeliveryFailed = vi.fn(async (..._args: unknown[]) => undefined);
 vi.mock('@/lib/otpRateLimit', () => ({
-  normalizeOtpRecipient: (phone: string) => `+52${phone}`,
+  normalizeOtpPhone: (phone: string) => `+52${phone}`,
+  normalizeOtpEmail: (email: string) => email.trim().toLowerCase(),
   checkResendBackoff: async () => ({ allowed: true }),
   reserveOtpSend: async () => ({ allowed: true, sendId: 'send-1' }),
   markOtpSendDeliveryFailed: (...args: unknown[]) => markOtpSendDeliveryFailed(...args),

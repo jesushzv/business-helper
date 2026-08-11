@@ -38,7 +38,11 @@ describe('getDeliveryChannel / isDeliveryConfigured', () => {
     expect(isDeliveryConfigured()).toBe(false);
   });
 
-  it('reads sms and whatsapp from the environment', () => {
+  it('reads email, sms and whatsapp from the environment', () => {
+    process.env.OTP_DELIVERY_CHANNEL = 'email';
+    expect(getDeliveryChannel()).toBe('email');
+    expect(isDeliveryConfigured()).toBe(true);
+
     process.env.OTP_DELIVERY_CHANNEL = 'sms';
     expect(getDeliveryChannel()).toBe('sms');
     expect(isDeliveryConfigured()).toBe(true);
@@ -65,6 +69,7 @@ describe('describeDeliveryConfig', () => {
       provider: 'console',
       ready: false,
       missing: ['OTP_DELIVERY_CHANNEL'],
+      deprecated: false,
     });
   });
 
@@ -86,7 +91,13 @@ describe('describeDeliveryConfig', () => {
       TWILIO_PHONE_NUMBER: '+14155238886',
     });
 
-    expect(report).toEqual({ channel: 'sms', provider: 'twilio_sms', ready: true, missing: [] });
+    expect(report).toEqual({
+      channel: 'sms',
+      provider: 'twilio_sms',
+      ready: true,
+      missing: [],
+      deprecated: true,
+    });
   });
 
   it('selects the provider the send would actually use on whatsapp', () => {
@@ -128,6 +139,31 @@ describe('describeDeliveryConfig', () => {
     expect(report.missing).toEqual(['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN']);
   });
 
+  it('resolves the email channel to Resend and names what it is missing', () => {
+    const notReady = describeDeliveryConfig({ OTP_DELIVERY_CHANNEL: 'email' });
+    expect(notReady).toEqual({
+      channel: 'email',
+      provider: 'resend_email',
+      ready: false,
+      missing: ['RESEND_API_KEY', 'OTP_EMAIL_FROM'],
+      deprecated: false,
+    });
+
+    const ready = describeDeliveryConfig({
+      OTP_DELIVERY_CHANNEL: 'email',
+      RESEND_API_KEY: 're_test_key',
+      OTP_EMAIL_FROM: 'Business Helper <firmas@businesshelper.app>',
+    });
+    expect(ready.ready).toBe(true);
+    expect(ready.missing).toEqual([]);
+  });
+
+  it('marks the phone channels deprecated and the email channel not', () => {
+    expect(describeDeliveryConfig({ OTP_DELIVERY_CHANNEL: 'email' }).deprecated).toBe(false);
+    expect(describeDeliveryConfig({ OTP_DELIVERY_CHANNEL: 'sms' }).deprecated).toBe(true);
+    expect(describeDeliveryConfig({ OTP_DELIVERY_CHANNEL: 'whatsapp' }).deprecated).toBe(true);
+  });
+
   it('reads process.env when no environment is passed', () => {
     process.env.OTP_DELIVERY_CHANNEL = 'whatsapp';
     process.env.TWILIO_ACCOUNT_SID = 'AC_test_sid';
@@ -160,6 +196,128 @@ describe('console channel (no provider configured)', () => {
 
     expect(result.delivered).toBe(false);
     expect(result.devCode).toBeNull();
+  });
+});
+
+describe('email channel (Resend) — the launch channel', () => {
+  const EMAIL = 'cliente@empresa.mx';
+
+  beforeEach(() => {
+    process.env.OTP_DELIVERY_CHANNEL = 'email';
+    process.env.RESEND_API_KEY = 're_test_key';
+    process.env.OTP_EMAIL_FROM = 'Business Helper <firmas@businesshelper.app>';
+  });
+
+  it('POSTs to the Resend API with the code in the body, never the subject', async () => {
+    const spy = stubFetch(() => jsonResponse({ id: 'email_real_id' }));
+
+    const result = await deliverOtp(EMAIL, CODE);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toBe('https://api.resend.com/emails');
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer re_test_key');
+
+    const body = JSON.parse(init.body as string);
+    expect(body.from).toBe('Business Helper <firmas@businesshelper.app>');
+    expect(body.to).toEqual([EMAIL]);
+    expect(body.text).toContain(CODE);
+    // A subject surfaces in lock-screen previews; the code stays in the body.
+    expect(body.subject).not.toContain(CODE);
+
+    expect(result.delivered).toBe(true);
+    expect(result.channel).toBe('email');
+    expect(result.devCode).toBeNull();
+  });
+
+  it('normalizes the recipient before sending, one inbox one form', async () => {
+    const spy = stubFetch(() => jsonResponse({ id: 'email_x' }));
+
+    await deliverOtp('  Cliente@Empresa.MX ', CODE);
+
+    const body = JSON.parse(spy.mock.calls[0][1].body as string);
+    expect(body.to).toEqual(['cliente@empresa.mx']);
+  });
+
+  it('reports a rejected send as a failure without leaking the api key', async () => {
+    stubFetch(() => jsonResponse({ name: 'validation_error' }, false, 403));
+
+    const result = await deliverOtp(EMAIL, CODE);
+
+    expect(result.delivered).toBe(false);
+    expect(result.error).toContain('403');
+    expect(JSON.stringify(result)).not.toContain('re_test_key');
+  });
+
+  it('reports missing configuration as a failure without calling the network', async () => {
+    delete process.env.RESEND_API_KEY;
+    const spy = stubFetch(() => jsonResponse({}));
+
+    const result = await deliverOtp(EMAIL, CODE);
+
+    expect(result.delivered).toBe(false);
+    expect(result.error).toContain('RESEND_API_KEY');
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unusable email before calling any provider', async () => {
+    const spy = stubFetch(() => jsonResponse({}));
+
+    const result = await deliverOtp('no-es-un-correo', CODE);
+
+    expect(result.delivered).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('never echoes the code back when a provider is configured', async () => {
+    stubFetch(() => jsonResponse({ id: 'email_x' }));
+    const result = await deliverOtp(EMAIL, CODE);
+    expect(result.devCode).toBeNull();
+  });
+
+  it('does not log the deprecation warning the phone channels get', async () => {
+    stubFetch(() => jsonResponse({ id: 'email_x' }));
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await deliverOtp(EMAIL, CODE);
+
+    expect(warned).not.toHaveBeenCalled();
+    warned.mockRestore();
+  });
+
+  it('names resend_email in the operator failure line, without the code', async () => {
+    stubFetch(() => jsonResponse({ name: 'application_error' }, false, 500));
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await deliverOtp(EMAIL, CODE);
+
+    expect(logged).toHaveBeenCalledTimes(1);
+    const line = logged.mock.calls[0][0] as string;
+    expect(line).toContain('resend_email');
+    expect(line).not.toContain(CODE);
+
+    logged.mockRestore();
+  });
+});
+
+describe('deprecated phone channels still deliver, with a warning', () => {
+  it('sms sends but logs the deprecation nudge', async () => {
+    process.env.OTP_DELIVERY_CHANNEL = 'sms';
+    process.env.TWILIO_ACCOUNT_SID = 'AC_test_sid';
+    process.env.TWILIO_AUTH_TOKEN = 'test_auth_token';
+    process.env.TWILIO_SMS_NUMBER = '+14155238886';
+    stubFetch(() => jsonResponse({ sid: 'SM_ok' }));
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await deliverOtp(PHONE, CODE);
+
+    expect(result.delivered).toBe(true);
+    expect(warned).toHaveBeenCalledTimes(1);
+    expect(warned.mock.calls[0][0]).toContain('deprecated');
+    expect(warned.mock.calls[0][0]).toContain('email');
+
+    warned.mockRestore();
   });
 });
 

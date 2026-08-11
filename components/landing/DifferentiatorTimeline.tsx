@@ -35,7 +35,7 @@ export const STEPS = [
     icon: Smartphone,
     badge: 'Evidencia legal certificada',
     description:
-      'Aprobación digital mediante código OTP al celular. Sin contraseñas complicadas ni papeles firmados a mano.',
+      'Aprobación digital mediante código OTP al correo del cliente. Sin contraseñas complicadas ni papeles firmados a mano.',
   },
   {
     step: '04',
