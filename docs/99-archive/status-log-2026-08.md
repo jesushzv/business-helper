@@ -543,3 +543,24 @@ no-invented-bank path stays pinned by unit tests until a first real payment.
   warning. (The count was recorded as 1, 3 and 23 before settling at 22 — a fail-open gate is how
   the debt grew unnoticed.) Follow-up: `next/image` for the PNG sites,
   [#82](https://github.com/jesushzv/business-helper/issues/82) (P2).
+
+## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
+
+Settled history: all four verified closed on the tracker at the time, moved here verbatim when
+`STATUS.md` reached its size budget.
+
+| Issue | What it was | Closed by |
+|:--|:--|:--|
+| [#33](https://github.com/jesushzv/business-helper/issues/33) | Payment confirmation | PR #55 |
+| [#36](https://github.com/jesushzv/business-helper/issues/36) | `.mx` quote links | PR #47 |
+| [#37](https://github.com/jesushzv/business-helper/issues/37) | Product analytics | PR #56 |
+| [#58](https://github.com/jesushzv/business-helper/issues/58) | The public signing page rendering a fixture quote for every token — never listed as a P0 and worse than several that were | PR #57 |
+
+
+## Rows resolved off `docs/STATUS.md` on 2026-08-08, moved here 2026-08-11
+
+| Issue | Resolution |
+|:--|:--|
+| [#79](https://github.com/jesushzv/business-helper/issues/79) | The PGRST201 prediction confirmed against live PostgREST; both embeds hinted, scan test pinning the pattern |
+| [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
+| [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |

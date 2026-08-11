@@ -152,3 +152,70 @@ describe('SubscriptionBillingCard — a plan is only "current" when the row says
     ).toBe(false);
   });
 });
+
+/**
+ * #127 — Ajustes blanked the régimen fiscal of any tenant who chose one its
+ * own hardcoded list did not carry.
+ *
+ * The four screens offering a régimen each had their own copy of the SAT
+ * catalogue and no two agreed; `OrgProfileCard`'s was the only one missing
+ * 606 (Arrendamiento), which registration offered. A `<select>` whose value
+ * matches no option renders blank, so the tenant could not see their own
+ * régimen — and the moment they touched the dropdown to fix it, the value
+ * their CFDIs are stamped with was overwritten.
+ */
+describe('OrgProfileCard — régimen fiscal (#127)', () => {
+  const select = () => document.querySelector('select[name="regimen_fiscal"]') as HTMLSelectElement;
+
+  it('shows a régimen registration offers but the old Ajustes list omitted', () => {
+    render(
+      <OrgProfileCard
+        settings={{ ...SERVER_ROW, regimen_fiscal: '606' }}
+        onSave={vi.fn(async () => true)}
+        saving={false}
+        canEdit
+      />
+    );
+
+    // The defect was a *blank* select: value set, no matching option.
+    expect(select().value).toBe('606');
+    const chosen = Array.from(select().options).find((o) => o.value === '606');
+    expect(chosen).toBeTruthy();
+    expect(chosen?.text).toContain('Arrendamiento');
+  });
+
+  it('keeps a stored code the catalogue does not list visible and selected', () => {
+    render(
+      <OrgProfileCard
+        settings={{ ...SERVER_ROW, regimen_fiscal: '699' }}
+        onSave={vi.fn(async () => true)}
+        saving={false}
+        canEdit
+      />
+    );
+
+    expect(select().value).toBe('699');
+    const stored = Array.from(select().options).find((o) => o.value === '699');
+    expect(stored?.text).toContain('código guardado');
+    // Absent and present-but-unlisted are different facts: the placeholder is
+    // for "nothing chosen", and this tenant has chosen something.
+    expect(
+      Array.from(select().options).some((o) => o.text.includes('Selecciona tu régimen'))
+    ).toBe(false);
+  });
+
+  it('offers the placeholder only when nothing is stored', () => {
+    render(
+      <OrgProfileCard
+        settings={{ ...SERVER_ROW, regimen_fiscal: '' }}
+        onSave={vi.fn(async () => true)}
+        saving={false}
+        canEdit
+      />
+    );
+    expect(select().value).toBe('');
+    expect(
+      Array.from(select().options).some((o) => o.text.includes('Selecciona tu régimen'))
+    ).toBe(true);
+  });
+});

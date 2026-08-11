@@ -28,6 +28,8 @@ import {
   Clock,
 } from 'lucide-react';
 import { Client } from '@/types';
+import { findRegimen } from '@/lib/satRegimenes';
+import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -45,6 +47,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   } = useReceivables();
   const { org } = useCurrentOrg();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const confirmAction = useConfirm();
 
   const client = getClientById(id);
 
@@ -106,11 +109,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     await updateClient(id, data);
   };
 
-  const handleDelete = async () => {
-    if (confirm(`¿Estás seguro de eliminar a ${client.name}?`)) {
-      await deleteClient(id);
-      router.push('/clients');
-    }
+  const handleDelete = () => {
+    confirmAction.ask({
+      title: `Eliminar a ${client.name}`,
+      consequence:
+        'Se quitará de tu directorio junto con su historial en esta pantalla. Sus cotizaciones y cobros ya emitidos no se borran.',
+      confirmLabel: 'Sí, eliminar cliente',
+      onConfirm: async () => {
+        await deleteClient(id);
+        router.push('/clients');
+      },
+    });
   };
 
   const waMessage = buildClientGreeting(client.contact_name || client.name, org?.name);
@@ -370,7 +379,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   that decides whether an invoice can be issued at all (#96). */}
               <div className="mt-4 space-y-3">
                 {([
-                  ['Régimen Fiscal', client.regimen_fiscal],
+                  // The stored value is a bare SAT code; "606" is not an
+                  // answer to "what régimen is this client on". The shared
+                  // catalogue names it, and a code it does not carry falls
+                  // back to the code itself rather than to nothing (#127).
+                  [
+                    'Régimen Fiscal',
+                    client.regimen_fiscal
+                      ? (findRegimen(client.regimen_fiscal)?.label ?? client.regimen_fiscal)
+                      : client.regimen_fiscal,
+                  ],
                   ['Uso de CFDI', client.cfdi_use],
                   ['Código Postal', client.codigo_postal],
                 ] as const).map(([label, value]) => (
@@ -424,6 +442,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         onSave={handleUpdate}
         initialClient={client}
       />
+
+      <ConfirmDialog request={confirmAction.request} onClose={confirmAction.dismiss} />
     </div>
   );
 }
