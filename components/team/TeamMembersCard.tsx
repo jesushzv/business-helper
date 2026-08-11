@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTeamMembers } from '@/lib/hooks/useTeamMembers';
 import { UserRole } from '@/lib/teamRBAC';
 import { Users, UserPlus, Shield, Mail, Link2, Clock, Copy, Check } from 'lucide-react';
+import { Modal } from '@/components/shared/Modal';
 
 /**
  * The invite modal used to close on a green "Invitación enviada exitosamente"
@@ -172,19 +173,20 @@ export function TeamMembersCard() {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-800 text-white">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+        <Modal
+          open
+          onClose={closeModal}
+          title="Invitar Colaborador"
+          maxWidth="max-w-md"
+          dismissOnBackdrop={false}
+          panelClassName="p-6"
+        >
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 pr-12">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-indigo-400" />
                 Invitar Colaborador
               </h3>
-              <button
-                onClick={closeModal}
-                className="text-slate-400 hover:text-white p-2 rounded-lg"
-              >
-                ✕
-              </button>
             </div>
 
             {error && (
@@ -281,7 +283,7 @@ export function TeamMembersCard() {
               </form>
             )}
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

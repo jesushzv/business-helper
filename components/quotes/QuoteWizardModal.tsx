@@ -11,7 +11,8 @@ import {
 import { calculateQuoteTotals } from '@/lib/quoteCalculator';
 import { calculateClientCreditSummary, validateQuoteCreditLimit } from '@/lib/clientCredit';
 import { useReceivables } from '@/lib/hooks/useReceivables';
-import { X, Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles, AlertTriangle } from 'lucide-react';
+import { Modal } from '@/components/shared/Modal';
 
 interface QuoteWizardModalProps {
   isOpen: boolean;
@@ -174,18 +175,18 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl max-w-2xl w-full p-6 sm:p-8 my-8 relative text-white">
-        {/* Close Button (>= 48px touch target) */}
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors border border-slate-700"
-        >
-          <X className="w-6 h-6" />
-        </button>
-
+    <Modal
+      open
+      onClose={onClose}
+      title="Generador de Cotización"
+      maxWidth="max-w-2xl"
+      // Three steps of typed work behind a backdrop tap.
+      dismissOnBackdrop={false}
+      panelClassName="p-6 sm:p-8"
+    >
+      <div>
         {/* Wizard Header */}
-        <div className="mb-6">
+        <div className="mb-6 pr-12">
           <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-3 py-1 rounded-full mb-2">
             <Sparkles className="w-3.5 h-3.5" /> Step {step} de 3 — Generador de Cotización
           </span>
@@ -307,9 +308,12 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleRemoveLineItem(index)}
-                          className="text-rose-400 hover:text-rose-300 p-1"
+                          // Repeated per row: without the number, a screen
+                          // reader announces N identical "eliminar" buttons.
+                          aria-label={`Eliminar concepto ${index + 1}`}
+                          className="flex h-12 w-12 items-center justify-center rounded-xl text-rose-400 hover:bg-rose-950/50 hover:text-rose-300"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       )}
                     </div>
@@ -531,6 +535,6 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 };

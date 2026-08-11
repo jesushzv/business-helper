@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { MilestoneWithClient, ReceivableMutationOutcome } from '@/lib/hooks/useReceivables';
-import { X, CheckCircle, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { CheckCircle, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Modal } from '@/components/shared/Modal';
 
 interface SpeiConfirmModalProps {
   isOpen: boolean;
@@ -67,19 +68,21 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   }).format(milestone.amount);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in duration-200 text-white">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+    <Modal
+      open
+      onClose={onClose}
+      title="Confirmación de Pago SPEI"
+      // A confirmed amount typed here writes money state; a stray backdrop tap
+      // must not discard it.
+      dismissOnBackdrop={false}
+      panelClassName="p-6"
+    >
+      <div>
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 pr-12">
           <div className="flex items-center gap-2 text-white font-bold text-lg">
             <ShieldCheck className="w-6 h-6 text-indigo-400" />
             <span>Confirmación de Pago SPEI</span>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
         <div className="space-y-4 mb-6">
@@ -179,6 +182,6 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </Modal>
   );
 };

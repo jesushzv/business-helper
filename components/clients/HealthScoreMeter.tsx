@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldCheck, ShieldAlert, ShieldX, HelpCircle, X, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, ShieldX, HelpCircle, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Modal } from '@/components/shared/Modal';
 import { calculateClientHealthScore, MilestonePaymentRecord } from '@/lib/clientHealthScore';
 
 interface HealthScoreMeterProps {
@@ -71,9 +72,12 @@ export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propS
     Icon = ShieldX;
   }
 
-  const toggleModal = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  // The meter sits inside a clickable client card, so opening the explainer
+  // must not also navigate. Escape and the Modal's close button call this with
+  // no event, hence the optional parameter.
+  const toggleModal = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
     setShowModal((prev) => !prev);
   };
 
@@ -131,15 +135,14 @@ export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propS
 
       {/* Health Score Methodology Modal */}
       {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md"
-          onClick={toggleModal}
+        <Modal
+          open
+          onClose={toggleModal}
+          title="Health Score Financiero (0-100)"
+          panelClassName="p-6"
         >
-          <div
-            className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl transition-all text-white"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+          <div>
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4 pr-12">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold">
                   <ShieldCheck className="h-6 w-6" />
@@ -149,13 +152,6 @@ export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propS
                   <p className="text-xs text-slate-400">Algoritmo de confiabilidad de cobro y pagos del cliente</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={toggleModal}
-                className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
 
             <div className="mt-4 space-y-4 text-xs text-slate-300">
@@ -228,7 +224,7 @@ export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propS
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

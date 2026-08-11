@@ -156,6 +156,14 @@ Transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-0
 open in #103/#99 and #113/#114/#123/#124, plus two gaps pinned by unit tests only: a non-owner's
 read-only Ajustes, and `/pay`'s no-invented-bank path, which needs a tenant with a contract.
 
+**The responsiveness/accessibility audit's modal findings are closed in code** (#87, #100): every
+overlay in the app is now `components/shared/Modal.tsx` — `role="dialog"`, Escape, focus trap and
+return, a named ≥48px close control, and the `max-h`/`overflow-y-auto` containment that decides
+whether the OTP submit is reachable on a 375px phone with the keyboard open. Verified by unit and
+component tests only (`modalShell`, `Modal`), including a planted violation shown to fail; **not yet
+exercised on a real handset**, which is the part no agent can supply. The audit's remaining
+findings — #88, #89, #90, #99, #101, #103, #104 — are untouched.
+
 **Resolved off this table on 2026-08-08:** [#79](https://github.com/jesushzv/business-helper/issues/79)
 — the PGRST201 prediction was **confirmed against live PostgREST** (every `/pay/` link had 404'd
 since the route existed) and both embeds are hinted, with a scan test pinning the pattern; closes

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, AlertCircle, Info, Building2, User, Mail, FileText, MapPin } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, Building2, User, Mail, FileText, MapPin } from 'lucide-react';
+import { Modal } from '@/components/shared/Modal';
 import { Client } from '@/types';
 import { validateRFC } from '@/lib/rfcValidator';
 import { looksLikeEmail, looksLikeCodigoPostal } from '@/lib/clientFieldHints';
@@ -262,18 +263,16 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-md">
-      <div className="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl transition-all sm:p-8 text-white">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
-          aria-label="Cerrar"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <h3 className="text-xl font-extrabold text-white">
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title={initialClient ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}
+      // The longest form in the app; a backdrop tap must not discard it.
+      dismissOnBackdrop={false}
+      panelClassName="p-6 sm:p-8"
+    >
+      <div>
+        <h3 className="text-xl font-extrabold text-white pr-12">
           {initialClient ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}
         </h3>
         <p className="mt-1 text-xs text-slate-400">
@@ -671,6 +670,6 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 };

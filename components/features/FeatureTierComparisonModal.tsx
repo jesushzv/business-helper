@@ -3,13 +3,13 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
-  X,
   Sparkles,
   ArrowRight,
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react';
 import { PAIN_POINTS_SOLUTIONS, APP_TIERS, VALUE_ADDS_ROI } from '@/lib/tierFeaturesData';
+import { Modal } from '@/components/shared/Modal';
 
 interface FeatureTierComparisonModalProps {
   isOpen: boolean;
@@ -25,10 +25,16 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-      <div className="relative my-8 w-full max-w-5xl rounded-3xl border border-slate-800 bg-slate-900 text-white shadow-2xl overflow-hidden">
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title="Planes, Funcionalidades y Valor PyME"
+      maxWidth="max-w-5xl"
+      panelClassName="p-0"
+    >
+      <div>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 px-6 py-5">
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 px-6 py-5 pr-20">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
               <Sparkles className="h-5 w-5" />
@@ -42,14 +48,6 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
               </p>
             </div>
           </div>
-
-          <button
-            onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"
-            aria-label="Cerrar modal"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         {/* Tab Controls */}
@@ -270,6 +268,6 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };

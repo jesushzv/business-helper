@@ -16,10 +16,10 @@ import {
   Bot,
   HelpCircle,
   Menu,
-  X,
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
+import { Modal } from '@/components/shared/Modal';
 import { DemoBanner } from '@/components/demo/DemoBanner';
 import { DemoSessionExit } from '@/components/demo/DemoSessionExit';
 import { SettlementAccountBanner } from '@/components/settlement/SettlementAccountBanner';
@@ -213,13 +213,15 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
       {/* Mobile Menu Drawer Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-slate-950/80 backdrop-blur-md md:hidden animate-in fade-in duration-200">
-          <div
-            className="fixed inset-0"
-            onClick={() => setIsMobileMenuOpen(false)}
-          />
-          <div className="relative z-10 max-h-[85vh] w-full rounded-t-3xl border-t border-slate-800 bg-slate-900 p-5 shadow-2xl overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <Modal
+          open
+          onClose={() => setIsMobileMenuOpen(false)}
+          title="Menú Principal"
+          variant="sheet"
+          panelClassName="md:hidden"
+        >
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 pr-12">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
                   <Building2 className="h-5 w-5" />
@@ -229,12 +231,6 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
                   {org?.name && <p className="truncate text-xs text-slate-400">{org.name}</p>}
                 </div>
               </div>
-              <button
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-2">
@@ -280,7 +276,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
               <p className="text-xs font-semibold text-slate-500">Business Helper v0.1.0 • SAT CFDI 4.0</p>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
