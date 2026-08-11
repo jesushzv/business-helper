@@ -43,6 +43,8 @@ const scenario: Scenario = {
 };
 
 const calls = { claimInserts: 0, claimDeletes: 0, updates: 0 };
+/** The column values the route actually wrote (#128). */
+const updateValues: Array<Record<string, unknown>> = [];
 
 vi.mock('@/lib/supabase/service', () => ({
   isServiceRoleConfigured: () => scenario.serviceRoleConfigured,
@@ -52,8 +54,9 @@ vi.mock('@/lib/supabase/service', () => ({
         if (table === 'stripe_webhook_events') calls.claimInserts += 1;
         return Promise.resolve({ error: scenario.claimError });
       },
-      update: () => {
+      update: (values: Record<string, unknown>) => {
         calls.updates += 1;
+        updateValues.push(values);
         return {
           eq: () => ({
             select: () =>
@@ -105,6 +108,7 @@ async function postWebhook(body: string, signatureHeader: string | null) {
 }
 
 beforeEach(() => {
+  updateValues.length = 0;
   scenario.updatedRows = [{ id: ORG }];
   scenario.updateError = null;
   scenario.claimError = null;
@@ -236,5 +240,54 @@ describe('#63 — a redelivery is not applied twice', () => {
     expect(status).toBe(200);
     expect(json.duplicate).toBe(true);
     expect(calls.updates).toBe(0);
+  });
+});
+
+/** A subscription event carrying a chosen status, or none at all. */
+function statusEvent(id: string, status: string | null) {
+  const object: Record<string, unknown> = {
+    metadata: { organization_id: ORG, tier_id: 'negocio' },
+    items: { data: [{ price: { id: 'price_negocio' } }] },
+  };
+  if (status) object.status = status;
+  return JSON.stringify({
+    id,
+    type: 'customer.subscription.updated',
+    data: { object },
+  });
+}
+
+describe('the app-side trial ends when Stripe takes over (#128)', () => {
+  it('clears trial_ends_at whenever a subscription status is written', async () => {
+    const body = statusEvent('evt_trial_clear_active', 'active');
+    const { status } = await postWebhook(body, signStripePayload(body, SECRET));
+
+    expect(status).toBe(200);
+    expect(updateValues[0]).toHaveProperty('subscription_status', 'active');
+    expect(updateValues[0]).toHaveProperty('trial_ends_at', null);
+  });
+
+  it('clears it for a Stripe-reported trialing status too', async () => {
+    // The one that matters. Stripe reports `trialing` for a subscription inside
+    // *its own* trial window, and resolveTrialState consults `trial_ends_at`
+    // while the status is that. An app-side date surviving here would refuse a
+    // quote to a customer who had just subscribed, because a trial they
+    // replaced by paying had lapsed — blocking on a fact no longer held.
+    const body = statusEvent('evt_trial_clear_trialing', 'trialing');
+    const { status } = await postWebhook(body, signStripePayload(body, SECRET));
+
+    expect(status).toBe(200);
+    expect(updateValues[0]).toHaveProperty('trial_ends_at', null);
+  });
+
+  it('does not touch the trial when the event establishes no status', async () => {
+    // An event that establishes nothing must not end a trial on its way past —
+    // the same rule the route already applies to subscription_status itself.
+    const body = statusEvent('evt_trial_untouched', null);
+    const { status } = await postWebhook(body, signStripePayload(body, SECRET));
+
+    expect(status).toBe(200);
+    expect(updateValues[0]).not.toHaveProperty('subscription_status');
+    expect(updateValues[0]).not.toHaveProperty('trial_ends_at');
   });
 });

@@ -262,3 +262,48 @@ describe('POST /api/quotes', () => {
     expect(res.status).toBe(201);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Which routes the gate reaches (#128).
+// ---------------------------------------------------------------------------
+
+describe('the trial gate covers exactly the decided surface', () => {
+  const read = (f: string) => readFileSync(f, 'utf8');
+
+  it('gates creating new commercial work', () => {
+    // The founder's decision was "no new quotes, contracts or CFDI", plus
+    // outbound reminders. Recorded as a list so adding a write route forces the
+    // question rather than defaulting to ungated.
+    for (const file of [
+      'app/api/quotes/route.ts',
+      'app/api/quotes/[id]/convert/route.ts',
+      'app/api/invoices/issue/route.ts',
+      'app/api/invoices/[id]/complement/route.ts',
+      'app/api/whatsapp/broadcast/route.ts',
+    ]) {
+      // Both the call and its result being acted on. Asserting the import
+      // alone passes for a gate that is wired up and never consulted — the
+      // shape #187 caught in its dirty-form guard, and the reason a planted
+      // import-only removal left this green on the first attempt.
+      expect(read(file), file).toMatch(/await readOrganizationTrialState\(/);
+      expect(read(file), file).toMatch(/if \(trial\.blocksNewWork\)/);
+    }
+  });
+
+  it('never gates collection, correction, billing, or a tenant’s own client', () => {
+    // Collecting what is already owed must not stop; billing is how a blocked
+    // tenant gets *out* of the blocked state; and the public routes belong to
+    // the buyer, who never agreed to anything with us.
+    for (const file of [
+      'app/api/receivables/[id]/confirm/route.ts',
+      'app/api/receivables/[id]/upload/route.ts',
+      'app/api/invoices/[id]/cancel/route.ts',
+      'app/api/stripe/checkout/route.ts',
+      'app/api/quotes/public/[token]/route.ts',
+      'app/api/quotes/public/[token]/otp/route.ts',
+      'app/api/receivables/public/[token]/route.ts',
+    ]) {
+      expect(read(file), file).not.toMatch(/readOrganizationTrialState/);
+    }
+  });
+});

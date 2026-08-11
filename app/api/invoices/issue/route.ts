@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { readOrganizationTrialState } from '@/lib/organizationTrialGate';
+import { TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE } from '@/lib/subscriptionTrial';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
@@ -55,6 +57,32 @@ export async function POST(request: Request) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
   const { supabase, organizationId, userId, role } = auth.ctx;
+
+    // #128 — the trial gate. Extended past quote creation on the founder's
+    // decision: the states blocked are "no new quotes, contracts or CFDI", and
+    // reminders. Stamping for work already closed was argued the other way in
+    // this PR's original scope; the call taken is that issuing a fiscal document
+    // is starting something, while *collecting* on one already issued is not —
+    // so payment confirmation, uploads and cancellation stay open, and this does
+    // not.
+    //
+    // Permissive on unknown, like the quotes route: readOrganizationTrialState
+    // answers "unknown" for any read it could not complete, and unknown never
+    // gates.
+    const trial = await readOrganizationTrialState(supabase, organizationId);
+    if (trial.blocksNewWork) {
+      return NextResponse.json(
+        {
+          error: {
+            code: TRIAL_EXPIRED_CODE,
+            message: TRIAL_EXPIRED_MESSAGE,
+            trial_ended_at: trial.endsAt,
+          },
+        },
+        { status: 402 }
+      );
+    }
+
 
   // Stamping commits the organization's RFC to a document it cannot withdraw
   // without filing a cancellation. It is not a `member` action.

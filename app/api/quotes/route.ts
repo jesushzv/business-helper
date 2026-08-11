@@ -67,12 +67,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // The trial gate (#128), and the only thing it gates. Starting *new* work
+    // The trial gate (#128). Starting *new* work
     // stops when the trial ends; everything already in flight keeps running —
     // quotes already sent can still be signed and paid, payments still confirm,
-    // and CFDIs for work already closed still stamp. A gate that stranded a
-    // tenant's clients mid-signature would be a worse product than charging
-    // nothing.
+    // and a client mid-signature is never blocked by their supplier's billing.
+    // Contract conversion, CFDI stamping, complementos and outbound reminders
+    // gate alongside this one, on the founder's decision; confirming a payment,
+    // uploading a receipt and cancelling a wrong CFDI do not.
     //
     // It does not fire at all until this deployment can actually take a payment
     // (#68): a paywall with no way through is a dead end, not a forcing
