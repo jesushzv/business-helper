@@ -5,6 +5,7 @@ import {
   pickFields,
   QUOTE_WRITABLE_FIELDS,
 } from '@/lib/apiAuth';
+import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
 
 /**
  * Quote collection.
@@ -61,6 +62,21 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: { code: 'INVALID_INPUT', message: 'El título es obligatorio' } },
         { status: 400 }
+      );
+    }
+
+    // The account this quote's client will be told to pay must belong to this
+    // organization. The FK proves the row exists, not whose it is, and the
+    // public payer route renders whatever it names through the service client.
+    const accountCheck = await checkQuoteAccountOwnership(
+      supabase,
+      organizationId,
+      fields.bank_account_id
+    );
+    if (!accountCheck.ok) {
+      return NextResponse.json(
+        { error: { code: accountCheck.code, message: accountCheck.message } },
+        { status: accountCheck.status }
       );
     }
 

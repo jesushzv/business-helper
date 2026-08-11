@@ -166,6 +166,91 @@ export function validateBankAccount(input: BankAccountInput): BankAccountValidat
   };
 }
 
+export type QuoteAccountCheck =
+  | { ok: true }
+  | { ok: false; status: number; code: string; message: string };
+
+/**
+ * Whether this organization may point a quote at this account (#164).
+ *
+ * The FK on `quotes.bank_account_id` proves only that the row **exists** — not
+ * whose it is. Nothing else closes the gap: the quotes RLS policy scopes by the
+ * quote's `organization_id`, not by the account it names, and the public payer
+ * route reads through the **service client** and embeds
+ * `bank_accounts!bank_account_id`, so whatever id the column holds is what a
+ * paying client is shown.
+ *
+ * So an unchecked id is two failures at once:
+ *
+ * - **A cross-tenant read.** A quote naming another organization's account
+ *   renders *their* bank name, CLABE and account holder on a payment page the
+ *   caller controls.
+ * - **Money to the wrong business.** The payer follows those instructions.
+ *
+ * Neither needs an attacker — a stale id from a client that cached an archived
+ * account produces the second on its own. Archived accounts are refused here
+ * for the same reason `resolveQuoteAccount` refuses them later: the tenant
+ * archived it, and a new quote must not be pointed at it.
+ *
+ * `null` is always allowed: it means "settle at the organization's default",
+ * which is what every quote written before #164 means.
+ */
+export async function checkQuoteAccountOwnership(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  organizationId: string,
+  bankAccountId: unknown
+): Promise<QuoteAccountCheck> {
+  if (bankAccountId === null || bankAccountId === undefined) return { ok: true };
+
+  if (typeof bankAccountId !== 'string' || !bankAccountId) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'INVALID_INPUT',
+      message: 'La cuenta de cobro seleccionada no es válida',
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .select('id, archived_at')
+    // Scoped by organization as well as id, so a by-id lookup cannot confirm
+    // that another tenant's row exists.
+    .eq('id', bankAccountId)
+    .eq('organization_id', organizationId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      status: 500,
+      code: 'SERVER_ERROR',
+      message: 'No se pudo verificar la cuenta de cobro',
+    };
+  }
+
+  if (!data) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'BANK_ACCOUNT_NOT_FOUND',
+      message: 'Esa cuenta de cobro no existe en tu negocio',
+    };
+  }
+
+  if (data.archived_at) {
+    return {
+      ok: false,
+      status: 409,
+      code: 'BANK_ACCOUNT_ARCHIVED',
+      message: 'Esa cuenta está archivada. Elige otra para cobrar esta cotización.',
+    };
+  }
+
+  return { ok: true };
+}
+
 /**
  * Mirrors a legacy single-account write into `bank_accounts` (#164).
  *

@@ -633,3 +633,27 @@ Settled history: all four verified closed on the tracker at the time, moved here
 Verbatim from the §02 row, collapsed there to one line when the file reached its size budget.
 
 | ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11).** Resend configured in Vercel; migration `20260811120000` applied to production and its constraint proven by making it reject and accept. Evidence read back from the live catalog, not claimed: an `otp_send_log` email row at 04:57:25Z (delivered), and 24 seconds later that quote `client_otp_verified`, `accepted`, and sealed — the founder signed it from a real inbox. Replay-refusal is server-enforced and unit-pinned, not separately exercised live. sms/whatsapp stay wired but deprecated. | Cleared |
+
+---
+
+## Resolved open decisions, moved from `docs/STATUS.md` §05 (2026-08-11)
+
+*Settled: each was resolved by the founder and the resolution is now reflected in the code and the
+priority stack. Moved here verbatim when `STATUS.md` reached its 32 KB budget while recording
+#164's UI. For live status read [`../STATUS.md`](../STATUS.md).*
+
+1. ~~**Does CFDI invoicing ship at launch?**~~ **Resolved 2026-08-07 — it ships.** Deferral is off
+   the table, so [#26](https://github.com/jesushzv/business-helper/issues/26) (one real stamp through
+   a live Facturapi sandbox) is blocking, not negotiable.
+2. ~~**Which OTP channel?**~~ **Re-resolved 2026-08-11 — email (Resend) at launch; sms/whatsapp
+   deprecated but wired.** Supersedes 2026-08-10's "Twilio SMS at launch" (itself a same-day
+   reversal: WhatsApp OTP needs a business-owned WABA plus the #42 template — Meta policy — and
+   no WABA exists). Email needs one API key and a DNS-verified domain; no carrier registration,
+   no per-message cost.
+3. ~~**`businesshelper.app` or `businesshelper.mx`?**~~ Resolved — `.app`; `.mx` was never
+   registered (#36).
+4. ~~**Does the September launch date hold?**~~ **Resolved 2026-08-07 — the September date holds,
+   at full scope.** Confirmed by the founder alongside decision 1. The consequence — both halves of
+   the trade taken, so no relief valve remains — stays in `STATUS.md` §05, because it still
+   constrains what can be promised.
+5. ~~**Merge posture on PRs #20 and #23.**~~ Moot — both merged 2026-08-07.

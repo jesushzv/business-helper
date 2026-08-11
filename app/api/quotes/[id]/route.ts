@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess, pickFields, QUOTE_WRITABLE_FIELDS } from '@/lib/apiAuth';
+import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
 
 /**
  * Single-quote operations.
@@ -70,6 +71,22 @@ export async function PUT(
         { error: { code: 'NO_WRITABLE_FIELDS', message: 'No hay campos válidos para actualizar' } },
         { status: 400 }
       );
+    }
+
+    // Same check as on create: an edit can re-point an existing quote at
+    // another tenant's account just as easily (#164).
+    if ('bank_account_id' in updates) {
+      const accountCheck = await checkQuoteAccountOwnership(
+        supabase,
+        organizationId,
+        updates.bank_account_id
+      );
+      if (!accountCheck.ok) {
+        return NextResponse.json(
+          { error: { code: accountCheck.code, message: accountCheck.message } },
+          { status: accountCheck.status }
+        );
+      }
     }
 
     const { data: updated, error } = await supabase
