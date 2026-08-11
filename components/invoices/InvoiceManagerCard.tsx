@@ -10,6 +10,7 @@ import { generateReminderBroadcastPayload } from '@/lib/whatsappBroadcast';
 import { useSettlementAccount } from '@/lib/hooks/useSettlementAccount';
 import { generateNotaDeVentaPayload, generateReceiptWhatsAppLink } from '@/lib/receiptGenerator';
 import { FileText, Download, Send, CheckCircle, Clock, FileCode, AlertCircle, MessageSquare, Ban, Receipt } from 'lucide-react';
+import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
 
 const currency = (value: number) =>
   `$${value.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`;
@@ -179,6 +180,7 @@ function ComplementPanel({
 }
 
 export function InvoiceManagerCard() {
+  const confirmAction = useConfirm();
   const {
     invoices,
     loading,
@@ -520,7 +522,7 @@ export function InvoiceManagerCard() {
                             }))
                           }
                           disabled={stampingId !== null || inv.cfdiStatus === 'cancelled'}
-                          className="min-h-[44px] px-3 bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
+                          className="w-full min-w-0 max-w-full min-h-[44px] px-3 bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
                           title="PUE: el cobro ya está pagado. PPD: se pagará después, y cada pago emitirá su complemento."
                         >
                           <option value="PUE">PUE — Pago en una exhibición</option>
@@ -528,7 +530,19 @@ export function InvoiceManagerCard() {
                         </select>
 
                         <button
-                        onClick={() => handleStamp(inv.milestoneId)}
+                        onClick={() =>
+                          confirmAction.ask({
+                            title: 'Timbrar factura ante el SAT',
+                            // The cost, named before the tap. #99 asks for
+                            // exactly this sentence: a confirmation that does
+                            // not say what happens is a speed bump.
+                            consequence:
+                              'Se usará 1 folio y la factura quedará registrada ante el SAT. Esta acción no se puede deshacer desde la app.',
+                            confirmLabel: 'Timbrar factura',
+                            destructive: false,
+                            onConfirm: () => handleStamp(inv.milestoneId),
+                          })
+                        }
                         disabled={stampingId !== null || inv.cfdiStatus === 'cancelled'}
                         className="min-h-[44px] px-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/50 disabled:opacity-50"
                         title="Timbrar CFDI 4.0 con tu PAC"
@@ -549,6 +563,8 @@ export function InvoiceManagerCard() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog request={confirmAction.request} onClose={confirmAction.dismiss} />
     </div>
   );
 }
