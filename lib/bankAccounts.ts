@@ -100,39 +100,61 @@ export interface ValidatedBankAccount {
   account_holder: string | null;
 }
 
+/**
+ * Field names as the form knows them. Keyed messages are addressed to inputs,
+ * so the key has to be the input's name and not the column's — `bankName`, not
+ * `bank_name`. Exported so a form cannot invent a key nothing renders.
+ */
+export type BankAccountField = 'label' | 'bankName' | 'clabe';
+
+export type BankAccountFieldErrors = Partial<Record<BankAccountField, string>>;
+
 export type BankAccountValidation =
   | { ok: true; value: ValidatedBankAccount }
-  | { ok: false; field: string; message: string };
+  /**
+   * `fields` is the whole answer; `field` and `message` are the first entry,
+   * kept so a caller with one message slot still says something true.
+   */
+  | { ok: false; fields: BankAccountFieldErrors; field: BankAccountField; message: string };
+
+/** The order messages are reported in, so "the first problem" is stable. */
+const FIELD_ORDER: BankAccountField[] = ['label', 'bankName', 'clabe'];
 
 /**
  * Validates a whole account at once, keyed by field.
  *
- * Every field is checked before returning rather than bailing at the first
- * failure: a form that reveals one problem per submit is #146's shape, and this
- * one is filled in on a phone.
+ * **Every field is checked before returning.** Returning at the first failure
+ * is #146's shape: the tenant fixes the label, submits, and only then learns
+ * the CLABE is short — one round trip per mistake, on a phone, on the form that
+ * decides where their money lands. This function used to do exactly that while
+ * its own docblock claimed it did not, which is why the claim now names the
+ * test that holds it: `tests/unit/bankAccountValidation.test.ts`.
  */
 export function validateBankAccount(input: BankAccountInput): BankAccountValidation {
   const label = typeof input.label === 'string' ? input.label.trim() : '';
   const bankName = typeof input.bankName === 'string' ? input.bankName.trim() : '';
   const clabe = typeof input.clabe === 'string' ? normalizeClabe(input.clabe) : '';
 
+  const fields: BankAccountFieldErrors = {};
+
   if (!label) {
-    return { ok: false, field: 'label', message: 'Ponle un nombre a esta cuenta (ej. "BBVA obra")' };
+    fields.label = 'Ponle un nombre a esta cuenta (ej. "BBVA obra")';
   }
   if (!bankName) {
-    return { ok: false, field: 'bankName', message: 'El nombre del banco es obligatorio' };
+    fields.bankName = 'El nombre del banco es obligatorio';
   }
   if (!isValidClabeLength(clabe)) {
-    return { ok: false, field: 'clabe', message: 'La CLABE debe tener exactamente 18 dígitos' };
+    fields.clabe = 'La CLABE debe tener exactamente 18 dígitos';
+  } else if (!hasValidClabeCheckDigit(clabe)) {
+    // Same checksum the single-account form has enforced since #66: it catches
+    // the transposed digit a length check cannot, before money is wired.
+    fields.clabe =
+      'La CLABE no parece válida. Revísala dígito por dígito tal como aparece en tu banco.';
   }
-  // Same checksum the single-account form has enforced since #66: it catches
-  // the transposed digit a length check cannot, before money is wired.
-  if (!hasValidClabeCheckDigit(clabe)) {
-    return {
-      ok: false,
-      field: 'clabe',
-      message: 'La CLABE no parece válida. Revísala dígito por dígito tal como aparece en tu banco.',
-    };
+
+  const firstField = FIELD_ORDER.find((name) => fields[name]);
+  if (firstField) {
+    return { ok: false, fields, field: firstField, message: fields[firstField]! };
   }
 
   const holder = typeof input.accountHolder === 'string' ? input.accountHolder.trim() : '';

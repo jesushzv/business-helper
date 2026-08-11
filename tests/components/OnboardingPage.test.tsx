@@ -30,6 +30,15 @@ const fetchMock = vi.fn<typeof fetch>();
 
 const VALID_CLABE = '0121 8000 1234 5678 99';
 const ORG_CREATED = { organization: { id: 'org-1', name: 'Ferretería La Silla' } };
+const CREATED_ACCOUNT = {
+  id: 'acct-1',
+  label: 'BBVA México',
+  bank_name: 'BBVA México',
+  clabe: '012180001234567899',
+  account_holder: null,
+  is_default: true,
+  archived_at: null,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -118,20 +127,29 @@ describe('OnboardingPage — organization creation (#49)', () => {
 });
 
 describe('OnboardingPage — SPEI settlement account (#14)', () => {
-  it('saves the CLABE as digits only and then enters the app', async () => {
+  /**
+   * Writes through the accounts API rather than the legacy
+   * `organizations.bank_*` PATCH (#164). Onboarding creates the tenant's first
+   * account, which the route flags as their default, so quotes resolve to
+   * something from the moment they leave this form.
+   */
+  it('creates the first account through the accounts API and then enters the app', async () => {
     await reachBankStep();
 
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, ORG_CREATED));
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { account: CREATED_ACCOUNT }));
     fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'));
 
     const [url, init] = fetchMock.mock.calls[1];
-    expect(String(url)).toBe('/api/organization');
-    expect(init?.method).toBe('PATCH');
+    expect(String(url)).toBe('/api/organization/bank-accounts');
+    expect(init?.method).toBe('POST');
     const sent = JSON.parse(String(init?.body));
-    expect(sent.bankClabe).toBe('012180001234567899');
+    expect(sent.clabe).toBe('012180001234567899');
     expect(sent.bankName).toBe('BBVA México');
+    // Nothing asks a new tenant to name their only account; the bank's name is
+    // the honest label, and Ajustes renames it when a second one arrives.
+    expect(sent.label).toBe('BBVA México');
   });
 
   it('cannot be submitted until the CLABE is complete', async () => {
@@ -232,6 +250,9 @@ describe('OnboardingPage — resuming an existing organization (#64)', () => {
 
   it('saves the account against the organization that already exists', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, EXISTING_ORG));
+    // The resume path also reads the account list, to prefill from what this
+    // step now writes rather than from the legacy columns.
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { accounts: [], role: 'owner' }));
 
     render(<OnboardingPage />);
     await waitFor(() =>
@@ -243,12 +264,12 @@ describe('OnboardingPage — resuming an existing organization (#64)', () => {
       target: { value: VALID_CLABE },
     });
 
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { organization: { id: 'org-1' } }));
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { account: CREATED_ACCOUNT }));
     fireEvent.click(screen.getByRole('button', { name: /Comenzar en Business Helper/i }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'));
-    const [, patchCall] = fetchMock.mock.calls;
-    expect(patchCall?.[1]).toMatchObject({ method: 'PATCH' });
+    const writeCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+    expect(String(writeCall?.[0])).toBe('/api/organization/bank-accounts');
   });
 
   it('starts at step 1 when the caller has no organization yet', async () => {

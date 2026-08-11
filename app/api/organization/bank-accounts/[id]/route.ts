@@ -116,8 +116,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     });
 
     if (!validated.ok) {
+      // Every problem at once, keyed by input, so an edit does not reveal them
+      // one submit at a time (#146). Same envelope as POST.
       return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: validated.message, field: validated.field } },
+        {
+          error: {
+            code: 'INVALID_INPUT',
+            message: validated.message,
+            field: validated.field,
+            fields: validated.fields,
+          },
+        },
         { status: 400 }
       );
     }

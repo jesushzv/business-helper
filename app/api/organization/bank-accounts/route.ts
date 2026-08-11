@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
-import { BANK_ACCOUNT_COLUMNS, validateBankAccount, type BankAccount } from '@/lib/bankAccounts';
+import {
+  BANK_ACCOUNT_COLUMNS,
+  validateBankAccount,
+  type BankAccount,
+  type BankAccountValidation,
+} from '@/lib/bankAccounts';
 import { captureException } from '@/lib/sentry';
 import { describeDbWriteError } from '@/lib/dbWriteError';
 
@@ -13,8 +18,24 @@ import { describeDbWriteError } from '@/lib/dbWriteError';
  * treatment as the PAC credentials rather than plain membership.
  */
 
-function fieldError(field: string, message: string, status = 400): NextResponse {
-  return NextResponse.json({ error: { code: 'INVALID_INPUT', message, field } }, { status });
+/**
+ * `fields` carries every problem at once so the form can pin each message under
+ * the input it names; `field`/`message` repeat the first for a caller with one
+ * slot. Validation reveals the whole form's state per submit, not one problem
+ * per round trip (#146).
+ */
+function fieldError(validation: Extract<BankAccountValidation, { ok: false }>): NextResponse {
+  return NextResponse.json(
+    {
+      error: {
+        code: 'INVALID_INPUT',
+        message: validation.message,
+        field: validation.field,
+        fields: validation.fields,
+      },
+    },
+    { status: 400 }
+  );
 }
 
 export async function GET() {
@@ -64,7 +85,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const validated = validateBankAccount(body);
-    if (!validated.ok) return fieldError(validated.field, validated.message);
+    if (!validated.ok) return fieldError(validated);
 
     // First account for this organization becomes the default: a tenant with
     // exactly one account should never be in the "nothing is default" state

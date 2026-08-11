@@ -9,6 +9,13 @@ import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { track } from '@/lib/analytics';
 import { postOnboardingPath } from '@/lib/upgradeIntent';
 import { regimenOptions } from '@/lib/satRegimenes';
+import {
+  validateBankAccount,
+  findDefaultAccount,
+  type BankAccountFieldErrors,
+  type BankAccount,
+} from '@/lib/bankAccounts';
+import { notifySettlementAccountChanged } from '@/lib/hooks/useSettlementAccount';
 
 const INDUSTRIES = [
   { value: 'construction', label: 'Materiales & Construcción' },
@@ -32,6 +39,9 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resuming, setResuming] = useState(false);
+  const [organizationId, setOrganizationId] = useState<string>('');
+  /** Keyed by input, pinned under it — never collected into one banner (#146). */
+  const [bankFieldErrors, setBankFieldErrors] = useState<BankAccountFieldErrors>({});
 
   /**
    * Resume an onboarding that already created its organization (#64).
@@ -68,15 +78,29 @@ export default function OnboardingPage() {
         if (org.regimen_fiscal) setRegimenFiscal(org.regimen_fiscal);
         setCodigoPostal(org.codigo_postal || '');
         if (org.industry) setIndustry(org.industry);
+        setOrganizationId(org.id || '');
         setBankName(org.bank_name || '');
         setBankAccountHolder(org.bank_account_holder || '');
-        // Reads the legacy column directly: since #164 `hasSettlementAccount` answers
-        // about the account *list*, and this step is resuming the form that writes
-        // the single legacy account.
         if (isValidClabeLength(String(org.bank_clabe || '')))
           setBankClabe(formatClabe(org.bank_clabe as string));
 
         setStep(3);
+
+        // Prefill from the account list, which is what this step now writes.
+        // A tenant who got as far as saving an account and then closed the tab
+        // has it here and not necessarily in the legacy columns; a failed read
+        // leaves the fields as the organization row filled them rather than
+        // blanking a stored account (#96).
+        const accountsRes = await fetch('/api/organization/bank-accounts').catch(() => null);
+        if (cancelled || !accountsRes?.ok) return;
+        const accountsData = await accountsRes.json().catch(() => null);
+        if (cancelled || !Array.isArray(accountsData?.accounts)) return;
+
+        const current = findDefaultAccount(accountsData.accounts as BankAccount[]);
+        if (!current) return;
+        setBankName(current.bank_name || '');
+        setBankAccountHolder(current.account_holder || '');
+        if (isValidClabeLength(current.clabe)) setBankClabe(formatClabe(current.clabe));
       })
       .catch(() => {
         // Leave the user on step 1 rather than claiming anything about an
@@ -94,8 +118,11 @@ export default function OnboardingPage() {
   const rfcValidation = rfc ? validateRFC(rfc) : { isValid: false, type: null };
   const clabeDigits = normalizeClabe(bankClabe);
   const clabeComplete = isValidClabeLength(bankClabe);
-  // Advisory only: a failed checksum is almost always a typo, but the server
-  // accepts any 18 digits, so this warns rather than blocks.
+  // Shown while typing, as a heads-up before the tenant submits. It is no
+  // longer only advisory: since this step writes through the accounts route
+  // (#164), `validateBankAccount` refuses a failed checksum on both sides, so a
+  // transposed digit is caught before it becomes the account money is wired to.
+  // The warning stands down once the submit has pinned a real message.
   const clabeChecksumSuspect = clabeComplete && !hasValidClabeCheckDigit(bankClabe);
 
   const handleNextStep = (e: React.FormEvent) => {
@@ -135,8 +162,9 @@ export default function OnboardingPage() {
           industry,
           has_rfc: Boolean(rfc.trim()),
         });
-        // The bank account is a separate PATCH and needs the organization to
-        // exist first (it is scoped by owner_id).
+        // The bank account is a separate write and needs the organization to
+        // exist first (the accounts route resolves it from the session).
+        setOrganizationId(data.organization.id);
         setStep(3);
         return;
       }
@@ -163,51 +191,77 @@ export default function OnboardingPage() {
   };
 
   /**
-   * Step 3 → the SPEI settlement account.
+   * Step 3 → the first SPEI settlement account.
    *
    * Collected during onboarding rather than left in Ajustes because without it
    * the payment page refuses to render instructions (409 NO_BANK_ACCOUNT) and
    * the cash-flow loop dead-ends at its last step, with nothing earlier warning
    * the owner. Never falls through to the dashboard on a failed write — that
    * would be reporting a saved account that does not exist.
+   *
+   * Writes through `POST /api/organization/bank-accounts` rather than the
+   * legacy `organizations.bank_*` columns (#164). The route flags the first
+   * account as the default on its own, so a tenant leaving onboarding has an
+   * account that quotes actually resolve to. Going through the legacy PATCH
+   * would still work — `syncLegacyDefaultAccount` mirrors it — but it would
+   * leave onboarding as the one surface that cannot name an account, and the
+   * mirror exists for already-deployed code, not for new writes.
    */
   const handleSaveBankAccount = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!clabeComplete) {
-      setError('La CLABE debe tener exactamente 18 dígitos');
+    setLoading(true);
+    setError(null);
+    setBankFieldErrors({});
+
+    const values = {
+      // Nothing asks the owner to name their first account: there is only one,
+      // and one more field between a new tenant and a working payment link is
+      // not worth the label. The bank's name is the honest default, and Ajustes
+      // lets them rename it when a second account makes the distinction matter.
+      label: bankName.trim() || 'Cuenta principal',
+      bankName: bankName.trim(),
+      clabe: clabeDigits,
+      accountHolder: bankAccountHolder.trim(),
+    };
+
+    // Whole-form validation, every message keyed to its own input (#146).
+    const validation = validateBankAccount(values);
+    if (!validation.ok) {
+      setBankFieldErrors(validation.fields);
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
     try {
-      const res = await fetch('/api/organization', {
-        method: 'PATCH',
+      const res = await fetch('/api/organization/bank-accounts', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bankName: bankName.trim(),
-          bankClabe: clabeDigits,
-          bankAccountHolder: bankAccountHolder.trim(),
-        }),
+        body: JSON.stringify(values),
       });
 
       const data = await res.json().catch(() => null);
 
-      if (res.ok && data?.organization?.id) {
+      // The account the server actually created — not `res.ok` alone, which
+      // would send the owner to a dashboard believing they can be paid.
+      if (res.ok && data?.account?.id) {
         track('settlement_account_configured', {
-          organization_id: data.organization.id,
+          organization_id: organizationId || '',
           has_account_holder: Boolean(bankAccountHolder.trim()),
         });
+        // The #64 banner and the share actions may already be mounted behind
+        // this route; without the announcement they keep the pre-save answer.
+        notifySettlementAccountChanged();
         router.push(postOnboardingPath(typeof window === 'undefined' ? '' : window.location.search));
         return;
       }
 
-      setError(
-        data?.error?.message ||
-          'No se pudo guardar la cuenta bancaria. Intenta de nuevo.'
-      );
+      const fields = data?.error?.fields;
+      if (fields && typeof fields === 'object' && Object.keys(fields).length > 0) {
+        setBankFieldErrors(fields as BankAccountFieldErrors);
+      } else {
+        setError(data?.error?.message || 'No se pudo guardar la cuenta bancaria. Intenta de nuevo.');
+      }
     } catch {
       setError('No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.');
     } finally {
@@ -418,8 +472,19 @@ export default function OnboardingPage() {
                 value={bankName}
                 onChange={(e) => setBankName(e.target.value)}
                 placeholder="BBVA México"
-                className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950 px-4 text-sm font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                aria-invalid={Boolean(bankFieldErrors.bankName || bankFieldErrors.label)}
+                className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950 px-4 text-base font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
+              {/*
+                The label is derived from this field, so a problem with either
+                belongs here — pinned under the input the tenant would fix, not
+                in a banner above a form they have scrolled past (#146).
+              */}
+              {(bankFieldErrors.bankName || bankFieldErrors.label) && (
+                <p role="alert" className="mt-1.5 text-xs font-bold text-rose-300">
+                  {bankFieldErrors.bankName || bankFieldErrors.label}
+                </p>
+              )}
             </div>
 
             <div>
@@ -434,10 +499,16 @@ export default function OnboardingPage() {
                 value={bankClabe}
                 onChange={(e) => setBankClabe(formatClabe(e.target.value))}
                 placeholder="0121 8000 1234 5678 90"
-                className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950 px-4 font-mono text-sm font-bold text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                aria-invalid={Boolean(bankFieldErrors.clabe)}
+                className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950 px-4 font-mono text-base font-bold text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
               <p className="mt-1 text-xs text-slate-500">{clabeDigits.length} de 18 dígitos</p>
-              {clabeChecksumSuspect && (
+              {bankFieldErrors.clabe && (
+                <p role="alert" className="mt-1.5 text-xs font-bold text-rose-300">
+                  {bankFieldErrors.clabe}
+                </p>
+              )}
+              {!bankFieldErrors.clabe && clabeChecksumSuspect && (
                 <p className="mt-1 text-xs font-bold text-amber-400">
                   Revise la CLABE: los dígitos no coinciden con una cuenta válida.
                 </p>
