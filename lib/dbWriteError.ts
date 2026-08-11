@@ -120,16 +120,18 @@ function constraintName(error: PostgrestLikeError): string | null {
  */
 function forClient(failure: DbWriteFailure): DbWriteFailure {
   const messages: Record<string, string> = {
+    // Usted, like the rest of the copy on /q/ and /pay/: the reader is the
+    // tenant's customer, not the tenant.
     SCHEMA_OUT_OF_DATE:
       'No pudimos completar la operación por un problema del sistema. ' +
-      'No es un error de tus datos: intenta de nuevo en unos minutos o avisa al negocio.',
-    INVALID_INPUT: 'Alguno de los datos capturados no es válido. Revísalos e inténtalo de nuevo.',
+      'No es un error de sus datos: intente de nuevo en unos minutos o avise al negocio.',
+    INVALID_INPUT: 'Alguno de los datos capturados no es válido. Revíselos e inténtelo de nuevo.',
     DUPLICATE: 'Estos datos ya fueron registrados.',
     FORBIDDEN:
       'No pudimos completar la operación por un problema del sistema. ' +
-      'Intenta de nuevo o avisa al negocio.',
+      'Intente de nuevo o avise al negocio.',
     SERVER_ERROR:
-      'No pudimos completar la operación. Intenta de nuevo; si sigue fallando, avisa al negocio.',
+      'No pudimos completar la operación. Intente de nuevo; si sigue fallando, avise al negocio.',
   };
 
   return {
@@ -304,11 +306,23 @@ export function dbWriteErrorResponse(
 export function publicDbWriteErrorResponse(
   error: unknown,
   params: {
-    /** Operation code the page branches on, e.g. `'RECEIPT_WRITE_FAILED'`. */
-    code: string;
+    /**
+     * Operation code the page branches on, e.g. `'RECEIPT_WRITE_FAILED'`.
+     *
+     * Named `operation` rather than `code` on purpose: `publicErrorEnvelope`'s
+     * gate reads these routes as source and fails on a `code:` key, because a
+     * sibling `code` beside the envelope is what #65 was.
+     */
+    operation: string;
     entity: string;
     route: string;
     verb?: string;
+    /**
+     * What the reader should do next, when the operation has a specific answer
+     * — "Solicite uno nuevo." for an OTP that was delivered but not stored.
+     * Appended to the classified message; the classification never knows this.
+     */
+    instruction?: string;
     extra?: Record<string, unknown>;
   }
 ): NextResponse {
@@ -316,5 +330,8 @@ export function publicDbWriteErrorResponse(
     audience: 'client',
     verb: params.verb,
   });
-  return publicApiError(failure.status, params.code, failure.message, params.extra);
+  const message = params.instruction
+    ? `${failure.message} ${params.instruction}`
+    : failure.message;
+  return publicApiError(failure.status, params.operation, message, params.extra);
 }

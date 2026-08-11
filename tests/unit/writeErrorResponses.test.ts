@@ -104,7 +104,7 @@ describe('dbWriteErrorResponse — what the tenant gets back', () => {
 describe('publicDbWriteErrorResponse — what the tenant’s client gets back', () => {
   it('keeps the operation code the page branches on', async () => {
     const res = publicDbWriteErrorResponse(OUTAGE, {
-      code: 'RECEIPT_WRITE_FAILED',
+      operation: 'RECEIPT_WRITE_FAILED',
       entity: 'el comprobante',
       route: 'POST /api/receivables/public/[token]',
       verb: 'registrar',
@@ -116,7 +116,7 @@ describe('publicDbWriteErrorResponse — what the tenant’s client gets back', 
     // A payer told "tu cuenta no tiene permiso" would read it as their bank
     // refusing them. It is the platform's problem, and it is a 500 from here.
     const res = publicDbWriteErrorResponse(RLS_DENIED, {
-      code: 'SIGNATURE_WRITE_FAILED',
+      operation: 'SIGNATURE_WRITE_FAILED',
       entity: 'la firma',
       route: 'POST /api/quotes/public/[token]',
       verb: 'registrar',
@@ -130,7 +130,7 @@ describe('publicDbWriteErrorResponse — what the tenant’s client gets back', 
   it('names no column and no jargon, whatever the cause', async () => {
     for (const raw of [SCHEMA_STALE, RLS_DENIED, CHECK_FAILED, OUTAGE]) {
       const { error } = await publicDbWriteErrorResponse(raw, {
-        code: 'RECEIPT_WRITE_FAILED',
+        operation: 'RECEIPT_WRITE_FAILED',
         entity: 'el comprobante',
         route: 'POST /api/receivables/public/[token]',
       }).json();
@@ -143,12 +143,12 @@ describe('publicDbWriteErrorResponse — what the tenant’s client gets back', 
 
   it('still separates a stale schema from a genuine outage', () => {
     const stale = publicDbWriteErrorResponse(SCHEMA_STALE, {
-      code: 'RECEIPT_WRITE_FAILED',
+      operation: 'RECEIPT_WRITE_FAILED',
       entity: 'el comprobante',
       route: 'POST /api/receivables/public/[token]',
     });
     const outage = publicDbWriteErrorResponse(OUTAGE, {
-      code: 'RECEIPT_WRITE_FAILED',
+      operation: 'RECEIPT_WRITE_FAILED',
       entity: 'el comprobante',
       route: 'POST /api/receivables/public/[token]',
     });

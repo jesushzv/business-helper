@@ -215,7 +215,7 @@ export async function POST(
       // Never a message that could read as "we got your payment": the write
       // that would have recorded the declaration is the one that just failed.
       return publicDbWriteErrorResponse(updateError, {
-        code: 'RECEIPT_WRITE_FAILED',
+        operation: 'RECEIPT_WRITE_FAILED',
         entity: 'el comprobante',
         route: 'POST /api/receivables/public/[token]',
         verb: 'registrar',

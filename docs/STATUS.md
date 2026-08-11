@@ -77,7 +77,7 @@ until checked against source. This memo does that check; §06 records the method
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **943 tests / 106 files**, `npx vitest run` (2026-08-09, `main` @ `e51fa30`) — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **1217 tests / 132 files**, `npx vitest run` (2026-08-11, off `main` @ `6ab4a92`) — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -239,15 +239,16 @@ fixture quote for every token (PR #57) — never listed as a P0 and worse than s
   in PR #147: every bad field reported at once keyed by column, a failed write naming its cause
   instead of one opaque 500, per-field messages in the form, and the RFC no longer gating
   registration. This row closes when a client is registered through the UI.
+- ~~**A failed write must name its cause** ([#148](https://github.com/jesushzv/business-helper/issues/148)).~~
+  **Done 2026-08-11** — the eleven routes classify the error instead of discarding it (503 naming the
+  missing column, 400 pinned to its input, 403, 500) and log the original. Re-running the scan per
+  *branch* found four more, plus one live defect: `constraintName()` read the relation, not the
+  constraint, so no CHECK was attributed in production. typecheck + lint + vitest green; gate proven
+  red on a planted revert. Coverage delta not measured.
 - **One real production smoke test:** register → quote → WhatsApp send → OTP sign → SPEI upload → confirm.
 - **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
   CFDI ships at launch, so this is revenue the pricing page promises and the product cannot collect.
-- ~~**Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).~~
-  **Done 2026-08-08** — `--max-warnings=0`, 22 warnings cleared, failure verified with a planted
-  warning. (The count was recorded as 1, 3 and 23 before settling at 22 — a fail-open gate is how
-  the debt grew unnoticed.) Follow-up: `next/image` for the PNG sites,
-  [#82](https://github.com/jesushzv/business-helper/issues/82) (P2).
 
 ### P2 — Can trail launch by weeks
 

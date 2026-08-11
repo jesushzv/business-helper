@@ -228,7 +228,7 @@ export async function POST(
       // (a stale schema answers 503, not 500) and the raw error is logged
       // instead of discarded (#148).
       return publicDbWriteErrorResponse(updateError, {
-        code: 'SIGNATURE_WRITE_FAILED',
+        operation: 'SIGNATURE_WRITE_FAILED',
         entity: 'la firma',
         route: 'POST /api/quotes/public/[token]',
         verb: 'registrar',
