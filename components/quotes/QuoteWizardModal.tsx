@@ -209,8 +209,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <label className="block text-sm font-bold text-slate-300 mb-2">Seleccionar Cliente</label>
+                <label htmlFor="quotewizardmodal-seleccionar-cliente" className="block text-sm font-bold text-slate-300 mb-2">Seleccionar Cliente</label>
                 <select
+                  id="quotewizardmodal-seleccionar-cliente"
                   value={clientId}
                   onChange={(e) => handleClientChange(e.target.value)}
                   className="w-full min-h-[48px] px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl font-medium text-white focus:border-emerald-500 focus:outline-none"
@@ -259,8 +260,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-300 mb-2">Título de la Cotización</label>
+                <label htmlFor="quotewizardmodal-titulo-de-la-cotizacion" className="block text-sm font-bold text-slate-300 mb-2">Título de la Cotización</label>
                 <input
+                  id="quotewizardmodal-titulo-de-la-cotizacion"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -272,8 +274,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-slate-300 mb-2">Válida Hasta</label>
+                  <label htmlFor="quotewizardmodal-valida-hasta" className="block text-sm font-bold text-slate-300 mb-2">Válida Hasta</label>
                   <input
+                    id="quotewizardmodal-valida-hasta"
                     type="date"
                     value={validUntil}
                     onChange={(e) => setValidUntil(e.target.value)}
@@ -282,8 +285,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-slate-300 mb-2">Moneda</label>
+                  <label htmlFor="quotewizardmodal-moneda" className="block text-sm font-bold text-slate-300 mb-2">Moneda</label>
                   <select
+                    id="quotewizardmodal-moneda"
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
                     className="w-full min-h-[48px] px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl font-medium text-white focus:border-emerald-500 focus:outline-none"
@@ -322,7 +326,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                       value={item.description}
                       onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                       placeholder="Descripción del producto o servicio"
-                      className="w-full min-h-[44px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      className="w-full min-h-[48px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                       required
                     />
                     <div className="grid grid-cols-2 gap-3">
@@ -343,7 +347,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                           value={item.quantity}
                           onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                           placeholder="1"
-                          className="w-full min-h-[44px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                          className="w-full min-h-[48px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                           required
                         />
                       </div>
@@ -361,7 +365,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                           value={item.unit_price}
                           onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
                           placeholder="0.00"
-                          className="w-full min-h-[44px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                          className="w-full min-h-[48px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                           required
                         />
                       </div>
@@ -468,8 +472,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-300 mb-2">Notas adicionales para el cliente</label>
+                <label htmlFor="quotewizardmodal-notas-adicionales-para-el" className="block text-sm font-bold text-slate-300 mb-2">Notas adicionales para el cliente</label>
                 <textarea
+                  id="quotewizardmodal-notas-adicionales-para-el"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Condiciones de pago, tiempo de entrega, etc."

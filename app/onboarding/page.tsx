@@ -274,10 +274,11 @@ export default function OnboardingPage() {
         {!resuming && step === 1 && (
           <form onSubmit={handleNextStep} className="mt-6 space-y-5">
             <div>
-              <label className="block text-xs font-bold text-slate-300">
+              <label htmlFor="page-nombre-de-tu-empresa" className="block text-xs font-bold text-slate-300">
                 Nombre de tu Empresa / Negocio <span className="text-rose-400">*</span>
               </label>
               <input
+                id="page-nombre-de-tu-empresa"
                 type="text"
                 required
                 value={name}
@@ -288,8 +289,9 @@ export default function OnboardingPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300">Giro de Actividad</label>
+              <label htmlFor="page-giro-de-actividad" className="block text-xs font-bold text-slate-300">Giro de Actividad</label>
               <select
+                id="page-giro-de-actividad"
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
                 className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950 px-4 text-sm font-medium text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
@@ -317,7 +319,7 @@ export default function OnboardingPage() {
           <form onSubmit={handleCreateOrganization} className="mt-6 space-y-5">
             <div>
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-300">RFC de la Empresa</label>
+                <label htmlFor="page-rfc-de-la-empresa" className="block text-xs font-bold text-slate-300">RFC de la Empresa</label>
                 {rfc && (
                   <span
                     className={`text-[11px] font-bold ${
@@ -331,6 +333,7 @@ export default function OnboardingPage() {
               <div className="relative mt-1.5">
                 <FileText className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
+                  id="page-rfc-de-la-empresa"
                   type="text"
                   maxLength={13}
                   value={rfc}
@@ -342,8 +345,9 @@ export default function OnboardingPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300">Régimen Fiscal SAT</label>
+              <label htmlFor="page-regimen-fiscal-sat" className="block text-xs font-bold text-slate-300">Régimen Fiscal SAT</label>
               <select
+                id="page-regimen-fiscal-sat"
                 value={regimenFiscal}
                 onChange={(e) => setRegimenFiscal(e.target.value)}
                 className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950 px-4 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
@@ -357,10 +361,11 @@ export default function OnboardingPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300">Código Postal Fiscal</label>
+              <label htmlFor="page-codigo-postal-fiscal" className="block text-xs font-bold text-slate-300">Código Postal Fiscal</label>
               <div className="relative mt-1.5">
                 <MapPin className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
                 <input
+                  id="page-codigo-postal-fiscal"
                   type="text"
                   maxLength={5}
                   value={codigoPostal}
@@ -432,7 +437,7 @@ export default function OnboardingPage() {
                 placeholder="0121 8000 1234 5678 90"
                 className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950 px-4 font-mono text-sm font-bold text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
-              <p className="mt-1 text-xs text-slate-500">{clabeDigits.length} de 18 dígitos</p>
+              <p className="mt-1 text-xs text-slate-400">{clabeDigits.length} de 18 dígitos</p>
               {clabeChecksumSuspect && (
                 <p className="mt-1 text-xs font-bold text-amber-400">
                   Revise la CLABE: los dígitos no coinciden con una cuenta válida.

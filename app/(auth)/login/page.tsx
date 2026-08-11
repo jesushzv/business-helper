@@ -203,7 +203,7 @@ export default function LoginPage() {
 
           <form className="space-y-6" onSubmit={handleLogin}>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+              <label htmlFor="page-correo-electronico" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
                 Correo Electrónico
               </label>
               <div className="relative">
@@ -211,6 +211,7 @@ export default function LoginPage() {
                   <Mail className="w-5 h-5" />
                 </div>
                 <input
+                  id="page-correo-electronico"
                   type="email"
                   required
                   value={email}
@@ -223,7 +224,7 @@ export default function LoginPage() {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                <label htmlFor="page-contrasena" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
                   Contraseña
                 </label>
                 <Link
@@ -238,6 +239,7 @@ export default function LoginPage() {
                   <Lock className="w-5 h-5" />
                 </div>
                 <input
+                  id="page-contrasena"
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}

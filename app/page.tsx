@@ -41,7 +41,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950">
       <JsonLd />
       {/* Top Banner Announcement */}
-      <div className="bg-linear-to-r from-indigo-700 via-indigo-600 to-emerald-500 text-white text-center py-2.5 px-4 text-xs font-bold tracking-wide uppercase flex items-center justify-center gap-2 shadow-md min-h-[40px]">
+      <div className="bg-linear-to-r from-indigo-700 via-indigo-600 to-emerald-500 text-white text-center py-2.5 px-4 text-xs font-bold tracking-wide uppercase flex items-center justify-center gap-2 shadow-md min-h-[48px]">
         <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
         <span>⚡ LA PLATAFORMA TODO-EN-UNO PARA PYMES EN MÉXICO — Prueba 14 Días Sin Costo</span>
       </div>

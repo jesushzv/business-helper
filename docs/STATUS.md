@@ -75,14 +75,15 @@ until checked against source. This memo does that check; §06 records the method
 
 ### Corrected baseline metrics
 
-| Metric | Docs claimed | Actually verified (2026-08-07) |
-|:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **943 tests / 106 files**, `npx vitest run` (2026-08-09, `main` @ `e51fa30`) — runner file no longer exists |
-| Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
-| Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
-| Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
-| E2E | "14/14 Playwright scenarios passing" | `playwright.config.ts` and `tests/e2e/` exist; not run in this verification pass — treat as unverified |
-| Zero-warning lint gate | "ESLint passes with `--max-warnings=0`" (5 docs) | ~~Gate was nominal — bare `next lint`, exit 0 with warnings.~~ **Enforced since 2026-08-08 (#46):** script is `next lint --max-warnings=0`, debt cleared to 0, failure verified with a planted warning. |
+| Metric | State |
+|:---|:---|
+| Test suite | **1,254 tests / 135 files**, `npx vitest run` (2026-08-11, this branch). The `scripts/test-runner.js` the docs cited was retired in PR #21 |
+| Error monitoring | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere |
+| E2E | `playwright.config.ts` and `tests/e2e/` exist, not run in CI — treat any Playwright claim as unverified |
+
+The 2026-08-07 doc-vs-reality comparison this table began as (Stripe/Twilio/Gemini SDKs, the lint
+gate) is settled and moved to
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 
 > [!IMPORTANT]
 > **The Sentry finding matters disproportionately for a solo founder.** Error monitoring is the only
@@ -167,7 +168,9 @@ re-checked against production or a real handset, which is the part no agent supp
 | #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
 | #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
 
-Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
+| #89, #101 | 48px floor enforced (46 declarations); one global `:focus-visible` ring replacing zero; 43 labels associated, 6 inputs named; gating `slate-500` raised, light-theme islands restyled; credit status gains an icon; 15 error containers announce. Gate: `a11yBaseline.test.ts` |
+
+Still open from the audit: #103, #104.
 
 **Resolved off this table** (2026-08-07→08, all verified closed): #79, #76, #59, #33, #36, #37, #58
 — detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).

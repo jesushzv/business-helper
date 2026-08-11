@@ -141,7 +141,7 @@ export const BankAccountCard: React.FC = () => {
         )}
 
         {error && (
-          <div className="flex items-center gap-2 rounded-2xl bg-rose-950/80 p-4 text-xs font-bold text-rose-300 border border-rose-500/30">
+          <div role="alert" className="flex items-center gap-2 rounded-2xl bg-rose-950/80 p-4 text-xs font-bold text-rose-300 border border-rose-500/30">
             <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
             <span>{error}</span>
           </div>
@@ -178,7 +178,7 @@ export const BankAccountCard: React.FC = () => {
             placeholder="0121 8000 1234 5678 90"
             className="mt-1.5 w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm font-medium text-white shadow-xl focus:border-emerald-500 focus:outline-none min-h-[48px] font-mono"
           />
-          <p className="mt-1 text-xs text-slate-500">{clabeDigits.length} de 18 dígitos</p>
+          <p className="mt-1 text-xs text-slate-400">{clabeDigits.length} de 18 dígitos</p>
         </div>
 
         <div>

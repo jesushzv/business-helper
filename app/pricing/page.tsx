@@ -93,7 +93,7 @@ export default function PricingPage() {
             </Link>
             <Link
               href="/register"
-              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3.5 py-2 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20 min-h-[36px] flex items-center"
+              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3.5 py-2 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20 min-h-[48px] flex items-center"
             >
               Prueba Gratis
             </Link>

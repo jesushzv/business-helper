@@ -101,7 +101,7 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
                   )}
                 </div>
 
-                <p className="mt-2 text-xs font-medium text-slate-400 min-h-[36px]">{plan.description}</p>
+                <p className="mt-2 text-xs font-medium text-slate-400 min-h-[48px]">{plan.description}</p>
 
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-4xl font-black font-mono tracking-tight text-white">
