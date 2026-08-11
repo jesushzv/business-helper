@@ -132,9 +132,14 @@ describe('the migration', () => {
 
   it('is idempotent in both statements', () => {
     expect(sql).toContain('ADD COLUMN IF NOT EXISTS');
-    // The backfill only matches rows with no trial recorded, so a second run
-    // matches nothing.
-    expect(sql).toContain('trial_ends_at IS NULL');
+    // The backfill's guard is the status it moves rows *off*, so a second run
+    // matches nothing. It must NOT be `trial_ends_at IS NULL`: ADD COLUMN with
+    // a DEFAULT evaluates that default for every existing row, so such a check
+    // would match nothing on the first run either — a backfill that silently
+    // does nothing while the migration reports success.
+    const backfill = sql.slice(sql.indexOf('UPDATE public.organizations'));
+    expect(backfill).toContain("subscription_status = 'active'");
+    expect(backfill).not.toContain('trial_ends_at IS NULL');
   });
 });
 

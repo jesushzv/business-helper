@@ -42,15 +42,23 @@ ALTER TABLE public.organizations
 --
 -- Scoped away from anyone Stripe knows about: a row with a stripe_subscription_id
 -- is a real subscriber whose status belongs to the webhook, and this must never
--- move it. Idempotent — a second run matches nothing, because the first run left
--- trial_ends_at set.
+-- move it.
+--
+-- The guard is the *status*, not `trial_ends_at IS NULL`, and that distinction
+-- is the whole backfill. `ADD COLUMN … DEFAULT` above evaluates the default for
+-- every existing row, so by the time this statement runs no row has a NULL
+-- trial_ends_at — a NULL check here would match nothing, leave every existing
+-- organization on 'active', and the backfill would silently do nothing while
+-- reporting success. Caught by counting the candidates on the live database
+-- before applying, not by reading the SQL.
+--
+-- Still idempotent: the first run moves these rows to 'trialing', which the
+-- WHERE no longer matches.
 UPDATE public.organizations
 SET
   subscription_status = 'trialing',
-  trial_ends_at = now() + interval '30 days',
   updated_at = now()
 WHERE
-  trial_ends_at IS NULL
-  AND stripe_subscription_id IS NULL
+  stripe_subscription_id IS NULL
   AND subscription_status = 'active'
   AND subscription_tier = 'free';
