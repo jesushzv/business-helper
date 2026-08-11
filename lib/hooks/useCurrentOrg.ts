@@ -33,7 +33,16 @@ export interface CurrentUser {
   email: string | null;
 }
 
-export type CurrentOrgRole = 'owner' | 'manager' | 'member';
+/**
+ * Every role `organization_members.role` can hold.
+ *
+ * `accountant` was missing, so an accountant's role arrived and was mapped to
+ * `null` — indistinguishable from "still loading" or "the read failed". That is
+ * harmless while the only consumer is chrome, and stops being harmless the
+ * moment a control is enabled or disabled by role (#123): a union narrower than
+ * the column is #95's defect class.
+ */
+export type CurrentOrgRole = 'owner' | 'manager' | 'member' | 'accountant';
 
 interface CurrentOrgState {
   org: CurrentOrg | null;
@@ -99,7 +108,10 @@ async function loadCurrentOrg(): Promise<CurrentOrgState | null> {
   const role = data.role;
   return {
     org: toCurrentOrg(data.organization),
-    role: role === 'owner' || role === 'manager' || role === 'member' ? role : null,
+    role:
+      role === 'owner' || role === 'manager' || role === 'member' || role === 'accountant'
+        ? role
+        : null,
     user,
   };
 }

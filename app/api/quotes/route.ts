@@ -5,6 +5,8 @@ import {
   pickFields,
   QUOTE_WRITABLE_FIELDS,
 } from '@/lib/apiAuth';
+import { readOrganizationTrialState } from '@/lib/organizationTrialGate';
+import { TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE } from '@/lib/subscriptionTrial';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
@@ -62,6 +64,31 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: { code: 'INVALID_INPUT', message: 'El título es obligatorio' } },
         { status: 400 }
+      );
+    }
+
+    // The trial gate (#128), and the only thing it gates. Starting *new* work
+    // stops when the trial ends; everything already in flight keeps running —
+    // quotes already sent can still be signed and paid, payments still confirm,
+    // and CFDIs for work already closed still stamp. A gate that stranded a
+    // tenant's clients mid-signature would be a worse product than charging
+    // nothing.
+    //
+    // It does not fire at all until this deployment can actually take a payment
+    // (#68): a paywall with no way through is a dead end, not a forcing
+    // function. `readOrganizationTrialState` answers "unknown" — and so does not
+    // gate — for any read it could not complete.
+    const trial = await readOrganizationTrialState(supabase, organizationId);
+    if (trial.blocksNewWork) {
+      return NextResponse.json(
+        {
+          error: {
+            code: TRIAL_EXPIRED_CODE,
+            message: TRIAL_EXPIRED_MESSAGE,
+            trial_ended_at: trial.endsAt,
+          },
+        },
+        { status: 402 }
       );
     }
 
