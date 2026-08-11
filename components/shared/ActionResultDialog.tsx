@@ -114,7 +114,10 @@ export const ActionResultDialog: React.FC<ActionResultDialogProps> = ({
         aria-labelledby="action-result-title"
         aria-describedby="action-result-message"
         onClick={(e) => e.stopPropagation()}
-        className={`relative w-full max-w-sm rounded-3xl border ${style.ring} bg-slate-900 p-6 text-center shadow-2xl`}
+        // `max-h`/`overflow-y-auto`: a centred panel with neither overflows
+        // past *both* edges of the viewport, and the content past them cannot
+        // be reached at any scroll position (#87).
+        className={`relative max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-3xl border ${style.ring} bg-slate-900 p-6 text-center shadow-2xl`}
       >
         <button
           onClick={onClose}

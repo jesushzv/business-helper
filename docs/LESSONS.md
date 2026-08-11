@@ -115,19 +115,20 @@ not earned. It has shipped here at least eight times.
 ## Client and API wiring
 
 - **A client `fetch` calling a method its route does not export fails the build**
-  (`tests/unit/clientFetchMethods.test.ts`). `useOrganizationSettings` PUT against a GET/PATCH/POST
-  route made every save a 405, swallowed by `.catch(() => {})` and reported as success (#95) — the
-  quietest fabricated-success there is, invisible to any test that mocks `fetch`.
+  (`tests/unit/clientFetchMethods.test.ts`). A PUT against a GET/PATCH/POST route made every save a
+  405, swallowed by `.catch(() => {})` and reported as success (#95) — the quietest
+  fabricated-success there is, invisible to any test that mocks `fetch`.
   **The key *names* fail the same way:**
   both clients routes destructured camelCase off a snake_case body, so four fields — two of them
   required to stamp a CFDI — were written NULL and reported as saved (#96). Read bodies through
   `pickFields(body, <ENTITY>_WRITABLE_FIELDS)`; `tests/unit/clientWritePath.test.ts` checks the
   modal's keys against the allowlist. Assert on what reaches the DB layer, not on what `fetch` got.
-- **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93 — it shipped
-  hardcoded in the chrome and three client-facing WhatsApp builders). Chrome identity comes from
-  `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in `lib/whatsappLink.ts` (org
-  name as a parameter, signature omitted when unknown). `tests/unit/demoIdentityLeak.test.ts` fails
-  the build on a leak and keeps the allowlist.
+- **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93). Chrome identity
+  comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
+  `lib/whatsappLink.ts`. `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak.
+- **A modal is `components/shared/Modal.tsx`, never a hand-rolled `fixed inset-0` div** (#87, #100).
+  `role`/Escape/focus-trap and `max-h`+`overflow-y-auto` belong to the shell; 8 copies had none.
+  `tests/unit/modalShell.test.ts` fails the build on a new one.
 - **A form the user cannot get past is usually validation that returns at the first failure and
   names no field** (#146). Both clients routes checked name → RFC → crédito → teléfono in sequence
   and 400'd at the first, so each submit revealed one more problem; the envelope carried prose with

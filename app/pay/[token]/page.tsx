@@ -281,7 +281,8 @@ export default function PublicPayPortalPage() {
                 <button
                   type="button"
                   onClick={handleCopyClabe}
-                  className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center shadow-md"
+                  aria-label={copiedClabe ? 'CLABE copiada' : 'Copiar CLABE'}
+                  className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center shadow-md"
                 >
                   {copiedClabe ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
                 </button>
