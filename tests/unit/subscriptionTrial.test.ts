@@ -116,6 +116,34 @@ describe('trialEndsAt', () => {
   });
 });
 
+describe('the repair migration', () => {
+  const sql = readFileSync(
+    join(
+      process.cwd(),
+      'supabase/migrations/20260811200000_organization_trial_backfill_repair.sql'
+    ),
+    'utf8'
+  );
+
+  /**
+   * Applying 20260811150000 and reading the rows back found a `trialing`
+   * organization with a NULL `trial_ends_at` — a trial the app reads as
+   * `unknown`, so nothing ever displays or enforces it. `ADD COLUMN … DEFAULT`
+   * did not fill the pre-existing rows the way the earlier fix assumed.
+   */
+  it('only ever fills a NULL, and only on a trialing row', () => {
+    expect(sql).toContain('trial_ends_at IS NULL');
+    expect(sql).toContain("subscription_status = 'trialing'");
+    // Never touches a row's status, and never moves an end date that exists —
+    // so a second run is a no-op and a subscriber cannot be given a trial.
+    // Scoped to the SET clause: `subscription_status` legitimately appears in
+    // the WHERE, and an unanchored match would read that as an assignment.
+    const setClause = sql.slice(sql.indexOf('\nSET'), sql.indexOf('\nWHERE'));
+    expect(setClause).toContain('trial_ends_at');
+    expect(setClause).not.toContain('subscription_status');
+  });
+});
+
 describe('the migration', () => {
   const sql = readFileSync(
     join(process.cwd(), 'supabase/migrations/20260811150000_organization_trial.sql'),
