@@ -223,6 +223,30 @@ async function checkPrice({ id, envVars, amountMxn }, { recurring }) {
     return { id, configured: false, envVar: envVars[0] };
   }
 
+  // A Product id here is the mistake that took live checkout down: the dashboard
+  // shows `prod_…` at the top of the product page and `price_…` further down
+  // under Pricing, and Stripe's own answer — "No such price" — reads like the
+  // id was deleted rather than like it was never a price. Named before the GET,
+  // which would only report a 404.
+  const shape = /^price_[A-Za-z0-9_]+$/.test(configured.value)
+    ? 'price'
+    : /^prod_[A-Za-z0-9_]+$/.test(configured.value)
+      ? 'product'
+      : 'other';
+
+  if (shape !== 'price') {
+    console.log(`  ${configured.name} → ${configured.value}`);
+    record(
+      `  ${id}: is a Price id`,
+      false,
+      shape === 'product'
+        ? `${configured.value} is a Product id — open it in the dashboard and copy the id under ` +
+            'Pricing (price_…). Checkout bills a Price; a Product id fails with "No such price"'
+        : `${configured.value} is not a Stripe Price id (expected price_…)`
+    );
+    return { id, configured: true, ok: false };
+  }
+
   const price = await get(`/prices/${encodeURIComponent(configured.value)}`);
 
   if (!price.ok) {
@@ -395,7 +419,7 @@ console.log(
   `✓ Account and price map verified in ${mode} mode.\n\n` +
     '  This proves Stripe would accept a session for each tier at the advertised price.\n' +
     '  It does not prove anyone has paid. #68 still needs, on the live account:\n' +
-    '    1. a real card charged end to end through /dashboard/settings, then refunded\n' +
+    '    1. a real card charged end to end through /settings, then refunded\n' +
     '    2. the subscription visible on the organization (written only by the webhook)\n' +
     '    3. that webhook delivery passing signature verification (#63)\n'
 );
