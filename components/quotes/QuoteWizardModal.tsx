@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
 import { Client, LineItem } from '@/types';
+import {
+  LineItemDraft,
+  DEFAULT_SAT_CODE,
+  createLineItemDraft,
+  normalizeNumericInput,
+  toLineItems,
+  validateLineItemDrafts,
+} from '@/lib/lineItemDraft';
 import { calculateQuoteTotals } from '@/lib/quoteCalculator';
 import { calculateClientCreditSummary, validateQuoteCreditLimit } from '@/lib/clientCredit';
 import { useReceivables } from '@/lib/hooks/useReceivables';
@@ -38,9 +46,12 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   // Starts empty on purpose: the old prefill ('Suministro de Materiales de
   // Obra', $15,000) passed step-2 validation untouched, so an owner who only
   // typed a title sent their client a real quote for goods they don't sell (#93).
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: '', quantity: 1, unit_price: 0, sat_code: '30111500', unit: 'E48' },
-  ]);
+  //
+  // Drafts hold the raw text of the number fields; `lib/lineItemDraft.ts`
+  // explains why binding the numbers directly produced a trailing zero in
+  // Precio Unitario.
+  const [drafts, setDrafts] = useState<LineItemDraft[]>([createLineItemDraft(DEFAULT_SAT_CODE)]);
+  const [itemsError, setItemsError] = useState<string | null>(null);
 
   const [applyIva, setApplyIva] = useState<boolean>(true);
   const [applyRetencionIsr, setApplyRetencionIsr] = useState<boolean>(false);
@@ -75,6 +86,8 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
 
   if (!isOpen) return null;
 
+  const lineItems: LineItem[] = toLineItems(drafts);
+
   const totals = calculateQuoteTotals(lineItems, {
     applyIva,
     applyRetencionIsr,
@@ -94,33 +107,35 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   );
 
   const handleAddLineItem = () => {
-    setLineItems((prev) => [
-      ...prev,
-      { description: '', quantity: 1, unit_price: 0, sat_code: '84111506', unit: 'E48' },
-    ]);
+    setDrafts((prev) => [...prev, createLineItemDraft()]);
   };
 
   const handleRemoveLineItem = (index: number) => {
-    if (lineItems.length === 1) return;
-    setLineItems((prev) => prev.filter((_, i) => i !== index));
+    if (drafts.length === 1) return;
+    setDrafts((prev) => prev.filter((_, i) => i !== index));
+    setItemsError(null);
   };
 
-  const handleItemChange = (index: number, field: keyof LineItem, value: string | number) => {
-    setLineItems((prev) =>
-      prev.map((item, i) => {
-        if (i === index) {
-          return { ...item, [field]: value };
-        }
-        return item;
-      })
-    );
+  const handleItemChange = (index: number, field: keyof LineItemDraft, value: string) => {
+    // The number fields keep the owner's own text — no round-trip through
+    // Number(), which is what re-inserted the leading zero on every keystroke.
+    const next =
+      field === 'quantity' || field === 'unit_price' ? normalizeNumericInput(value) : value;
+
+    setDrafts((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: next } : item)));
+    setItemsError(null);
   };
 
   const effectiveClientId = clientId || (clients && clients.length > 0 ? clients[0].id : '');
 
   const handleNext = () => {
     if (step === 1 && (!effectiveClientId || !title.trim())) return;
-    if (step === 2 && lineItems.some((item) => !item.description.trim() || item.unit_price <= 0)) return;
+    if (step === 2) {
+      // Saying why beats a button that does nothing (#146).
+      const validation = validateLineItemDrafts(drafts);
+      setItemsError(validation.message);
+      if (!validation.valid) return;
+    }
     setStep((prev) => Math.min(3, prev + 1));
   };
 
@@ -284,11 +299,11 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
           {step === 2 && (
             <div className="space-y-6">
               <div className="space-y-4 max-h-[260px] overflow-y-auto pr-1">
-                {lineItems.map((item, index) => (
+                {drafts.map((item, index) => (
                   <div key={index} className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-400">Concepto #{index + 1}</span>
-                      {lineItems.length > 1 && (
+                      {drafts.length > 1 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveLineItem(index)}
@@ -308,25 +323,41 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                     />
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1">Cantidad</label>
+                        <label
+                          className="block text-xs font-semibold text-slate-400 mb-1"
+                          htmlFor={`line-item-${index}-quantity`}
+                        >
+                          Cantidad
+                        </label>
+                        {/* text + inputMode: the numeric keypad without the
+                            browser's value sanitising, which blanks the field
+                            on a half-typed decimal ("1." reads as ""). */}
                         <input
-                          type="number"
-                          min="1"
+                          id={`line-item-${index}-quantity`}
+                          type="text"
+                          inputMode="numeric"
                           value={item.quantity}
-                          onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
-                          className="w-full min-h-[44px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium text-white focus:outline-none focus:border-emerald-500"
+                          onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                          placeholder="1"
+                          className="w-full min-h-[44px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                           required
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1">Precio Unitario ($)</label>
+                        <label
+                          className="block text-xs font-semibold text-slate-400 mb-1"
+                          htmlFor={`line-item-${index}-unit-price`}
+                        >
+                          Precio Unitario ($)
+                        </label>
                         <input
-                          type="number"
-                          step="0.01"
-                          min="0"
+                          id={`line-item-${index}-unit-price`}
+                          type="text"
+                          inputMode="decimal"
                           value={item.unit_price}
-                          onChange={(e) => handleItemChange(index, 'unit_price', Number(e.target.value))}
-                          className="w-full min-h-[44px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium text-white focus:outline-none focus:border-emerald-500"
+                          onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
+                          placeholder="0.00"
+                          className="w-full min-h-[44px] px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-base font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                           required
                         />
                       </div>
@@ -442,6 +473,18 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                   className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Beside the button that refused to advance — a message inside the
+              scrolling list of conceptos is a message nobody sees. */}
+          {step === 2 && itemsError && (
+            <div
+              role="alert"
+              className="mt-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-amber-300 text-sm font-semibold"
+            >
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+              <span>{itemsError}</span>
             </div>
           )}
 
