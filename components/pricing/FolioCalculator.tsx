@@ -105,7 +105,7 @@ export function FolioCalculator() {
         {/* The slider's scale legend, so it goes with the slider. Five labels
             in a nowrap `justify-between` need ~264px inside a ~231px card,
             which scrolled the whole landing page sideways at 375px (#88). */}
-        <div className="hidden sm:flex justify-between text-[10px] text-slate-500 font-mono">
+        <div className="hidden sm:flex justify-between text-[10px] text-slate-400 font-mono">
           <span>0 (Solo cotizaciones)</span>
           <span>25 facturas</span>
           <span>50 facturas</span>
@@ -154,7 +154,7 @@ export function FolioCalculator() {
         </div>
         <Link
           href={`/upgrade?plan=${bestPlan.toLowerCase()}`}
-          className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl transition-all shadow-md shrink-0 flex items-center gap-1.5 min-h-[36px]"
+          className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl transition-all shadow-md shrink-0 flex items-center gap-1.5 min-h-[48px]"
         >
           <span>Elegir Plan {bestPlan}</span>
           <ArrowRight className="w-3.5 h-3.5" />

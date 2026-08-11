@@ -44,7 +44,11 @@ describe('describeDbWriteError', () => {
     const failure = describeDbWriteError(
       {
         code: '23514',
-        message: 'new row violates check constraint "chk_client_credit_status_valid"',
+        // Postgres' real wording, which quotes the *relation* before the
+        // constraint. The elided version this fixture used to carry is what
+        // hid the attribution reading the first quoted token (#148).
+        message:
+          'new row for relation "clients" violates check constraint "chk_client_credit_status_valid"',
       },
       'el cliente',
       'POST /api/clients'

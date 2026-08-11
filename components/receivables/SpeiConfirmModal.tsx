@@ -87,7 +87,7 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
 
         <div className="space-y-4 mb-6">
           <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
-            <span className="text-xs font-semibold text-slate-400 uppercase">Hito de Cobro</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase">Concepto de Cobro</span>
             <h4 className="text-base font-bold text-white">{milestone.label}</h4>
             <p className="text-sm text-slate-300 font-medium">{milestone.client_name}</p>
             <div className="mt-2 text-xl font-black font-mono text-emerald-400">Monto Esperado: {formattedAmount}</div>
@@ -117,10 +117,11 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
           )}
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+            <label htmlFor="speiconfirmmodal-monto-transferido-confirmado-mxn" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
               Monto Transferido Confirmado (MXN)
             </label>
             <input
+              id="speiconfirmmodal-monto-transferido-confirmado-mxn"
               type="number"
               step="0.01"
               value={transferredAmount}

@@ -5,7 +5,7 @@ import {
   summarizeFieldErrors,
   fieldErrorCode,
 } from '@/lib/clientValidation';
-import { describeDbWriteError } from '@/lib/dbWriteError';
+import { describeDbWriteError, dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Single-client operations.
@@ -153,10 +153,9 @@ export async function DELETE(
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'Error al eliminar el cliente' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'el cliente', 'DELETE /api/clients/[id]', {
+        verb: 'eliminar',
+      });
     }
 
     if (!deleted) {

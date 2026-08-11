@@ -38,43 +38,30 @@ An HTML rendering is published at
 
 ## 01 Why This Document Exists
 
-The roadmap marks Sprints 1–16 plus WS-A/WS-B as **Completed** and reports **100% progress**
-with an all-green dashboard. A security review on 2026-08-06 found several of those features
-were **simulated**: the UI and data model existed, the third-party call underneath was faked.
+A security review on 2026-08-06 found that features the roadmap marked **Completed** were
+*simulated*: the UI and data model existed, but the third-party call underneath was faked. The worst
+case fabricated an invoice id and two storage URLs and wrote `cfdi_status: 'issued'` — a business
+owner could read their own dashboard, believe they had invoiced a client, and file accordingly.
 
-The most serious instance: `POST /api/invoices/issue` called `simulateInvoiceStamping()`, which
-fabricated an invoice ID and two storage URLs, then wrote `cfdi_status: 'issued'` onto the
-milestone. No PAC was contacted and no tax document existed — a compliance defect, not a missing
-feature, for a product whose promise is Mexican tax compliance. The same pattern applied to
-Stripe checkout, team invitations, the accountant ZIP export and outbound WhatsApp, all since
-remediated (§02). Full account in
-[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
-
-**The takeaway is procedural, not just technical:** the sprint-by-sprint "Completed" history is not a
-reliable map of what is launch-safe. Every remaining completion claim should be treated as unverified
-until checked against source. This memo does that check; §06 records the method so it can be repeated.
-
----
+The takeaway is procedural: **the sprint history is not a map of what is launch-safe**, and every
+completion claim needs checking against source. That is what this file is for. The full 2026-08-06
+findings are in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 
 ## 02 Verified State of `main`
 
 ### Merged and real
 
-| Change | PR | What it actually closed |
-|:---|:---|:---|
-| P0 money-path hardening | #1 | API auth enforcement across `app/api/*`; simulated writes relabelled so they cannot be mistaken for real ones |
-| Outbound WhatsApp dispatch | #13 | Reminders now send via Twilio / Meta Cloud API instead of reporting fabricated success |
-| Post-merge security setup | #16 | `lib/otpDelivery.ts` — real Twilio SMS, Twilio WhatsApp, and Meta Cloud API paths; per-org bank account (CLABE) UI; Stripe webhook signature verification |
-| Real checkout, invites, export | #19 | `lib/stripeClient.ts`, `lib/teamInvitations.ts`, and `lib/accountantExport.ts` read real data instead of hardcoded fixtures |
-| CI workflow + migration tooling | #11 | `.github/workflows/ci.yml`, `scripts/db-migrate.mjs`, `scripts/verify-stripe-webhook.mjs` |
-| Test consolidation | #21 | `scripts/test-runner.js` (2,751 lines) retired; coverage folded into vitest |
-| Agent authority split in two | #137 | The defect-class catalogue moved to `docs/LESSONS.md` under its own budget, with `tests/unit/lessonsCatalogue.test.ts` failing the build when a merge resolution drops a lesson (#135) |
+Seven changes (PRs #1, #11, #13, #16, #19, #21, #137) — the P0 money-path hardening, real outbound
+WhatsApp, real checkout/invites/export, CI + migration tooling, the test-runner retirement and the
+agent-authority split. Moved verbatim to
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-11; all merged
+long ago and none of it is live state.
 
 ### Corrected baseline metrics
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **1295 tests / 139 files**, `npx vitest run` (2026-08-11) — runner file no longer exists |
+| Test suite | 182/182 via `scripts/test-runner.js` | **1411 tests / 154 files**, `npx vitest run` (2026-08-11, this branch merged with `main` @ `ab98a94`) — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -166,13 +153,21 @@ re-checked against production or a real handset, which is the part no agent supp
 
 | Issues | What changed |
 |:--|:--|
-| #87, #100 | Every overlay is `components/shared/Modal.tsx`: `role="dialog"`, Escape, focus trap and return, a named ≥48px close, and the `max-h`/`overflow-y-auto` deciding whether the OTP submit is reachable at 375px with the keyboard open |
+| #87, #100 | Every overlay is `components/shared/Modal.tsx`: dialog role, Escape, focus trap and return, a named ≥48px close, and the `max-h`/`overflow-y-auto` deciding whether the OTP submit is reachable at 375px |
 | #127 | One SAT régimen catalogue (`lib/satRegimenes.ts`) across all five screens; an unlisted stored code renders as itself instead of blanking |
 | #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email); the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
 | #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
 | #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
+| #89, #101 | 48px floor enforced (46 declarations); one global `:focus-visible` ring replacing zero; 43 labels associated, 6 inputs named; gating `slate-500` raised, light-theme islands restyled; credit status gains an icon; 15 error containers announce. Gate: `a11yBaseline.test.ts` |
+| #103 | Jargon out of rendered copy (RBAC, SHA-256/HMAC, RLS, TLS, "Sandbox", route templates); English badges translated; provider errors mapped to Spanish via `lib/errorCopy.ts`, original logged; one name per concept; one register (tú) across the client portals. Plan naming split to #185. Gate: `copyRules.test.ts` |
+| #104 | Create-a-quote loses its navigation-only tap; "Generar y Compartir" now shares; invites get the WhatsApp link their copy promised; dirty-form guard; empty-vs-filtered split; skeletons unified; OTP resend cooldown. Gate: `flowPolish.test.ts` |
 
-Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
+**CFDI cancellation stays out of the app for launch** (#174, decided): the route ships with no UI
+caller — it needs a motivo, the `01` replacement UUID, receptor refusal and an async SAT answer
+(#30). Tenants cancel at their PAC portal; the stamping dialog says so, and
+`tests/unit/cfdiCancelHasNoUiCaller.test.ts` fails the build if a caller appears.
+
+The audit is closed. Deferred as decisions: #174 (CFDI cancel UI), #185 (plan naming).
 
 **Resolved off this table** (2026-08-07→08, all verified closed): #79, #76, #59, #33, #36, #37, #58
 — detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
@@ -240,15 +235,15 @@ Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
   in PR #147: every bad field reported at once keyed by column, a failed write naming its cause
   instead of one opaque 500, per-field messages in the form, and the RFC no longer gating
   registration. This row closes when a client is registered through the UI.
+- ~~**A failed write must name its cause** ([#148](https://github.com/jesushzv/business-helper/issues/148)).~~
+  **Done 2026-08-11** — the eleven routes classify the error instead of discarding it (503 naming
+  the column, 400 pinned to its input, 403, 500) and log it. Scanning per *branch* found four more,
+  plus a live defect: `constraintName()` read the relation, not the constraint, so no CHECK was ever
+  attributed. Gate proven red on a planted revert.
 - **One real production smoke test:** register → quote → WhatsApp send → OTP sign → SPEI upload → confirm.
 - **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
   CFDI ships at launch, so this is revenue the pricing page promises and the product cannot collect.
-- ~~**Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).~~
-  **Done 2026-08-08** — `--max-warnings=0`, 22 warnings cleared, failure verified with a planted
-  warning. (The count was recorded as 1, 3 and 23 before settling at 22 — a fail-open gate is how
-  the debt grew unnoticed.) Follow-up: `next/image` for the PNG sites,
-  [#82](https://github.com/jesushzv/business-helper/issues/82) (P2).
 
 ### P2 — Can trail launch by weeks
 

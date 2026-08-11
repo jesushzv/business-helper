@@ -33,7 +33,7 @@ export default function DemoPage() {
             </Link>
             <Link
               href="/register"
-              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3.5 py-2 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20 min-h-[36px] flex items-center"
+              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3.5 py-2 rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20 min-h-[48px] flex items-center"
             >
               Prueba Gratis
             </Link>
@@ -46,13 +46,13 @@ export default function DemoPage() {
         <div className="text-center max-w-3xl mx-auto space-y-4">
           <div className="inline-flex items-center gap-2 bg-indigo-500/10 text-indigo-400 px-3.5 py-1.5 rounded-full border border-indigo-500/20 text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Sandbox Interactivo en Vivo</span>
+            <span>Demostración Interactiva en Vivo</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight leading-tight">
             Prueba la plataforma en vivo sin necesidad de registrarte
           </h1>
           <p className="text-slate-400 text-base sm:text-lg leading-relaxed">
-            Accede al Sandbox interactivo para probar el generador de cotizaciones, la firma OTP por WhatsApp y el flujo de conciliación SPEI en tiempo real.
+            Entra a la demostración interactiva para probar el generador de cotizaciones, la firma OTP por WhatsApp y el flujo de conciliación SPEI en tiempo real.
           </p>
 
           <div className="pt-2">
@@ -61,7 +61,7 @@ export default function DemoPage() {
               className="inline-flex items-center gap-3 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold rounded-2xl shadow-xl shadow-indigo-600/30 transition-all text-sm active:scale-95 cursor-pointer"
             >
               <Zap className="w-4 h-4 text-amber-300" />
-              <span>Entrar al Sandbox Interactivo Ahora →</span>
+              <span>Entrar a la Demostración Ahora →</span>
             </Link>
           </div>
         </div>
@@ -72,7 +72,7 @@ export default function DemoPage() {
             {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
             <img
               src={getAssetUrl('/assets/demo/cuj_02_dashboard_kpis.png')}
-              alt="Business Helper Sandbox Interactivo — Control de Cotizaciones"
+              alt="Business Helper — Demostración interactiva del control de cotizaciones"
               className="w-full h-full object-cover object-top rounded-b-xl"
             />
           </BrowserFrameMockup>
@@ -116,7 +116,7 @@ export default function DemoPage() {
           <div className="space-y-2">
             <h3 className="text-2xl sm:text-3xl font-black text-white">¿Listo para probarlo con tus propias cotizaciones?</h3>
             <p className="text-xs sm:text-sm text-slate-400">
-              Accede al Sandbox interactivo o registra tu negocio en menos de 3 minutos sin costo.
+              Entra a la demostración o registra tu negocio en menos de 3 minutos sin costo.
             </p>
           </div>
 
@@ -126,7 +126,7 @@ export default function DemoPage() {
               className="w-full sm:w-auto min-h-[50px] px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-indigo-300" />
-              <span>Explorar Sandbox Interactivo</span>
+              <span>Explorar la Demostración</span>
             </Link>
             <Link
               href="/register"

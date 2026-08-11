@@ -1,0 +1,144 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { SpeiConfirmModal } from '@/components/receivables/SpeiConfirmModal';
+import type { MilestoneWithClient, ReceivableMutationOutcome } from '@/lib/hooks/useReceivables';
+
+/**
+ * Confirming that money arrived (#149).
+ *
+ * #149 listed this modal as out of scope *by construction*: it owns a submit
+ * handler but no `<form>`, so the gate's detector could not see it and would
+ * never ask for this file. That was the wrong side of the judgment — this is
+ * the control that turns "owed" into "collected", files the complemento de
+ * pago behind it, and is the exact place #58/#86's fabricated confirmation
+ * lived. The detector now keys on the handler as well as the tag, and this is
+ * the test it asks for.
+ *
+ * Every case is one question: *does the screen agree with what the server
+ * recorded?* A modal that closes on a rejected write tells the owner a payment
+ * landed that never did — and receivables is where that becomes an invoice.
+ */
+
+const MILESTONE = {
+  id: 'm-1',
+  label: 'Anticipo 50%',
+  amount: 24500,
+  transferred_amount: null,
+  due_date: '2026-09-15',
+  status: 'marked_paid',
+  client_name: 'Constructora del Bajío',
+  contract_title: 'Impermeabilización Nave Industrial',
+  tracking_reference: 'SPEI20260830123456',
+} as unknown as MilestoneWithClient;
+
+const ok = (): ReceivableMutationOutcome => ({ success: true });
+
+function renderModal(
+  onConfirm: (id: string, amount?: number) => Promise<ReceivableMutationOutcome>
+) {
+  const onClose = vi.fn();
+  const confirm = vi.fn(onConfirm);
+  render(
+    <SpeiConfirmModal isOpen milestone={MILESTONE} onClose={onClose} onConfirm={confirm} />
+  );
+  return { onClose, confirm };
+}
+
+const amountInput = () => document.querySelector('input[type="number"]') as HTMLInputElement;
+const confirmButton = () => screen.getByRole('button', { name: /Confirmar Pago/i });
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('confirming a payment', () => {
+  it('proposes the milestone amount and confirms it', async () => {
+    const { onClose, confirm } = renderModal(async () => ok());
+
+    expect(amountInput().value).toBe('24500');
+    fireEvent.click(confirmButton());
+
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith('m-1', 24500));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('sends the corrected amount when the transfer differed', async () => {
+    // Partial transfers are ordinary here: the owner confirms what arrived,
+    // not what was owed, and that figure is what the CFDI complement carries.
+    const { confirm } = renderModal(async () => ok());
+
+    fireEvent.change(amountInput(), { target: { value: '20000' } });
+    fireEvent.click(confirmButton());
+
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith('m-1', 20000));
+  });
+
+  it('falls back to the full amount rather than confirming zero', async () => {
+    const { confirm } = renderModal(async () => ok());
+
+    fireEvent.change(amountInput(), { target: { value: '' } });
+    fireEvent.click(confirmButton());
+
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith('m-1', 24500));
+  });
+});
+
+describe('a rejected confirmation is never shown as one (#58/#86)', () => {
+  it('stays open with the reason when the server refuses', async () => {
+    const { onClose } = renderModal(async () => ({
+      success: false,
+      error: 'Tu rol no permite confirmar pagos',
+    }));
+
+    fireEvent.click(confirmButton());
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/Tu rol no permite confirmar pagos/i);
+    // The modal closing is what would read as "confirmed".
+    expect(onClose).not.toHaveBeenCalled();
+    expect(confirmButton()).toBeTruthy();
+  });
+
+  it('names a cause even when the outcome carries none', async () => {
+    renderModal(async () => ({ success: false }));
+
+    fireEvent.click(confirmButton());
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/No se pudo confirmar el pago/i);
+  });
+
+  it('re-enables the button after a failure', async () => {
+    renderModal(async () => ({ success: false, error: 'falló' }));
+
+    fireEvent.click(confirmButton());
+
+    await screen.findByRole('alert');
+    await waitFor(() => expect((confirmButton() as HTMLButtonElement).disabled).toBe(false));
+  });
+});
+
+describe('a payment that confirmed but whose complemento did not stamp', () => {
+  it('holds the modal open on the fiscal obligation left outstanding', async () => {
+    // The money is recorded; the SAT complement is not. Closing quietly would
+    // leave a PPD invoice owing a complemento nobody knows about.
+    const { onClose } = renderModal(async () => ({
+      success: true,
+      complementError: {
+        code: 'FOLIOS_EXHAUSTED',
+        message: 'El pago quedó confirmado, pero el complemento no se timbró: no te quedan folios.',
+      },
+    } as ReceivableMutationOutcome));
+
+    fireEvent.click(confirmButton());
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/el complemento no se timbró/i);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // And it takes an explicit acknowledgement to leave.
+    fireEvent.click(screen.getByRole('button', { name: /Entendido — pago confirmado/i }));
+    expect(onClose).toHaveBeenCalled();
+  });
+});

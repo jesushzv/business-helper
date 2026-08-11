@@ -15,6 +15,28 @@ import { CFDI_CANCELLATION_MOTIVES, cancelInvoice } from '@/lib/pacClient';
  *
  * The folio is not refunded. The stamp was issued and the PAC charged for it;
  * returning the folio would let a cancel-and-restamp loop mint free ones.
+ *
+ * ## No UI caller, by decision — not by omission (#174)
+ *
+ * Nothing in `app/` or `components/` calls this route, and for launch nothing
+ * should. That is a decision, recorded here so the next reader does not "fix"
+ * it: cancellation is not a delete button. Under CFDI 4.0 it needs a *motivo*
+ * (01–04), `01` additionally requires the replacement invoice's UUID, the
+ * receptor can **refuse** a cancellation that is not `04`, and the SAT answers
+ * asynchronously — "en proceso" now, settled later. A button with a spinner
+ * over that would report an outcome the SAT has not given, which is hard rule
+ * #1 applied to a fiscal document. The PPD case is worse again: #30 tracks
+ * cancelling a complemento de pago, and the two want designing together.
+ *
+ * So for launch a tenant cancels at their PAC's own portal, and the stamping
+ * confirmation says as much in plain Spanish: "Esta acción no se puede deshacer
+ * desde la app." That sentence is load-bearing — it stays true exactly as long
+ * as this route stays uncalled.
+ *
+ * The route itself is kept, not deleted: it is tested, it enforces RBAC and
+ * org scoping, and #30 will need it. `tests/unit/cfdiCancelHasNoUiCaller.test.ts`
+ * fails the build if a caller appears, so adding one is a deliberate act that
+ * reopens the decision rather than a quiet drift away from the copy above.
  */
 export async function POST(
   request: Request,

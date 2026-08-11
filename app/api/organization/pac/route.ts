@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import {
   isPacEncryptionConfigured,
@@ -216,10 +217,9 @@ export async function DELETE() {
     .eq('organization_id', organizationId);
 
   if (error) {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo desconectar tu PAC' } },
-      { status: 500 }
-    );
+    return dbWriteErrorResponse(error, 'la conexión con tu PAC', 'DELETE /api/organization/pac', {
+      verb: 'eliminar',
+    });
   }
 
   await service.from('audit_logs').insert({

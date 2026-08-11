@@ -78,21 +78,22 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
       <form onSubmit={handleSaveBranding} className="space-y-6">
         {/* Primary Theme Color Palette — preview only until persistence lands */}
         <div>
-          <label className="block text-sm font-bold text-slate-300 mb-2">
+          <p id="branding-color-label" className="block text-sm font-bold text-slate-300 mb-2">
             Color Principal de Marca{' '}
             <span className="ml-1 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Muy pronto
             </span>
-          </label>
-          <p className="mb-2 text-xs text-slate-500">
+          </p>
+          <p className="mb-2 text-xs text-slate-400">
             Vista previa disponible; guardar el color, el lema y la divisa estará disponible muy pronto.
           </p>
-          <div className="flex flex-wrap items-center gap-3">
+          <div role="group" aria-labelledby="branding-color-label" className="flex flex-wrap items-center gap-3">
             {PRESET_COLORS.map((color) => (
               <button
                 key={color.hex}
                 type="button"
                 onClick={() => setPrimaryColor(color.hex)}
+                aria-pressed={primaryColor === color.hex}
                 className={`min-h-[48px] px-4 py-2 rounded-2xl flex items-center gap-2 border text-sm font-semibold transition-all ${
                   primaryColor === color.hex
                     ? 'border-emerald-500 bg-slate-800 text-white shadow-md ring-2 ring-emerald-500/30'
@@ -110,9 +111,10 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
         {/* Custom Logo URL & Tagline */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-bold text-slate-300 mb-1">URL del Logotipo (PNG/SVG)</label>
+            <label htmlFor="brandingsettingscard-url-del-logotipo-png" className="block text-sm font-bold text-slate-300 mb-1">URL del Logotipo (PNG/SVG)</label>
             <div className="relative">
               <input
+                id="brandingsettingscard-url-del-logotipo-png"
                 type="url"
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
@@ -125,8 +127,9 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-300 mb-1">Lema o Eslogan de Empresa</label>
+            <label htmlFor="brandingsettingscard-lema-o-eslogan-de" className="block text-sm font-bold text-slate-300 mb-1">Lema o Eslogan de Empresa</label>
             <input
+              id="brandingsettingscard-lema-o-eslogan-de"
               type="text"
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
@@ -139,11 +142,14 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
 
         {/* Currency Preference Selector */}
         <div>
-          <label className="block text-sm font-bold text-slate-300 mb-2">Divisa Predeterminada para Cotizaciones</label>
-          <div className="flex items-center gap-4">
+          <p id="branding-currency-label" className="block text-sm font-bold text-slate-300 mb-2">
+            Divisa Predeterminada para Cotizaciones
+          </p>
+          <div role="group" aria-labelledby="branding-currency-label" className="flex items-center gap-4">
             <button
               type="button"
               onClick={() => setDefaultCurrency('MXN')}
+              aria-pressed={defaultCurrency === 'MXN'}
               className={`min-h-[48px] px-6 py-3 rounded-2xl border font-bold text-sm flex items-center gap-2 transition-all ${
                 defaultCurrency === 'MXN'
                   ? 'border-emerald-500 bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
@@ -155,6 +161,7 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
             <button
               type="button"
               onClick={() => setDefaultCurrency('USD')}
+              aria-pressed={defaultCurrency === 'USD'}
               className={`min-h-[48px] px-6 py-3 rounded-2xl border font-bold text-sm flex items-center gap-2 transition-all ${
                 defaultCurrency === 'USD'
                   ? 'border-emerald-500 bg-emerald-950/80 text-emerald-400 border-emerald-500/30'

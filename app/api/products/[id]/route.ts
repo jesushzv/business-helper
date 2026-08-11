@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Deletes one catalog product. Added for #98 — the catalog UI offered a
@@ -30,10 +31,9 @@ export async function DELETE(
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo eliminar el producto' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'el producto', 'DELETE /api/products/[id]', {
+        verb: 'eliminar',
+      });
     }
 
     if (!data) {

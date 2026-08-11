@@ -33,7 +33,7 @@ export function AIAssistantCard() {
           </span>
           <span className="text-xs font-extrabold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 px-3 py-1 rounded-full border border-indigo-400/30 flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5" />
-            WhatsApp AI Operations Assistant
+            Asistente de Operaciones por WhatsApp
           </span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
@@ -57,7 +57,7 @@ export function AIAssistantCard() {
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 p-4 rounded-2xl border border-rose-500/30 bg-rose-950/80 text-sm text-rose-300">
+        <div role="alert" className="flex items-start gap-2 p-4 rounded-2xl border border-rose-500/30 bg-rose-950/80 text-sm text-rose-300">
           <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
           {error}
         </div>
@@ -82,6 +82,7 @@ export function AIAssistantCard() {
         <input
           type="text"
           placeholder="Escribe tu pregunta (ej. ¿Cuánto me debe Grupo Salinas?)..."
+            aria-label="Escribe tu pregunta al asistente"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="w-full min-h-[56px] pl-5 pr-14 bg-slate-900/90 border border-slate-800 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-all text-base shadow-xl"

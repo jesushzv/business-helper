@@ -110,6 +110,11 @@ describe('the 23505 an owner can now actually hit', () => {
     expect(route).not.toMatch(
       /code: 'SERVER_ERROR', message: 'No se pudo crear la organización'/
     );
-    expect(route).toMatch(/describeDbWriteError\(error, 'una organización'/);
+    // Through `dbWriteErrorResponse` since #177 landed on main and moved every
+    // route onto that wrapper. It calls `describeDbWriteError` internally, so
+    // the 23505 arm above is reached — the route needs no case of its own, and
+    // asserting the inner function by name here would pin an implementation
+    // detail this route no longer touches.
+    expect(route).toMatch(/dbWriteErrorResponse\(error, .+'POST \/api\/organization'/);
   });
 });

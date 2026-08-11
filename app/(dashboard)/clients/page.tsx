@@ -80,6 +80,7 @@ export default function ClientsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por Nombre, RFC o Persona de Contacto..."
+            aria-label="Buscar clientes"
               className="w-full min-h-[48px] rounded-2xl border border-slate-800 bg-slate-900/90 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
             />
           </div>

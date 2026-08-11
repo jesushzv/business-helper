@@ -3,7 +3,7 @@ import { requireOrgAccess, requireUser, isDemoDeployment } from '@/lib/apiAuth';
 import { normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
-import { describeDbWriteError } from '@/lib/dbWriteError';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 export async function GET() {
   // No backend means no tenant data; the demo organization is honest here.
@@ -254,10 +254,7 @@ export async function PATCH(request: Request) {
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo guardar la cuenta bancaria' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'los datos de tu negocio', 'PATCH /api/organization');
     }
 
     if (!data) {
@@ -317,14 +314,12 @@ export async function POST(request: Request) {
     // (20260811150000) makes "you already have a business" a reachable outcome
     // for an owner who reopens onboarding, and answering that with the same
     // opaque 500 as an outage is the #146 defect: a diagnosis thrown away, on
-    // screen and in the log alike. `describeDbWriteError` names the cause in
-    // Spanish and `captureException`s the original.
+    // screen and in the log alike. `dbWriteErrorResponse` names the cause in
+    // Spanish and `captureException`s the original — the 409 for that
+    // constraint lives inside `describeDbWriteError`, which it calls, so this
+    // route needs no special case of its own.
     if (error || !data) {
-      const failure = describeDbWriteError(error, 'una organización', 'POST /api/organization');
-      return NextResponse.json(
-        { error: { code: failure.code, message: failure.message } },
-        { status: failure.status }
-      );
+      return dbWriteErrorResponse(error, 'tu negocio', 'POST /api/organization', { verb: 'crear' });
     }
 
     return NextResponse.json({ organization: data });

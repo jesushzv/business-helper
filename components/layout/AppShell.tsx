@@ -46,7 +46,7 @@ const NAV_ITEMS = [
   { label: 'Catálogo', href: '/products', icon: Package },
   { label: 'Facturación', href: '/invoices', icon: FileCode },
   { label: 'Equipo', href: '/team', icon: Shield },
-  { label: 'Asistente AI', href: '/assistant', icon: Bot },
+  { label: 'Asistente IA', href: '/assistant', icon: Bot },
   { label: 'Ayuda', href: '/help', icon: HelpCircle },
   { label: 'Ajustes', href: '/settings', icon: Settings },
 ];
@@ -107,7 +107,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex min-h-[44px] items-center gap-3 rounded-2xl px-4 py-2.5 text-sm transition-all ${
+                className={`flex min-h-[48px] items-center gap-3 rounded-2xl px-4 py-2.5 text-sm transition-all ${
                   isActive
                     ? 'bg-emerald-500/15 text-emerald-400 font-extrabold border border-emerald-500/30 shadow-xs'
                     : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium'
@@ -122,7 +122,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           {/* Tier Features Trigger in Sidebar */}
           <button
             onClick={() => setIsTierModalOpen(true)}
-            className="flex min-h-[44px] w-full items-center gap-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/40 px-4 py-2.5 text-sm font-bold text-indigo-300 transition-all hover:bg-indigo-900/60 hover:text-white"
+            className="flex min-h-[48px] w-full items-center gap-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/40 px-4 py-2.5 text-sm font-bold text-indigo-300 transition-all hover:bg-indigo-900/60 hover:text-white"
           >
             <Sparkles className="h-4 w-4 text-indigo-400" />
             <span>Ver Planes y Beneficios</span>

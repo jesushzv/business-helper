@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { useQuotes } from '@/lib/hooks/useQuotes';
 import { useClients } from '@/lib/hooks/useClients';
@@ -8,6 +8,8 @@ import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { QuoteWizardModal } from '@/components/quotes/QuoteWizardModal';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 import { Plus, Search, FileText, CheckCircle2, Clock, Send } from 'lucide-react';
+import { generateWhatsAppLink } from '@/lib/whatsappLink';
+import { getQuotePublicUrl } from '@/lib/url';
 
 export default function QuotesPage() {
   const result = useActionResult();
@@ -25,7 +27,26 @@ export default function QuotesPage() {
   } = useQuotes();
 
   const { clients } = useClients();
+
+  // "Nothing matches your filter" and "you have nothing yet" are different
+  // facts, and only the second one warrants a create CTA (#104).
+  const isFiltering = searchQuery.trim() !== '' || statusFilter !== 'all';
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
+
+  // `/quotes?nueva=1` opens the wizard directly, so the dashboard CTA costs
+  // one tap instead of two — the list screen in between was pure navigation
+  // against Don Roberto's ≤3-tap budget (#104).
+  //
+  // Read from `window.location` rather than `useSearchParams()`: the hook opts
+  // the whole route out of static prerendering unless it sits behind its own
+  // Suspense boundary, and this is a one-shot entry instruction, not state to
+  // keep in sync.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('nueva') === '1') {
+      setIsWizardOpen(true);
+    }
+  }, []);
 
   const totalSent = quotes.filter((q) => q.status === 'sent').length;
   const totalAccepted = quotes.filter((q) => q.status === 'accepted' || q.status === 'converted').length;
@@ -38,7 +59,7 @@ export default function QuotesPage() {
         actionButton={
           <button
             onClick={() => setIsWizardOpen(true)}
-            className="flex min-h-[40px] items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-md shadow-emerald-950/50 transition-all hover:bg-emerald-400 active:scale-95"
+            className="flex min-h-[48px] items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-md shadow-emerald-950/50 transition-all hover:bg-emerald-400 active:scale-95"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nueva Cotización</span>
@@ -53,7 +74,7 @@ export default function QuotesPage() {
             Cotizaciones y Propuestas
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Genera cotizaciones profesionales con cálculo de impuestos SAT y envíalas por WhatsApp en 1 tap.
+            Genera cotizaciones profesionales con cálculo de impuestos SAT y envíalas por WhatsApp con un toque.
           </p>
         </div>
 
@@ -111,6 +132,7 @@ export default function QuotesPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar cotizaciones por título o notas..."
+            aria-label="Buscar cotizaciones"
             className="w-full min-h-[48px] pl-11 pr-4 bg-slate-900/90 border border-slate-800 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
           />
         </div>
@@ -126,7 +148,7 @@ export default function QuotesPage() {
             <button
               key={f.id}
               onClick={() => setStatusFilter(f.id)}
-              className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                 statusFilter === f.id
                   ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-950/50'
                   : 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800'
@@ -141,9 +163,13 @@ export default function QuotesPage() {
       {/* Quotes Grid. Three states, not two (#97): a failed fetch must not
           greet a tenant who has quotes with the create-your-first-quote CTA. */}
       {loading ? (
-        <div className="p-12 text-center text-slate-400 font-medium">Cargando cotizaciones...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-48 animate-pulse rounded-2xl bg-slate-800/80" />
+          ))}
+        </div>
       ) : error ? (
-        <div className="bg-rose-950/60 rounded-3xl border border-rose-500/30 p-12 text-center space-y-3">
+        <div role="alert" className="bg-rose-950/60 rounded-3xl border border-rose-500/30 p-12 text-center space-y-3">
           <Clock className="w-12 h-12 text-rose-400 mx-auto" />
           <h3 className="text-lg font-bold text-white">No pudimos cargar tus cotizaciones</h3>
           <p className="text-sm text-rose-200 max-w-sm mx-auto">{error}</p>
@@ -157,17 +183,25 @@ export default function QuotesPage() {
       ) : filteredQuotes.length === 0 ? (
         <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-12 text-center space-y-3 text-white">
           <Clock className="w-12 h-12 text-slate-600 mx-auto" />
-          <h3 className="text-lg font-bold text-white">No se encontraron cotizaciones</h3>
+          <h3 className="text-lg font-bold text-white">
+            {isFiltering ? 'Ninguna cotización coincide' : 'Todavía no tienes cotizaciones'}
+          </h3>
           <p className="text-sm text-slate-400 max-w-sm mx-auto">
-            Comienza creando tu primera propuesta comercial en 3 pasos con cálculo de impuestos SAT.
+            {isFiltering
+              ? 'Prueba con otra búsqueda o quita el filtro para ver todas.'
+              : 'Comienza creando tu primera propuesta comercial en 3 pasos con cálculo de impuestos SAT.'}
           </p>
-          <button
-            onClick={() => setIsWizardOpen(true)}
-            className="inline-flex min-h-[48px] px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl items-center gap-2 text-sm mt-2 shadow-md"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Nueva Cotización</span>
-          </button>
+          {/* Offering "crear la primera" to someone whose filter is simply
+              hiding rows is the search-vs-empty conflation (#104). */}
+          {!isFiltering && (
+            <button
+              onClick={() => setIsWizardOpen(true)}
+              className="inline-flex min-h-[48px] px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl items-center gap-2 text-sm mt-2 shadow-md"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Nueva Cotización</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -191,7 +225,7 @@ export default function QuotesPage() {
                     result.succeed({
                       title: 'Contrato creado',
                       message: `La cotización ya es un contrato con ${count} ${
-                        count === 1 ? 'hito de cobranza' : 'hitos de cobranza'
+                        count === 1 ? 'cobro programado' : 'cobros programados'
                       }.`,
                     });
                   } catch (err) {
@@ -215,9 +249,33 @@ export default function QuotesPage() {
           // would claim a success the database has not confirmed (hard rule 1).
           const saved = await createQuote(data);
           setIsWizardOpen(false);
+
+          // The button says "Generar y Compartir", so it shares. Built from
+          // the *saved* row's token — never the draft, and never a literal
+          // origin (getQuotePublicUrl is the only builder, #36/#73).
+          const client = clients.find((c) => c.id === saved.client_id);
+          const shareUrl = saved.public_token ? getQuotePublicUrl(saved.public_token) : null;
+          const waUrl =
+            client?.phone && shareUrl
+              ? generateWhatsAppLink(
+                  client.phone,
+                  `Hola ${client.name}, le comparto la cotización «${saved.title}».\n\nPuede revisarla y firmarla aquí:\n${shareUrl}`
+                )
+              : null;
+
           result.succeed({
             title: 'Cotización creada',
-            message: `«${saved.title}» quedó lista para compartir con tu cliente.`,
+            message: waUrl
+              ? `«${saved.title}» está lista. Abrimos WhatsApp para que se la mandes a ${client?.name}.`
+              : client && !client.phone
+                ? `«${saved.title}» quedó lista. ${client.name} no tiene teléfono registrado, así que compártela desde la tarjeta.`
+                : `«${saved.title}» quedó lista para compartir con tu cliente.`,
+            // A share that opens a new tab must be the user's own tap —
+            // browsers block window.open outside a gesture, and silently
+            // "sharing" without showing them is not sharing either.
+            action: waUrl
+              ? { label: 'Enviar por WhatsApp', onClick: () => window.open(waUrl, '_blank', 'noopener') }
+              : undefined,
           });
           // On failure createQuote throws; the wizard catches it, stays open
           // and shows the message beside its own submit button — closer to
