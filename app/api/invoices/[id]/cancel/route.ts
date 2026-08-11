@@ -15,6 +15,26 @@ import { CFDI_CANCELLATION_MOTIVES, cancelInvoice } from '@/lib/pacClient';
  *
  * The folio is not refunded. The stamp was issued and the PAC charged for it;
  * returning the folio would let a cancel-and-restamp loop mint free ones.
+ *
+ * ## No UI entry point, by design for launch (#174)
+ *
+ * Nothing in `app/` or `components/` calls this route, and that is deliberate,
+ * not an oversight — do not "fix" it by wiring a button. A CFDI cancellation is
+ * not a delete: it needs a motivo (01–04), `01` needs the UUID of the
+ * replacement invoice, the receptor may **reject** it when the motivo is not
+ * `04`, and the SAT answers "en proceso" and settles later. A button with a
+ * spinner over that is hard rule #1 applied to a fiscal document.
+ *
+ * So for launch a tenant cancels at the PAC's own portal, and the stamping
+ * confirmation's copy — "Esta acción no se puede deshacer desde la app" —
+ * stays true. The route itself is kept, and stays reachable by HTTP behind
+ * `issue_cfdi`, because it is how support cancels a mis-stamp today and it is
+ * the half that has to exist before any UI can.
+ *
+ * Revisit together with #30 (complemento cancellation): a PPD invoice with
+ * complementos already stamped against it is a different flow again, and the
+ * two want designing at once. `tests/unit/cfdiCancelEntryPoint.test.ts` fails
+ * the build when a caller appears without this note being revisited.
  */
 export async function POST(
   request: Request,

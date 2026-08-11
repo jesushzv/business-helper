@@ -331,7 +331,15 @@ These require the founder and are not resolvable from the codebase.
 7. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
    "1–2 focused weeks" is two calendar weeks or closer to a month.
 8. ~~**Merge posture on PRs #20 and #23.**~~ Moot — both merged 2026-08-07 (§02).
-9. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
+9. ~~**Does CFDI cancellation get a UI at launch?**~~ **Resolved 2026-08-11 — no, and the route
+   stays unreachable by design** ([#174](https://github.com/jesushzv/business-helper/issues/174)).
+   `POST /api/invoices/[id]/cancel` exists and works behind `issue_cfdi`, and nothing in the app
+   calls it. A tenant cancels at the PAC's own portal for launch, which keeps the stamping
+   confirmation's "Esta acción no se puede deshacer desde la app" true. Revisit with
+   [#30](https://github.com/jesushzv/business-helper/issues/30) — complemento cancellation and
+   invoice cancellation want designing together. `tests/unit/cfdiCancelEntryPoint.test.ts` fails
+   the build if a caller appears or the route's note goes missing.
+10. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
    narrow to one module, freeze for a validation-only sprint, or wind down and redirect the time.
    Worth deciding while calm rather than mid-crisis.
 
