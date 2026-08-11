@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isSupabaseConfigured } from '@/lib/supabase/server';
 import { validateProductCatalogItem } from '@/lib/products';
 import { requireOrgAccess } from '@/lib/apiAuth';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 export async function GET() {
   if (!isSupabaseConfigured()) {
@@ -80,10 +81,7 @@ export async function POST(request: Request) {
       // Previously fell through to a fabricated `prod-<timestamp>` object
       // with a 201, so the UI showed a product that was never stored.
       if (error || !newProduct) {
-        return NextResponse.json(
-          { error: { code: 'SERVER_ERROR', message: 'No se pudo guardar el producto' } },
-          { status: 500 }
-        );
+        return dbWriteErrorResponse(error, 'el producto', 'POST /api/products');
       }
 
       return NextResponse.json({ product: newProduct }, { status: 201 });

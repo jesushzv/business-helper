@@ -536,6 +536,15 @@ org name after hydration — was confirmed by the founder in a browser on 2026-0
 the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
 no-invented-bank path stays pinned by unit tests until a first real payment.
 
+## Moved out of STATUS §03 P1 on 2026-08-11 (settled; §02's metrics row carries the live state)
+
+- ~~**Make the lint warning gate real** ([#46](https://github.com/jesushzv/business-helper/issues/46)).~~
+  **Done 2026-08-08** — `--max-warnings=0`, 22 warnings cleared, failure verified with a planted
+  warning. (The count was recorded as 1, 3 and 23 before settling at 22 — a fail-open gate is how
+  the debt grew unnoticed.) Follow-up: `next/image` for the PNG sites,
+  [#82](https://github.com/jesushzv/business-helper/issues/82) (P2).
+
+
 ## P0 rows cleared 2026-08-07, moved from `docs/STATUS.md` 2026-08-11
 
 Settled history: all four verified closed on the tracker at the time, moved here verbatim when

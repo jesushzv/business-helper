@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { publicApiError } from '@/lib/publicApiError';
+import { publicDbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Public SPEI payment surface, reached over a shared link with no session.
@@ -211,11 +212,14 @@ export async function POST(
       .select('id');
 
     if (updateError) {
-      return publicApiError(
-        500,
-        'RECEIPT_WRITE_FAILED',
-        'No se pudo registrar el comprobante. Intente de nuevo.'
-      );
+      // Never a message that could read as "we got your payment": the write
+      // that would have recorded the declaration is the one that just failed.
+      return publicDbWriteErrorResponse(updateError, {
+        operation: 'RECEIPT_WRITE_FAILED',
+        entity: 'el comprobante',
+        route: 'POST /api/receivables/public/[token]',
+        verb: 'registrar',
+      });
     }
 
     if (!updated?.length) {

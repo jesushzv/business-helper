@@ -5,6 +5,7 @@ import {
   pickFields,
   QUOTE_WRITABLE_FIELDS,
 } from '@/lib/apiAuth';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
  * Quote collection.
@@ -79,10 +80,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !newQuote) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo crear la cotización' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(error, 'la cotización', 'POST /api/quotes', { verb: 'crear' });
     }
 
     return NextResponse.json(newQuote, { status: 201 });
