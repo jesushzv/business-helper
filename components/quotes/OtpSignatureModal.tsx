@@ -26,6 +26,14 @@ interface OtpSignatureModalProps {
 }
 
 const MAX_ATTEMPTS = 3;
+/**
+ * How long before a resend is offered again.
+ *
+ * The server owns the real rate limit (#22's escalating backoff and daily
+ * cap); this only stops a client tapping twice in three seconds and spending
+ * one of those sends on a code that is already in flight to their phone.
+ */
+const RESEND_COOLDOWN_SECONDS = 30;
 
 export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
   isOpen,
@@ -45,6 +53,14 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
   // Which channel the server actually sent over — the copy below must not
   // claim a destination ("su correo", "su celular") the server did not use.
   const [channel, setChannel] = useState<string | null>(null);
+  /** Seconds until "Reenviar Código" is tappable again. 0 = ready. */
+  const [cooldown, setCooldown] = useState<number>(0);
+
+  React.useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   if (!isOpen) return null;
 
@@ -67,6 +83,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
 
       setSent(true);
       setRemaining(MAX_ATTEMPTS);
+      setCooldown(RESEND_COOLDOWN_SECONDS);
       setChannel(typeof data?.channel === 'string' ? data.channel : null);
       // Only ever populated by a local dev server with no delivery provider wired up.
       setDevCode(data?.dev_code || null);
@@ -216,11 +233,13 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
               <button
                 type="button"
                 onClick={handleSendOtp}
-                disabled={sending}
-                className="text-emerald-400 font-bold hover:underline flex items-center gap-1 disabled:opacity-50"
+                disabled={sending || cooldown > 0}
+                className="text-emerald-400 font-bold hover:underline flex items-center gap-1 disabled:opacity-50 disabled:no-underline"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Reenviar Código</span>
+                <span>
+                  {cooldown > 0 ? `Reenviar en ${cooldown}s` : 'Reenviar Código'}
+                </span>
               </button>
             </div>
 

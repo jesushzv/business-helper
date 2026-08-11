@@ -14,6 +14,7 @@ import { useReceivables } from '@/lib/hooks/useReceivables';
 import { Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles, AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 import { userFacingMessage } from '@/lib/errorCopy';
+import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
 
 interface QuoteWizardModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   clients,
   onSubmit,
 }) => {
+  const confirmAction = useConfirm();
   const [step, setStep] = useState<number>(1);
   const [clientId, setClientId] = useState<string>(clients[0]?.id || '');
   const [title, setTitle] = useState<string>('');
@@ -173,10 +175,32 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
     }
   };
 
+  // A mis-tap on the X used to discard everything typed — up to eight line
+  // items entered on a phone (#104). The guard only fires when there is
+  // something to lose, so an untouched wizard still closes in one tap.
+  const isDirty =
+    title.trim() !== '' ||
+    notes.trim() !== '' ||
+    drafts.some((d) => d.description.trim() !== '' || d.quantity.trim() !== '' || d.unit_price.trim() !== '');
+
+  const handleClose = () => {
+    if (!isDirty) {
+      onClose();
+      return;
+    }
+    confirmAction.ask({
+      title: 'Descartar esta cotización',
+      consequence: 'Se perderán los conceptos y las notas que llevas capturados. Esto no se puede deshacer.',
+      confirmLabel: 'Sí, descartar',
+      cancelLabel: 'Seguir editando',
+      onConfirm: onClose,
+    });
+  };
+
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={handleClose}
       title="Generador de Cotización"
       maxWidth="max-w-2xl"
       // Three steps of typed work behind a backdrop tap.
@@ -539,6 +563,8 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
           </div>
         </form>
       </div>
+
+      <ConfirmDialog request={confirmAction.request} onClose={confirmAction.dismiss} />
     </Modal>
   );
 };
