@@ -236,11 +236,10 @@ Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
   instead of one opaque 500, per-field messages in the form, and the RFC no longer gating
   registration. This row closes when a client is registered through the UI.
 - ~~**A failed write must name its cause** ([#148](https://github.com/jesushzv/business-helper/issues/148)).~~
-  **Done 2026-08-11** — the eleven routes classify the error instead of discarding it (503 naming the
-  missing column, 400 pinned to its input, 403, 500) and log the original. Re-running the scan per
-  *branch* found four more, plus one live defect: `constraintName()` read the relation, not the
-  constraint, so no CHECK was attributed in production. typecheck + lint + vitest green; gate proven
-  red on a planted revert. Coverage delta not measured.
+  **Done 2026-08-11** — the eleven routes classify the error instead of discarding it (503 naming
+  the column, 400 pinned to its input, 403, 500) and log it. Scanning per *branch* found four more,
+  plus a live defect: `constraintName()` read the relation, not the constraint, so no CHECK was ever
+  attributed. Gate proven red on a planted revert.
 - **One real production smoke test:** register → quote → WhatsApp send → OTP sign → SPEI upload → confirm.
 - **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
