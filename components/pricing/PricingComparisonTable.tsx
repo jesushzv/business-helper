@@ -85,7 +85,7 @@ export function PricingComparisonTable() {
             </tr>
             {/* Row 7 */}
             <tr className="hover:bg-slate-800/30 transition-colors">
-              <td className="p-4 sm:p-5 font-bold text-white">Health Score de Clientes</td>
+              <td className="p-4 sm:p-5 font-bold text-white">Confianza de Pago por cliente</td>
               <td className="p-4 sm:p-5 text-center"><X className="w-4 h-4 text-slate-600 mx-auto" /></td>
               <td className="p-4 sm:p-5 text-center bg-emerald-950/20 border-x border-emerald-500/20"><Check className="w-4 h-4 text-emerald-400 mx-auto" /></td>
               <td className="p-4 sm:p-5 text-center"><Check className="w-4 h-4 text-indigo-400 mx-auto" /></td>

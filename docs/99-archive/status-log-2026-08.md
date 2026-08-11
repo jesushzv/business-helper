@@ -557,3 +557,29 @@ Settled history: all four verified closed on the tracker at the time, moved here
 | [#79](https://github.com/jesushzv/business-helper/issues/79) | The PGRST201 prediction confirmed against live PostgREST; both embeds hinted, scan test pinning the pattern |
 | [#76](https://github.com/jesushzv/business-helper/issues/76) | Live `aclexplode` sweep ran clean |
 | [#59](https://github.com/jesushzv/business-helper/issues/59) | Closed as already-done (PR #75) |
+
+
+## "Why This Document Exists", moved from `docs/STATUS.md` 2026-08-11
+
+The original 2026-08-06 findings, kept verbatim. `STATUS.md` keeps the summary.
+
+The roadmap marks Sprints 1–16 plus WS-A/WS-B as **Completed**, and the readiness snapshot reports
+**100% roadmap progress** with an all-green dashboard. A security review conducted on 2026-08-06
+found that several features recorded as complete were **simulated**: the UI and data model existed,
+but the third-party call underneath was faked or stubbed.
+
+The most serious instance: `POST /api/invoices/issue` called `simulateInvoiceStamping()`, which
+fabricated an invoice ID and two `storage.businesshelper.mx` URLs, then wrote `cfdi_status: 'issued'`
+onto the milestone. No PAC was contacted and no tax document existed. A business owner could read
+their own dashboard, believe they had invoiced a client, and file accordingly. For a product whose
+core promise is Mexican tax compliance, that is a compliance defect, not a missing feature.
+
+The same pattern applied to Stripe checkout, team invitations, the accountant ZIP export, and
+outbound WhatsApp dispatch — all since remediated (see §02).
+
+**The takeaway is procedural, not just technical:** the sprint-by-sprint "Completed" history is not a
+reliable map of what is launch-safe. Every remaining completion claim should be treated as unverified
+until checked against source. This memo does that check; §06 records the method so it can be repeated.
+
+---
+

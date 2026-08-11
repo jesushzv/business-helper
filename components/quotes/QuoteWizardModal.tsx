@@ -13,6 +13,7 @@ import { calculateClientCreditSummary, validateQuoteCreditLimit } from '@/lib/cl
 import { useReceivables } from '@/lib/hooks/useReceivables';
 import { Plus, Trash2, ArrowRight, ArrowLeft, Check, Sparkles, AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { userFacingMessage } from '@/lib/errorCopy';
 
 interface QuoteWizardModalProps {
   isOpen: boolean;
@@ -165,9 +166,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
       // The quote was not created; the wizard stays open so nothing pretends
       // otherwise (#50).
       setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : 'No se pudo crear la cotización. Intenta de nuevo.'
+        userFacingMessage(err, 'No se pudo crear la cotización. Intenta de nuevo.')
       );
     } finally {
       setSubmitting(false);

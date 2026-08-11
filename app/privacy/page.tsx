@@ -62,7 +62,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-2 text-slate-300">
               <li><strong>Datos de Identificación y Contacto:</strong> Nombre completo, razón social, correo electrónico, número celular (WhatsApp), RFC (Registro Federal de Contribuyentes) y domicilio fiscal.</li>
               <li><strong>Datos de Transacciones Financieras:</strong> Comprobantes de transferencia SPEI, Claves de Rastreo Banxico, montos de cotización e historial de pagos de clientes.</li>
-              <li><strong>Datos Técnicos y de Seguridad:</strong> Dirección IP, sellos criptográficos SHA-256 de firma digital de cotizaciones y registros de auditoría de inicio de sesión.</li>
+              <li><strong>Datos Técnicos y de Seguridad:</strong> Dirección IP, sellos de seguridad de la firma digital de cotizaciones y registros de auditoría de inicio de sesión.</li>
             </ul>
           </div>
 
@@ -87,7 +87,7 @@ export default function PrivacyPage() {
               4. Medidas de Seguridad y Derechos ARCO
             </h2>
             <p>
-              Business Helper implementa políticas de seguridad con aislamiento multitenant a nivel de base de datos (Row Level Security en PostgreSQL), encriptación SSL/TLS en tránsito y AES-256 en reposo.
+              Business Helper implementa políticas de seguridad con la información de cada negocio aislada de la de los demás dentro de la base de datos, cifrado de la información mientras viaja por internet y también mientras está guardada.
             </p>
             <p>
               Usted tiene derecho a conocer qué datos personales tenemos de usted, para qué los utilizamos y las condiciones del uso que les damos (Acceso). Asimismo, es su derecho solicitar la corrección de su información personal (Rectificación); que la eliminemos de nuestros registros (Cancelación); así como oponerse al uso de sus datos para fines específicos (Oposición).

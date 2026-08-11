@@ -239,7 +239,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
         {/* Content Layout Grid */}
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* Left Column: SAT Tax Profile & Health Score */}
+          {/* Left Column: SAT Tax Profile & Confianza de Pago */}
           <div className="space-y-6">
             {/* Real payment history drives the meter; the stored column is the
                 fallback, and unknown renders as unknown (#108). */}

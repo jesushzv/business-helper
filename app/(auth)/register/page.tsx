@@ -15,6 +15,7 @@ import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 import { identifyPostHogUser } from '@/components/PostHogInit';
 import { exitDemoMode } from '@/lib/demoUtils';
 import { regimenOptions } from '@/lib/satRegimenes';
+import { authErrorMessage } from '@/lib/errorCopy';
 
 const COMPANY_SIZES = [
   { value: '1-5', label: '1 - 5 colaboradores (Micro)' },
@@ -143,7 +144,7 @@ function RegisterFormContent() {
       });
 
       if (authError) {
-        setError('Ocurrió un error al registrar la cuenta: ' + authError.message);
+        setError(authErrorMessage(authError, 'No pudimos crear tu cuenta. Intenta de nuevo en un momento.'));
         setLoading(false);
         return;
       }

@@ -39,25 +39,14 @@ An HTML rendering is published at
 
 ## 01 Why This Document Exists
 
-The roadmap marks Sprints 1–16 plus WS-A/WS-B as **Completed**, and the readiness snapshot reports
-**100% roadmap progress** with an all-green dashboard. A security review conducted on 2026-08-06
-found that several features recorded as complete were **simulated**: the UI and data model existed,
-but the third-party call underneath was faked or stubbed.
+A security review on 2026-08-06 found that features the roadmap marked **Completed** were
+*simulated*: the UI and data model existed, but the third-party call underneath was faked. The worst
+case fabricated an invoice id and two storage URLs and wrote `cfdi_status: 'issued'` — a business
+owner could read their own dashboard, believe they had invoiced a client, and file accordingly.
 
-The most serious instance: `POST /api/invoices/issue` called `simulateInvoiceStamping()`, which
-fabricated an invoice ID and two `storage.businesshelper.mx` URLs, then wrote `cfdi_status: 'issued'`
-onto the milestone. No PAC was contacted and no tax document existed. A business owner could read
-their own dashboard, believe they had invoiced a client, and file accordingly. For a product whose
-core promise is Mexican tax compliance, that is a compliance defect, not a missing feature.
-
-The same pattern applied to Stripe checkout, team invitations, the accountant ZIP export, and
-outbound WhatsApp dispatch — all since remediated (see §02).
-
-**The takeaway is procedural, not just technical:** the sprint-by-sprint "Completed" history is not a
-reliable map of what is launch-safe. Every remaining completion claim should be treated as unverified
-until checked against source. This memo does that check; §06 records the method so it can be repeated.
-
----
+The takeaway is procedural: **the sprint history is not a map of what is launch-safe**, and every
+completion claim needs checking against source. That is what this file is for. The full 2026-08-06
+findings are in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 
 ## 02 Verified State of `main`
 
@@ -166,6 +155,8 @@ re-checked against production or a real handset, which is the part no agent supp
 | #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email); the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
 | #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
 | #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
+
+| #103 | Jargon out of rendered copy (RBAC, SHA-256/HMAC, RLS, TLS, "Sandbox", route templates); English badges translated; provider errors mapped to Spanish via `lib/errorCopy.ts`, original logged; one name per concept; one register (tú) across the client portals. Plan naming split to #185. Gate: `copyRules.test.ts` |
 
 Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
 

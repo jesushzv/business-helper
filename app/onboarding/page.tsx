@@ -436,7 +436,7 @@ export default function OnboardingPage() {
               <p className="mt-1 text-xs text-slate-500">{clabeDigits.length} de 18 dígitos</p>
               {clabeChecksumSuspect && (
                 <p className="mt-1 text-xs font-bold text-amber-400">
-                  Revise la CLABE: los dígitos no coinciden con una cuenta válida.
+                  Revisa la CLABE: los dígitos no coinciden con una cuenta válida.
                 </p>
               )}
             </div>

@@ -5,8 +5,12 @@ describe('P2 Audit Fixes — Verification Suite', () => {
   it('should phrase SSL and Stripe security accurately in trust badges', () => {
     const sslBadge = TRUST_BADGES.find((b) => b.id === 'ssl-encryption');
     expect(sslBadge).toBeDefined();
-    expect(sslBadge?.externalSealLabel).toContain('TLS 1.3');
-    expect(sslBadge?.externalSealLabel).toContain('Stripe (PCI DSS Nivel 1)');
+    // #103 removed the protocol version — "TLS 1.3" is an implementation
+    // detail to the person reading a trust badge. The Stripe credential is a
+    // recognisable seal and stays.
+    expect(sslBadge?.externalSealLabel).not.toContain('TLS');
+    expect(sslBadge?.externalSealLabel).toContain('cifrada');
+    expect(sslBadge?.externalSealLabel).toContain('PCI DSS Nivel 1');
   });
 
   it('should include founder profiles with valid direct email contacts and clear bios', () => {

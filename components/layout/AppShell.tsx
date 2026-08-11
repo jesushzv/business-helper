@@ -46,7 +46,7 @@ const NAV_ITEMS = [
   { label: 'Catálogo', href: '/products', icon: Package },
   { label: 'Facturación', href: '/invoices', icon: FileCode },
   { label: 'Equipo', href: '/team', icon: Shield },
-  { label: 'Asistente AI', href: '/assistant', icon: Bot },
+  { label: 'Asistente IA', href: '/assistant', icon: Bot },
   { label: 'Ayuda', href: '/help', icon: HelpCircle },
   { label: 'Ajustes', href: '/settings', icon: Settings },
 ];

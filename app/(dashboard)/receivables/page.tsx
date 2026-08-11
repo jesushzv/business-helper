@@ -45,7 +45,7 @@ export default function ReceivablesPage() {
             <span>Quién me Debe (Cuentas por Cobrar)</span>
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Monitorea cobros pendientes, envía recordatorios por WhatsApp en 1 tap y valida comprobantes SPEI.
+            Monitorea cobros pendientes, envía recordatorios por WhatsApp con un toque y valida comprobantes SPEI.
           </p>
         </div>
       </div>

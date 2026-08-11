@@ -31,7 +31,7 @@ export default function DashboardError({
 
         {error.digest && (
           <p className="mt-2 text-xs font-mono text-gray-400">
-            ID: {error.digest}
+            Código de error: {error.digest}
           </p>
         )}
 

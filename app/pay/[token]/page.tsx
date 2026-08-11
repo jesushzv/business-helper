@@ -162,14 +162,14 @@ export default function PublicPayPortalPage() {
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         setFormError(
-          data?.error?.message || 'No se pudo registrar el comprobante. Intente de nuevo.'
+          data?.error?.message || 'No se pudo registrar el comprobante. Intenta de nuevo.'
         );
         return;
       }
 
       setSubmitted(true);
     } catch {
-      setFormError('No se pudo contactar al servidor. Verifique su conexión e intente de nuevo.');
+      setFormError('No se pudo contactar al servidor. Revisa tu conexión e intenta de nuevo.');
     } finally {
       setSubmitting(false);
     }
