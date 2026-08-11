@@ -208,9 +208,9 @@ Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
   here is DNS, not code. Confirm the apex resolves with SSL, then sync the Supabase Auth Site/Redirect
   URLs and the Stripe webhook endpoint to it. No issue tracks the DNS step; it is a founder action.
 - **Require the `CI` check in branch protection** ([#38](https://github.com/jesushzv/business-helper/issues/38)).
-  CI was silently absent on PR #28 for ten hours across four pushes while Vercel and GitGuardian reported
-  green, so the PR looked checked. The cause is still unexplained — which is the argument for a rule that
-  fails closed rather than one that depends on understanding it.
+  CI was silently absent on PR #28 for ten hours across four pushes while Vercel and GitGuardian
+  reported green, so the PR looked checked. Still unexplained — the argument for a rule that fails
+  closed rather than one depending on understanding it.
 - ~~**OTP escalating backoff + daily cap** (#22).~~ **Merged 2026-08-09 (PR #112)** — per-phone
   doubling backoff, 15/day cap, and #60's decision: a provider failure throttles the phone but
   releases the quote's lifetime slot. Carries migration `20260809120000`; confirm it is applied
@@ -325,19 +325,16 @@ These require the founder and are not resolvable from the codebase.
 7. **Realistic weekly hours**, given the founder holds a full-time job — this decides whether
    "1–2 focused weeks" is two calendar weeks or closer to a month.
 8. ~~**Does CFDI cancellation get a UI at launch?**~~ **Resolved 2026-08-11 — no** (#174). The
-   route stays, unreachable by design and reachable by HTTP behind `issue_cfdi`; a tenant cancels
-   at the PAC's portal, which keeps "no se puede deshacer desde la app" true. Revisit with #30.
-   Pinned by `tests/unit/cfdiCancelEntryPoint.test.ts`.
+   route stays, unreachable by design; a tenant cancels at the PAC's portal, which keeps "no se
+   puede deshacer desde la app" true. Revisit with #30. Pinned by
+   `tests/unit/cfdiCancelEntryPoint.test.ts`.
 9. ~~**Which roles may set a client's trade-credit line?**~~ **Resolved 2026-08-11 — owners and
    managers** (#123), via a `manage_credit` capability. Members keep full client CRUD; a credit
    *change* from a role without it is a 403 per column, an unchanged echo is not.
 10. ~~**What does an org that has never subscribed get?**~~ **Resolved 2026-08-11 — a 30-day
-    trial** (#128). New orgs start `trialing`; expiry blocks *creating a quote* and nothing else —
-    signing, paying, confirming and stamping already-started work all continue. The gate stays
-    inert until #68 (live Stripe) makes a checkout reachable, so no tenant meets a paywall they
-    cannot pass. **Carries migration `20260811150000_organization_trial.sql` — apply before or
-    with the merge** (hard rule #6); `trial_ends_at` did not exist on the live database as of
-    2026-08-11.
+    trial** (#128). Expiry blocks *creating a quote* and nothing else, and stays inert until #68
+    makes a checkout reachable. Migrations `20260811150000` + `20260811200000` applied and read
+    back; the repair exists because the first left a tenant `trialing` with no end date.
 11. **Preferred pivot path** if the kill criteria in [`okrs.md`](01-strategy/okrs.md) trigger:
    narrow to one module, freeze for a validation-only sprint, or wind down and redirect the time.
    Worth deciding while calm rather than mid-crisis.
