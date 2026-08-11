@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { FileCheck2, ShieldCheck, Save, CheckCircle2, AlertCircle, Unplug } from 'lucide-react';
+import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 
 /**
  * PAC connection for CFDI 4.0 stamping.
@@ -70,6 +71,8 @@ export const PacConnectionCard: React.FC = () => {
     load();
   }, [load]);
 
+  const result = useActionResult();
+
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -86,6 +89,8 @@ export const PacConnectionCard: React.FC = () => {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
+        // Inline only, same reasoning as BankAccountCard: the message sits
+        // beside the key field it refers to.
         setError(data?.error?.message || 'No se pudo conectar tu PAC');
         return;
       }
@@ -94,6 +99,12 @@ export const PacConnectionCard: React.FC = () => {
       setApiKey('');
       setConnection(data.connection);
       setSaved('Tu PAC quedó conectado. Ya puedes timbrar facturas CFDI 4.0.');
+      // The server accepted and stored the credential — that row, not the
+      // submission, is what this dialog announces (hard rule 1).
+      result.succeed({
+        title: 'PAC conectado',
+        message: 'Tu PAC quedó conectado. Ya puedes timbrar facturas CFDI 4.0.',
+      });
       load();
     } catch {
       setError('No se pudo conectar tu PAC');
@@ -252,6 +263,7 @@ export const PacConnectionCard: React.FC = () => {
           </form>
         </div>
       )}
+      <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
   );
 };

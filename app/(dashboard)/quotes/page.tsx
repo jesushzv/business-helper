@@ -6,9 +6,11 @@ import { useQuotes } from '@/lib/hooks/useQuotes';
 import { useClients } from '@/lib/hooks/useClients';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { QuoteWizardModal } from '@/components/quotes/QuoteWizardModal';
+import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 import { Plus, Search, FileText, CheckCircle2, Clock, Send } from 'lucide-react';
 
 export default function QuotesPage() {
+  const result = useActionResult();
   const {
     quotes,
     filteredQuotes,
@@ -208,10 +210,22 @@ export default function QuotesPage() {
         onClose={() => setIsWizardOpen(false)}
         clients={clients}
         onSubmit={async (data) => {
-          await createQuote(data);
+          // `saved` is the row the server returned — the folio-bearing quote
+          // that actually exists, not the wizard's draft. Announcing the draft
+          // would claim a success the database has not confirmed (hard rule 1).
+          const saved = await createQuote(data);
           setIsWizardOpen(false);
+          result.succeed({
+            title: 'Cotización creada',
+            message: `«${saved.title}» quedó lista para compartir con tu cliente.`,
+          });
+          // On failure createQuote throws; the wizard catches it, stays open
+          // and shows the message beside its own submit button — closer to
+          // where the user is looking than a dialog over a closed wizard.
         }}
       />
+
+      <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
     </>
   );

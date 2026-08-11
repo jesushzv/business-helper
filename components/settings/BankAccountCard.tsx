@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Landmark, Save, CheckCircle2, AlertCircle } from 'lucide-react';
 import { formatClabe, normalizeClabe, isValidClabeLength } from '@/lib/clabe';
+import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 
 /**
  * SPEI settlement account for the organization.
@@ -52,6 +53,8 @@ export const BankAccountCard: React.FC = () => {
     };
   }, []);
 
+  const result = useActionResult();
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: name === 'bank_clabe' ? formatClabe(value) : value }));
@@ -77,12 +80,22 @@ export const BankAccountCard: React.FC = () => {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        // Failure stays inline only: on this compact card the message renders
+        // beside the very inputs it names, which beats a dialog covering them —
+        // and showing both printed every error twice.
         setError(data?.error?.message || 'No se pudo guardar la cuenta bancaria');
         return;
       }
 
+      // The CLABE is where every SPEI settles; its save deserves an explicit
+      // confirmation, not a modal that just closes (#146's shape). The inline
+      // `saved` state stays as the persistent marker next to the field.
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+      result.succeed({
+        title: 'Cuenta bancaria guardada',
+        message: 'Tus cobros SPEI se depositarán en esta cuenta.',
+      });
     } catch {
       setError('No se pudo guardar la cuenta bancaria');
     } finally {
@@ -194,6 +207,7 @@ export const BankAccountCard: React.FC = () => {
           </button>
         </div>
       </form>
+      <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
   );
 };

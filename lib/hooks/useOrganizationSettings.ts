@@ -134,8 +134,19 @@ export function useOrganizationSettings() {
     };
   }, [demo]);
 
+  /**
+   * Saves and reports which way it went, with the Spanish message attached.
+   *
+   * Returned as an outcome object rather than a bare boolean so the caller can
+   * show the failure where the user is looking (the settings page feeds it to
+   * ActionResultDialog). The `error` state below still carries the same
+   * message for the page banner; the object is what makes it available at the
+   * call site synchronously, instead of one render later.
+   */
   const updateSettings = useCallback(
-    async (patch: Partial<OrganizationSettings>): Promise<boolean> => {
+    async (
+      patch: Partial<OrganizationSettings>
+    ): Promise<{ ok: boolean; message: string | null }> => {
       setSaving(true);
       setError(null);
       try {
@@ -143,7 +154,7 @@ export function useOrganizationSettings() {
           // Simulated on purpose and only here: the demo deployment has no
           // backend to save to, and this branch is unreachable for a real tenant.
           setSettings((prev) => (prev ? { ...prev, ...patch } : prev));
-          return true;
+          return { ok: true, message: null };
         }
 
         const res = await fetch('/api/organization', {
@@ -163,16 +174,18 @@ export function useOrganizationSettings() {
         const data = await res.json().catch(() => null);
 
         if (!res.ok || !data?.organization) {
-          setError(data?.error?.message || 'No se pudieron guardar los datos de tu negocio.');
-          return false;
+          const message = data?.error?.message || 'No se pudieron guardar los datos de tu negocio.';
+          setError(message);
+          return { ok: false, message };
         }
 
         // The server row is the truth; local state only ever mirrors it.
         setSettings(toOrganizationSettings(data.organization));
-        return true;
+        return { ok: true, message: null };
       } catch {
-        setError('No se pudieron guardar los datos de tu negocio.');
-        return false;
+        const message = 'No se pudieron guardar los datos de tu negocio.';
+        setError(message);
+        return { ok: false, message };
       } finally {
         setSaving(false);
       }

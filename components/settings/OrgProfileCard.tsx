@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Building2, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Building2, Save, AlertCircle } from 'lucide-react';
 import { OrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 import { validateRFC } from '@/lib/rfcValidator';
 import { PhoneField } from '@/components/shared/PhoneField';
@@ -31,7 +31,6 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
 }) => {
   const [formData, setFormData] = useState<OrganizationSettings>(settings);
   const [rfcError, setRfcError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<boolean>(false);
 
   // The hook replaces `settings` with the row the server returned, and the
   // server normalizes: '81 1234 5678' is stored as '8112345678', an RFC is
@@ -61,11 +60,11 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
       }
     }
 
-    const ok = await onSave(formData);
-    if (ok) {
-      setSuccessMsg(true);
-      setTimeout(() => setSuccessMsg(false), 3000);
-    }
+    // Reporting the outcome — success or failure — is the page's job now,
+    // through ActionResultDialog; the card only submits. The boolean is still
+    // returned so a future caller can branch, but nothing here concludes
+    // "saved" on its own (#146's confirmation gap).
+    await onSave(formData);
   };
 
   return (
@@ -85,13 +84,6 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
       </div>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        {successMsg && (
-          <div className="flex items-center gap-2 rounded-2xl bg-emerald-950/80 p-4 text-xs font-bold text-emerald-300 border border-emerald-500/30">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-            <span>Los datos de la empresa se guardaron correctamente.</span>
-          </div>
-        )}
-
         <div>
           <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
             Nombre de la Empresa o Razón Social
