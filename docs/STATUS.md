@@ -256,7 +256,9 @@ Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
   branch protection remains #38.
 - **A never-subscribed organization gets a 30-day trial, then read-only**
   ([#128](https://github.com/jesushzv/business-helper/issues/128)). **Code complete; migration
-  `20260811170000` NOT applied.** Decided Option B. The product had been free with metered CFDI and
+  `20260811170000` applied 2026-08-11** — defaults read back as `'trialing'` / `now() + 30 days`,
+  and a real insert came back `trialing` with exactly 30 days, then the CHECK refused a bogus
+  status (23514). Decided Option B. The product had been free with metered CFDI and
   nothing said so — the one `isAccessible` flag in the tree was read by nothing. New orgs start
   `trialing`; on expiry the five routes creating commercial work answer 402, while reads, exports,
   payment confirmation, Stripe and every public `/q/` and `/pay/` page stay open: a supplier's
