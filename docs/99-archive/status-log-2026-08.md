@@ -698,3 +698,137 @@ core promise is Mexican tax compliance, that is a compliance defect, not a missi
 The same pattern applied to Stripe checkout, team invitations, the accountant ZIP export, and
 outbound WhatsApp dispatch — all since remediated (see §02).
 
+
+---
+
+## Settled rows moved off `docs/STATUS.md` (2026-08-11, second budget pass)
+
+*The authority hit its 32 KB budget again — 31,915 of 32,000 bytes, 85 bytes of headroom. Everything
+below described work that had **already landed and closed**, so it was history occupying the space
+the current-state sections need. Moved verbatim; the summaries that replaced each block point here.
+For live status read [`../STATUS.md`](../STATUS.md).*
+
+### §02's baseline-metrics rows that had stopped being status
+
+The table's purpose was to correct five documents that claimed completion for simulated work. Three
+of its rows describe *mechanism* that `CLAUDE.md` now states directly (raw REST, no provider SDKs),
+and one recorded a gate that has since been made real — none of them assert live state any more.
+
+| Metric | Docs claimed | Actually verified (2026-08-07) |
+|:---|:---|:---|
+| Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
+| Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
+| Zero-warning lint gate | "ESLint passes with `--max-warnings=0`" (5 docs) | ~~Gate was nominal — bare `next lint`, exit 0 with warnings.~~ **Enforced since 2026-08-08 (#46):** script is `next lint --max-warnings=0`, debt cleared to 0, failure verified with a planted warning. |
+
+### §02's cleared "Open and blocking" rows
+
+All four were struck through and marked Cleared. The Stripe row is kept in full because its
+correction is the record of how a founder-confirmed figure was wrong.
+
+| Item | State |
+|:---|:---|
+| ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11)** — a real inbox signed a real quote, evidence read back from the live catalog; detail above. sms/whatsapp stay wired but deprecated. |
+| ~~**Stripe live mode**~~ | ✅ **A real card completed the loop (2026-08-11).** The `STRIPE_PRICE_*` variables held Stripe **Product** ids, so checkout answered `502 No such price: 'prod_…'` for every tier and the live account had never had a session; the founder set the Price ids, then subscribed and Ajustes showed "Activo". **Correction, same day, read back from Stripe and the catalog:** this row first said "$599, plan Negocio", founder-confirmed with no read-back — the account's full charge history shows **Plan Inicial, $299.00 MXN** (`price_1U0CxLDuvxyuzaREdO7Jsp3E`; one Mastercard success after three Amex declines — Amex is not accepted), the subscription's `metadata.tier_id` is `inicial`, and the organization row reads `inicial`/`active` with both Stripe ids stored (#115 working): the webhook wrote exactly what was bought. The charge was later **refunded**, but `sub_1U3L0tDuvxyuzaREpEbWl6eI` is still **active** and re-bills 2026-09-10 unless cancelled. If Ajustes really showed *Negocio*, that is a rendering defect only a browser can confirm. Code half in PR #166 (a non-price value now refuses with a 503 naming the variable) and #181 (plan CTAs stopped sending a signed-in owner into the registration form). |
+| ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. |
+| ~~Five more~~ | ✅ Cleared 2026-08-07→09: product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). |
+
+### The P0 tally's last two steps
+
+Continuing the re-derivation above, from the same `is:issue is:open label:P0` query:
+
+- **2026-08-11, later:** #63's last criterion was met in production — a Dashboard resend of
+  `evt_1U3L0wDuvxyuzaRE2m9tHsi1` answered 200 at 21:30:08Z (Vercel log) while the catalog held one
+  claim row, `processed_at` unchanged and the organization row untouched: deduplicated, not
+  re-applied. All five criteria met, so its row dropped — **3 against 3** (#62, #26, #64).
+- **2026-08-11, 20:44Z:** #64 closed with PR #161 (settlement accounts), its transcript recorded
+  above. **2 against 2** (#62, #26). The authority carried the #64 row for ~1.5 hours after the
+  issue closed, because the commit that dropped #63's row was written from the table rather than
+  from a fresh query — the same failure the rule exists to prevent, at a smaller scale.
+
+### §03's UX-audit landing table
+
+Every issue below is closed and every change merged; all of it was verified by unit and component
+tests only, never against production or a real handset. The authority keeps that caveat and the two
+deferred decisions (#174, #185); the row-by-row detail is here.
+
+| Issues | What changed |
+|:--|:--|
+| #87, #100 | Every overlay is `components/shared/Modal.tsx`: dialog role, Escape, focus trap and return, a named ≥48px close, and the `max-h`/`overflow-y-auto` deciding whether the OTP submit is reachable at 375px |
+| #127 | One SAT régimen catalogue (`lib/satRegimenes.ts`) across all five screens; an unlisted stored code renders as itself instead of blanking |
+| #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email); the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
+| #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
+| #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
+| #89, #101 | 48px floor enforced (46 declarations); one global `:focus-visible` ring replacing zero; 43 labels associated, 6 inputs named; gating `slate-500` raised, light-theme islands restyled; credit status gains an icon; 15 error containers announce. Gate: `a11yBaseline.test.ts` |
+| #103 | Jargon out of rendered copy (RBAC, SHA-256/HMAC, RLS, TLS, "Sandbox", route templates); English badges translated; provider errors mapped to Spanish via `lib/errorCopy.ts`, original logged; one name per concept; one register (tú) across the client portals. Plan naming split to #185. Gate: `copyRules.test.ts` |
+| #104 | Create-a-quote loses its navigation-only tap; "Generar y Compartir" now shares; invites get the WhatsApp link their copy promised; dirty-form guard; empty-vs-filtered split; skeletons unified; OTP resend cooldown. Gate: `flowPolish.test.ts` |
+
+### §03's note on which criteria need a human
+
+The rule this justifies — ask whether a step needs a *human* or only *reach* — is now stated
+compactly in the authority and tracked as #129. The evidence that produced it:
+
+> **Most remaining rows need the founder — and the note that said *every* row did was wrong.**
+> The credential rows (#62, #26, #68) are accounts, keys and a real card; no agent supplies those.
+> The "needs a deployment" criteria (#96, #95, #63) were filed here too, and on 2026-08-09 three
+> sessions took them directly. #96's check **failed**, surfacing two live defects nobody had seen
+> (a table missing three columns the code depended on; a write path dropping four fields, two of
+> them required to stamp a CFDI). #95's passed, reaching `businesshelper.app` itself over the `http`
+> extension from inside Postgres — the shell's egress is blocked, the database's is not. #63's
+> signature half passed against a real Next.js runtime, and on 2026-08-11 its two database checks
+> completed in production: the live subscription event applied, and a Dashboard resend proved
+> redelivery idempotent — the founder pressed the button, a session read the evidence back.
+> **The rule: ask whether a step needs a *human* or only *reach*.** Schema, grants, constraints,
+> PostgREST behaviour and the deployed API are all reachable from the connector. What genuinely
+> needs a human is the browser session and the real credential — the rendered page, the code on a
+> handset, the card that charges. #79 sat unverifiable for a day and #95 for three weeks for want
+> of this distinction. **2026-08-11:** #93 went the same way and moved the line again — an owner's
+> session mints from `auth.refresh_tokens` through GoTrue, so the *authenticated* deployed app is
+> reachable, not just its public routes. What stayed human was smaller than the criterion implied:
+> the hydrated page alone, confirmed in a browser the same day. **#64 followed the same day**: its
+> server-side refusals were confirmed against the deployed app — 409 before a WhatsApp dispatch and
+> on the public payer route, the gate then shown to open once a CLABE was saved. Its rendered-page
+> half was waived by the founder rather than taken, the one criterion here closed by decision
+> instead of by evidence.
+
+### §03 P1 rows that had closed
+
+- ~~**OTP escalating backoff + daily cap** (#22).~~ **Merged 2026-08-09 (PR #112)** — per-phone
+  doubling backoff, 15/day cap, and #60's decision: a provider failure throttles the phone but
+  releases the quote's lifetime slot. Carries migration `20260809120000`, since applied.
+- ~~**A failed write must name its cause** (#148).~~ **Done 2026-08-11** — the eleven routes
+  classify the error instead of discarding it (503 naming the column, 400 pinned to its input, 403,
+  500) and log it. Scanning per *branch* found four more, plus a live defect: `constraintName()` read
+  the relation, not the constraint, so no CHECK was ever attributed. Gate proven red on a planted
+  revert.
+- ~~**Register one client in the app, to close #146**.~~ **Done 2026-08-11, confirmed by the
+  reporter**: a client was registered successfully through the UI after #150's migration went live —
+  with a **US phone number**, so #94's international path was exercised live as well. That also
+  closed #150's one evidence gap (the impersonated probe had not been re-run against the live
+  function; a real registration through the app is the stronger check). The full diagnosis, kept
+  because it is the reference case for the app/RLS disagreement in `LESSONS.md`:
+  registration could not be completed and no message said which field was at fault. **The cause was
+  RLS, not the form.** `user_organization_ids()` — the whole tenant check for nine policies —
+  resolved membership from `organization_members` alone, and nothing creates a member row for an
+  organization's *owner*. Both production organizations had none, so their owners were denied every
+  write to `clients`, `quotes`, `contracts`, `milestones`, `products` and four more.
+  `requireOrgAccess()` disagreed (it reads `organizations.owner_id` and returns `role: 'owner'`), so
+  auth passed and only the INSERT was refused, as `42501`, reported as a generic 500. Confirmed by
+  impersonating the founder's `auth.uid()` in production: 0 rows from the function, `42501` on
+  `clients` and `quotes`. Migration `20260811000000` was applied to production on 2026-08-11 and the
+  new definition read back from `pg_get_functiondef` — the UNION over owned organizations,
+  `SECURITY DEFINER`, `search_path` pinned. PR #150 carried the migration and tests; PR #147 landed
+  every bad field reported at once keyed by column, a failed write naming its cause, per-field
+  messages in the form, and the RFC no longer gating registration.
+
+### §05's resolved decisions
+
+Moved once live work stopped referencing them; the authority keeps only what still constrains a
+choice.
+
+- ~~**Which roles may set a client's trade-credit line?**~~ **Owners and managers** (#123), via
+  `manage_credit`; a change without it is a 403 per column. Whether the limit restrains a quote is
+  #203.
+- ~~**What does a never-subscribed org get?**~~ **A 30-day trial** (#128). Expiry blocks new
+  quotes, contract conversion, CFDI stamping, complementos and outbound reminders (#195 widened
+  this past quotes alone); collecting, correcting and every public `/q/` and `/pay/` page stay
+  open. Both migrations applied and read back.
