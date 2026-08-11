@@ -3,6 +3,8 @@ import { requireOrgAccess, requireUser, isDemoDeployment } from '@/lib/apiAuth';
 import { normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
+import { captureException } from '@/lib/sentry';
+import { syncLegacyDefaultAccount } from '@/lib/bankAccounts';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 export async function GET() {
@@ -127,18 +129,45 @@ export async function PATCH(request: Request) {
     if (hasBankPayload) {
       const clabe = typeof bankClabe === 'string' ? normalizeClabe(bankClabe) : '';
 
-      if (!isValidClabeLength(clabe)) {
+      // An explicitly emptied CLABE removes the account (#163). Until this
+      // branch existed a saved account could be replaced but never taken away,
+      // so a tenant whose bank account had closed had no way to stop
+      // advertising it short of a hand edit against production — while the
+      // schema had allowed the state all along (`chk_org_bank_clabe_format` is
+      // `bank_clabe IS NULL OR ~ '^[0-9]{18}$'`).
+      //
+      // Safe precisely because of #64: with no CLABE the tenant gets a
+      // non-dismissable banner, disabled share actions, and a 409 before any
+      // /pay/ link reaches a client. Removal produces a handled state, not a
+      // silent hole.
+      //
+      // Keyed on the CLABE being *present and empty*, never on the key being
+      // absent — a profile save carries no bank keys and must not wipe the
+      // account as a side effect (the `hasBankPayload` guard above), and the
+      // other two columns follow the CLABE out so no half-account is left
+      // behind for the payer page to read.
+      //
+      // Tested on the **raw** string, not on the normalized digits: `clabe` is
+      // `raw.replace(/\D/g, '')`, so keying on `clabe.length === 0` would make
+      // every digit-free value a deletion — `'pendiente'`, `'N/A'`, `'CLABE'`
+      // would each destroy the settlement account and answer 200. Those are
+      // typos, and a typo must stay a 400.
+      const isExplicitClear = typeof bankClabe === 'string' && bankClabe.trim().length === 0;
+
+      if (isExplicitClear) {
+        update.bank_clabe = null;
+        update.bank_name = null;
+        update.bank_account_holder = null;
+      } else if (!isValidClabeLength(clabe)) {
         return NextResponse.json(
           { error: { code: 'INVALID_CLABE', message: 'La CLABE debe tener exactamente 18 dígitos' } },
           { status: 400 }
         );
-      }
-
-      // Enforced server-side since #66 (decided 2026-08-08): this is the
-      // account a tenant's clients wire real money to, and the checksum
-      // catches the transposition and single-digit typos a length check
-      // cannot. Rejecting here beats a misdirected SPEI transfer later.
-      if (!hasValidClabeCheckDigit(clabe)) {
+      } else if (!hasValidClabeCheckDigit(clabe)) {
+        // Enforced server-side since #66 (decided 2026-08-08): this is the
+        // account a tenant's clients wire real money to, and the checksum
+        // catches the transposition and single-digit typos a length check
+        // cannot. Rejecting here beats a misdirected SPEI transfer later.
         return NextResponse.json(
           {
             error: {
@@ -149,21 +178,19 @@ export async function PATCH(request: Request) {
           },
           { status: 400 }
         );
-      }
-
-      if (!bankName || typeof bankName !== 'string' || !bankName.trim()) {
+      } else if (!bankName || typeof bankName !== 'string' || !bankName.trim()) {
         return NextResponse.json(
           { error: { code: 'INVALID_INPUT', message: 'El nombre del banco es obligatorio' } },
           { status: 400 }
         );
+      } else {
+        update.bank_name = bankName.trim();
+        update.bank_clabe = clabe;
+        update.bank_account_holder =
+          typeof bankAccountHolder === 'string' && bankAccountHolder.trim()
+            ? bankAccountHolder.trim()
+            : null;
       }
-
-      update.bank_name = bankName.trim();
-      update.bank_clabe = clabe;
-      update.bank_account_holder =
-        typeof bankAccountHolder === 'string' && bankAccountHolder.trim()
-          ? bankAccountHolder.trim()
-          : null;
     }
 
     if (body.name !== undefined) {
@@ -286,6 +313,66 @@ export async function PATCH(request: Request) {
         { error: { code: 'NOT_FOUND', message: 'No se encontró una organización propia' } },
         { status: 404 }
       );
+    }
+
+    // Changing where every future SPEI lands is at least as consequential as
+    // disconnecting the PAC, which has written an audit row since it shipped
+    // (`pac.disconnected`). Both directions are recorded, not just removal:
+    // redirecting settlements to a different account is the move an attacker
+    // with a session — or a departing employee — would actually make, and it
+    // leaves the tenant's own screens looking entirely normal.
+    //
+    // Written after the row is confirmed, so the log never carries a change the
+    // UPDATE did not make. Best-effort by design: a failed audit insert must not
+    // turn a completed write into an error the tenant would retry (and retry
+    // into a second, identical change).
+    if ('bank_clabe' in update) {
+      const removed = update.bank_clabe === null;
+
+      // Keep `bank_accounts` in step with the legacy columns (#164).
+      //
+      // The settlement gate and the payer page read the account list now, while
+      // this route still writes the three `organizations.bank_*` columns the
+      // single-account form posts to. Letting those two diverge would recreate
+      // the exact failure #64 closed: a gate reporting the tenant can be paid
+      // while the payer page 409s in front of their client, or the reverse.
+      //
+      // Mirrors rather than replaces, because the columns are still read by
+      // code deployed between this migration and this merge (hard rule #6).
+      await syncLegacyDefaultAccount(supabase, data.id, removed ? null : update);
+      // supabase-js resolves `{ data, error }` rather than throwing, so the
+      // error channel has to be *read* — an RLS denial or a schema drift here
+      // would otherwise leave no audit row and no trace of why. `try` covers
+      // only a transport-level throw, and wraps just the awaited call so it
+      // cannot swallow a programmer error in the surrounding lines.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: auditError } = await (supabase as any).from('audit_logs').insert({
+          organization_id: data.id,
+          action: removed ? 'settlement_account.removed' : 'settlement_account.updated',
+          actor: userId,
+          details: removed
+            ? 'Cuenta bancaria para cobros SPEI eliminada'
+            : 'Cuenta bancaria para cobros SPEI actualizada',
+        });
+
+        if (auditError) {
+          captureException(auditError, {
+            route: 'PATCH /api/organization',
+            organization_id: data.id,
+            user_id: userId,
+            extra: {
+              action: removed ? 'settlement_account.removed' : 'settlement_account.updated',
+            },
+          });
+        }
+      } catch (auditThrow) {
+        captureException(auditThrow, {
+          route: 'PATCH /api/organization',
+          organization_id: data.id,
+          extra: { stage: 'settlement_account audit insert' },
+        });
+      }
     }
 
     return NextResponse.json({ organization: data });

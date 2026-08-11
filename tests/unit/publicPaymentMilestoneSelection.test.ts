@@ -41,12 +41,7 @@ vi.mock('@/lib/supabase/service', () => ({
                   title: 'Suministro',
                   contracts: { id: 'contract-1', title: 'Suministro', milestones: state.milestones },
                   clients: { name: 'Cliente' },
-                  organizations: {
-                    name: 'Org',
-                    bank_name: 'Banco',
-                    bank_clabe: '012180001234567897',
-                    bank_account_holder: 'Org',
-                  },
+                  organizations: { name: 'Ferretería', bank_accounts: [{ id: 'a1', label: 'BBVA', bank_name: 'BBVA', clabe: '012180001234567899', account_holder: null, is_default: true, archived_at: null }] },
                 },
                 error: null,
               }),

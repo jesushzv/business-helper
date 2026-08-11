@@ -44,7 +44,12 @@ export async function GET() {
     const { data: receivables, error } = await supabase
       .from('milestones')
       .select(
-        '*, contracts(*, clients(*), quotes!quote_id(public_token)), ' +
+        // `quotes!quote_id` and `bank_accounts!bank_account_id` are both hinted
+        // by FK column, per the rule #79 earned. The account the quote named
+        // travels with it so Cobranza can tell that this quote's payment page
+        // refuses, which the organization-level readiness gate cannot (#164).
+        '*, contracts(*, clients(*), quotes!quote_id(public_token, bank_account_id, ' +
+          'bank_accounts!bank_account_id(archived_at))), ' +
           'cfdi_payment_complements(id, installment, amount, last_balance, remaining_balance, ' +
           'status, cfdi_uuid, cfdi_xml_path, cfdi_pdf_path, payment_date, error)'
       )

@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  */
 
 const orgState: { organization: Record<string, unknown> | null } = { organization: null };
+const quoteState: { account: Record<string, unknown> | null } = { account: null };
 
 vi.mock('@/lib/supabase/service', () => ({
   isServiceRoleConfigured: () => true,
@@ -36,6 +37,8 @@ vi.mock('@/lib/supabase/service', () => ({
             ],
           },
           clients: { name: 'Construcciones Maya' },
+          bank_account_id: quoteState.account ? quoteState.account.id : null,
+          bank_accounts: quoteState.account,
           organizations: orgState.organization,
         },
         error: null,
@@ -53,16 +56,26 @@ async function getPaymentDetails() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The quote names no account unless a test says so — the pre-#164 state.
+  quoteState.account = null;
 });
 
-describe('public payment details — organization CLABE', () => {
-  it('refuses with 409 when the organization has no CLABE', async () => {
-    orgState.organization = {
-      name: 'Ferretería La Silla',
-      bank_name: null,
-      bank_clabe: null,
-      bank_account_holder: null,
-    };
+function bankAccount(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'acct-1',
+    label: 'BBVA principal',
+    bank_name: 'BBVA México',
+    clabe: '012180001234567899',
+    account_holder: 'Ferretería La Silla S.A. de C.V.',
+    is_default: true,
+    archived_at: null,
+    ...overrides,
+  };
+}
+
+describe('public payment details — which account the payer is sent to', () => {
+  it('refuses with 409 when the organization has no account', async () => {
+    orgState.organization = { name: 'Ferretería La Silla', bank_accounts: [] };
 
     const res = await getPaymentDetails();
     const body = await res.json();
@@ -76,13 +89,9 @@ describe('public payment details — organization CLABE', () => {
     expect(JSON.stringify(body)).not.toMatch(/\d{18}/);
   });
 
-  it('serves the organization own CLABE when it has one', async () => {
-    orgState.organization = {
-      name: 'Ferretería La Silla',
-      bank_name: 'BBVA México',
-      bank_clabe: '012180001234567899',
-      bank_account_holder: 'Ferretería La Silla S.A. de C.V.',
-    };
+  it("serves the organization's default account when the quote names none", async () => {
+    // Every quote written before #164 is in exactly this state.
+    orgState.organization = { name: 'Ferretería La Silla', bank_accounts: [bankAccount()] };
 
     const res = await getPaymentDetails();
     const body = await res.json();
@@ -90,6 +99,65 @@ describe('public payment details — organization CLABE', () => {
     expect(res.status).toBe(200);
     expect(body.milestone.clabe).toBe('012180001234567899');
     expect(body.milestone.bank_name).toBe('BBVA México');
+  });
+
+  it('serves the account the quote named, not the current default (#164)', async () => {
+    // The tenant chose where this client pays. Changing the default afterwards
+    // must not redirect a link already in the client's hands.
+    orgState.organization = {
+      name: 'Ferretería La Silla',
+      bank_accounts: [bankAccount({ id: 'default-acct', clabe: '012180001234567899' })],
+    };
+    quoteState.account = bankAccount({
+      id: 'chosen-acct',
+      label: 'Santander obra',
+      bank_name: 'Santander',
+      clabe: '646180157012345676',
+      is_default: false,
+    });
+
+    const res = await getPaymentDetails();
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.milestone.clabe).toBe('646180157012345676');
+    expect(body.milestone.bank_name).toBe('Santander');
+  });
+
+  it('refuses when the account the quote named has been archived (#164)', async () => {
+    // Substituting the live default here would send a real transfer to an
+    // account nobody chose for this client.
+    orgState.organization = {
+      name: 'Ferretería La Silla',
+      bank_accounts: [bankAccount({ id: 'default-acct' })],
+    };
+    quoteState.account = bankAccount({
+      id: 'closed-acct',
+      clabe: '646180157012345676',
+      is_default: false,
+      archived_at: '2026-08-10T00:00:00Z',
+    });
+
+    const res = await getPaymentDetails();
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.error.code).toBe('SETTLEMENT_ACCOUNT_UNAVAILABLE');
+    // Neither the archived account nor the default may leak to the payer.
+    expect(JSON.stringify(body)).not.toMatch(/\d{18}/);
+  });
+
+  it('refuses when the only account is archived', async () => {
+    orgState.organization = {
+      name: 'Ferretería La Silla',
+      bank_accounts: [bankAccount({ archived_at: '2026-08-10T00:00:00Z', is_default: false })],
+    };
+
+    const res = await getPaymentDetails();
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(JSON.stringify(body)).not.toMatch(/\d{18}/);
   });
 
   it('never serves a fallback account when the organization row is missing', async () => {

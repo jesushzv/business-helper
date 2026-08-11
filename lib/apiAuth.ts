@@ -229,6 +229,11 @@ export const QUOTE_WRITABLE_FIELDS = [
   'status',
   'valid_until',
   'notes',
+  // Which of the organization's settlement accounts this quote's client pays
+  // into (#164). Absent from this list, `pickFields` drops it silently and the
+  // quote is stored with a NULL account while the wizard reports the choice as
+  // saved — the #96 shape, on the column that decides where money lands.
+  'bank_account_id',
 ] as const;
 
 /** Columns a client may set on a milestone. */
