@@ -107,13 +107,13 @@ function SettingsPageContent() {
         ) : !settings ? (
           // Loading is over and there is no organization to show: say so
           // instead of rendering the demo tenant's data as if it were theirs.
-          <div className="p-6 rounded-3xl border border-rose-500/30 bg-rose-950/80 text-rose-200 text-sm font-medium">
+          <div role="alert" className="p-6 rounded-3xl border border-rose-500/30 bg-rose-950/80 text-rose-200 text-sm font-medium">
             {error || 'No se pudo cargar la información de tu negocio. Intenta de nuevo más tarde.'}
           </div>
         ) : (
           <>
             {error && (
-              <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-950/80 text-rose-300 text-sm font-medium">
+              <div role="alert" className="p-4 rounded-2xl border border-rose-500/30 bg-rose-950/80 text-rose-300 text-sm font-medium">
                 {error}
               </div>
             )}
@@ -141,7 +141,7 @@ function SettingsPageContent() {
             />
 
             {checkoutError && (
-              <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-950/80 text-rose-300 text-sm font-medium">
+              <div role="alert" className="p-4 rounded-2xl border border-rose-500/30 bg-rose-950/80 text-rose-300 text-sm font-medium">
                 {checkoutError}
               </div>
             )}

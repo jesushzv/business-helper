@@ -73,7 +73,7 @@ export const DemoBanner: React.FC<DemoBannerProps> = ({ onOpenTierModal }) => {
           {/* Back to Landing Link */}
           <Link
             href="/"
-            className="flex min-h-[38px] items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 font-semibold text-slate-200 transition-all hover:bg-slate-700 hover:text-white active:scale-95"
+            className="flex min-h-[48px] items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 font-semibold text-slate-200 transition-all hover:bg-slate-700 hover:text-white active:scale-95"
             title="Volver a la página principal"
           >
             <ArrowLeft className="h-3.5 w-3.5 text-slate-400" />
@@ -84,7 +84,7 @@ export const DemoBanner: React.FC<DemoBannerProps> = ({ onOpenTierModal }) => {
           {onOpenTierModal && (
             <button
               onClick={onOpenTierModal}
-              className="flex min-h-[38px] items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-950/60 px-3 py-1.5 font-semibold text-indigo-300 transition-all hover:bg-indigo-900/80 hover:text-white active:scale-95"
+              className="flex min-h-[48px] items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-950/60 px-3 py-1.5 font-semibold text-indigo-300 transition-all hover:bg-indigo-900/80 hover:text-white active:scale-95"
             >
               <Layers className="h-3.5 w-3.5 text-indigo-400" />
               <span className="text-xs">Ver Planes y Beneficios</span>
@@ -94,7 +94,7 @@ export const DemoBanner: React.FC<DemoBannerProps> = ({ onOpenTierModal }) => {
           {/* Sign Up CTA */}
           <Link
             href="/register"
-            className="flex min-h-[38px] items-center gap-1.5 rounded-xl bg-linear-to-r from-emerald-500 to-teal-400 px-3.5 py-1.5 font-extrabold text-slate-950 shadow-md shadow-emerald-950/50 transition-all hover:from-emerald-400 hover:to-teal-300 active:scale-95"
+            className="flex min-h-[48px] items-center gap-1.5 rounded-xl bg-linear-to-r from-emerald-500 to-teal-400 px-3.5 py-1.5 font-extrabold text-slate-950 shadow-md shadow-emerald-950/50 transition-all hover:from-emerald-400 hover:to-teal-300 active:scale-95"
           >
             <UserPlus className="h-3.5 w-3.5" />
             <span className="text-xs">Crear Mi Cuenta Gratis</span>

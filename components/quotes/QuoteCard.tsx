@@ -85,7 +85,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => track('quote_sent', { organization_id: quote.organization_id, quote_id: quote.id })}
-              className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
+              className="flex-1 min-h-[48px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
             >
               <MessageSquare className="w-4 h-4 shrink-0" />
               <span>Enviar por WhatsApp</span>
@@ -95,7 +95,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
               type="button"
               disabled
               title="Agrega un teléfono al cliente para enviar por WhatsApp"
-              className="flex-1 min-w-0 min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm text-center"
+              className="flex-1 min-w-0 min-h-[48px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm text-center"
             >
               <MessageSquare className="w-4 h-4 shrink-0" />
               <span>Agrega un teléfono para WhatsApp</span>
@@ -107,7 +107,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
             href={`/q/${quote.public_token}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="min-h-[44px] px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap shrink-0"
+            className="min-h-[48px] px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap shrink-0"
           >
             <FileText className="w-4 h-4 shrink-0 text-slate-400" />
             <span>Ver Portal</span>
@@ -120,7 +120,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
           <button
             onClick={handleConvert}
             disabled={converting}
-            className="w-full min-h-[44px] px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md text-xs sm:text-sm whitespace-nowrap disabled:opacity-60"
+            className="w-full min-h-[48px] px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md text-xs sm:text-sm whitespace-nowrap disabled:opacity-60"
           >
             <CheckCircle className="w-4 h-4 shrink-0" />
             <span>{converting ? 'Convirtiendo…' : 'Convertir a Contrato'}</span>

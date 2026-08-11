@@ -117,10 +117,11 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
           )}
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+            <label htmlFor="speiconfirmmodal-monto-transferido-confirmado-mxn" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
               Monto Transferido Confirmado (MXN)
             </label>
             <input
+              id="speiconfirmmodal-monto-transferido-confirmado-mxn"
               type="number"
               step="0.01"
               value={transferredAmount}

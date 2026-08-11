@@ -84,7 +84,7 @@ export default function ForgotPasswordPage() {
           ) : (
             <form className="space-y-6" onSubmit={handleResetPassword}>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                <label htmlFor="page-correo-electronico-registrado" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
                   Correo Electrónico Registrado
                 </label>
                 <div className="relative">
@@ -92,6 +92,7 @@ export default function ForgotPasswordPage() {
                     <Mail className="w-5 h-5" />
                   </div>
                   <input
+                    id="page-correo-electronico-registrado"
                     type="email"
                     required
                     value={email}

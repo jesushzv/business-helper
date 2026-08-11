@@ -38,7 +38,7 @@ export default function QuotesPage() {
         actionButton={
           <button
             onClick={() => setIsWizardOpen(true)}
-            className="flex min-h-[40px] items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-md shadow-emerald-950/50 transition-all hover:bg-emerald-400 active:scale-95"
+            className="flex min-h-[48px] items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-md shadow-emerald-950/50 transition-all hover:bg-emerald-400 active:scale-95"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nueva Cotización</span>
@@ -111,6 +111,7 @@ export default function QuotesPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar cotizaciones por título o notas..."
+            aria-label="Buscar cotizaciones"
             className="w-full min-h-[48px] pl-11 pr-4 bg-slate-900/90 border border-slate-800 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
           />
         </div>
@@ -126,7 +127,7 @@ export default function QuotesPage() {
             <button
               key={f.id}
               onClick={() => setStatusFilter(f.id)}
-              className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                 statusFilter === f.id
                   ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-950/50'
                   : 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800'
@@ -143,7 +144,7 @@ export default function QuotesPage() {
       {loading ? (
         <div className="p-12 text-center text-slate-400 font-medium">Cargando cotizaciones...</div>
       ) : error ? (
-        <div className="bg-rose-950/60 rounded-3xl border border-rose-500/30 p-12 text-center space-y-3">
+        <div role="alert" className="bg-rose-950/60 rounded-3xl border border-rose-500/30 p-12 text-center space-y-3">
           <Clock className="w-12 h-12 text-rose-400 mx-auto" />
           <h3 className="text-lg font-bold text-white">No pudimos cargar tus cotizaciones</h3>
           <p className="text-sm text-rose-200 max-w-sm mx-auto">{error}</p>

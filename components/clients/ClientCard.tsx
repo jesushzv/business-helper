@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { MessageSquare, Phone, Building2, UserCheck, ChevronRight } from 'lucide-react';
+import { MessageSquare, Phone, Building2, UserCheck, ChevronRight, Ban, AlertTriangle } from 'lucide-react';
 import { Client } from '@/types';
 import { HealthScoreMeter } from './HealthScoreMeter';
 import { generateWhatsAppLink, buildClientGreeting } from '@/lib/whatsappLink';
@@ -65,11 +65,20 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
               limit is on file — the two columns are independent, and the
               directory must not look calmer than the detail page (#96). */}
           {client.credit_status === 'blocked' || client.credit_status === 'suspended' ? (
-            <span className={`rounded-lg px-2.5 py-1 font-bold border ${
+            // Text *and* icon. #96 already gave each state its own words; the
+            // icon is the second non-colour channel, matching ReceivableCard —
+            // this badge decides whether to extend credit, so a colourblind
+            // owner must not depend on rose-vs-amber to read it (#101).
+            <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-bold border ${
               client.credit_status === 'blocked'
                 ? 'bg-rose-950/80 text-rose-300 border-rose-500/40'
                 : 'bg-amber-950/80 text-amber-300 border-amber-500/40'
             }`}>
+              {client.credit_status === 'blocked' ? (
+                <Ban className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              ) : (
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              )}
               {client.credit_status === 'blocked' ? 'Crédito bloqueado' : 'Crédito suspendido'}
             </span>
           ) : (client.credit_limit ?? 0) > 0 ? (
@@ -82,7 +91,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
           ) : client.credit_limit === null || client.credit_limit === undefined ? (
             // No credit line on file. This used to read "Contado (0 días)",
             // stating payment terms nobody had chosen (#96).
-            <span className="rounded-lg bg-slate-950 px-2.5 py-1 text-slate-500 border border-slate-800">
+            <span className="rounded-lg bg-slate-950 px-2.5 py-1 text-slate-400 border border-slate-800">
               Sin crédito asignado
             </span>
           ) : (

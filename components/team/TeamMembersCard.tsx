@@ -78,7 +78,7 @@ export function TeamMembersCard() {
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-950/80 border border-rose-500/30 text-rose-300 rounded-2xl text-sm font-medium">
+        <div role="alert" className="p-4 bg-rose-950/80 border border-rose-500/30 text-rose-300 rounded-2xl text-sm font-medium">
           {error}
         </div>
       )}
@@ -132,7 +132,7 @@ export function TeamMembersCard() {
                   <select
                     value={mem.role}
                     onChange={(e) => updateRole(mem.id, e.target.value as UserRole)}
-                    className="min-h-[40px] px-3 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-white font-medium focus:outline-none focus:border-emerald-500"
+                    className="min-h-[48px] px-3 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-white font-medium focus:outline-none focus:border-emerald-500"
                   >
                     <option value="manager" className="bg-slate-900 text-white">Gerente</option>
                     <option value="member" className="bg-slate-900 text-white">Miembro</option>
@@ -192,7 +192,7 @@ export function TeamMembersCard() {
             </div>
 
             {error && (
-              <div className="mb-4 p-3 bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-xl text-sm font-medium">
+              <div role="alert" className="mb-4 p-3 bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-xl text-sm font-medium">
                 {error}
               </div>
             )}
@@ -242,8 +242,9 @@ export function TeamMembersCard() {
             ) : (
               <form onSubmit={handleInvite} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico *</label>
+                  <label htmlFor="teammemberscard-correo-electronico" className="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico *</label>
                   <input
+                    id="teammemberscard-correo-electronico"
                     type="email"
                     required
                     placeholder="colaborador@empresa.com.mx"
@@ -254,8 +255,9 @@ export function TeamMembersCard() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Rol de Acceso *</label>
+                  <label htmlFor="teammemberscard-rol-de-acceso" className="block text-sm font-medium text-slate-300 mb-1">Rol de Acceso *</label>
                   <select
+                    id="teammemberscard-rol-de-acceso"
                     value={role}
                     onChange={(e) => setRole(e.target.value as UserRole)}
                     className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-emerald-500 text-base"

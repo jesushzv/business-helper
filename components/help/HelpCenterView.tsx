@@ -130,19 +130,20 @@ export const HelpCenterView: React.FC = () => {
         {/* Search Bar */}
         <div className="relative mt-6">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-            <Search className="h-5 w-5 text-gray-400" />
+            <Search className="h-5 w-5 text-slate-400" />
           </div>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar duda en la base de conocimientos (ej: SPEI, SAT, Cotización)..."
-            className="w-full rounded-2xl border-0 bg-white py-3.5 pl-11 pr-10 text-sm font-medium text-gray-900 shadow-lg placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 min-h-[48px]"
+            aria-label="Buscar en la ayuda"
+            className="w-full rounded-2xl border border-slate-800 bg-slate-950/80 py-3.5 pl-11 pr-10 text-sm font-medium text-white shadow-lg placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 min-h-[48px]"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 min-h-[48px] min-w-[48px] justify-center"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-white min-h-[48px] min-w-[48px] justify-center"
               aria-label="Limpiar búsqueda"
             >
               <X className="h-5 w-5" />

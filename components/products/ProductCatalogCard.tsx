@@ -108,7 +108,7 @@ export function ProductCatalogCard() {
       {/* Errors surface here, at card level — the modal-only display meant a
           failed delete had no surface to appear on (#98). */}
       {error && !showAddModal && (
-        <div className="p-4 bg-rose-950/80 border border-rose-500/30 text-rose-300 rounded-2xl text-sm font-medium">
+        <div role="alert" className="p-4 bg-rose-950/80 border border-rose-500/30 text-rose-300 rounded-2xl text-sm font-medium">
           {error}
         </div>
       )}
@@ -138,6 +138,7 @@ export function ProductCatalogCard() {
         <input
           type="text"
           placeholder="Buscar por concepto, clave SAT o descripción..."
+            aria-label="Buscar en el catálogo"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full min-h-[48px] pl-12 pr-4 bg-slate-900/90 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-all text-base"
@@ -180,14 +181,14 @@ export function ProductCatalogCard() {
               {confirmingDeleteId === product.id && (
                 <button
                   onClick={() => setConfirmingDeleteId(null)}
-                  className="min-h-[44px] px-3 text-slate-300 text-sm font-medium rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors"
+                  className="min-h-[48px] px-3 text-slate-300 text-sm font-medium rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors"
                 >
                   Cancelar
                 </button>
               )}
               <button
                 onClick={() => product.id && handleDelete(product.id)}
-                className={`min-h-[44px] px-3 text-sm font-medium flex items-center gap-1 rounded-lg transition-colors ${
+                className={`min-h-[48px] px-3 text-sm font-medium flex items-center gap-1 rounded-lg transition-colors ${
                   confirmingDeleteId === product.id
                     ? 'bg-rose-600 hover:bg-rose-500 text-white font-bold'
                     : 'text-slate-400 hover:text-rose-400 hover:bg-rose-950/30'
@@ -242,7 +243,7 @@ export function ProductCatalogCard() {
             </div>
 
             {error && (
-              <div className="mb-4 p-3 bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-xl text-sm font-medium">
+              <div role="alert" className="mb-4 p-3 bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-xl text-sm font-medium">
                 {error}
               </div>
             )}
@@ -256,10 +257,11 @@ export function ProductCatalogCard() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
+                <label htmlFor="productcatalogcard-nombre-del-producto-servicio" className="block text-sm font-medium text-slate-300 mb-1">
                   Nombre del Producto / Servicio *
                 </label>
                 <input
+                  id="productcatalogcard-nombre-del-producto-servicio"
                   type="text"
                   required
                   placeholder="Ej. Servicios de Consultoría"
@@ -270,8 +272,9 @@ export function ProductCatalogCard() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Descripción</label>
+                <label htmlFor="productcatalogcard-descripcion" className="block text-sm font-medium text-slate-300 mb-1">Descripción</label>
                 <textarea
+                  id="productcatalogcard-descripcion"
                   rows={2}
                   placeholder="Detalles opcionales..."
                   value={description}
@@ -282,10 +285,11 @@ export function ProductCatalogCard() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Precio Unitario (MXN) *</label>
+                  <label htmlFor="productcatalogcard-precio-unitario-mxn" className="block text-sm font-medium text-slate-300 mb-1">Precio Unitario (MXN) *</label>
                   <div className="relative">
                     <DollarSign className="w-5 h-5 absolute left-3 top-3.5 text-slate-500" />
                     <input
+                      id="productcatalogcard-precio-unitario-mxn"
                       type="number"
                       step="0.01"
                       required
@@ -298,8 +302,9 @@ export function ProductCatalogCard() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Unidad SAT *</label>
+                  <label htmlFor="productcatalogcard-unidad-sat" className="block text-sm font-medium text-slate-300 mb-1">Unidad SAT *</label>
                   <select
+                    id="productcatalogcard-unidad-sat"
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
                     className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-emerald-500 text-base"
@@ -315,8 +320,9 @@ export function ProductCatalogCard() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Clave Producto SAT *</label>
+                  <label htmlFor="productcatalogcard-clave-producto-sat" className="block text-sm font-medium text-slate-300 mb-1">Clave Producto SAT *</label>
                   <input
+                    id="productcatalogcard-clave-producto-sat"
                     type="text"
                     required
                     placeholder="84111506"
@@ -328,8 +334,9 @@ export function ProductCatalogCard() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Existencias (opcional)</label>
+                  <label htmlFor="productcatalogcard-existencias-opcional" className="block text-sm font-medium text-slate-300 mb-1">Existencias (opcional)</label>
                   <input
+                    id="productcatalogcard-existencias-opcional"
                     type="number"
                     min={0}
                     placeholder="Vacío para servicios"

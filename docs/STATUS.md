@@ -167,13 +167,14 @@ re-checked against production or a real handset, which is the part no agent supp
 | #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email); the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
 | #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
 | #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
+| #89, #101 | 48px floor enforced (46 declarations); one global `:focus-visible` ring replacing zero; 43 labels associated, 6 inputs named; gating `slate-500` raised, light-theme islands restyled; credit status gains an icon; 15 error containers announce. Gate: `a11yBaseline.test.ts` |
 
 **CFDI cancellation stays out of the app for launch** (#174, decided): the route ships with no UI
 caller — it needs a motivo, the `01` replacement UUID, receptor refusal and an async SAT answer
 (#30). Tenants cancel at their PAC portal; the stamping dialog says so, and
 `tests/unit/cfdiCancelHasNoUiCaller.test.ts` fails the build if a caller appears.
 
-Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
+Still open from the audit: #103, #104.
 
 **Resolved off this table** (2026-08-07→08, all verified closed): #79, #76, #59, #33, #36, #37, #58
 — detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).

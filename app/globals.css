@@ -24,6 +24,36 @@
   input, select, textarea {
     font-size: 16px !important;
   }
+
+  /*
+   * Keyboard focus, once, for everything (#101).
+   *
+   * The audit found zero `focus-visible` styles against ~60 `outline-none`
+   * declarations: six controls had no focus indication at all, including the
+   * login password toggle and both payment-amount inputs on the public
+   * `/pay` page. Fixing that per component means editing every control and
+   * missing the next one, so the ring lives here and applies by default.
+   *
+   * `:focus-visible` rather than `:focus` deliberately — a mouse or touch user
+   * tapping a button should not see a focus ring, which is why the blanket
+   * `outline-none` was reached for in the first place. This gives the ring
+   * back to keyboard users without giving it to everyone.
+   *
+   * Emerald reads against every surface in the palette (slate-950 → slate-800)
+   * and the offset keeps it clear of rounded borders. Components may still
+   * override for a specific control; almost none should need to.
+   */
+   * `!important` for the same reason the rule above it carries one: ~60
+   * components already declare `focus:outline-none`, whose specificity (0,2,0)
+   * beats anything this base layer can express, so without it the ring would
+   * be silently absent on exactly the controls that need it most. Components
+   * keep their `focus:ring-*` — a ring is a box-shadow and coexists with an
+   * outline.
+   */
+  :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-emerald-400, #34d399) !important;
+    outline-offset: 2px !important;
+  }
 }
 
 /* Reduced motion accessibility & low-end Android device optimization */

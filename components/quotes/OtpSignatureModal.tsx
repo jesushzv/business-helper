@@ -158,7 +158,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
         )}
 
         {error && (
-          <div className="bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-2xl p-3.5 mb-5 flex items-center gap-2.5 text-xs font-semibold">
+          <div role="alert" className="bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-2xl p-3.5 mb-5 flex items-center gap-2.5 text-xs font-semibold">
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <span>{error}</span>
           </div>
@@ -194,10 +194,11 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
         ) : (
           <form onSubmit={handleVerify} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+              <label htmlFor="otpsignaturemodal-ingresar-codigo-de-6" className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
                 Ingresar Código de 6 dígitos
               </label>
               <input
+                id="otpsignaturemodal-ingresar-codigo-de-6"
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
