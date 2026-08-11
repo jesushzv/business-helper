@@ -41,7 +41,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950">
       <JsonLd />
       {/* Top Banner Announcement */}
-      <div className="bg-linear-to-r from-indigo-700 via-indigo-600 to-emerald-500 text-white text-center py-2.5 px-4 text-xs font-bold tracking-wide uppercase flex items-center justify-center gap-2 shadow-md min-h-[40px]">
+      <div className="bg-linear-to-r from-indigo-700 via-indigo-600 to-emerald-500 text-white text-center py-2.5 px-4 text-xs font-bold tracking-wide uppercase flex items-center justify-center gap-2 shadow-md min-h-[48px]">
         <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
         <span>⚡ LA PLATAFORMA TODO-EN-UNO PARA PYMES EN MÉXICO — Prueba 14 Días Sin Costo</span>
       </div>
@@ -385,7 +385,7 @@ export default function LandingPage() {
                   <Check className="w-4 h-4 text-emerald-400" /> Tablero visual organizado por estatus de cobro
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Health Score de Cliente (0-100) para prevenir riesgo crediticio
+                  <Check className="w-4 h-4 text-emerald-400" /> Confianza de Pago por cliente (0-100) para no dar crédito a ciegas
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-400" /> Recordatorios de pago por WhatsApp en 1 clic
@@ -571,8 +571,8 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Cotizaciones ilimitadas</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> 10 folios CFDI 4.0/mes incluidos ($3 MXN/adic.)</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Firma digital OTP con evidencia legal</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Panel de Cobranza Kanban + Recordatorios</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Score de Salud del Cliente</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Tablero de Cobranza + Recordatorios</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Confianza de Pago</li>
                 </ul>
               </div>
               <Link href="/upgrade?plan=pro" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow-md active:scale-95">

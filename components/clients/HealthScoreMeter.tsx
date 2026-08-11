@@ -36,7 +36,7 @@ export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propS
             <HelpCircle className="h-5 w-5" />
           </div>
           <div>
-            <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">Health Score Financiero</h4>
+            <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">Confianza de Pago</h4>
             <p className="text-sm font-extrabold text-white">Sin historial de pagos</p>
             <p className="text-xs text-slate-400">Se calculará con los primeros cobros de este cliente.</p>
           </div>
@@ -88,7 +88,7 @@ export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propS
           type="button"
           onClick={toggleModal}
           className={`inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold transition-all hover:opacity-90 active:scale-95 cursor-pointer ${badgeColor}`}
-          title="Ver cómo se calcula el Health Score"
+          title="Ver cómo se calcula la Confianza de Pago"
         >
           <Icon className="h-3.5 w-3.5" />
           <span>{score}/100</span>
@@ -104,7 +104,7 @@ export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propS
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">Health Score Financiero</h4>
+                  <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">Confianza de Pago</h4>
                   <button
                     type="button"
                     onClick={toggleModal}
@@ -133,12 +133,12 @@ export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propS
         </div>
       )}
 
-      {/* Health Score Methodology Modal */}
+      {/* Confianza de Pago Methodology Modal */}
       {showModal && (
         <Modal
           open
           onClose={toggleModal}
-          title="Health Score Financiero (0-100)"
+          title="Confianza de Pago (0-100)"
           panelClassName="p-6"
         >
           <div>
@@ -148,8 +148,8 @@ export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propS
                   <ShieldCheck className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-white">Health Score Financiero (0-100)</h3>
-                  <p className="text-xs text-slate-400">Algoritmo de confiabilidad de cobro y pagos del cliente</p>
+                  <h3 className="text-lg font-extrabold text-white">Confianza de Pago (0-100)</h3>
+                  <p className="text-xs text-slate-400">Qué tan puntual ha sido este cliente al pagarte</p>
                 </div>
               </div>
             </div>
@@ -157,7 +157,7 @@ export const HealthScoreMeter: React.FC<HealthScoreMeterProps> = ({ score: propS
             <div className="mt-4 space-y-4 text-xs text-slate-300">
               <div className="rounded-2xl bg-indigo-950/60 border border-indigo-500/30 p-3.5 text-indigo-200">
                 <p className="font-semibold">
-                  El <strong>Health Score</strong> evalúa automáticamente el historial de pagos y facturas pendientes de tus clientes para ayudarte a identificar riesgos financieros antes de otorgar crédito.
+                  La <strong>Confianza de Pago</strong> evalúa automáticamente el historial de pagos y facturas pendientes de tus clientes para ayudarte a identificar riesgos financieros antes de otorgar crédito.
                 </p>
               </div>
 

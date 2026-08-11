@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { useTeamMembers } from '@/lib/hooks/useTeamMembers';
 import { UserRole } from '@/lib/teamRBAC';
-import { Users, UserPlus, Shield, Mail, Link2, Clock, Copy, Check } from 'lucide-react';
+import { Users, UserPlus, Shield, Mail, Link2, Clock, Copy, Check, MessageSquare } from 'lucide-react';
+import { generateWhatsAppShareLink } from '@/lib/whatsappLink';
 import { Modal } from '@/components/shared/Modal';
 
 /**
@@ -49,7 +50,7 @@ export function TeamMembersCard() {
   };
 
   const roleBadges: Record<UserRole, { label: string; className: string }> = {
-    owner: { label: 'Dueño / Founder', className: 'bg-indigo-950/80 text-indigo-300 border-indigo-500/30' },
+    owner: { label: 'Dueño del Negocio', className: 'bg-indigo-950/80 text-indigo-300 border-indigo-500/30' },
     manager: { label: 'Gerente Operativo', className: 'bg-purple-950/80 text-purple-300 border-purple-500/30' },
     member: { label: 'Miembro', className: 'bg-slate-800 text-slate-300 border-slate-700' },
     accountant: { label: 'Contador Externo', className: 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' }
@@ -62,7 +63,7 @@ export function TeamMembersCard() {
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Users className="w-6 h-6 text-indigo-400" />
-            Gestión de Equipo & Roles (RBAC)
+            Tu Equipo y sus Permisos
           </h2>
           <p className="text-sm text-slate-400 mt-1">
             Asigna permisos para Dueño, Gerente, Miembro o Contador Externo.
@@ -78,7 +79,7 @@ export function TeamMembersCard() {
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-950/80 border border-rose-500/30 text-rose-300 rounded-2xl text-sm font-medium">
+        <div role="alert" className="p-4 bg-rose-950/80 border border-rose-500/30 text-rose-300 rounded-2xl text-sm font-medium">
           {error}
         </div>
       )}
@@ -132,7 +133,7 @@ export function TeamMembersCard() {
                   <select
                     value={mem.role}
                     onChange={(e) => updateRole(mem.id, e.target.value as UserRole)}
-                    className="min-h-[40px] px-3 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-white font-medium focus:outline-none focus:border-emerald-500"
+                    className="min-h-[48px] px-3 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-white font-medium focus:outline-none focus:border-emerald-500"
                   >
                     <option value="manager" className="bg-slate-900 text-white">Gerente</option>
                     <option value="member" className="bg-slate-900 text-white">Miembro</option>
@@ -192,7 +193,7 @@ export function TeamMembersCard() {
             </div>
 
             {error && (
-              <div className="mb-4 p-3 bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-xl text-sm font-medium">
+              <div role="alert" className="mb-4 p-3 bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-xl text-sm font-medium">
                 {error}
               </div>
             )}
@@ -217,12 +218,28 @@ export function TeamMembersCard() {
                   <button
                     type="button"
                     onClick={copyInviteUrl}
-                    className="min-h-[48px] px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl flex items-center gap-2 shrink-0"
+                    className="min-h-[48px] px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl flex items-center gap-2 shrink-0"
                   >
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     {copied ? 'Copiado' : 'Copiar'}
                   </button>
                 </div>
+
+                {/* The copy above promises WhatsApp; only a copy button
+                    delivered it. No number is on file for an invitee, so this
+                    opens WhatsApp with the message ready and lets the inviter
+                    pick the contact — the pre-filled-link rule (#104). */}
+                <a
+                  href={generateWhatsAppShareLink(
+                    `Te invito a colaborar en Business Helper. Entra con este enlace para unirte al equipo:\n${inviteUrl}\n\nEl enlace vence en 7 días.`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 font-bold text-slate-950 shadow-md hover:bg-emerald-400 active:scale-95"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Enviar por WhatsApp</span>
+                </a>
 
                 <p className="text-xs text-slate-400">
                   El enlace vence en 7 días y solo funciona para {' '}
@@ -242,8 +259,9 @@ export function TeamMembersCard() {
             ) : (
               <form onSubmit={handleInvite} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico *</label>
+                  <label htmlFor="teammemberscard-correo-electronico" className="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico *</label>
                   <input
+                    id="teammemberscard-correo-electronico"
                     type="email"
                     required
                     placeholder="colaborador@empresa.com.mx"
@@ -254,8 +272,9 @@ export function TeamMembersCard() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Rol de Acceso *</label>
+                  <label htmlFor="teammemberscard-rol-de-acceso" className="block text-sm font-medium text-slate-300 mb-1">Rol de Acceso *</label>
                   <select
+                    id="teammemberscard-rol-de-acceso"
                     value={role}
                     onChange={(e) => setRole(e.target.value as UserRole)}
                     className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-emerald-500 text-base"

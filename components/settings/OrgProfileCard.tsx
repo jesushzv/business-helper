@@ -77,10 +77,11 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+          <label htmlFor="orgprofilecard-nombre-de-la-empresa" className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
             Nombre de la Empresa o Razón Social
           </label>
           <input
+            id="orgprofilecard-nombre-de-la-empresa"
             type="text"
             name="name"
             value={formData.name}
@@ -93,10 +94,11 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+            <label htmlFor="orgprofilecard-rfc-taxpayer-id" className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
               RFC (Taxpayer ID)
             </label>
             <input
+              id="orgprofilecard-rfc-taxpayer-id"
               type="text"
               name="rfc"
               value={formData.rfc}
@@ -114,10 +116,11 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+            <label htmlFor="orgprofilecard-codigo-postal-sat" className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
               Código Postal SAT
             </label>
             <input
+              id="orgprofilecard-codigo-postal-sat"
               type="text"
               name="codigo_postal"
               value={formData.codigo_postal}
@@ -132,10 +135,11 @@ export const OrgProfileCard: React.FC<OrgProfileCardProps> = ({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+            <label htmlFor="orgprofilecard-regimen-fiscal-sat" className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
               Régimen Fiscal (SAT)
             </label>
             <select
+              id="orgprofilecard-regimen-fiscal-sat"
               name="regimen_fiscal"
               value={formData.regimen_fiscal}
               onChange={handleChange}

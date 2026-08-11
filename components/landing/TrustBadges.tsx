@@ -69,7 +69,7 @@ export function TrustBadges() {
         </div>
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-indigo-400" />
-          <span><strong>Stripe:</strong> Procesamiento Encriptado TLS 1.3</span>
+          <span><strong>Stripe:</strong> Pagos con conexión cifrada</span>
         </div>
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-teal-400" />

@@ -41,7 +41,9 @@ export const QuoteStatusBadge: React.FC<QuoteStatusBadgeProps> = ({ status }) =>
       case 'converted':
         return 'Convertida a Contrato';
       default:
-        return status;
+        // Never the raw enum: an unmapped status used to render "sent" or
+        // "converted" in English on a Spanish screen (#103).
+        return 'Sin estado';
     }
   };
 

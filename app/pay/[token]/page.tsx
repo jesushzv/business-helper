@@ -162,14 +162,14 @@ export default function PublicPayPortalPage() {
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         setFormError(
-          data?.error?.message || 'No se pudo registrar el comprobante. Intente de nuevo.'
+          data?.error?.message || 'No se pudo registrar el comprobante. Intenta de nuevo.'
         );
         return;
       }
 
       setSubmitted(true);
     } catch {
-      setFormError('No se pudo contactar al servidor. Verifique su conexión e intente de nuevo.');
+      setFormError('No se pudo contactar al servidor. Revisa tu conexión e intenta de nuevo.');
     } finally {
       setSubmitting(false);
     }
@@ -318,17 +318,18 @@ export default function PublicPayPortalPage() {
               </div>
 
               {formError && (
-                <div className="p-3 bg-rose-950/80 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30">
+                <div role="alert" className="p-3 bg-rose-950/80 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30">
                   {formError}
                 </div>
               )}
 
               {/* Clave de Rastreo */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                <label htmlFor="page-clave-de-rastreo-banxico" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
                   Clave de Rastreo Banxico *
                 </label>
                 <input
+                  id="page-clave-de-rastreo-banxico"
                   type="text"
                   value={trackingRef}
                   onChange={(e) => setTrackingRef(e.target.value)}
@@ -340,10 +341,11 @@ export default function PublicPayPortalPage() {
 
               {/* Amount Transfered */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                <label htmlFor="page-monto-transferido-mxn" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
                   Monto Transferido (MXN) *
                 </label>
                 <input
+                  id="page-monto-transferido-mxn"
                   type="number"
                   step="0.01"
                   value={transferredAmount}
@@ -355,7 +357,7 @@ export default function PublicPayPortalPage() {
 
               {/* File Attachment Dropzone */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                <label htmlFor="page-comprobante-png-jpg-o" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
                   Comprobante (PNG, JPG o PDF &lt; 5MB) *
                 </label>
                 <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-800 rounded-2xl cursor-pointer hover:border-emerald-500 bg-slate-950/50 transition-colors min-h-[100px]">
@@ -363,8 +365,9 @@ export default function PublicPayPortalPage() {
                   <span className="text-xs font-bold text-slate-300">
                     {selectedFile ? selectedFile.name : 'Haz clic para seleccionar comprobante'}
                   </span>
-                  <span className="text-[11px] text-slate-500 mt-0.5">Máximo 5MB (PNG/JPG/PDF)</span>
+                  <span className="text-[11px] text-slate-400 mt-0.5">Máximo 5MB (PNG/JPG/PDF)</span>
                   <input
+                    id="page-comprobante-png-jpg-o"
                     type="file"
                     accept="image/png,image/jpeg,image/jpg,application/pdf"
                     onChange={handleFileChange}

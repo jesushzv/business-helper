@@ -59,7 +59,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/dashboard?demo=true" className="hover:text-emerald-400 transition-colors flex items-center gap-1">
-                  <span>Sandbox Interactivo</span>
+                  <span>Ver Demostración</span>
                   <ExternalLink className="w-3 h-3 text-indigo-400" />
                 </Link>
               </li>
@@ -97,7 +97,7 @@ export function Footer() {
                 <span className="text-slate-300">Validación Banxico SPEI</span>
               </li>
               <li>
-                <span className="text-slate-300">Encriptación TLS 1.3 256-bit</span>
+                <span className="text-slate-300">Conexión cifrada de extremo a extremo</span>
               </li>
             </ul>
           </div>
@@ -120,11 +120,11 @@ export function Footer() {
               </li>
               <li className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Horario: Lun - Vie (8am - 6pm PST)</span>
+                <span>Horario: Lun - Vie (8am - 6pm, hora del centro de México)</span>
               </li>
               <li className="pt-1">
                 <span className="inline-block px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-[10px] text-emerald-400 font-mono font-bold">
-                  SLA Soporte &lt; 2 Horas
+                  Respuesta en menos de 2 horas
                 </span>
               </li>
             </ul>

@@ -29,8 +29,8 @@ describe('Task E8 & Landing Remediation Suite', () => {
   it('renders /demo page with interactive sandbox preview and H1 title cleanly', () => {
     render(<DemoPage />);
     expect(screen.getByRole('heading', { level: 1, name: /Prueba la plataforma en vivo/i })).toBeInTheDocument();
-    expect(screen.getByText(/Sandbox Interactivo en Vivo/i)).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /Explorar Sandbox Interactivo/i })[0]).toHaveAttribute(
+    expect(screen.getByText(/Demostración Interactiva en Vivo/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Explorar la Demostración/i })[0]).toHaveAttribute(
       'href',
       '/dashboard?demo=true'
     );
