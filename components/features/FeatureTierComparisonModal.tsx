@@ -51,7 +51,7 @@ export const FeatureTierComparisonModal: React.FC<FeatureTierComparisonModalProp
         </div>
 
         {/* Tab Controls */}
-        <div className="flex border-b border-slate-800 bg-slate-900/80 px-6 pt-3">
+        <div className="flex overflow-x-auto border-b border-slate-800 bg-slate-900/80 px-6 pt-3">
           <button
             onClick={() => setActiveTab('matrix')}
             className={`min-h-[44px] px-4 py-2.5 text-sm font-bold border-b-2 transition-all ${

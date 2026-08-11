@@ -520,7 +520,7 @@ export function InvoiceManagerCard() {
                             }))
                           }
                           disabled={stampingId !== null || inv.cfdiStatus === 'cancelled'}
-                          className="min-h-[44px] px-3 bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
+                          className="w-full min-w-0 max-w-full min-h-[44px] px-3 bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
                           title="PUE: el cobro ya está pagado. PPD: se pagará después, y cada pago emitirá su complemento."
                         >
                           <option value="PUE">PUE — Pago en una exhibición</option>

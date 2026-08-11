@@ -53,7 +53,13 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-800/80 bg-slate-900/90 px-4 shadow-lg backdrop-blur-xl md:px-6">
+      <header
+        // Sticks *below* the demo banner, not at the same offset. The banner
+        // publishes its measured height as `--bh-sticky-offset`; with no
+        // banner the variable is absent and this falls back to 0 (#90).
+        style={{ top: 'var(--bh-sticky-offset, 0px)' }}
+        className="sticky z-30 flex h-16 w-full items-center justify-between border-b border-slate-800/80 bg-slate-900/90 px-4 shadow-lg backdrop-blur-xl md:px-6"
+      >
         {/* Left Branding / View Title */}
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="flex items-center gap-2 transition-transform active:scale-95">

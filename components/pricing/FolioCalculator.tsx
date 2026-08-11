@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calculator, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Calculator, CheckCircle2, ArrowRight, Minus, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export function FolioCalculator() {
@@ -61,10 +61,34 @@ export function FolioCalculator() {
               max={300}
               value={invoicesCount}
               onChange={(e) => setInvoicesCount(Math.max(0, parseInt(e.target.value) || 0))}
-              className="w-20 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 text-sm font-extrabold text-center focus:outline-none focus:border-emerald-500"
+              className="w-20 min-h-[48px] px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 text-sm font-extrabold text-center focus:outline-none focus:border-emerald-500"
             />
             <span className="text-xs text-slate-400 font-medium">facturas / mes</span>
           </div>
+        </div>
+
+        {/* Mobile: steppers, not an 8px drag target. `RoiCalculator` already
+            solved this exact problem the same way (#88/#89). */}
+        <div className="flex items-center justify-between gap-3 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setInvoicesCount((n) => Math.max(0, n - 5))}
+            aria-label="Disminuir facturas por mes"
+            className="flex min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 font-bold text-emerald-400 transition-transform hover:bg-slate-800 active:scale-95"
+          >
+            <Minus className="h-5 w-5" />
+          </button>
+          <div className="flex-1 rounded-xl border border-slate-800 bg-slate-900/60 py-3 text-center font-mono text-sm font-bold text-white">
+            {invoicesCount} / mes
+          </div>
+          <button
+            type="button"
+            onClick={() => setInvoicesCount((n) => Math.min(300, n + 5))}
+            aria-label="Aumentar facturas por mes"
+            className="flex min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 font-bold text-emerald-400 transition-transform hover:bg-slate-800 active:scale-95"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
         </div>
 
         <input
@@ -75,10 +99,13 @@ export function FolioCalculator() {
           step={5}
           value={invoicesCount}
           onChange={(e) => setInvoicesCount(parseInt(e.target.value))}
-          className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+          className="hidden sm:block w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
         />
 
-        <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+        {/* The slider's scale legend, so it goes with the slider. Five labels
+            in a nowrap `justify-between` need ~264px inside a ~231px card,
+            which scrolled the whole landing page sideways at 375px (#88). */}
+        <div className="hidden sm:flex justify-between text-[10px] text-slate-500 font-mono">
           <span>0 (Solo cotizaciones)</span>
           <span>25 facturas</span>
           <span>50 facturas</span>

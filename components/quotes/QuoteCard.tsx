@@ -75,7 +75,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
               type="button"
               disabled
               title="Agrega un teléfono al cliente para enviar por WhatsApp"
-              className="flex-1 min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm whitespace-nowrap"
+              className="flex-1 min-w-0 min-h-[44px] px-3.5 py-2.5 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 border border-slate-700 cursor-not-allowed text-xs sm:text-sm text-center"
             >
               <MessageSquare className="w-4 h-4 shrink-0" />
               <span>Agrega un teléfono para WhatsApp</span>
