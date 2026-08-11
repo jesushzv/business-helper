@@ -87,9 +87,33 @@ export async function GET() {
  * stamping, so they get the same protection).
  */
 export async function PATCH(request: Request) {
-  const auth = await requireUser();
+  const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, userId } = auth;
+  const { supabase, userId, role } = auth.ctx;
+
+  // A member reaching this route gets a straight answer, rather than falling
+  // through to the `owner_id` filter matching nothing and answering 404 "No se
+  // encontró una organización propia" — which reads as *your business does not
+  // exist* to someone whose only problem is that they are not the owner.
+  //
+  // That is #64's trap turned on its own user: never send someone to fix
+  // something they lack the write for. The settings page already hides the form
+  // for non-owners (`app/(dashboard)/settings/page.tsx`); this is the server
+  // half of the same rule, and the half that answers a direct request.
+  //
+  // Unaffected by the uniqueness index this PR adds: one organization per owner
+  // fixes *which row* the filter finds, not *who* is allowed to ask.
+  if (role !== 'owner') {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Solo el dueño de la organización puede cambiar estos datos',
+        },
+      },
+      { status: 403 }
+    );
+  }
 
   try {
     const body = await request.json();
