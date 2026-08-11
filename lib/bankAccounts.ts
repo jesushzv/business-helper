@@ -128,7 +128,8 @@ const FIELD_ORDER: BankAccountField[] = ['label', 'bankName', 'clabe'];
  * the CLABE is short — one round trip per mistake, on a phone, on the form that
  * decides where their money lands. This function used to do exactly that while
  * its own docblock claimed it did not, which is why the claim now names the
- * test that holds it: `tests/unit/bankAccountValidation.test.ts`.
+ * test that holds it: the "reports every problem in one pass" cases in
+ * `tests/unit/bankAccounts.test.ts`.
  */
 export function validateBankAccount(input: BankAccountInput): BankAccountValidation {
   const label = typeof input.label === 'string' ? input.label.trim() : '';

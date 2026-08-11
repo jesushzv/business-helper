@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { BankAccountsCard } from '@/components/settings/BankAccountsCard';
 
 /**
@@ -114,6 +116,28 @@ describe('listing accounts', () => {
 });
 
 describe('who is offered the actions', () => {
+  /**
+   * `canEdit` must stay **required, with no default**.
+   *
+   * The behavioural test below passes `canEdit={false}` explicitly, so it stays
+   * green if the prop acquires `= true` — it cannot see the defect it looks
+   * like it covers, and TypeScript cannot either: an optional prop with a
+   * default is legal at every call site that omits it. That combination is how
+   * the single-account card once offered "Quitar cuenta" to a manager who then
+   * got a 404, and it is why #163 made the prop required in the first place.
+   * Only reading the source holds it.
+   */
+  it('keeps canEdit required, so a render site cannot get the actions by omission', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'components/settings/BankAccountsCard.tsx'),
+      'utf8'
+    );
+
+    expect(source).toMatch(/canEdit:\s*boolean;/);
+    expect(source).not.toMatch(/canEdit\?:/);
+    expect(source).not.toMatch(/canEdit\s*=\s*(true|false)/);
+  });
+
   /**
    * Every write here gates on `billing_management`, so a member's click returns
    * 403. Offering it would send them to fix something they cannot — the
