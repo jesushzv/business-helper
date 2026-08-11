@@ -9,6 +9,7 @@ import { validateRFC } from '@/lib/rfcValidator';
 import { isPlausibleE164 } from '@/lib/phoneCountries';
 import { PhoneField } from '@/components/shared/PhoneField';
 import { track } from '@/lib/analytics';
+import { withPlanParam } from '@/lib/upgradeIntent';
 import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
 import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 import { identifyPostHogUser } from '@/components/PostHogInit';
@@ -162,7 +163,11 @@ function RegisterFormContent() {
         track('signup_completed', { company_size: companySize, tax_regime: taxRegime });
         // A real account exists now — demo-browsing flags must not survive it.
         exitDemoMode();
-        router.push('/onboarding');
+        // The plan they clicked on the pricing page rides along to onboarding
+        // and from there to Ajustes. It used to die here: this form reads four
+        // query params and `plan` was never one of them, so a visitor who chose
+        // Negocio finished signing up and was never shown a checkout for it.
+        router.push(withPlanParam('/onboarding', searchParams.get('plan')));
       } else {
         // Email confirmation pending — the account exists, the funnel step is done.
         track('signup_completed', { company_size: companySize, tax_regime: taxRegime, pending_email_confirmation: true });
