@@ -8,7 +8,13 @@ import { formatClabe, normalizeClabe, isValidClabeLength, hasValidClabeCheckDigi
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { hasSettlementAccount } from '@/lib/settlementAccount';
 import { track } from '@/lib/analytics';
-import { satRegimenOptions } from '@/lib/satRegimenes';
+
+const REGIMENES_FISCALES = [
+  { code: '601', label: '601 - General de Ley Personas Morales' },
+  { code: '626', label: '626 - Régimen Simplificado de Confianza (RESICO)' },
+  { code: '612', label: '612 - Personas Físicas con Actividades Empresariales' },
+  { code: '606', label: '606 - Arrendamiento' },
+];
 
 const INDUSTRIES = [
   { value: 'construction', label: 'Materiales & Construcción' },
@@ -348,7 +354,7 @@ export default function OnboardingPage() {
                 onChange={(e) => setRegimenFiscal(e.target.value)}
                 className="mt-1.5 w-full min-h-[48px] rounded-xl border border-slate-800 bg-slate-950 px-4 text-xs font-medium text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               >
-                {satRegimenOptions(regimenFiscal).map((r) => (
+                {REGIMENES_FISCALES.map((r) => (
                   <option key={r.code} value={r.code} className="bg-slate-900 text-white">
                     {r.label}
                   </option>

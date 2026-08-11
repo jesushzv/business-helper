@@ -535,23 +535,3 @@ pins the render over that exact response body. The hydrated page — the *Cerrar
 org name after hydration — was confirmed by the founder in a browser on 2026-08-11, which closed
 the issue. Not covered: `/pay/[token]`, which this tenant has no contract to render, so its
 no-invented-bank path stays pinned by unit tests until a first real payment.
-
----
-
-## Settled resolutions moved off `docs/STATUS.md` (2026-08-11)
-
-Verbatim from §02 "Open and blocking", where they no longer earned their bytes.
-
-**Resolved off this table on 2026-08-08:** [#79](https://github.com/jesushzv/business-helper/issues/79)
-— the PGRST201 prediction was **confirmed against live PostgREST** (every `/pay/` link had 404'd
-since the route existed) and both embeds are hinted, with a scan test pinning the pattern; closes
-with the PR. [#76](https://github.com/jesushzv/business-helper/issues/76) — closed; live
-`aclexplode` sweep ran clean. [#59](https://github.com/jesushzv/business-helper/issues/59) —
-closed as already-done (PR #75).
-
-**Cleared since this section was first written** (2026-08-07, all verified closed on the tracker):
-[#33](https://github.com/jesushzv/business-helper/issues/33) payment confirmation (PR #55) ·
-[#36](https://github.com/jesushzv/business-helper/issues/36) `.mx` quote links (PR #47) ·
-[#37](https://github.com/jesushzv/business-helper/issues/37) product analytics (PR #56) ·
-[#58](https://github.com/jesushzv/business-helper/issues/58) the public signing page rendering a
-fixture quote for every token (PR #57) — never listed as a P0 and worse than several that were.
