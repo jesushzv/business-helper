@@ -164,12 +164,10 @@ component tests only (`modalShell`, `Modal`), including a planted violation show
 exercised on a real handset**, which is the part no agent can supply. The audit's remaining
 findings — #88, #89, #90, #99, #101, #103, #104 — are untouched.
 
-**Resolved off this table on 2026-08-08:** [#79](https://github.com/jesushzv/business-helper/issues/79)
-— the PGRST201 prediction was **confirmed against live PostgREST** (every `/pay/` link had 404'd
-since the route existed) and both embeds are hinted, with a scan test pinning the pattern; closes
-with the PR. [#76](https://github.com/jesushzv/business-helper/issues/76) — closed; live
-`aclexplode` sweep ran clean. [#59](https://github.com/jesushzv/business-helper/issues/59) —
-closed as already-done (PR #75).
+**Resolved off this table on 2026-08-08:** #79 (the PGRST201 prediction confirmed against live
+PostgREST, both embeds hinted, scan test pinning the pattern), #76 (live `aclexplode` sweep clean)
+and #59 (already-done). Detail in
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
 
 **Cleared since this section was first written** (2026-08-07, all verified closed on the tracker):
 [#33](https://github.com/jesushzv/business-helper/issues/33) payment confirmation (PR #55) ·
