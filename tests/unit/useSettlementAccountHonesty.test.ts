@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import {
   useSettlementAccount,
   notifySettlementAccountChanged,
+  settlementAccountListenerCount,
 } from '@/lib/hooks/useSettlementAccount';
 
 /**
@@ -149,17 +150,21 @@ describe('staying current after the account changes (#163)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('stops listening once unmounted', async () => {
+  it('unsubscribes on unmount instead of leaking a listener per visit', async () => {
+    // Counted, not inferred from behaviour: `refresh` on an unmounted component
+    // is a no-op React swallows, so "no refetch happened" is satisfied whether
+    // or not the cleanup ran. The first version of this test asserted exactly
+    // that and stayed green with the cleanup deleted.
     fetchMock.mockResolvedValue(
       jsonResponse(200, { organization: { id: 'org-1', bank_clabe: null }, role: 'owner' })
     );
 
+    const before = settlementAccountListenerCount();
     const { unmount } = await mountHook();
+    expect(settlementAccountListenerCount()).toBe(before + 1);
+
     unmount();
 
-    const callsBefore = fetchMock.mock.calls.length;
-    notifySettlementAccountChanged();
-
-    expect(fetchMock.mock.calls.length).toBe(callsBefore);
+    expect(settlementAccountListenerCount()).toBe(before);
   });
 });

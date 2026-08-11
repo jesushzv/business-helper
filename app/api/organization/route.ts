@@ -3,6 +3,7 @@ import { requireOrgAccess, requireUser, isDemoDeployment } from '@/lib/apiAuth';
 import { normalizeClabe, isValidClabeLength, hasValidClabeCheckDigit } from '@/lib/clabe';
 import { validateRFC } from '@/lib/rfcValidator';
 import { normalizeClientPhone } from '@/lib/phoneValidator';
+import { captureException } from '@/lib/sentry';
 
 export async function GET() {
   // No backend means no tenant data; the demo organization is honest here.
@@ -291,23 +292,51 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Removing the account every SPEI settles to is at least as consequential
-    // as disconnecting the PAC, which has written an audit row since it shipped
-    // (`pac.disconnected`). Recorded after the row is confirmed, so the log
-    // never carries a removal the UPDATE did not make. Best-effort: a failed
-    // audit insert must not turn a completed removal into an error the tenant
-    // would retry.
-    if (update.bank_clabe === null) {
+    // Changing where every future SPEI lands is at least as consequential as
+    // disconnecting the PAC, which has written an audit row since it shipped
+    // (`pac.disconnected`). Both directions are recorded, not just removal:
+    // redirecting settlements to a different account is the move an attacker
+    // with a session — or a departing employee — would actually make, and it
+    // leaves the tenant's own screens looking entirely normal.
+    //
+    // Written after the row is confirmed, so the log never carries a change the
+    // UPDATE did not make. Best-effort by design: a failed audit insert must not
+    // turn a completed write into an error the tenant would retry (and retry
+    // into a second, identical change).
+    if ('bank_clabe' in update) {
+      const removed = update.bank_clabe === null;
+      // supabase-js resolves `{ data, error }` rather than throwing, so the
+      // error channel has to be *read* — an RLS denial or a schema drift here
+      // would otherwise leave no audit row and no trace of why. `try` covers
+      // only a transport-level throw, and wraps just the awaited call so it
+      // cannot swallow a programmer error in the surrounding lines.
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).from('audit_logs').insert({
+        const { error: auditError } = await (supabase as any).from('audit_logs').insert({
           organization_id: data.id,
-          action: 'settlement_account.removed',
+          action: removed ? 'settlement_account.removed' : 'settlement_account.updated',
           actor: userId,
-          details: 'Cuenta bancaria para cobros SPEI eliminada',
+          details: removed
+            ? 'Cuenta bancaria para cobros SPEI eliminada'
+            : 'Cuenta bancaria para cobros SPEI actualizada',
         });
-      } catch {
-        // Swallowed deliberately — see above.
+
+        if (auditError) {
+          captureException(auditError, {
+            route: 'PATCH /api/organization',
+            organization_id: data.id,
+            user_id: userId,
+            extra: {
+              action: removed ? 'settlement_account.removed' : 'settlement_account.updated',
+            },
+          });
+        }
+      } catch (auditThrow) {
+        captureException(auditThrow, {
+          route: 'PATCH /api/organization',
+          organization_id: data.id,
+          extra: { stage: 'settlement_account audit insert' },
+        });
       }
     }
 

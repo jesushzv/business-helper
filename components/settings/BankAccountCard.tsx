@@ -31,10 +31,10 @@ interface BankAccountCardProps {
    * does not exist*. Members see the account; they are not offered actions they
    * cannot complete (the CLAUDE.md corollary that decided #64's design).
    */
-  canEdit?: boolean;
+  canEdit: boolean;
 }
 
-export const BankAccountCard: React.FC<BankAccountCardProps> = ({ canEdit = true }) => {
+export const BankAccountCard: React.FC<BankAccountCardProps> = ({ canEdit }) => {
   const [form, setForm] = useState<BankAccount>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -93,6 +93,7 @@ export const BankAccountCard: React.FC<BankAccountCardProps> = ({ canEdit = true
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEdit) return;
 
     // Saving is not a way to remove. An empty CLABE is the API's clear signal,
     // so without this the save button becomes a second, unconfirmed removal —
@@ -131,11 +132,21 @@ export const BankAccountCard: React.FC<BankAccountCardProps> = ({ canEdit = true
         return;
       }
 
+      // A 200 is not the save: the row that comes back must actually hold the
+      // account that was sent. Without this, an unexpected body blanks
+      // `savedClabe` — hiding "Quitar cuenta" for an account that does exist —
+      // while announcing that SPEI will settle there.
+      const savedRow = data?.organization;
+      if (!savedRow || normalizeClabe(savedRow.bank_clabe || '') !== normalizeClabe(form.bank_clabe)) {
+        setError('No se pudo confirmar la cuenta bancaria. Vuelve a cargar la página.');
+        return;
+      }
+
       // The CLABE is where every SPEI settles; its save deserves an explicit
       // confirmation, not a modal that just closes (#146's shape). The inline
       // `saved` state stays as the persistent marker next to the field.
       setSaved(true);
-      setSavedClabe(data?.organization?.bank_clabe || null);
+      setSavedClabe(savedRow.bank_clabe || null);
       setLoadFailed(false);
       setTimeout(() => setSaved(false), 3000);
       // The banner in the shell and the share actions on Cobranza/Facturación
@@ -163,6 +174,7 @@ export const BankAccountCard: React.FC<BankAccountCardProps> = ({ canEdit = true
    * account visible exactly as the row still holds it (hard rule #1).
    */
   const handleRemove = async () => {
+    if (!canEdit) return;
     setSaving(true);
     setRemovalError(null);
 

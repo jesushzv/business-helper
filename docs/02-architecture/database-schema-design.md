@@ -36,7 +36,7 @@
 - `logo_url`: text (nullable) -- Supabase Storage URL
 - `industry`: text (nullable) -- e.g., 'construction', 'services', 'retail'
 - `phone`: text (nullable) -- org WhatsApp contact, canonical 10-digit form (`20260809000000`; #95/#44)
-- `owner_id`: uuid (FK -> `auth.users.id`, not null, IDX)
+- `owner_id`: uuid (FK -> `auth.users.id` `ON DELETE RESTRICT`, not null) — **no index and no unique constraint**, verified against the live catalog 2026-08-11; this line claimed `IDX` and was wrong. Every owner-scoped write filters on it (`.eq('owner_id', userId)`), and nothing in the schema stops one user owning two organizations ([#165](https://github.com/jesushzv/business-helper/issues/165))
 - `stripe_customer_id`: text (nullable, UQ)
 - `stripe_subscription_id`: text (nullable, UQ)
 - `subscription_tier`: text (not null, default: `'free'`) -- 'free' | 'emprendedor' | 'negocio' | 'empresa'

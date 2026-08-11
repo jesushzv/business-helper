@@ -52,9 +52,29 @@ export interface SettlementAccountState {
  */
 const settlementAccountListeners = new Set<() => void>();
 
-/** Called by whatever writes the account, after the server confirms the write. */
+/**
+ * Called by whatever writes the account, **after** the server confirms it.
+ *
+ * Not during a render: this calls `setState` on every mounted subscriber, so a
+ * caller inside a render body would warn and could loop. Both call sites today
+ * are inside event handlers, past an `await`.
+ */
 export function notifySettlementAccountChanged(): void {
   settlementAccountListeners.forEach((listener) => listener());
+}
+
+/**
+ * How many hooks are currently subscribed. Exported for tests only.
+ *
+ * The unsubscription cannot be observed through behaviour: `refresh` on an
+ * unmounted component is a no-op React swallows, so a test that leaves a
+ * listener behind and asserts "no refetch happened" passes either way — it
+ * measures React's no-op, not the cleanup. The leak it means to catch is this
+ * set growing a dead closure (and its retained fiber) on every visit to
+ * Ajustes, which is only visible by counting.
+ */
+export function settlementAccountListenerCount(): number {
+  return settlementAccountListeners.size;
 }
 
 export function useSettlementAccount(): SettlementAccountState {

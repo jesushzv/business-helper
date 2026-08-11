@@ -41,7 +41,7 @@ describe('loading existing bank details', () => {
   it('populates the form from GET /api/organization', async () => {
     mockFetch(() => jsonResponse(CONFIGURED_ORG));
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Banco/i)).toHaveValue('BBVA México');
@@ -53,7 +53,7 @@ describe('loading existing bank details', () => {
   it('renders an empty form when the org has no account yet', async () => {
     mockFetch(() => jsonResponse({ organization: { bank_name: null, bank_clabe: null } }));
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Banco/i)).toHaveValue('');
@@ -65,7 +65,7 @@ describe('the unconfigured warning', () => {
   it('warns that payment links do not work without a CLABE', async () => {
     mockFetch(() => jsonResponse({ organization: {} }));
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     await waitFor(() => {
       expect(screen.getByText(/no pueden pagarle por transferencia/i)).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe('the unconfigured warning', () => {
   it('does not warn once an account is configured', async () => {
     mockFetch(() => jsonResponse(CONFIGURED_ORG));
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Banco/i)).toHaveValue('BBVA México');
@@ -87,7 +87,7 @@ describe('the unconfigured warning', () => {
 describe('CLABE entry', () => {
   it('strips non-digits and caps at 18 digits', async () => {
     mockFetch(() => jsonResponse({ organization: {} }));
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     const clabe = await screen.findByLabelText(/CLABE/i);
     fireEvent.change(clabe, { target: { value: 'abc0121800012345678901234' } });
@@ -97,7 +97,7 @@ describe('CLABE entry', () => {
 
   it('shows how many of the 18 digits have been entered', async () => {
     mockFetch(() => jsonResponse({ organization: {} }));
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     const clabe = await screen.findByLabelText(/CLABE/i);
     fireEvent.change(clabe, { target: { value: '01218000' } });
@@ -113,7 +113,7 @@ describe('saving', () => {
       return jsonResponse({ organization: {} });
     });
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     fireEvent.change(await screen.findByLabelText(/Banco/i), { target: { value: 'BBVA México' } });
     fireEvent.change(screen.getByLabelText(/CLABE/i), { target: { value: '012180001234567890' } });
@@ -144,7 +144,7 @@ describe('saving', () => {
       return jsonResponse({ organization: {} });
     });
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     fireEvent.change(await screen.findByLabelText(/Banco/i), { target: { value: 'BBVA' } });
     fireEvent.change(screen.getByLabelText(/CLABE/i), { target: { value: '0121' } });
@@ -162,7 +162,7 @@ describe('saving', () => {
       return jsonResponse({ organization: {} });
     });
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     fireEvent.change(await screen.findByLabelText(/Banco/i), { target: { value: 'BBVA' } });
     fireEvent.change(screen.getByLabelText(/CLABE/i), { target: { value: '012180001234567890' } });
@@ -186,7 +186,7 @@ describe('removing the account (#163)', () => {
   it('offers no removal when there is no account saved', async () => {
     mockFetch(() => jsonResponse({ organization: { bank_name: null, bank_clabe: null } }));
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Banco/i)).toHaveValue('');
@@ -197,7 +197,7 @@ describe('removing the account (#163)', () => {
   it('asks for confirmation before removing, and names the consequence', async () => {
     mockFetch(() => jsonResponse(CONFIGURED_ORG));
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
 
@@ -208,7 +208,7 @@ describe('removing the account (#163)', () => {
   it('does not PATCH anything while the confirmation is open', async () => {
     const spy = mockFetch(() => jsonResponse(CONFIGURED_ORG));
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
     fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
 
     expect(spy.mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(0);
@@ -224,7 +224,7 @@ describe('removing the account (#163)', () => {
       return jsonResponse(CONFIGURED_ORG);
     });
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
     fireEvent.click(await screen.findByRole('button', { name: /Sí, quitar cuenta/i }));
@@ -252,7 +252,7 @@ describe('removing the account (#163)', () => {
       return jsonResponse(CONFIGURED_ORG);
     });
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
     fireEvent.click(await screen.findByRole('button', { name: /Sí, quitar cuenta/i }));
@@ -277,7 +277,7 @@ describe('saving is not a way to remove (#163)', () => {
     // jsdom enforces `required` and suppresses the submit event entirely.
     const spy = mockFetch(() => jsonResponse(CONFIGURED_ORG));
 
-    const { container } = render(<BankAccountCard />);
+    const { container } = render(<BankAccountCard canEdit />);
     await waitFor(() => {
       expect(screen.getByLabelText(/CLABE/i)).toHaveValue('0121 8000 1234 5678 90');
     });
@@ -319,7 +319,7 @@ describe('a failed read is not "no account" (#163)', () => {
     // row holds one perfectly well.
     mockFetch(() => jsonResponse({ error: { code: 'SERVER_ERROR' } }, false, 500));
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Guardar Cuenta Bancaria/i })).toBeEnabled();
@@ -342,7 +342,7 @@ describe('the removal failure is where the user is looking (#163)', () => {
       return jsonResponse(CONFIGURED_ORG);
     });
 
-    const { container } = render(<BankAccountCard />);
+    const { container } = render(<BankAccountCard canEdit />);
 
     fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
     fireEvent.click(await screen.findByRole('button', { name: /Sí, quitar cuenta/i }));
@@ -359,7 +359,7 @@ describe('the removal failure is where the user is looking (#163)', () => {
       return jsonResponse(CONFIGURED_ORG);
     });
 
-    render(<BankAccountCard />);
+    render(<BankAccountCard canEdit />);
 
     fireEvent.click(await screen.findByRole('button', { name: /Quitar cuenta/i }));
     fireEvent.click(await screen.findByRole('button', { name: /Sí, quitar cuenta/i }));

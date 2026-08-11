@@ -295,13 +295,6 @@ describe('PATCH /api/organization — the removal is recorded (#163)', () => {
     });
   });
 
-  it('does not record an audit row for an ordinary save', async () => {
-    await PATCH(
-      patchRequest({ bankName: 'BBVA', bankClabe: '012180001234567899', bankAccountHolder: 'X' })
-    );
-
-    expect(insertCalls.find((c) => c.table === 'audit_logs')).toBeUndefined();
-  });
 
   it('does not record a removal the UPDATE never made', async () => {
     // A member's PATCH matches no row under the owner_id filter.
@@ -310,6 +303,31 @@ describe('PATCH /api/organization — the removal is recorded (#163)', () => {
     const res = await PATCH(patchRequest({ bankClabe: '' }));
 
     expect(res.status).toBe(404);
+    expect(insertCalls.find((c) => c.table === 'audit_logs')).toBeUndefined();
+  });
+});
+
+describe('PATCH /api/organization — changing the account is recorded too (#163)', () => {
+  it('audits a replacement, not only a removal', async () => {
+    // Redirecting settlements to a different account is the move an attacker
+    // with a session — or a departing employee — would actually make, and the
+    // tenant's own screens look entirely normal afterwards. Auditing only the
+    // removal would have made that the untraced path.
+    const res = await PATCH(
+      patchRequest({ bankName: 'BBVA', bankClabe: '012180001234567899', bankAccountHolder: 'X' })
+    );
+
+    expect(res.status).toBe(200);
+    const audit = insertCalls.find((c) => c.table === 'audit_logs');
+    expect(audit?.values).toMatchObject({
+      organization_id: 'org-1',
+      action: 'settlement_account.updated',
+      actor: 'user-1',
+    });
+  });
+
+  it('records nothing for a profile-only save', async () => {
+    await PATCH(patchRequest({ name: 'Ferretería La Central' }));
     expect(insertCalls.find((c) => c.table === 'audit_logs')).toBeUndefined();
   });
 });
