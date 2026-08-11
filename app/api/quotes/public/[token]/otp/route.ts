@@ -5,7 +5,8 @@ import { deliverOtp, getDeliveryChannel, isDeliveryConfigured } from '@/lib/otpD
 import {
   checkResendBackoff,
   markOtpSendDeliveryFailed,
-  normalizeOtpRecipient,
+  normalizeOtpEmail,
+  normalizeOtpPhone,
   reserveOtpSend,
   type OtpLedgerClient,
 } from '@/lib/otpRateLimit';
@@ -17,16 +18,19 @@ import { publicApiError } from '@/lib/publicApiError';
  * This endpoint is the reason the signing route can be server-authoritative:
  * the code is minted here, only its keyed digest is persisted, and the
  * plaintext leaves the server exclusively over the delivery channel to the
- * client's registered phone. The response never carries the code in
- * production, so requesting one grants the caller nothing.
+ * client's registered contact — their email on the email channel (the launch
+ * channel), their phone on the deprecated sms/whatsapp channels. The response
+ * never carries the code in production, so requesting one grants the caller
+ * nothing.
  *
- * Issuance is bounded by the ledger in lib/otpRateLimit, keyed on the phone
- * the database holds — no matter how many quotes, and therefore how many valid
- * public tokens, point at it: an escalating resend backoff (30s doubling),
- * an hourly cap, a daily cap, and a per-quote lifetime cap that counts only
- * delivered codes. The flat per-quote 30s cooldown that used to live here was
- * replaced by the backoff in #22 — same first step, but the gap widens with
- * each send instead of treating a signer's first resend like a pump's tenth.
+ * Issuance is bounded by the ledger in lib/otpRateLimit, keyed on the
+ * recipient the database holds — no matter how many quotes, and therefore how
+ * many valid public tokens, point at it: an escalating resend backoff (30s
+ * doubling), an hourly cap, a daily cap, and a per-quote lifetime cap that
+ * counts only delivered codes. The flat per-quote 30s cooldown that used to
+ * live here was replaced by the backoff in #22 — same first step, but the gap
+ * widens with each send instead of treating a signer's first resend like a
+ * pump's tenth.
  */
 
 export async function POST(
@@ -49,7 +53,7 @@ export async function POST(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: quote, error: fetchError } = await (supabase as any)
       .from('quotes')
-      .select('id, status, client_otp_sent_at, client_otp_verified, clients(phone)')
+      .select('id, status, client_otp_sent_at, client_otp_verified, clients(phone, email)')
       .eq('public_token', token)
       .maybeSingle();
 
@@ -69,32 +73,55 @@ export async function POST(
       );
     }
 
+    const channel = getDeliveryChannel();
+    const email = quote.clients?.email;
     const phone = quote.clients?.phone;
-    if (!phone) {
-      return publicApiError(
-        422,
-        'CLIENT_PHONE_MISSING',
-        'El cliente no tiene un número de teléfono registrado'
-      );
-    }
 
-    // The limit key is derived here, from the phone the database holds for the
-    // client — never from anything the (unauthenticated) caller sent.
-    const recipient = normalizeOtpRecipient(phone);
-    if (!recipient) {
-      return publicApiError(
-        422,
-        'CLIENT_PHONE_INVALID',
-        'El teléfono registrado del cliente no es un número válido'
-      );
+    // The limit key is derived here, from the contact the database holds for
+    // the client — never from anything the (unauthenticated) caller sent.
+    // email is the launch channel; the console channel (dev only) follows the
+    // same email-first order so development exercises the production path.
+    let recipient: string | null;
+    if (channel === 'email' || (channel === 'console' && email)) {
+      if (!email) {
+        return publicApiError(
+          422,
+          'CLIENT_EMAIL_MISSING',
+          'El cliente no tiene un correo electrónico registrado'
+        );
+      }
+      recipient = normalizeOtpEmail(email);
+      if (!recipient) {
+        return publicApiError(
+          422,
+          'CLIENT_EMAIL_INVALID',
+          'El correo electrónico registrado del cliente no es válido'
+        );
+      }
+    } else {
+      if (!phone) {
+        return publicApiError(
+          422,
+          'CLIENT_PHONE_MISSING',
+          'El cliente no tiene un número de teléfono registrado'
+        );
+      }
+      recipient = normalizeOtpPhone(phone);
+      if (!recipient) {
+        return publicApiError(
+          422,
+          'CLIENT_PHONE_INVALID',
+          'El teléfono registrado del cliente no es un número válido'
+        );
+      }
     }
 
     // Pacing first (#22): after n sends this hour the next needs a 30s·2^(n-1)
-    // gap, keyed on the phone like every other bound. Replaces the flat
+    // gap, keyed on the recipient like every other bound. Replaces the flat
     // per-quote cooldown, which treated a signer's first resend and a pump's
     // tenth identically.
     const backoff = await checkResendBackoff(supabase as unknown as OtpLedgerClient, {
-      phoneE164: recipient,
+      recipient,
     });
 
     if (!backoff.allowed) {
@@ -106,9 +133,9 @@ export async function POST(
     // Claimed before the code is minted: over-cap requests must not rotate the
     // quote's stored digest, which would invalidate a code already in transit.
     const reservation = await reserveOtpSend(supabase as unknown as OtpLedgerClient, {
-      phoneE164: recipient,
+      recipient,
       quoteId: quote.id,
-      channel: getDeliveryChannel(),
+      channel,
     });
 
     if (!reservation.allowed) {
@@ -131,11 +158,11 @@ export async function POST(
     // not restart the cooldown for a signer who got nothing (#39). Until the
     // write below lands, the freshly minted code verifies against nothing,
     // which is the safe direction.
-    const delivery = await deliverOtp(phone, code);
+    const delivery = await deliverOtp(recipient, code);
 
     if (!delivery.delivered) {
-      // The provider failed, so this send keeps throttling the phone (hourly
-      // and daily slots stay spent) but stops counting against the quote's
+      // The provider failed, so this send keeps throttling the recipient
+      // (hourly and daily slots stay spent) but stops counting against the quote's
       // lifetime budget — an outage must not make a quote permanently
       // unsignable (#60).
       if (reservation.sendId) {
