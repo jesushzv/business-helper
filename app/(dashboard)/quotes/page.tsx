@@ -183,21 +183,21 @@ export default function QuotesPage() {
                 onConvert={async (id) => {
                   // Announce what the server actually created, and only after
                   // it confirms. The count was hardcoded at 2 and the message
-                  // fired even when the conversion failed (#59).
+                  // fired even when the conversion failed (#59). The native
+                  // alert() this used is an OS dialog outside the app's design
+                  // and its Spanish copy rules (#99), so the outcome goes
+                  // through the same dialog every other action uses.
                   try {
                     const { milestones } = await convertToContract(id);
                     const count = milestones.length;
-                    alert(
-                      `¡Cotización convertida a contrato con ${count} ${
-                        count === 1 ? 'hito' : 'hitos'
-                      } de cobranza!`
-                    );
+                    result.succeed({
+                      title: 'Contrato creado',
+                      message: `La cotización ya es un contrato con ${count} ${
+                        count === 1 ? 'hito de cobranza' : 'hitos de cobranza'
+                      }.`,
+                    });
                   } catch (err) {
-                    alert(
-                      err instanceof Error
-                        ? err.message
-                        : 'No se pudo convertir la cotización a contrato.'
-                    );
+                    result.fail(err, { title: 'No se pudo convertir' });
                   }
                 }}
               />
