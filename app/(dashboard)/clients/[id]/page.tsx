@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { Client } from '@/types';
 import { findRegimen } from '@/lib/satRegimenes';
+import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -46,6 +47,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   } = useReceivables();
   const { org } = useCurrentOrg();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const confirmAction = useConfirm();
 
   const client = getClientById(id);
 
@@ -107,11 +109,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     await updateClient(id, data);
   };
 
-  const handleDelete = async () => {
-    if (confirm(`¿Estás seguro de eliminar a ${client.name}?`)) {
-      await deleteClient(id);
-      router.push('/clients');
-    }
+  const handleDelete = () => {
+    confirmAction.ask({
+      title: `Eliminar a ${client.name}`,
+      consequence:
+        'Se quitará de tu directorio junto con su historial en esta pantalla. Sus cotizaciones y cobros ya emitidos no se borran.',
+      confirmLabel: 'Sí, eliminar cliente',
+      onConfirm: async () => {
+        await deleteClient(id);
+        router.push('/clients');
+      },
+    });
   };
 
   const waMessage = buildClientGreeting(client.contact_name || client.name, org?.name);
@@ -434,6 +442,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         onSave={handleUpdate}
         initialClient={client}
       />
+
+      <ConfirmDialog request={confirmAction.request} onClose={confirmAction.dismiss} />
     </div>
   );
 }
