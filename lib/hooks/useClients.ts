@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Client } from '@/types';
 import { track } from '@/lib/analytics';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
+import { readClientWriteError } from '@/lib/clientWriteError';
 
 // Demo-mode fixtures. Reachable ONLY behind isClientDemoMode(): they used to be
 // the fallback for any API failure — and for a real tenant with zero clients,
@@ -136,15 +137,15 @@ export function useClients() {
     }
   };
 
-  async function readErrorMessage(res: Response, fallback: string): Promise<string> {
-    const data = await res.json().catch(() => null);
-    return data?.error?.message || fallback;
-  }
-
   // Every mutation: demo mode mutates the sandbox locally; a real tenant gets
   // the server row on success and a thrown error on failure. The old shape fell
   // back to a local mutation when the API failed, so a rejected write still
   // appeared in the directory (#33's class on the client CRUD).
+  //
+  // Failures throw a `ClientWriteError`, which keeps the envelope's per-field
+  // messages attached. A bare Error carried only prose, so the form could print
+  // it in a banner and nothing more — the tenant learned *that* a field was
+  // wrong and had to guess *which*.
   const addClient = async (
     clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'health_score' | 'organization_id'>
   ): Promise<Client> => {
@@ -155,7 +156,7 @@ export function useClients() {
         body: JSON.stringify(clientData),
       });
       if (!res.ok) {
-        throw new Error(await readErrorMessage(res, 'No se pudo guardar el cliente.'));
+        throw await readClientWriteError(res, 'No se pudo guardar el cliente.');
       }
       const saved = await res.json();
       if (!saved?.id) throw new Error('No se pudo guardar el cliente.');
@@ -190,7 +191,7 @@ export function useClients() {
         body: JSON.stringify(clientData),
       });
       if (!res.ok) {
-        throw new Error(await readErrorMessage(res, 'No se pudieron guardar los cambios del cliente.'));
+        throw await readClientWriteError(res, 'No se pudieron guardar los cambios del cliente.');
       }
       const updated = await res.json();
       if (!updated?.id) throw new Error('No se pudieron guardar los cambios del cliente.');
@@ -219,7 +220,7 @@ export function useClients() {
     if (!isClientDemoMode()) {
       const res = await fetch(`/api/clients/${id}`, { method: 'DELETE' });
       if (!res.ok) {
-        throw new Error(await readErrorMessage(res, 'No se pudo eliminar el cliente.'));
+        throw await readClientWriteError(res, 'No se pudo eliminar el cliente.');
       }
     }
 

@@ -267,6 +267,155 @@ describe('PUT /api/clients/[id] persists the whole form (#96)', () => {
   });
 });
 
+describe('the phone is validated on the way into the column (#40, #94)', () => {
+  // Moved here from clientPhoneValidation.test.ts, which asserted these by
+  // grepping the route files for `normalizeClientPhone` — a spelling, not a
+  // behaviour. Invoking the handler is what can actually see the value that
+  // reaches the DB layer.
+  it('stores the normalized E.164 value, not the raw text', async () => {
+    await POST(postRequest(formPayload({ phone: '(81) 1234-5678' })));
+    expect(insertCalls[0].phone).toBe('+528112345678');
+  });
+
+  it('refuses a value the OTP route could never deliver to', async () => {
+    const res = await POST(postRequest(formPayload({ phone: 'llamar a la oficina' })));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe('INVALID_PHONE');
+    expect(body.error.fields.phone).toContain('10 dígitos');
+    expect(insertCalls).toHaveLength(0);
+  });
+
+  it('keeps the phone optional', async () => {
+    await POST(postRequest(formPayload({ phone: null })));
+    expect(insertCalls[0].phone).toBeNull();
+  });
+
+  it('PUT only rejects when the caller is actually setting the phone', async () => {
+    // A patch of `notes` on a client whose stored phone predates this
+    // validation must still succeed rather than fail over a column it never
+    // touched. Verified by planting `'phone' in fields` → `true` in
+    // validateClientWrite and watching this go red.
+    const res = await PUT(putRequest({ notes: 'solo notas' }), { params });
+    expect(res.status).toBe(200);
+    expect(updateCalls[0]).not.toHaveProperty('phone');
+  });
+
+  it('PUT rejects a bad phone when it is being set', async () => {
+    const res = await PUT(putRequest({ phone: '1234567' }), { params });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.fields.phone).toBeTruthy();
+    expect(updateCalls).toHaveLength(0);
+  });
+});
+
+describe('every bad field is reported at once, keyed by column', () => {
+  /**
+   * The complaint this closes: "me pide llenar más campos" one at a time, with
+   * no way to tell which input each message meant. The routes validated in
+   * sequence and returned on the first failure, so a form with three problems
+   * took three round trips to discover — and the envelope carried only prose.
+   */
+  it('names all of them in one 400', async () => {
+    const res = await POST(
+      postRequest(
+        formPayload({
+          name: '   ',
+          email: 'no-es-un-correo',
+          phone: '1234567',
+          codigo_postal: '640',
+          credit_limit: -5,
+          credit_status: 'moroso',
+        })
+      )
+    );
+
+    expect(res.status).toBe(400);
+    const { error } = await res.json();
+    expect(Object.keys(error.fields).sort()).toEqual([
+      'codigo_postal',
+      'credit_limit',
+      'credit_status',
+      'email',
+      'name',
+      'phone',
+    ]);
+    // Every message is Spanish and free of developer jargon (hard rule 8).
+    for (const message of Object.values(error.fields) as string[]) {
+      expect(message).not.toMatch(/\b(null|undefined|constraint|column|RLS|invalid)\b/i);
+    }
+    expect(insertCalls).toHaveLength(0);
+  });
+
+  it('summarizes the count so the banner is worth reading', async () => {
+    const res = await POST(postRequest(formPayload({ email: 'x', codigo_postal: '1' })));
+    const { error } = await res.json();
+    expect(error.message).toMatch(/Revisa 2 campos/);
+    expect(error.message).toMatch(/Correo Electrónico/);
+    expect(error.message).toMatch(/Código Postal/);
+  });
+
+  it('reads as itself when only one field is wrong', async () => {
+    const res = await POST(postRequest(formPayload({ email: 'x' })));
+    const { error } = await res.json();
+    expect(error.message).toBe(error.fields.email);
+  });
+
+  it('accepts a blank email and a blank código postal rather than nagging', async () => {
+    const res = await POST(postRequest(formPayload({ email: null, codigo_postal: '' })));
+    expect(res.status).toBe(201);
+    expect(insertCalls[0].email).toBeNull();
+    expect(insertCalls[0].codigo_postal).toBeNull();
+  });
+
+  it('registers a client from the name alone', async () => {
+    // The floor the product has to clear: an owner on a phone who has a name
+    // and nothing else must end up with a client.
+    const res = await POST(postRequest({ name: 'Ferretería Don Roberto' }));
+    expect(res.status).toBe(201);
+    expect(insertCalls[0]).toMatchObject({
+      name: 'Ferretería Don Roberto',
+      organization_id: 'org-1',
+    });
+  });
+});
+
+describe('the RFC does not block registration', () => {
+  /**
+   * It used to: both routes 400'd on anything that missed the SAT pattern, so
+   * a half-remembered RFC cost the whole client record. The RFC is only
+   * load-bearing at stamping time, and `lib/facturapi.ts` refuses a CFDI whose
+   * receptor RFC is malformed and says so — which is where the refusal belongs.
+   */
+  it('stores a malformed RFC instead of refusing the client', async () => {
+    const res = await POST(postRequest(formPayload({ rfc: 'ABC12' })));
+    expect(res.status).toBe(201);
+    expect(insertCalls[0].rfc).toBe('ABC12');
+  });
+
+  it('still normalizes case and whitespace', async () => {
+    await POST(postRequest(formPayload({ rfc: '  cma120315hd9 ' })));
+    expect(insertCalls[0].rfc).toBe('CMA120315HD9');
+  });
+
+  it('treats blank as absent', async () => {
+    await POST(postRequest(formPayload({ rfc: '   ' })));
+    expect(insertCalls[0].rfc).toBeNull();
+  });
+
+  it('lets an edit save a malformed RFC too', async () => {
+    const res = await PUT(putRequest({ rfc: 'XX' }), { params });
+    expect(res.status).toBe(200);
+    expect(updateCalls[0].rfc).toBe('XX');
+  });
+
+  it('is never named in a field error', async () => {
+    const res = await POST(postRequest(formPayload({ rfc: 'no-es-un-rfc', email: 'x' })));
+    const { error } = await res.json();
+    expect(error.fields).not.toHaveProperty('rfc');
+  });
+});
+
 describe('the writable list covers what the form sends', () => {
   /**
    * Read out of the modal source, not out of the fixture above.

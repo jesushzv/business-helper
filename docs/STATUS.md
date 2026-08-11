@@ -203,6 +203,19 @@ fixture quote for every token (PR #57) — never listed as a P0 and worse than s
   doubling backoff, 15/day cap, and #60's decision: a provider failure throttles the phone but
   releases the quote's lifetime slot. Carries migration `20260809120000`; confirm it is applied
   before relying on OTP issuance (hard rule 6).
+- **Confirm a client can now be registered on the deployment**
+  ([#146](https://github.com/jesushzv/business-helper/issues/146)). Reported from real use on
+  2026-08-10: registration could not be completed, and no message said which field was at fault.
+  Fixed in code — the two clients routes report every bad field at once keyed by column instead of
+  returning at the first failure; a failed write names its cause in Spanish and logs the raw error
+  instead of collapsing into one 500; the form pins each message under its own input and moves focus
+  there; and the RFC no longer gates the write on either route (it is enforced at stamping, where
+  `lib/facturapi.ts` already refuses a malformed receptor RFC). Verified by `typecheck` + `lint` +
+  vitest against a mocked Supabase client only. **The reporter's specific production failure was
+  never identified** — if it was a database-level rejection, this change makes it legible rather
+  than fixing it, so the next step is one real attempt on the deployment and reading the message it
+  now gives. The live schema was not inspected; the Supabase connector required interactive approval
+  in that session.
 - **One real production smoke test:** register → quote → WhatsApp send → OTP sign → SPEI upload → confirm.
 - **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
   and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).

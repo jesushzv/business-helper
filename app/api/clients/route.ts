@@ -3,11 +3,14 @@ import {
   requireOrgAccess,
   isDemoDeployment,
   pickFields,
-  validateCreditTerms,
   CLIENT_WRITABLE_FIELDS,
 } from '@/lib/apiAuth';
-import { validateRFC } from '@/lib/rfcValidator';
-import { normalizeClientPhone } from '@/lib/phoneValidator';
+import {
+  validateClientWrite,
+  summarizeFieldErrors,
+  fieldErrorCode,
+} from '@/lib/clientValidation';
+import { describeDbWriteError } from '@/lib/dbWriteError';
 
 /**
  * Client collection.
@@ -25,6 +28,13 @@ import { normalizeClientPhone } from '@/lib/phoneValidator';
  * client saved. `regimen_fiscal` and `codigo_postal` are required to stamp a
  * CFDI, so a client created through the form could never be invoiced (#96
  * verification).
+ *
+ * Validation reports **every** bad field at once, keyed by column, through
+ * `error.fields`. Returning on the first failure made registering a client an
+ * interrogation: fix the name, resubmit, learn about the phone, resubmit, learn
+ * about the crédito — with no indication on screen of which input each message
+ * meant. The RFC no longer takes part in it at all; it is optional here and is
+ * enforced where it matters, at CFDI stamping.
  */
 
 export async function GET() {
@@ -61,47 +71,23 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const fields = pickFields<Record<string, unknown>>(body, CLIENT_WRITABLE_FIELDS);
-    const { name, rfc, phone } = fields as {
-      name?: unknown;
-      rfc?: unknown;
-      phone?: unknown;
-    };
 
-    if (!name || typeof name !== 'string' || !name.trim()) {
+    // The phone is what a signature is later delivered to, so an unusable value
+    // must not reach the column — "llamar a la oficina", a 7-digit local number
+    // or an extension used to persist happily and surface much later as a 502
+    // from the OTP route, blaming the provider for a value entered here (#40).
+    // That check, the credit terms and the rest now run together so the tenant
+    // sees the whole list once.
+    const { fieldErrors, values } = validateClientWrite(fields, { requireName: true });
+    if (Object.keys(fieldErrors).length > 0) {
       return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'El nombre del cliente es obligatorio' } },
-        { status: 400 }
-      );
-    }
-
-    if (rfc && typeof rfc === 'string' && rfc.trim()) {
-      const v = validateRFC(rfc.trim());
-      if (!v.isValid) {
-        return NextResponse.json(
-          { error: { code: 'INVALID_RFC', message: 'El RFC no tiene un formato SAT válido' } },
-          { status: 400 }
-        );
-      }
-    }
-
-    const credit = validateCreditTerms(fields);
-    if (!credit.ok) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_CREDIT_TERMS', message: credit.message } },
-        { status: 400 }
-      );
-    }
-
-    // The phone is what a signature is later delivered to, so an unusable
-    // value must not reach the column. This route used to only `.trim()`, so
-    // "llamar a la oficina", a 7-digit local number or an extension persisted
-    // happily and surfaced much later as a 502 from the OTP route, blaming the
-    // provider for a value entered here (#40). Stored normalized to 10 digits
-    // so downstream E.164 formatting is deterministic.
-    const phoneNormalized = normalizeClientPhone(phone);
-    if (phoneNormalized.error) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_PHONE', message: phoneNormalized.error } },
+        {
+          error: {
+            code: fieldErrorCode(fieldErrors),
+            message: summarizeFieldErrors(fieldErrors),
+            fields: fieldErrors,
+          },
+        },
         { status: 400 }
       );
     }
@@ -115,20 +101,27 @@ export async function POST(request: Request) {
       .from('clients')
       .insert({
         ...fields,
-        ...credit.values,
+        ...values,
         organization_id: organizationId,
-        name: name.trim(),
-        phone: phoneNormalized.value,
-        rfc: rfc ? String(rfc).toUpperCase().trim() : null,
         health_score: 100,
       })
       .select()
       .single();
 
     if (error || !newClient) {
+      // Not one opaque 500 for every cause. A missing column, a CHECK the value
+      // tripped and a permission denial each get their own Spanish answer, and
+      // the raw error is logged rather than discarded.
+      const failure = describeDbWriteError(error, 'el cliente', 'POST /api/clients');
       return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo crear el cliente' } },
-        { status: 500 }
+        {
+          error: {
+            code: failure.code,
+            message: failure.message,
+            ...(failure.field ? { fields: { [failure.field]: failure.message } } : {}),
+          },
+        },
+        { status: failure.status }
       );
     }
 
