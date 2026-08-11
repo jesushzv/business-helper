@@ -97,7 +97,7 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
           {milestone.tracking_reference && (
             <div className="bg-indigo-950/80 p-4 rounded-2xl border border-indigo-500/30 space-y-1">
               <span className="text-xs font-bold text-indigo-400 uppercase">Clave de Rastreo (Banxico)</span>
-              <p className="font-mono text-base font-bold text-indigo-200">{milestone.tracking_reference}</p>
+              <p className="font-mono text-base font-bold text-indigo-200 break-all">{milestone.tracking_reference}</p>
             </div>
           )}
 

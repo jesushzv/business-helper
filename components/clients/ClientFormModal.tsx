@@ -446,7 +446,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           </div>
 
           {/* SAT Tax Regime & Postal Code */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 [&>*]:min-w-0">
             <div className="sm:col-span-2">
               <label
                 htmlFor={FIELD_INPUT_IDS.regimen_fiscal}
@@ -553,7 +553,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
               Condiciones de Crédito B2B <span className="font-bold text-slate-500">(opcional)</span>
             </h4>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 [&>*]:min-w-0">
               {/* Credit Limit */}
               <div>
                 <label
