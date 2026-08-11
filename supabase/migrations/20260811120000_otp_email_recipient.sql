@@ -13,9 +13,14 @@
 -- auto-deploys `main` while migrations are applied by hand (hard rule 6), so
 -- the previous deploy's code — which inserts into `phone_e164` — can still be
 -- live when this runs. Renaming the column would turn every OTP issue in that
--- window into a 500 in front of a signer. Widening the CHECK is safe in both
--- directions: old code keeps writing phones (still accepted), new code writes
--- emails (now accepted).
+-- window into a 500 in front of a signer. With the name kept, old code against
+-- the new schema keeps working (phones still pass the widened CHECK). The
+-- other direction does NOT hold: new code on the email channel against the
+-- OLD schema fails the E.164-only CHECK on every ledger insert and the route
+-- answers 500 — fails closed, but signing is down. Apply this migration
+-- before or with the merge, and strictly before setting
+-- OTP_DELIVERY_CHANNEL=email; dev databases need it too, because the console
+-- channel resolves recipients email-first.
 --
 -- Idempotent by convention: DROP … IF EXISTS before each ADD, so a re-run
 -- converges on the same constraint.
