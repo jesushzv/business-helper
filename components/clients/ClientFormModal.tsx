@@ -8,6 +8,7 @@ import { validateRFC } from '@/lib/rfcValidator';
 import { looksLikeEmail, looksLikeCodigoPostal } from '@/lib/clientFieldHints';
 import { ClientWriteError } from '@/lib/clientWriteError';
 import { PhoneField } from '@/components/shared/PhoneField';
+import { regimenOptions } from '@/lib/satRegimenes';
 
 interface ClientFormModalProps {
   isOpen: boolean;
@@ -15,15 +16,6 @@ interface ClientFormModalProps {
   onSave: (clientData: Partial<Client>) => Promise<void>;
   initialClient?: Client | null;
 }
-
-const REGIMENES_FISCALES = [
-  { code: '601', label: '601 - General de Ley Personas Morales' },
-  { code: '626', label: '626 - Régimen Simplificado de Confianza (RESICO)' },
-  { code: '612', label: '612 - Personas Físicas con Actividades Empresariales y Profesionales' },
-  { code: '606', label: '606 - Arrendamiento' },
-  { code: '603', label: '603 - Personas Morales con Fines no Lucrativos' },
-  { code: '605', label: '605 - Sueldos y Salarios' },
-];
 
 const CFDI_USES = [
   { code: 'G03', label: 'G03 - Gastos en general' },
@@ -481,7 +473,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 <option value="" className="bg-slate-900 text-white">
                   Selecciona el régimen del cliente
                 </option>
-                {REGIMENES_FISCALES.map((r) => (
+                {regimenOptions(regimenFiscal).map((r) => (
                   <option key={r.code} value={r.code} className="bg-slate-900 text-white">
                     {r.label}
                   </option>
