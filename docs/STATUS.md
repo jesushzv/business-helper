@@ -87,6 +87,7 @@ into one line; their reasoning is in the frozen log.*
 |:---|:---|:---|
 | **Live PAC stamp** | **The one that matters.** PR #23 merged, so stamping is real code — but its coverage runs against a mocked `fetch`, and no invoice has been issued through a live Facturapi sandbox. Merging is not verification. | **Yes** — CFDI ships at launch |
 | ~~**#2** — OTP provider configuration~~ | ✅ **Email channel live and verified end to end (2026-08-11)** — a real inbox signed a real quote, evidence read back from the live catalog; detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). sms/whatsapp stay wired but deprecated. | Cleared |
+| ~~**Stripe live mode**~~ | ✅ **A real card completed the loop (2026-08-11).** The `STRIPE_PRICE_*` variables held Stripe **Product** ids, so checkout answered `502 No such price: 'prod_…'` for every tier and the live account had never had a session; the founder set the Price ids, then paid $599 MXN and Ajustes showed "Activo" and "Tu Plan Actual" on Negocio — a badge that reads the organization row, which only the signature-verified webhook writes. Founder-confirmed in the browser; no catalog read-back this session. Code half in PR #166 (a non-price value now refuses with a 503 naming the variable) and #181 (plan CTAs stopped sending a signed-in owner into the registration form). | Cleared |
 | ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
 | ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
 
@@ -114,22 +115,27 @@ needing a real handset, card, PAC stamp or deployed database are untouched by al
 > `is:issue is:open label:P0` before trusting it — the list is ordered by dependency, not
 > just severity, and rows drop off as they close.
 >
-> **That instruction has earned itself repeatedly.** On 2026-08-09 the live query returned
-> **11** open P0s against **7** rows here; every re-derivation since has moved the count as
-> issues closed (#135, #122, #2, #48, #96, #93, and #64 with the PR carrying this line). The
-> blow-by-blow is in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
-> The invariant holds only because someone runs the query — a rule nobody executes is how five
-> documents once claimed completion for simulated work (§01). **Current: the query returns 5 open
-> P0s on 2026-08-11** — #62, #26, #68, #63 and #64 — and #64 closes the moment the PR carrying this
-> line merges, leaving the **4 rows below**. Counted from the query output, not from this
-> paragraph's arithmetic.
+> **That instruction earned itself on 2026-08-09**: the live query returned **11** open P0s
+> against **7** rows. #122, #135 and #48 were added below. The invariant is only true because
+> someone ran the query — a rule nobody executes is how five documents once claimed completion
+> for simulated work (§01). **Re-run after PR #137 merged the same day: 10 open P0s against the
+> nine rows below** (row 6 carries two, #93 and #96). #135's row dropped off with its issue.
+> **2026-08-10:** #122 resolved by decision — phone login removed, the product is email/OAuth
+> only (outbound WhatsApp stays; OTP moved to email 2026-08-11). Its row dropped. **2026-08-11:** #2 closed at
+> founder request, criterion then unmet, its steps tracked by a row with no backing issue —
+> and **later the same day the criterion was met**: a real code to a real inbox, quote signed and
+> sealed, evidence in §02. That row dropped too. **Re-derived: 6 open P0s against the 6 rows
+> below** (#48 and #96 closed earlier the same day, dropping theirs). **Re-derived again after #93
+> closed on its walkthrough, taking the UX-audit trio's row with it: 5 open P0s against the 5 rows
+> below** — #62, #26, #68, #64, #63. **Re-derived after #68 closed on a real card the
+> same day: 4 open P0s against the 4 rows below** — #62, #26, #64, #63.
 
 | # | Item | Tracked |
 |:--|:---|:---|
 | 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path. **The OTP route got its real request on 2026-08-11** (the email-channel verification, §02); the invoice and complemento paths remain. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
 | 2 | **Issue one CFDI through a live Facturapi sandbox, end to end.** Confirm a real SAT UUID returns and the stored XML and PDF open. Mocked `fetch` coverage proves the code is correct, not that the integration works — this is the last thing between "merged" and "trustworthy." | [#26](https://github.com/jesushzv/business-helper/issues/26) |
-| 3 | **Enable Stripe live mode.** Live secret key, a live Price ID mapped per pricing-page tier, and one real card charged. `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` are marked "Launch Gate — P0" in the roadmap and were tracked **nowhere** until 2026-08-07; #63 covers only the webhook half of §04's "charges a real card in live mode with a verified webhook". Needed before the first trial converts rather than before the first user signs up, which is why it sits below the loop-blocking items. **Code side landed 2026-08-09** (PR #119): no invented price-id literals, no tier guessed from an unrecognised price, and `npm run verify:stripe` reads the account and every price back from Stripe, failing on an amount the pricing page does not advertise. **Checkout reaches Stripe for the first time, 2026-08-11.** It had never worked: probed as a real tenant against production, every tier answered `502` with `No such price: 'prod_…'` — all three `STRIPE_PRICE_*` in Vercel held Stripe **Product** ids, and the account had never had a Checkout Session. The founder set the Price ids and redeployed; the same probe now returns `200` and a `cs_live_…` URL for all three, billing 29900 / 59900 / 99900 MXN monthly against `price_1U0CxLDuvxyuzaREdO7Jsp3E`, `price_1U0CxlDuvxyuzaRElZ6Lswzt` and `price_1U0CySDuvxyuzaREHFoeCb08`, each session carrying the `organization_id` and `tier_id` the webhook attributes by. The three QA sessions were left unpaid and expire within 24h; the QA tenant is deleted. PR #166 also made a non-price value refuse with a 503 naming the variable rather than a 502 that reads as an outage, and cleared two walls behind it (a return URL that collided with itself; an idempotency key that turned a retry into a 400). **What is left is the money itself**: a real card charged end to end, and the webhook writing the tier onto the organization — this row's own exit criterion, and nothing above touches it. | [#68](https://github.com/jesushzv/business-helper/issues/68) |
-| 4 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. The two that remain — a signed event is applied to a real row, and its redelivery is not — need a database, so they need a staging deployment; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE matching no row — narrow, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) fails the claim insert first; what the guard closes is the deletion race. Least blocking of the P0s. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
+| 3 | **Close the remaining holes in the CLABE gate.** Both holes are closed in code and merged as PR #75 (detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)): a server-side 409 in front of every path that shares a `/pay/` link, a non-dismissable dashboard banner, disabled share actions, and an onboarding that resumes at the account step. What remains is the issue's third exit criterion — verification against a real deployment with a real organization row, which no PR can satisfy. Needs the founder now, not an agent. | [#64](https://github.com/jesushzv/business-helper/issues/64) |
+| 4 | **Verify Stripe webhook signature enforcement** against a staging account — unsigned requests rejected, duplicate deliveries idempotent. **Six of the eight checks now pass against a real Next.js runtime** (`localhost`, 2026-08-09, commit `5331f9d`): signed-accepted, unsigned, wrong-secret, tampered, stale and future-dated. **One of the two that remained was met in production on 2026-08-11**: the founder’s live subscription event was accepted, verified and applied — the tier reached the organization row, which nothing but this route writes. Redelivery idempotency is still unexercised against a database; `npm run verify:webhook` now exits non-zero and prints `INCOMPLETE` rather than reporting a pass without them. Also fixed in the same pass: the script scored a deployment with **no** `STRIPE_WEBHOOK_SECRET` as four passing checks, and the route would report `200 { processed }` for an UPDATE matching no row — narrow, since the FK on `stripe_webhook_events.organization_id` (verified live 2026-08-09) fails the claim insert first; what the guard closes is the deletion race. Least blocking of the P0s. | [#63](https://github.com/jesushzv/business-helper/issues/63) |
 
 **The UX-audit trio is closed** (#93, #95, #96), each checked against production rather than argued
 — transcripts in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Residue stays
@@ -307,7 +313,7 @@ Launch Readiness ≥ 7.0, Mobile ≥ 6.0, Credibility ≥ 7.0.
 These require the founder and are not resolvable from the codebase. **Still open:**
 
 1. **Are there real CLABE account numbers for the pilot organizations?** Each pilot can now hold
-   several (#164), so the question is per-organization, not one CLABE for the account.
+   several (#164), so this is per-organization rather than one CLABE for the account.
 2. **Ad budget and platform for pilot recruiting**, given pilots are being recruited cold rather
    than from a warm list.
 3. **Realistic weekly hours**, given the founder holds a full-time job. This determines whether
@@ -316,16 +322,25 @@ These require the founder and are not resolvable from the codebase. **Still open
    narrow to one module, freeze for a validation-only sprint, or wind down and redirect the time.
    Worth deciding while calm rather than mid-crisis.
 
+**Resolved recently**, kept here because live work still references them:
+
+- ~~**Which roles may set a client's trade-credit line?**~~ **Owners and managers** (#123), via
+  `manage_credit`; a change without it is a 403 per column. Whether the limit restrains a quote is
+  #203.
+- ~~**What does a never-subscribed org get?**~~ **A 30-day trial** (#128). Expiry blocks *creating
+  a quote* only, and stayed inert until #68 made a checkout reachable. Both migrations applied and
+  read back.
+
 > [!IMPORTANT]
 > **The schedule has no relief valve left.** CFDI ships *and* the September date holds — both
 > halves of the trade were taken (resolved 2026-08-07), so every P0 row in §03 must land and the
 > only remaining variable is hours, decision 3 above. If the list slips, the next lever is not
 > scope or date but pilot count: fewer pilots, longer and more closely watched.
 
-Five resolved decisions — CFDI ships at launch, email/Resend as the OTP channel, `.app` over `.mx`,
-the September date, and the #20/#23 merge posture — moved with their reasoning to
-[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-11 when this file
-reached its budget.
+Five older resolved decisions — CFDI ships at launch, email/Resend as the OTP channel, `.app` over
+`.mx`, the September date, and the #20/#23 merge posture — are in
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) with their reasoning, moved
+on 2026-08-11 when this file reached its budget.
 
 ---
 

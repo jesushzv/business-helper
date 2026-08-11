@@ -6,6 +6,8 @@ import {
   QUOTE_WRITABLE_FIELDS,
 } from '@/lib/apiAuth';
 import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
+import { readOrganizationTrialState } from '@/lib/organizationTrialGate';
+import { TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE } from '@/lib/subscriptionTrial';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
@@ -66,9 +68,40 @@ export async function POST(request: Request) {
       );
     }
 
+    // The trial gate (#128). Starting *new* work
+    // stops when the trial ends; everything already in flight keeps running —
+    // quotes already sent can still be signed and paid, payments still confirm,
+    // and a client mid-signature is never blocked by their supplier's billing.
+    // Contract conversion, CFDI stamping, complementos and outbound reminders
+    // gate alongside this one, on the founder's decision; confirming a payment,
+    // uploading a receipt and cancelling a wrong CFDI do not.
+    //
+    // It does not fire at all until this deployment can actually take a payment
+    // (#68): a paywall with no way through is a dead end, not a forcing
+    // function. `readOrganizationTrialState` answers "unknown" — and so does not
+    // gate — for any read it could not complete.
+    //
+    // Ahead of the account check below: "may you start new work at all" is a
+    // different question from "is this input valid", and a tenant whose trial
+    // ended should read that rather than a complaint about a field.
+    const trial = await readOrganizationTrialState(supabase, organizationId);
+    if (trial.blocksNewWork) {
+      return NextResponse.json(
+        {
+          error: {
+            code: TRIAL_EXPIRED_CODE,
+            message: TRIAL_EXPIRED_MESSAGE,
+            trial_ended_at: trial.endsAt,
+          },
+        },
+        { status: 402 }
+      );
+    }
+
     // The account this quote's client will be told to pay must belong to this
-    // organization. The FK proves the row exists, not whose it is, and the
-    // public payer route renders whatever it names through the service client.
+    // organization (#164). The FK proves the row exists, not whose it is, and
+    // the public payer route renders whatever it names through the service
+    // client.
     const accountCheck = await checkQuoteAccountOwnership(
       supabase,
       organizationId,

@@ -10,6 +10,7 @@ import {
   summarizeFieldErrors,
   fieldErrorCode,
 } from '@/lib/clientValidation';
+import { authorizeCreditWrite } from '@/lib/clientCreditAuthorization';
 import { describeDbWriteError } from '@/lib/dbWriteError';
 
 /**
@@ -66,11 +67,25 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId } = auth.ctx;
+  const { supabase, organizationId, role } = auth.ctx;
 
   try {
     const body = await request.json();
-    const fields = pickFields<Record<string, unknown>>(body, CLIENT_WRITABLE_FIELDS);
+    const picked = pickFields<Record<string, unknown>>(body, CLIENT_WRITABLE_FIELDS);
+
+    // Trade credit is a control, not a contact detail (#123). A role without
+    // `manage_credit` may register the client but not the terms it is trusted
+    // on, and the refusal is loud and per-field — stripping the columns and
+    // answering 201 would report a credit line the row does not carry.
+    // On create there is nothing stored, so any credit value is a change.
+    const credit = authorizeCreditWrite(picked, role, null);
+    if (!credit.ok) {
+      return NextResponse.json(
+        { error: { code: 'FORBIDDEN', message: credit.message, fields: credit.fields } },
+        { status: 403 }
+      );
+    }
+    const fields = credit.fields;
 
     // The phone is what a signature is later delivered to, so an unusable value
     // must not reach the column — "llamar a la oficina", a 7-digit local number
