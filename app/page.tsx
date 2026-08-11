@@ -301,14 +301,14 @@ export default function LandingPage() {
                 02. Aprobación Digital OTP por WhatsApp
               </span>
               <h3 className="text-3xl font-black text-white tracking-tight">
-                Tu cliente autoriza con código OTP legal directo en su celular sin crear cuentas
+                Tu cliente autoriza con código OTP legal desde su celular sin crear cuentas
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Al recibir tu mensaje en WhatsApp, tu cliente abre su propuesta en 1 clic y aprueba mediante un código a su celular con evidencia digital de aceptación y fecha certificada.
+                Al recibir tu mensaje en WhatsApp, tu cliente abre su propuesta en 1 clic y aprueba con el código que llega a su correo, con evidencia digital de aceptación y fecha certificada.
               </p>
               <ul className="space-y-3 text-xs text-slate-300">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-400" /> Aprobación instantánea con código OTP SMS/WhatsApp
+                  <Check className="w-4 h-4 text-emerald-400" /> Aprobación instantánea con código OTP por correo
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-400" /> Evidencia digital legal respaldada con sello temporal

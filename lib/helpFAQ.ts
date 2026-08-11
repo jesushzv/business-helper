@@ -24,7 +24,7 @@ export const FAQ_ITEMS: FAQItem[] = [
     id: 'cot-2',
     category: 'cotizaciones',
     question: '¿Cómo acepta mi cliente una cotización?',
-    answer: 'Tu cliente recibirá un enlace seguro (/q/[token]). Al abrirlo en su celular podrá revisar el desglose y aceptar la propuesta mediante una firma digital con código de verificación OTP enviado a su teléfono.',
+    answer: 'Tu cliente recibirá un enlace seguro (/q/[token]). Al abrirlo en su celular podrá revisar el desglose y aceptar la propuesta mediante una firma digital con código de verificación OTP enviado a su correo electrónico.',
     tags: ['cliente', 'firma', 'otp', 'aceptar', 'token', 'cryptoseal']
   },
   {
