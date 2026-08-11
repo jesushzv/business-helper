@@ -125,21 +125,14 @@ needing a real handset, card, PAC stamp or deployed database are untouched by al
 > `is:issue is:open label:P0` before trusting it — the list is ordered by dependency, not
 > just severity, and rows drop off as they close.
 >
-> **That instruction earned itself on 2026-08-09**: the live query returned **11** open P0s
-> against **7** rows. #122, #135 and #48 were added below. The invariant is only true because
-> someone ran the query — a rule nobody executes is how five documents once claimed completion
-> for simulated work (§01). **Re-run after PR #137 merged the same day: 10 open P0s against the
-> nine rows below** (row 6 carries two, #93 and #96). #135's row dropped off with its issue.
-> **2026-08-10:** #122 resolved by decision — phone login removed, the product is email/OAuth
-> only (outbound WhatsApp stays; OTP moved to email 2026-08-11). Its row dropped. **2026-08-11:** #2 closed at
-> founder request, criterion then unmet, its steps tracked by a row with no backing issue —
-> and **later the same day the criterion was met**: a real code to a real inbox, quote signed and
-> sealed, evidence in §02. That row dropped too. **Re-derived: 6 open P0s against the 6 rows
-> below** (#48 and #96 closed earlier the same day, dropping theirs). **Re-derived again after #93
-> closed on its walkthrough, taking the UX-audit trio's row with it: 5 open P0s against the 5 rows
-> below** — #62, #26, #68, #64, #63. **Re-derived once more as #64 closes with the PR carrying this
-> line: the live query returned those same 5, so 4 remain against the 4 rows below** — #62, #26,
-> #68, #63. Counted from the query output, not from this paragraph's arithmetic.
+> **That instruction has earned itself repeatedly.** On 2026-08-09 the live query returned
+> **11** open P0s against **7** rows here; every re-derivation since has moved the count as
+> issues closed (#135, #122, #2, #48, #96, #93, and #64 with the PR carrying this line). The
+> blow-by-blow is in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
+> The invariant holds only because someone runs the query — a rule nobody executes is how five
+> documents once claimed completion for simulated work (§01). **Current: 4 open P0s against the
+> 4 rows below** — #62, #26, #68, #63 — counted from the query output on 2026-08-11, not from
+> this paragraph's arithmetic.
 
 | # | Item | Tracked |
 |:--|:---|:---|

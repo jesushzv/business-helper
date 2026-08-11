@@ -579,3 +579,25 @@ could be replaced but never removed, so the only route back to "no account" was 
 production — fixed in the same PR that closed #64) and **#164** (one organization settles at one
 account; recorded as a deliberate boundary in `../02-architecture/database-schema-design.md` rather
 than built out, since no tenant has yet needed a second account).
+
+---
+
+## The P0 tally, re-derived (2026-08-09 → 2026-08-11)
+
+*Moved from `docs/STATUS.md` on 2026-08-11 when the file hit its 32 KB budget. The rule this
+history justifies — re-derive the count from `is:issue is:open label:P0` rather than trusting the
+table — stays there. For live status read [`../STATUS.md`](../STATUS.md).*
+
+- **2026-08-09**: the live query returned **11** open P0s against **7** rows. #122, #135 and #48
+  were added. Re-run after PR #137 merged the same day: **10 against 9 rows** (one row carried two,
+  #93 and #96); #135's row dropped with its issue.
+- **2026-08-10**: #122 resolved by decision — phone login removed, the product is email/OAuth only
+  (outbound WhatsApp stays; OTP moved to email 2026-08-11). Its row dropped.
+- **2026-08-11**: #2 closed at founder request with its criterion then unmet, tracked by a row with
+  no backing issue — and later the same day the criterion was met (a real code to a real inbox, a
+  quote signed and sealed), so that row dropped too. **6 against 6** after #48 and #96 closed;
+  **5 against 5** after #93 closed on its walkthrough, taking the UX-audit trio's row; **4 against
+  4** as #64 closed with PR #161.
+
+Each step was counted from the query output rather than from the previous line's arithmetic, which
+is the only reason the invariant survived seven closures in three days.
