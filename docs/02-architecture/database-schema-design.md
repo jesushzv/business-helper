@@ -36,11 +36,18 @@
 - `logo_url`: text (nullable) -- Supabase Storage URL
 - `industry`: text (nullable) -- e.g., 'construction', 'services', 'retail'
 - `phone`: text (nullable) -- org WhatsApp contact, canonical 10-digit form (`20260809000000`; #95/#44)
-- `owner_id`: uuid (FK -> `auth.users.id` `ON DELETE RESTRICT`, not null) — **no index and no unique constraint**, verified against the live catalog 2026-08-11; this line claimed `IDX` and was wrong. Every owner-scoped write filters on it (`.eq('owner_id', userId)`), and nothing in the schema stops one user owning two organizations ([#165](https://github.com/jesushzv/business-helper/issues/165))
+- `owner_id`: uuid (FK -> `auth.users.id`, not null, **UQ**) -- one organization per owner,
+  enforced by `uq_organizations_owner_id` (`20260811150000`; #109/#168). That index is also the
+  only one `owner_id` needs; there is no separate non-unique index. This line read `IDX` while
+  the live catalog had neither — the #96 class, which is why CLAUDE.md says to check the catalog
+  before writing SQL.
 - `stripe_customer_id`: text (nullable, UQ)
 - `stripe_subscription_id`: text (nullable, UQ)
 - `subscription_tier`: text (not null, default: `'free'`) -- 'free' | 'emprendedor' | 'negocio' | 'empresa'
-- `subscription_status`: text (not null, default: `'active'`) -- 'active' | 'past_due' | 'canceled'
+- `subscription_status`: text (not null, default: `'active'`) -- the seven Stripe reports:
+  'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' |
+  'incomplete_expired' (widened in `20260806120000`; the union lives once in
+  `lib/stripe.ts` as `SUBSCRIPTION_STATUSES`, #116)
 - `facturapi_organization_id`: text (nullable) -- Linked PAC tenant ID
 - `cfdi_folios_used`: integer (not null, default: `0`) -- Folios spent inside `cfdi_folios_period`
 - `cfdi_folios_period`: text (nullable) -- 'YYYY-MM' the counter above describes

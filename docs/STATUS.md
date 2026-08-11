@@ -4,9 +4,8 @@
 
 > **The single source of truth for what is and is not done.**
 >
-> *Last verified: 2026-08-09 against `main` @ `4134e91` (post #119). Suite re-run for this pass;
-> merge state of every row in §02 confirmed with `git log`; the P0 table below re-derived from
-> `is:issue is:open label:P0` rather than trusted — it was short by three.*
+> *Last verified: 2026-08-11. Suite re-run for this pass; merge state of every §02 row confirmed
+> with `git log`; the P0 table re-derived from `is:issue is:open label:P0` rather than trusted.*
 > *Method in §06. Was `04-execution-testing/launch_readiness_memo_aug2026.md` until 2026-08-07 —
 > renamed because a date-stamped filename reads as a snapshot, and a snapshot is exactly what a
 > living status document must not be.*
@@ -58,15 +57,11 @@ agent-authority split. Moved verbatim to
 [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-11; all merged
 long ago and none of it is live state.
 
-| Change | PR | What it actually closed |
-|:---|:---|:---|
-| Several settlement accounts, chosen per quote | #161 (schema + server), #199 (UI) | `bank_accounts` with a partial unique index for one live default; `quotes.bank_account_id`; `lib/bankAccounts.ts` holding the two rules money depends on. Reverses "one organization, one CLABE" (#164). **Neither PR is merged yet** — this row describes what they carry, not what `main` holds. |
-
 ### Corrected baseline metrics
 
 | Metric | Docs claimed | Actually verified (2026-08-07) |
 |:---|:---|:---|
-| Test suite | 182/182 via `scripts/test-runner.js` | **1365 tests / 149 files**, `npx vitest run` (2026-08-11, on `main` @ `b828798`) — runner file no longer exists. The #164 UI branch (#199) measures **higher**; that figure belongs to the PR, not to `main`, and lands here when it merges. |
+| Test suite | 182/182 via `scripts/test-runner.js` | **1576 tests / 165 files**, measured on this branch merged with `main` @ `aedf521` (2026-08-11), `npx vitest run` — runner file no longer exists |
 | Error monitoring | "Sentry Monitoring Live … instant alerts to founder's phone" | **Not live.** No `@sentry/nextjs` dependency; `lib/sentry.ts` `captureException` only calls `console.error`. Nothing is transmitted anywhere. |
 | Stripe integration | "Install `stripe` package and call `stripe.checkout.sessions.create()`" | No `stripe` SDK dependency. Implemented as raw REST against `api.stripe.com/v1` in `lib/stripeClient.ts` — functionally fine, but not what the doc describes |
 | Twilio / Gemini | SDK integrations | No SDK dependencies. Raw REST in `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`, `lib/whatsappAI.ts` |
@@ -74,9 +69,8 @@ long ago and none of it is live state.
 | Zero-warning lint gate | "ESLint passes with `--max-warnings=0`" (5 docs) | ~~Gate was nominal — bare `next lint`, exit 0 with warnings.~~ **Enforced since 2026-08-08 (#46):** script is `next lint --max-warnings=0`, debt cleared to 0, failure verified with a planted warning. |
 
 > [!IMPORTANT]
-> **The Sentry finding matters disproportionately for a solo founder.** Error monitoring is the only
-> mechanism that reports a production 500 when nobody is watching the dashboard. It is currently a
-> console shim. This is tracked as a P1 item in §03.
+> **The Sentry finding matters disproportionately for a solo founder**: error monitoring is the only
+> thing that reports a production 500 when nobody is watching. P1 in §03.
 
 ### Open and blocking
 
@@ -91,12 +85,16 @@ into one line; their reasoning is in the frozen log.*
 | ~~**Production migrations**~~ | ✅ Applied to production and confirmed by schema inspection (2026-08-08). #62's remaining ask is one live request per affected route. | Cleared |
 | ~~Five more~~ | ✅ Cleared 2026-08-07→09, detail in [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md): product analytics (#56); real CFDI via PAC (#3, PR #23); OTP per-phone rate limit (#17, PR #20); Complemento de Pago (#29); OTP escalating backoff + daily cap (#22, PR #112, carries migration `20260809120000`). | Cleared |
 
+**One organization per owner is now a schema invariant** (`uq_organizations_owner_id`,
+`20260811150000` — #109 decided, #168 closed). `owner_id` had neither an index nor uniqueness while
+every owner-scoped route assumed both: a second owned row would have made `.maybeSingle()` 404 the
+owner off their own settlement account. `POST /api/organization` no longer answers the
+now-reachable collision with a generic 500.
+
 ### Recently landed (2026-08-07 → 2026-08-08)
 
-Moved to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-09 —
-eight merged changes with their issues, PRs and commits. Settled history, and this file was over
-its 32 KB budget. **What none of it changed:** every row was verified by `typecheck` + `lint` +
-vitest against **mocked** providers. Not one was a live third-party round-trip; the §03 items
+Eight merged changes moved to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md).
+**What none of it changed:** every row was verified against **mocked** providers, so the §03 items
 needing a real handset, card, PAC stamp or deployed database are untouched by all of it.
 
 ---
@@ -327,9 +325,13 @@ These require the founder and are not resolvable from the codebase. **Still open
 - ~~**Which roles may set a client's trade-credit line?**~~ **Owners and managers** (#123), via
   `manage_credit`; a change without it is a 403 per column. Whether the limit restrains a quote is
   #203.
-- ~~**What does a never-subscribed org get?**~~ **A 30-day trial** (#128). Expiry blocks *creating
-  a quote* only, and stayed inert until #68 made a checkout reachable. Both migrations applied and
-  read back.
+- ~~**What does a never-subscribed org get?**~~ **A 30-day trial** (#128). Expiry blocks new
+  quotes, contract conversion, CFDI stamping, complementos and outbound reminders (#195 widened
+  this past quotes alone); collecting, correcting and every public `/q/` and `/pay/` page stay
+  open. Both migrations applied and read back.
+- ~~**Is one organization per owner the invariant?**~~ **Yes, and it is in the schema**
+  (`uq_organizations_owner_id`, `20260811150000`; #109/#168). Multi-org ownership now needs that
+  index dropped deliberately, rather than being permitted by omission.
 
 > [!IMPORTANT]
 > **The schedule has no relief valve left.** CFDI ships *and* the September date holds — both
@@ -350,9 +352,8 @@ So this reconciliation can be repeated rather than trusted:
 
 ```bash
 npm ci
-npx vitest run                 # 910 tests / 104 files as of 2026-08-09
-                               # (earlier counts, and what each pass verified, are in the frozen
-                               #  log at docs/99-archive/status-log-2026-08.md)
+npx vitest run                 # figure in the §02 metrics row; earlier counts
+                               # are in 99-archive/status-log-2026-08.md
 npm run typecheck
 npm run lint
 node -e "console.log(Object.keys(require('./package.json').dependencies))"

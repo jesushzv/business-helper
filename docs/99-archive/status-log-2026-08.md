@@ -682,3 +682,19 @@ priority stack. Moved here verbatim when `STATUS.md` reached its 32 KB budget wh
    the trade taken, so no relief valve remains — stays in `STATUS.md` §05, because it still
    constrains what can be promised.
 5. ~~**Merge posture on PRs #20 and #23.**~~ Moot — both merged 2026-08-07.
+
+---
+
+## §01's original account of the simulated features, moved off `docs/STATUS.md` (2026-08-11)
+
+Verbatim; the summary that replaced it points here.
+
+The most serious instance: `POST /api/invoices/issue` called `simulateInvoiceStamping()`, which
+fabricated an invoice ID and two `storage.businesshelper.mx` URLs, then wrote `cfdi_status: 'issued'`
+onto the milestone. No PAC was contacted and no tax document existed. A business owner could read
+their own dashboard, believe they had invoiced a client, and file accordingly. For a product whose
+core promise is Mexican tax compliance, that is a compliance defect, not a missing feature.
+
+The same pattern applied to Stripe checkout, team invitations, the accountant ZIP export, and
+outbound WhatsApp dispatch — all since remediated (see §02).
+
