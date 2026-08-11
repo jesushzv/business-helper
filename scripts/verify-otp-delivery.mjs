@@ -12,12 +12,17 @@
  *
  *   1. Config    — which variables the selected channel needs, and which are absent.
  *   2. Credential — an authenticated read against the provider. Sends nothing.
- *   3. Send       — a real message, only when OTP_TEST_PHONE is set.
+ *   3. Send       — a real message, only when OTP_TEST_EMAIL / OTP_TEST_PHONE is set.
  *
- *   OTP_DELIVERY_CHANNEL=sms \
- *   TWILIO_ACCOUNT_SID=AC… TWILIO_AUTH_TOKEN=… TWILIO_SMS_NUMBER=+1… \
- *   OTP_TEST_PHONE=+528115559988 \
+ *   OTP_DELIVERY_CHANNEL=email \
+ *   RESEND_API_KEY=re_… OTP_EMAIL_FROM='Business Helper <firmas@businesshelper.app>' \
+ *   OTP_TEST_EMAIL=you@example.com \
  *   npm run verify:otp
+ *
+ * Stage 3 is not optional in the sense that matters: a run that skips it exits
+ * NON-ZERO and prints INCOMPLETE (#118). Stages 1-2 authenticate; only stage 3
+ * shows the message leaving. There is deliberately no flag to downgrade an
+ * incomplete run to a pass.
  *
  * Stage 3 sends a billable message to a handset you control. It is opt-in for
  * that reason, and it sends a fixed sample string rather than a real OTP — this
@@ -235,13 +240,25 @@ const testEmail = env.OTP_TEST_EMAIL;
 const testRecipient = provider === 'resend_email' ? testEmail : testPhone;
 
 if (!testRecipient) {
-  console.log(
-    provider === 'resend_email'
-      ? '\nSend stage skipped. Set OTP_TEST_EMAIL=you@… to send a real message to an inbox you control.'
-      : '\nSend stage skipped. Set OTP_TEST_PHONE=+52… to send a real message to a handset you control.'
+  // #118 — the exit code is the machine-readable claim, and it used to be 0
+  // here. Stages 1–2 prove the credentials exist and authenticate; neither can
+  // see a *delivery* failure. A Resend account still in sandbox, a sending
+  // domain whose DNS has not propagated, a Twilio trial restricted to verified
+  // numbers: each passes both stages and reaches nobody. Since the skipped
+  // stage is the only one the signing flow actually depends on, an incomplete
+  // run exits non-zero and names what did not run. Deliberately no opt-out
+  // flag — a flag that downgrades this to a pass is how the pass comes back.
+  const variable = provider === 'resend_email' ? 'OTP_TEST_EMAIL=you@…' : 'OTP_TEST_PHONE=+52…';
+  const target = provider === 'resend_email' ? 'an inbox' : 'a handset';
+
+  console.error(
+    `\nINCOMPLETE — configuration and credentials verified for ${provider}, ` +
+      'but this is not a sign-off.\n\n' +
+      '  Not run, because the send stage has no target:\n' +
+      `    – a real message is accepted by ${provider} and arrives at ${target} you control\n\n` +
+      `  Re-run with ${variable} set.\n`
   );
-  console.log(`\n✓ Configuration and credentials verified for ${provider}.\n`);
-  process.exit(0);
+  process.exit(1);
 }
 
 if (provider === 'resend_email') {
@@ -344,10 +361,23 @@ if (failed) {
 
 // Acceptance by the provider is not arrival: carriers drop messages, and on
 // WhatsApp a template-less send outside a 24h window is accepted then dropped.
+// The recipient is identified by domain (email) or country code (phone): the
+// record is meant for a public doc, and the full address is neither needed to
+// interpret the run nor safe to paste there.
+const recipientLabel =
+  provider === 'resend_email' ? `@${testEmail.split('@')[1]}` : `${testPhone.slice(0, 3)}…`;
+
 console.log(
   `\n✓ ${provider} accepted the send.\n\n` +
     `  Confirm the message actually arrived at ${testRecipient} — acceptance is not delivery\n` +
     `  (on email, check the spam folder too).\n` +
     `  Then complete the end-to-end check: issue a code from a real quote, sign with it,\n` +
-    `  and confirm replaying the same code fails.\n`
+    `  and confirm replaying the same code fails.\n\n` +
+    '  Record for docs/STATUS.md, once you have confirmed arrival AND the replay check —\n' +
+    '  this block records what the script did, which is one step short of that:\n\n' +
+    `    channel:     ${channel}\n` +
+    `    provider:    ${provider}\n` +
+    `    sender:      ${provider === 'resend_email' ? env.OTP_EMAIL_FROM : sender}\n` +
+    `    recipient:   ${recipientLabel} (full address withheld)\n` +
+    `    accepted_at: ${new Date().toISOString()}\n`
 );
