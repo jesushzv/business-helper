@@ -84,11 +84,40 @@ export async function GET() {
  * target would effectively be caller-supplied, letting one tenant redirect
  * another tenant's incoming payments (and the profile fields feed CFDI 4.0
  * stamping, so they get the same protection).
+ *
+ * **Both filters, not just `owner_id` (#109).** This used to resolve its target
+ * from `requireUser()` and update `.eq('owner_id', userId)` alone, which is a
+ * row *set* rather than a row. Nothing in the schema stops an owner holding two
+ * organizations — #168 confirmed there is no unique index, and #109 decided not
+ * to add one — and against two owned rows PostgREST's singular-response check
+ * fails, so `.maybeSingle()` came back empty and this route answered 404 *"No se
+ * encontró una organización propia"*: an owner told their business does not
+ * exist, unable to save their CFDI identity or their settlement account, with no
+ * way to recover from the UI. The update now names the organization
+ * `requireOrgAccess()` resolved and keeps `owner_id` as the authorization check,
+ * so it addresses exactly one row no matter how many the caller owns.
  */
 export async function PATCH(request: Request) {
-  const auth = await requireUser();
+  const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, userId } = auth;
+  const { supabase, userId, organizationId, role } = auth.ctx;
+
+  // A member reaching this route gets a straight answer about why, rather than
+  // the 404 the owner_id filter used to produce — which read as "your business
+  // does not exist" and is the trap #64's design turned on (never send a user
+  // to fix something they lack the write for). The settings page already hides
+  // the form for non-owners; this is the server half of the same rule.
+  if (role !== 'owner') {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Solo el dueño de la organización puede cambiar estos datos',
+        },
+      },
+      { status: 403 }
+    );
+  }
 
   try {
     const body = await request.json();
@@ -243,6 +272,9 @@ export async function PATCH(request: Request) {
     const { data, error } = await (supabase as any)
       .from('organizations')
       .update(update)
+      // Identity first, authorization second: `id` makes this a single row,
+      // `owner_id` is what proves the caller may write it (#109).
+      .eq('id', organizationId)
       .eq('owner_id', userId)
       // Explicit list on purpose: this table is growing CFDI/billing columns,
       // and a `*` here would ship any future sensitive column to the browser

@@ -58,6 +58,20 @@ function fail(status: number, code: string, message: string): AuthResult {
  * are a member of. Routes must scope their queries with the returned
  * `organizationId` — RLS is a backstop, not the only control, and by-id routes
  * need the filter to return 404 instead of revealing that a row exists.
+ *
+ * **Which organization, when there is more than one.** `organizations.owner_id`
+ * carries no unique constraint and #109 decided it should not gain one, so an
+ * owner may hold several rows. Both lookups below therefore order explicitly
+ * before taking one: an unordered `.limit(1)` lets Postgres return whichever
+ * row it likes, and it is free to answer differently between two requests in
+ * the same session — which would silently read one organization and write the
+ * next. Oldest-first is the stable choice, since it is the organization
+ * onboarding created and the one every existing tenant's data hangs off.
+ * `id` breaks the tie for rows sharing a `created_at`, so the order is total.
+ *
+ * Until an organization switcher exists this is the *only* organization such an
+ * owner can reach, which is a limitation rather than a defect: the alternative
+ * shipped until #109 was a 500 or a 404 on every settings save.
  */
 export async function requireOrgAccess(): Promise<AuthResult> {
   if (isDemoDeployment()) {
@@ -79,6 +93,8 @@ export async function requireOrgAccess(): Promise<AuthResult> {
     .from('organizations')
     .select('id')
     .eq('owner_id', user.id)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
     .limit(1);
 
   if (owned && owned.length > 0) {
@@ -92,6 +108,8 @@ export async function requireOrgAccess(): Promise<AuthResult> {
     .from('organization_members')
     .select('organization_id, role')
     .eq('user_id', user.id)
+    .order('invited_at', { ascending: true })
+    .order('id', { ascending: true })
     .limit(1);
 
   if (membership && membership.length > 0) {

@@ -14,28 +14,44 @@ import { requireOrgAccess } from '@/lib/apiAuth';
  */
 
 const updateCalls: Array<Record<string, unknown>> = [];
+/** Every `.eq()` applied to the update, as [column, value] (#109). */
+const updateFilters: Array<[string, unknown]> = [];
 let updateResult: { data: unknown; error: unknown } = { data: { id: 'org-1' }, error: null };
+/** The role requireOrgAccess hands back — 'owner' unless a test says otherwise. */
+let callerRole = 'owner';
+
+// PATCH resolves its target through requireOrgAccess rather than requireUser
+// since #109: it needs the organization *id* to address a single row, because
+// `owner_id` alone is a row set an owner can legitimately have two of.
+const supabaseStub = {
+  from: () => ({
+    update: (values: Record<string, unknown>) => {
+      updateCalls.push(values);
+      const chain = {
+        eq: (column: string, value: unknown) => {
+          updateFilters.push([column, value]);
+          return chain;
+        },
+        select: () => ({
+          maybeSingle: async () => updateResult,
+        }),
+      };
+      return chain;
+    },
+  }),
+};
 
 vi.mock('@/lib/apiAuth', () => ({
-  requireUser: vi.fn(async () => ({
+  requireUser: vi.fn(async () => ({ ok: true, userId: 'user-1', supabase: supabaseStub })),
+  requireOrgAccess: vi.fn(async () => ({
     ok: true,
-    userId: 'user-1',
-    supabase: {
-      from: () => ({
-        update: (values: Record<string, unknown>) => {
-          updateCalls.push(values);
-          return {
-            eq: () => ({
-              select: () => ({
-                maybeSingle: async () => updateResult,
-              }),
-            }),
-          };
-        },
-      }),
+    ctx: {
+      supabase: supabaseStub,
+      userId: 'user-1',
+      organizationId: 'org-1',
+      role: callerRole,
     },
   })),
-  requireOrgAccess: vi.fn(),
   isDemoDeployment: () => false,
 }));
 
@@ -49,7 +65,60 @@ function patchRequest(body: unknown): Request {
 
 beforeEach(() => {
   updateCalls.length = 0;
+  updateFilters.length = 0;
+  callerRole = 'owner';
   updateResult = { data: { id: 'org-1' }, error: null };
+
+  // Restored every test, not just declared once in the factory: the GET block
+  // below installs its own `mockResolvedValue` with a read-only supabase stub,
+  // and that override outlives its describe. It was harmless while PATCH went
+  // through requireUser; now that PATCH shares this mock (#109) it would hand
+  // the bank tests a client with no `update()` at all. `mockImplementation`
+  // rather than `mockResolvedValue` so `callerRole` is read when the route
+  // calls, letting a test set it after this hook has run.
+  vi.mocked(requireOrgAccess).mockImplementation(
+    async () =>
+      ({
+        ok: true,
+        ctx: {
+          supabase: supabaseStub,
+          userId: 'user-1',
+          organizationId: 'org-1',
+          role: callerRole,
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any
+  );
+});
+
+describe('PATCH /api/organization — addresses one row, not an owner (#109)', () => {
+  it('filters by organization id as well as owner_id', async () => {
+    const res = await PATCH(patchRequest({ name: 'Ferretería La Central' }));
+
+    expect(res.status).toBe(200);
+    // Both, and in that order: `id` is what makes this a single row (an owner
+    // may hold several — organizations.owner_id has no unique index, #168),
+    // `owner_id` is what proves the caller may write it. Dropping `id` is the
+    // 404 "No se encontró una organización propia" that #109 reported.
+    expect(updateFilters).toEqual([
+      ['id', 'org-1'],
+      ['owner_id', 'user-1'],
+    ]);
+  });
+
+  it('refuses a member with a reason instead of a 404 about a missing business', async () => {
+    callerRole = 'admin';
+    const res = await PATCH(patchRequest({ name: 'Ferretería La Central' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(body.error.code).toBe('FORBIDDEN');
+    // Spanish, and it names who may do it — a member previously got 404 "No se
+    // encontró una organización propia", which reads as "your business does not
+    // exist" (#64's trap: never send a user to fix something they cannot write).
+    expect(body.error.message).toMatch(/dueño/i);
+    expect(updateCalls).toHaveLength(0);
+  });
 });
 
 describe('PATCH /api/organization — profile payload (#95)', () => {
