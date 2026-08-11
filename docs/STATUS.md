@@ -63,15 +63,11 @@ until checked against source. This memo does that check; §06 records the method
 
 ### Merged and real
 
-| Change | PR | What it actually closed |
-|:---|:---|:---|
-| P0 money-path hardening | #1 | API auth enforcement across `app/api/*`; simulated writes relabelled so they cannot be mistaken for real ones |
-| Outbound WhatsApp dispatch | #13 | Reminders now send via Twilio / Meta Cloud API instead of reporting fabricated success |
-| Post-merge security setup | #16 | `lib/otpDelivery.ts` — real Twilio SMS, Twilio WhatsApp, and Meta Cloud API paths; per-org bank account (CLABE) UI; Stripe webhook signature verification |
-| Real checkout, invites, export | #19 | `lib/stripeClient.ts`, `lib/teamInvitations.ts`, and `lib/accountantExport.ts` read real data instead of hardcoded fixtures |
-| CI workflow + migration tooling | #11 | `.github/workflows/ci.yml`, `scripts/db-migrate.mjs`, `scripts/verify-stripe-webhook.mjs` |
-| Test consolidation | #21 | `scripts/test-runner.js` (2,751 lines) retired; coverage folded into vitest |
-| Agent authority split in two | #137 | The defect-class catalogue moved to `docs/LESSONS.md` under its own budget, with `tests/unit/lessonsCatalogue.test.ts` failing the build when a merge resolution drops a lesson (#135) |
+Seven changes (PRs #1, #11, #13, #16, #19, #21, #137) — the P0 money-path hardening, real outbound
+WhatsApp, real checkout/invites/export, CI + migration tooling, the test-runner retirement and the
+agent-authority split. Moved verbatim to
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) on 2026-08-11; all merged
+long ago and none of it is live state.
 
 ### Corrected baseline metrics
 
@@ -166,6 +162,11 @@ re-checked against production or a real handset, which is the part no agent supp
 | #88, #90 | Six 375px overflows closed (nowrap flex pairs, intrinsic-width selects, unbroken CLABE/clave/email); the header sticks below the demo banner via a measured `--bh-sticky-offset`; the cookie banner clears the bottom-pinned CTA |
 | #99 | Convert-to-contract cannot double-fire (the route already 409s; the button now waits too); CFDI stamping and PAC disconnect ask first, naming the folio cost and the write-only key; native `confirm()`/`alert()` gone. Invoice cancellation split to #174 as a decision |
 | #114, #124 | `isClientDemoMode()` stops honouring the never-expiring sandbox flag once a session cookie exists, synchronously; the dashboard treats an all-zero API answer as an answer, so a new tenant sees $0 rather than computed figures |
+
+**CFDI cancellation stays out of the app for launch** (#174, decided): the route ships with no UI
+caller — it needs a motivo, the `01` replacement UUID, receptor refusal and an async SAT answer
+(#30). Tenants cancel at their PAC portal; the stamping dialog says so, and
+`tests/unit/cfdiCancelHasNoUiCaller.test.ts` fails the build if a caller appears.
 
 Still open from the audit: #89, #101, #103, #104 (plus #174, split from #99).
 
