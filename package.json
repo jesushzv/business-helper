@@ -20,6 +20,8 @@
     "verify:otp": "node scripts/verify-otp-delivery.mjs"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.70.0",
+    "@sentry/profiling-node": "^10.70.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.48.1",
     "clsx": "^2.1.1",

@@ -1,30 +1,47 @@
 /**
- * Business Helper — error monitoring (#52).
+ * Business Helper — error monitoring (#52), now on the official Next.js SDK.
  *
- * This module used to be a shim: it formatted a payload, checked whether a DSN
- * looked plausible, and then `console.error`'d in both branches. Nothing left
- * the process, while `dispatchedToSentry: true` said otherwise — hard rule #1
- * in its purest form, on the one mechanism that reports a production 500 when
- * nobody is watching. `app/global-error.tsx` told users *"Nuestro equipo ha sido
- * notificado automáticamente"*, which nothing made true.
+ * ## What this module is
  *
- * It now transmits, over Sentry's envelope endpoint with `fetch`. No SDK: every
- * third-party integration here is raw REST (`lib/stripeClient.ts`,
- * `lib/pacClient.ts`, `lib/otpDelivery.ts`, `lib/analytics.ts`), and
- * `@sentry/nextjs` would add build-time instrumentation and a source-map upload
- * step for a payload this module already assembles.
+ * A thin adapter over `@sentry/nextjs`. It exists so the ~29 call sites across
+ * `app/api/*`, `lib/dbWriteError.ts`, `lib/errorCopy.ts` and the two error
+ * boundaries keep their tenant-aware signature —
+ * `captureException(err, { organization_id, route, level })` — instead of each
+ * one hand-rolling a Sentry scope. Call sites did not change when the transport
+ * did, and will not change again.
  *
- * Three rules, the same three `lib/analytics.ts` follows:
+ * ## Why the transport changed
  *
- * 1. **No DSN, no send, and it says so.** An unset DSN logs to console with a
- *    prefix naming the fact that nothing was transmitted, and reports
- *    `dispatchedToSentry: false`. Never a fabricated dispatch.
+ * This module used to POST Sentry envelopes with `fetch`, on the reasoning that
+ * every other integration here is raw REST. That was right about the house style
+ * and wrong about the coverage: a hand-rolled transport only ever sees errors
+ * someone remembered to hand it. It could not see an unhandled Server Component
+ * error, a React render error, an Edge middleware throw, or anything in a route
+ * that returned before reaching its `catch`. `instrumentation.ts`'s
+ * `onRequestError` sees all of them, and that is most of what a production 500
+ * actually is.
+ *
+ * ## What did not change
+ *
+ * The three rules the raw-REST version was built on still hold, and the tests
+ * that pin them still pass:
+ *
+ * 1. **No DSN, no send, and it says so.** An uninitialised or DSN-less client
+ *    logs with a prefix naming the fact that nothing was transmitted, and
+ *    reports `dispatchedToSentry: false`. Never a fabricated dispatch.
  * 2. **Never throws, never blocks.** Callers are `catch` blocks and React error
  *    boundaries; monitoring must not turn a handled error into a second one.
- * 3. **Scrub before sending.** Stack traces and error messages carry more
- *    personal data than analytics properties do — a Postgres unique-violation
- *    message quotes the offending CLABE verbatim.
+ * 3. **Scrub before sending.** Now installed as `beforeSend` in all three
+ *    runtime configs rather than applied here — see `lib/sentryScrub.ts` for why
+ *    that move was required rather than cosmetic.
  */
+
+import * as Sentry from '@sentry/nextjs';
+import { scrubExtra, scrubTags, scrubText } from '@/lib/sentryScrub';
+
+// Re-exported because callers and tests have imported them from here since #52,
+// and where a payload is assembled by hand the scrubbers must stay reachable.
+export { scrubText, scrubExtra } from '@/lib/sentryScrub';
 
 export interface ErrorContext {
   organization_id?: string;
@@ -55,15 +72,21 @@ export interface FormattedErrorPayload {
 export interface CaptureResult {
   handled: boolean;
   /**
-   * A transmission was **started** — not a claim that Sentry accepted it.
-   * `delivery` is the only thing that knows that, and it resolves later.
-   * `false` means nothing was sent at all.
+   * The event was handed to an **initialised Sentry client with a DSN** — not a
+   * claim that Sentry accepted it. `false` means nothing was sent at all,
+   * because no such client exists in this runtime.
    */
   dispatchedToSentry: boolean;
   /**
-   * Resolves `true` only once Sentry has answered 2xx. Absent when no send was
-   * started. Present so a test — or a verification script — can await the real
-   * outcome instead of trusting the flag above.
+   * Resolves once the client's transport queue has drained, `true` if it drained
+   * within the timeout and `false` if it did not. Absent when no send was
+   * started.
+   *
+   * Note the weaker guarantee than the raw-REST version this replaced, which
+   * resolved on a 2xx from the envelope endpoint: `Sentry.flush()` reports that
+   * the queue emptied, and it covers whatever else was queued, not this event
+   * alone. It is a "the transport got it out" signal, not an acknowledgement.
+   * The Sentry Issues dashboard remains the only proof of receipt.
    */
   delivery?: Promise<boolean>;
   payload:
@@ -86,12 +109,14 @@ export interface SentryDsn {
 /**
  * Parses `{protocol}://{publicKey}@{host}{path}/{projectId}`.
  *
- * The previous check was `dsn.includes('@sentry')`, which **no modern Sentry
- * DSN satisfies** — they are issued as `https://<key>@o123.ingest.us.sentry.io/456`,
- * where the character after `@` is the org prefix. So the old
- * `isSentryConfigured()` returned `false` for every correctly configured
- * deployment, and `true` only for the shape in its own test. Parsing the URL
- * replaces guessing at its spelling, and accepts self-hosted Sentry too.
+ * Kept after the SDK migration because `isSentryConfigured()` is still asked —
+ * by deployment checks and by tests — whether this environment is configured to
+ * report, and that question has a wrong answer with history. The check used to
+ * be `dsn.includes('@sentry')`, which **no modern Sentry DSN satisfies**: they
+ * are issued as `https://<key>@o123.ingest.us.sentry.io/456`, where the
+ * character after `@` is the org prefix. Every correctly configured deployment
+ * read as unconfigured. Parsing the URL replaces guessing at its spelling, and
+ * accepts self-hosted Sentry too.
  */
 export function parseSentryDsn(dsn: string | undefined | null): SentryDsn | null {
   if (!dsn || typeof dsn !== 'string') return null;
@@ -121,107 +146,42 @@ export function parseSentryDsn(dsn: string | undefined | null): SentryDsn | null
   }
 }
 
-function resolveDsn(env: Record<string, string | undefined>): SentryDsn | null {
-  return parseSentryDsn(env.SENTRY_DSN || env.NEXT_PUBLIC_SENTRY_DSN);
-}
-
+/**
+ * Whether *the environment* carries a usable DSN.
+ *
+ * Distinct from whether anything will actually transmit: that is
+ * `hasActiveClient()`, and it is the one `captureException` reports on. A build
+ * can have the env var set and still not report — the runtime config has to have
+ * run. Keep the two questions apart; conflating them is how a monitoring setup
+ * comes to be believed rather than known.
+ */
 export function isSentryConfigured(
   env: Record<string, string | undefined> = process.env
 ): boolean {
-  return resolveDsn(env) !== null;
+  return parseSentryDsn(env.SENTRY_DSN || env.NEXT_PUBLIC_SENTRY_DSN) !== null;
 }
 
-export function envelopeEndpoint(dsn: SentryDsn): string {
-  return `${dsn.protocol}//${dsn.host}${dsn.path}/api/${dsn.projectId}/envelope/`;
-}
-
-/* ------------------------------------------------------------------ *
- * Scrubbing
- * ------------------------------------------------------------------ */
-
-/** Keys whose value is personal data whatever it looks like. Mirrors `lib/analytics.ts`. */
-const PII_KEYS = new Set([
-  'phone',
-  'client_phone',
-  'email',
-  'client_email',
-  'rfc',
-  'clabe',
-  'bank_clabe',
-  'name',
-  'client_name',
-  'business_name',
-  'contact_name',
-  'account_holder',
-  'password',
-  'token',
-  'address',
-]);
-
-/** Tags that identify the tenant and the code path — the whole point of the report. */
-const KEPT_TAGS = new Set(['organization_id', 'user_id', 'route', 'severity']);
-
-/**
- * Redacts personal data that appears *inside* free text.
- *
- * Key-based filtering alone is not enough here, and that is the difference
- * between this and the analytics scrubber. The strings that reach Sentry are
- * error messages and stack traces, and Postgres quotes the offending value in
- * the message: `duplicate key value violates unique constraint … (clabe)=(0121…)`.
- * No key is involved — the CLABE is in the prose.
- *
- * Each pattern is anchored with `(?<![\w-])` / `(?![\w-])` rather than `\b` so a
- * digit run inside a UUID cannot match: `organization_id` is a uuid and is
- * required to survive (#52's exit criterion names it).
- */
-export function scrubText(input: string): string {
-  return (
-    input
-      // Email first: an address can contain digit runs the later rules would
-      // otherwise bite into, leaving a half-redacted address.
-      .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[email]')
-      // RFC: 3–4 letters, 6 date digits, 3 homoclave characters.
-      .replace(/(?<![\w-])[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}(?![\w-])/gi, '[rfc]')
-      // CLABE is exactly 18 digits; run it before the phone rule so an 18-digit
-      // account number is never reported as a phone number.
-      .replace(/(?<![\w-])\d{18}(?![\w-])/g, '[clabe]')
-      .replace(/(?<![\w-])\d{10,13}(?![\w-])/g, '[phone]')
-  );
-}
-
-function scrubValue(value: unknown): unknown {
-  if (typeof value === 'string') return scrubText(value);
-  if (value === null || typeof value !== 'object') return value;
-  // Nested objects are where a whole client row passed "for context" hides.
-  return '[object omitted]';
-}
-
-export function scrubExtra(extra: Record<string, unknown>): Record<string, unknown> {
-  const clean: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(extra)) {
-    if (PII_KEYS.has(key.toLowerCase())) continue;
-    clean[key] = scrubValue(value);
-  }
-  return clean;
-}
-
-function scrubTags(tags: Record<string, string>): Record<string, string> {
-  const clean: Record<string, string> = {};
-  for (const [key, value] of Object.entries(tags)) {
-    if (KEPT_TAGS.has(key)) {
-      clean[key] = String(value);
-      continue;
-    }
-    if (PII_KEYS.has(key.toLowerCase())) continue;
-    clean[key] = scrubText(String(value));
-  }
-  return clean;
+/** An initialised client, with a DSN, not explicitly disabled — or `undefined`. */
+function activeClient(): ReturnType<typeof Sentry.getClient> {
+  const client = Sentry.getClient();
+  if (!client) return undefined;
+  if (!client.getDsn()) return undefined;
+  if (client.getOptions().enabled === false) return undefined;
+  return client;
 }
 
 /* ------------------------------------------------------------------ *
  * Payload
  * ------------------------------------------------------------------ */
 
+/**
+ * Builds the scrubbed tags and extras this app attaches to every event.
+ *
+ * Still exported, and still tested, because it is the definition of what a
+ * Business Helper error report carries: the tenant, the user, the route and the
+ * severity, with personal data removed. `captureException` feeds its output
+ * straight to the SDK.
+ */
 export function formatErrorPayload(
   error: unknown,
   context: ErrorContext = {}
@@ -247,82 +207,15 @@ export function formatErrorPayload(
   };
 }
 
-function eventId(): string {
-  try {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID().replace(/-/g, '');
-    }
-  } catch {
-    /* fall through */
-  }
-  let out = '';
-  while (out.length < 32) out += Math.floor(Math.random() * 16).toString(16);
-  return out.slice(0, 32);
-}
-
-/* ------------------------------------------------------------------ *
- * Transport
- * ------------------------------------------------------------------ */
+/** How long to wait for the transport queue before reporting the flush as failed. */
+const FLUSH_TIMEOUT_MS = 2000;
 
 /**
- * POSTs one event as a Sentry envelope.
- *
- * Resolves `false` rather than throwing on any failure: the caller is always a
- * `catch` block or an error boundary, and an unreachable monitoring host must
- * not become the error the user sees.
+ * Never rejects: the caller is always a `catch` block or an error boundary, and
+ * an unreachable monitoring host must not become the error the user sees.
  */
-export async function sendEnvelope(
-  dsn: SentryDsn,
-  event: Record<string, unknown>
-): Promise<boolean> {
-  try {
-    const id = String(event.event_id);
-    const header = JSON.stringify({
-      event_id: id,
-      sent_at: new Date().toISOString(),
-    });
-    const itemHeader = JSON.stringify({ type: 'event', content_type: 'application/json' });
-    const body = `${header}\n${itemHeader}\n${JSON.stringify(event)}`;
-
-    const res = await fetch(envelopeEndpoint(dsn), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-sentry-envelope',
-        'X-Sentry-Auth': [
-          'Sentry sentry_version=7',
-          `sentry_key=${dsn.publicKey}`,
-          'sentry_client=business-helper/1.0',
-        ].join(', '),
-      },
-      // The process may be torn down right after an unhandled error; keepalive
-      // is what stops the report dying with it.
-      keepalive: true,
-      body,
-    });
-
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-function buildEvent(
-  payload: FormattedErrorPayload,
-  level: string
-): Record<string, unknown> {
-  return {
-    event_id: eventId(),
-    timestamp: payload.timestamp,
-    platform: typeof window === 'undefined' ? 'node' : 'javascript',
-    logger: 'business-helper',
-    level,
-    environment: payload.environment,
-    tags: payload.tags,
-    extra: { ...payload.extra, ...(payload.stack ? { stack: payload.stack } : {}) },
-    exception: {
-      values: [{ type: payload.name, value: payload.message }],
-    },
-  };
+function flush(): Promise<boolean> {
+  return Sentry.flush(FLUSH_TIMEOUT_MS).catch(() => false);
 }
 
 /* ------------------------------------------------------------------ *
@@ -335,23 +228,30 @@ export function captureException(
   env: Record<string, string | undefined> = process.env
 ): CaptureResult {
   const payload = formatErrorPayload(error, context);
-  const dsn = resolveDsn(env);
 
-  if (!dsn) {
-    // Named for what it is. The old message implied a capture had happened.
+  if (!activeClient()) {
+    // Named for what it is. The prefix this replaced was `[SENTRY CAPTURE]`,
+    // which reads as a capture having happened.
     console.error('[MONITOR NOT CONFIGURED — NOTHING TRANSMITTED]', payload.message, {
       route: payload.tags.route,
       org: payload.tags.organization_id,
+      // Distinguishes "no DSN anywhere" from "DSN set, but this runtime never
+      // ran its Sentry config" — different fixes, and previously indistinguishable.
+      dsn_in_env: isSentryConfigured(env),
     });
     return { handled: true, dispatchedToSentry: false, payload };
   }
 
+  Sentry.captureException(error, {
+    level: context.level || 'error',
+    tags: payload.tags,
+    extra: payload.extra,
+  });
+
   // Not awaited: every caller is synchronous, and blocking a `catch` block on a
   // network round trip to the monitoring host would make an outage there an
   // outage here. The promise is returned so a caller that *can* wait may.
-  const delivery = sendEnvelope(dsn, buildEvent(payload, payload.tags.severity));
-
-  return { handled: true, dispatchedToSentry: true, delivery, payload };
+  return { handled: true, dispatchedToSentry: true, delivery: flush(), payload };
 }
 
 export function captureMessage(
@@ -360,37 +260,36 @@ export function captureMessage(
   context: ErrorContext = {},
   env: Record<string, string | undefined> = process.env
 ): CaptureResult {
-  const dsn = resolveDsn(env);
   const scrubbed = scrubText(String(message));
+
+  const tags = scrubTags({
+    organization_id: context.organization_id || 'anonymous',
+    route: context.route || 'unknown',
+    severity: level,
+    ...context.tags,
+  });
 
   const payload = {
     message: scrubbed,
     level,
     timestamp: new Date().toISOString(),
-    tags: scrubTags({
-      organization_id: context.organization_id || 'anonymous',
-      route: context.route || 'unknown',
-      severity: level,
-      ...context.tags,
-    }),
+    tags,
   };
 
-  if (!dsn) {
-    console.log(`[MONITOR NOT CONFIGURED — NOTHING TRANSMITTED:${level.toUpperCase()}]`, scrubbed);
+  if (!activeClient()) {
+    console.log(
+      `[MONITOR NOT CONFIGURED — NOTHING TRANSMITTED:${level.toUpperCase()}]`,
+      scrubbed,
+      { dsn_in_env: isSentryConfigured(env) }
+    );
     return { handled: true, dispatchedToSentry: false, payload };
   }
 
-  const delivery = sendEnvelope(dsn, {
-    event_id: eventId(),
-    timestamp: payload.timestamp,
-    platform: typeof window === 'undefined' ? 'node' : 'javascript',
-    logger: 'business-helper',
+  Sentry.captureMessage(scrubbed, {
     level,
-    environment: context.environment || process.env.NODE_ENV || 'development',
-    message: { formatted: scrubbed },
-    tags: payload.tags,
+    tags,
     extra: scrubExtra(context.extra || {}),
   });
 
-  return { handled: true, dispatchedToSentry: true, delivery, payload };
+  return { handled: true, dispatchedToSentry: true, delivery: flush(), payload };
 }

@@ -19,11 +19,17 @@ export const config = {
     /*
      * Match all request paths except for:
      * - api routes (/api/*)
+     * - monitoring (Sentry's tunnel route — see `tunnelRoute` in next.config.ts)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - static image/asset extensions
+     *
+     * `monitoring` is not under `/api`, so without naming it here every error
+     * report would be run through Supabase session refresh and, for a signed-out
+     * visitor, redirected — losing exactly the reports from the sessions most
+     * likely to have broken.
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|monitoring|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
