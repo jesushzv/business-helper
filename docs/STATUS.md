@@ -60,7 +60,7 @@ completion claim needs checking against source. The full findings are in
 |:---|:---|
 | Test suite | **1637 tests / 168 files**, `npx vitest run` on `main` @ `719ec20` plus the Sentry SDK branch (2026-08-12). The `scripts/test-runner.js` that reported "182/182" no longer exists |
 | Coverage gate | 85/85/80/80 is configured and **fails**; CI does not run it ([#51](https://github.com/jesushzv/business-helper/issues/51)). Judge a change on the delta, not the absolute |
-| Error monitoring | ~~Not live — `lib/sentry.ts` only called `console.error`.~~ ~~Code transmits since 2026-08-11 over a raw `fetch` envelope.~~ **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling. Coverage was the reason: the hand-rolled transport could not see an unhandled Server Component, render or Edge error. PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **Nothing alerts yet** — no DSN is set, and no event has ever reached a real Sentry project ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
+| Error monitoring | ~~Not live — `lib/sentry.ts` only called `console.error`.~~ ~~Code transmits since 2026-08-11 over a raw `fetch` envelope.~~ **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling. Coverage was the reason: the hand-rolled transport could not see an unhandled Server Component, render or Edge error. PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | `playwright.config.ts` and `tests/e2e/` exist; **never executed in any verification pass** ([#69](https://github.com/jesushzv/business-helper/issues/69)) and 8 of 10 scenarios are stale, two asserting defects since remediated ([#91](https://github.com/jesushzv/business-helper/issues/91)). Treat every Playwright claim as unverified |
 
 > [!IMPORTANT]
@@ -201,12 +201,13 @@ organization row.
   — while `organization_id` and `route` survive. Call sites did not change: `lib/sentry.ts` keeps
   its signature as an adapter, so `app/global-error.tsx` and `app/(dashboard)/error.tsx` report as
   before.
-  **What remains is founder-only and is the whole exit criterion** — set `SENTRY_DSN` and
-  `NEXT_PUBLIC_SENTRY_DSN` on Vercel (plus `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` for
-  readable stack traces), throw an error in a deployed route, confirm the alert arrives carrying
-  its `organization_id` and route and no personal data. **No event has ever reached a real Sentry
-  project.** Until one does, nothing alerts, and `global-error.tsx` still tells users they were
-  notified automatically.
+  **The DSN was configured on Vercel by the founder on 2026-08-12, and #52 closed on that basis.**
+  What no session has observed is the criterion's second half: that an alert *arrives* carrying
+  `organization_id` and route with no personal data in it. An agent container has no outbound
+  network access, so every result in this repo is against a mocked transport — the code is correct,
+  which is not the same as the integration working. Worth one glance at any event in the Sentry
+  dashboard; reopen #52 if it disagrees. `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` remain
+  optional, for readable stack traces.
 - **Point the domain at Vercel.** `businesshelper.app` is the domain; `.mx` was never registered. Docs and
   `.env.example` are corrected; the source instance was #36, **now closed** (PR #47) — the remaining work
   here is DNS, not code. Confirm the apex resolves with SSL, then sync the Supabase Auth Site/Redirect
@@ -267,7 +268,7 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 ### Operational floor
 - [x] Production Supabase migrations applied — all three from #20, #23 and #29, plus `20260808030000_folio_rpc_grants.sql`; confirmed by inspecting the live schema on 2026-08-08. One live request per affected route still owed ([#62](https://github.com/jesushzv/business-helper/issues/62))
 - [ ] `supabase/migrations/` and the live catalog agree ([#204](https://github.com/jesushzv/business-helper/issues/204)) — production holds two indexes no migration creates, so a fresh environment is not reproducible. (The issue also names a *column*; that half is wrong, see §03)
-- [ ] Error monitoring transmits and alerts reach the founder within minutes ([#52](https://github.com/jesushzv/business-helper/issues/52)) — on `@sentry/nextjs` since 2026-08-12, but no DSN is set, so nothing has alerted and no event has reached a real project
+- [ ] Error monitoring transmits and alerts reach the founder within minutes ([#52](https://github.com/jesushzv/business-helper/issues/52), closed 2026-08-12) — on `@sentry/nextjs` and the DSN is configured on Vercel. Unticked deliberately: no session has seen an alert arrive, so the transmit half is founder-confirmed setup rather than observed behaviour
 - [x] The funnel is instrumented, so a weak result can be diagnosed (#37, PR #56) — wired, not yet read against real traffic
 - [x] Lint, typecheck and the vitest suite pass (figures in §02); CI runs on PRs, but not reliably — see [#38](https://github.com/jesushzv/business-helper/issues/38) and [#132](https://github.com/jesushzv/business-helper/issues/132)
 
