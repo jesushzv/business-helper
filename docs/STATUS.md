@@ -244,8 +244,14 @@ organization row.
   RLS-on-every-table. Shown red against a planted anon leak; making double-apply pass surfaced 16
   non-idempotent statements, all fixed. **It builds from the migration files, so #204's divergence is
   invisible to it.** Requiring the check in branch protection remains #38.
-- `parseNaturalLanguageQuery` is keyword matching rather than a model. It now reports `engine: 'rules'`
-  instead of implying otherwise, so it is honest but not intelligent. Degrades gracefully; does not gate launch.
+- ~~`parseNaturalLanguageQuery` is keyword matching rather than a model.~~ **Gemini wired 2026-08-12**
+  (`lib/geminiClient.ts`, raw REST): with `GEMINI_API_KEY` set — the founder configured it on Vercel —
+  the assistant routes have the model write the answer prose around figures the rules engine computed
+  from the tenant's rows; each answer is labeled `engine: 'gemini' | 'rules'` for whichever wrote it,
+  and any Gemini failure degrades to the labeled rules answer (reported to Sentry). **Verified against
+  a mocked `fetch` only — no session has held the key, so no live call has run** (the #26 lesson says
+  to exercise it once). `npm run verify:gemini` is that check, runnable wherever the key exists;
+  until it passes, treat the model half as wired but unproven. Does not gate launch.
 - Animated demo video — storyboarded in [`demo_video_storyboard.md`](03-product-specs/demo_video_storyboard.md), not produced.
 
 ---
