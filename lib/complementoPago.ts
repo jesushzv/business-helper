@@ -16,10 +16,10 @@
  *     how much, and as which parcialidad is arithmetic over the invoice total
  *     and the complements already filed — the part that has to be right, and
  *     the part worth testing without a PAC.
- *   - {@link issuePaymentComplement} does the IO: folio, PAC, storage, row.
+ *   - {@link issuePaymentComplement} does the IO: PAC, storage, row.
  *
- * A complement is a real stamped document with a real cost, so it goes through
- * the same folio ledger as an invoice, and a failure leaves a `failed` row
+ * A complement is a real stamped document the tenant's PAC bills for, exactly
+ * like the invoice it settles (#221), and a failure leaves a `failed` row
  * behind rather than vanishing: the obligation outlives the failed attempt and
  * the user needs to see that it is outstanding.
  */
@@ -195,7 +195,7 @@ export interface IssueComplementParams {
   /** Request-scoped client. Tenant reads and writes go through it so RLS still applies. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any;
-  /** Service-role client, for the folio ledger, the private bucket and the audit log. */
+  /** Service-role client, for the PAC key, the private bucket and the audit log. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   service: any;
   organizationId: string;

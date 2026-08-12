@@ -23,6 +23,9 @@ const COPY_MODULES = [
   'lib/tierFeaturesData.ts',
   'lib/trustData.ts',
   'lib/helpFAQ.ts',
+  // STRIPE_PLANS.*.features is the "Incluye:" list on the Ajustes billing
+  // card — the copy a tenant reads at the moment of payment (#225 review).
+  'lib/stripe.ts',
 ];
 
 /** Jargon that must never appear in something a tenant reads. */

@@ -3,13 +3,13 @@
  * 
  * Provides tier configurations, checkout session payload creation,
  * environment secret auditing, and subscription status validation for Mexican SMBs.
- * Includes CFDI Folio Pack products per docs/02-architecture/cfdi_integration_architecture.md
+ * CFDI stamping is not billed here: tenants stamp through their own PAC, which
+ * bills them directly (BYOK, #221) — the folio-pack products were removed with it.
  */
 
 import { getAppBaseUrl } from './url';
 
 export type StripeTierId = 'inicial' | 'negocio' | 'empresa';
-export type FolioPackId = 'folio_pack_50' | 'folio_pack_200';
 
 type EnvRecord = Record<string, string | undefined>;
 
@@ -22,16 +22,6 @@ export interface StripeTierConfig {
   description: string;
   features: string[];
   popular?: boolean;
-  includedFolios: number;
-  addOnPricePerFolio: number;
-}
-
-export interface FolioPackConfig {
-  id: FolioPackId;
-  name: string;
-  folios: number;
-  price: number;
-  currency: string;
 }
 
 /**
@@ -56,28 +46,6 @@ export const TIER_PRICE_ENV_VARS: Record<StripeTierId, string[]> = {
   empresa: ['STRIPE_PRICE_EMPRESA'],
 };
 
-export const FOLIO_PACK_PRICE_ENV_VARS: Record<FolioPackId, string[]> = {
-  folio_pack_50: ['STRIPE_PRICE_FOLIO_50'],
-  folio_pack_200: ['STRIPE_PRICE_FOLIO_200'],
-};
-
-export const STRIPE_FOLIO_PACKS: Record<string, FolioPackConfig> = {
-  folio_pack_50: {
-    id: 'folio_pack_50',
-    name: 'Paquete 50 Folios CFDI',
-    folios: 50,
-    price: 100,
-    currency: 'MXN',
-  },
-  folio_pack_200: {
-    id: 'folio_pack_200',
-    name: 'Paquete 200 Folios CFDI',
-    folios: 200,
-    price: 350,
-    currency: 'MXN',
-  },
-};
-
 export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
   inicial: {
     id: 'inicial',
@@ -86,13 +54,11 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
     currency: 'MXN',
     interval: 'mes',
     description: 'Ideal para independientes y freelancers que van iniciando.',
-    includedFolios: 0,
-    addOnPricePerFolio: 5,
     features: [
       'Hasta 25 cotizaciones por mes',
       'Firma digital OTP por WhatsApp',
       'Portal público de carga SPEI',
-      'Facturación CFDI 4.0 disponible ($5 MXN/folio o con tu PAC)',
+      'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Soporte por correo electrónico',
     ],
   },
@@ -104,11 +70,9 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
     interval: 'mes',
     description: 'Para negocios en crecimiento que requieren control total.',
     popular: true,
-    includedFolios: 10,
-    addOnPricePerFolio: 3,
     features: [
       'Cotizaciones ilimitadas',
-      '10 folios CFDI 4.0/mes incluidos ($3 MXN/folio adicional)',
+      'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Aprobación digital OTP con Evidencia Legal',
       'Recordatorios automáticos de WhatsApp',
       'Centro de Control y Proyección de Flujo 90 días',
@@ -122,12 +86,9 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
     currency: 'MXN',
     interval: 'mes',
     description: 'Para empresas estructuradas con múltiples operaciones.',
-    includedFolios: 50,
-    addOnPricePerFolio: 2,
     features: [
       'Todo lo del Plan Negocio',
-      '50 folios CFDI 4.0/mes incluidos ($2 MXN/folio adicional)',
-      'Paquetes de folios add-on (50 por $100 MXN / 200 por $350 MXN)',
+      'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Multi-usuario y roles de equipo',
       'Exportación masiva para contador',
       'Asesoría fiscal SAT personalizada',
@@ -215,19 +176,9 @@ export function resolveTierPriceEnv(tierKey: string, env: EnvRecord = process.en
   return resolvePriceEnv(TIER_PRICE_ENV_VARS[tierId], env);
 }
 
-/** Resolves a folio pack's Price id, with the same three states. */
-export function resolveFolioPackPriceEnv(
-  packKey: string,
-  env: EnvRecord = process.env
-): PriceIdResolution {
-  const names = FOLIO_PACK_PRICE_ENV_VARS[packKey as FolioPackId];
-  if (!names) return { ok: false, code: 'NOT_CONFIGURED', envVar: 'STRIPE_PRICE_FOLIO_*' };
-  return resolvePriceEnv(names, env);
-}
-
 /**
  * Entitlement lookup: an unrecognised key resolves to Inicial, the smallest
- * entitlement, so an unknown stored value never grants folios it did not buy.
+ * entitlement, so an unknown stored value never grants features it did not buy.
  * Use `normalizeTierKey` where an unknown key must be refused rather than
  * downgraded — charging is one of those places.
  */
@@ -245,12 +196,6 @@ export function getStripeTierConfig(tierKey: string): StripeTierConfig {
  */
 export function resolveTierPriceId(tierKey: string, env: EnvRecord = process.env): string | null {
   const resolved = resolveTierPriceEnv(tierKey, env);
-  return resolved.ok ? resolved.priceId : null;
-}
-
-/** The configured Stripe Price id for a folio pack, on the same terms. */
-export function resolveFolioPackPriceId(packKey: string, env: EnvRecord = process.env): string | null {
-  const resolved = resolveFolioPackPriceEnv(packKey, env);
   return resolved.ok ? resolved.priceId : null;
 }
 
@@ -375,75 +320,6 @@ export function createCheckoutPayload(
       subscription_data: { metadata },
       client_reference_id: organizationId,
       success_url: buildReturnUrl(returnUrl, 'session_id={CHECKOUT_SESSION_ID}&status=success'),
-      cancel_url: buildReturnUrl(returnUrl, 'status=cancelled'),
-    },
-  };
-}
-
-export type FolioPackPayloadResult =
-  | { ok: true; payload: Record<string, unknown>; packId: FolioPackId }
-  | { ok: false; code: 'UNKNOWN_PACK' }
-  | { ok: false; code: 'PRICE_NOT_CONFIGURED'; packId: FolioPackId; envVar: string }
-  | {
-      ok: false;
-      code: 'PRICE_ID_MALFORMED';
-      packId: FolioPackId;
-      envVar: string;
-      value: string;
-      shape: 'product' | 'other';
-    };
-
-export function createFolioPackCheckoutPayload(
-  packKey: string,
-  organizationId: string,
-  returnUrl?: string,
-  env: EnvRecord = process.env
-): FolioPackPayloadResult {
-  const pack = STRIPE_FOLIO_PACKS[packKey];
-  if (!pack) return { ok: false, code: 'UNKNOWN_PACK' };
-
-  const resolved = resolveFolioPackPriceEnv(pack.id, env);
-  if (!resolved.ok) {
-    if (resolved.code === 'NOT_A_PRICE_ID') {
-      return {
-        ok: false,
-        code: 'PRICE_ID_MALFORMED',
-        packId: pack.id,
-        envVar: resolved.envVar,
-        value: resolved.value,
-        shape: resolved.shape,
-      };
-    }
-    return {
-      ok: false,
-      code: 'PRICE_NOT_CONFIGURED',
-      packId: pack.id,
-      envVar: resolved.envVar,
-    };
-  }
-
-  const priceId = resolved.priceId;
-  return {
-    ok: true,
-    packId: pack.id,
-    payload: {
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        organization_id: organizationId,
-        pack_id: pack.id,
-        folios: pack.folios.toString(),
-      },
-      success_url: buildReturnUrl(
-        returnUrl,
-        `session_id={CHECKOUT_SESSION_ID}&status=success&pack=${pack.id}`
-      ),
       cancel_url: buildReturnUrl(returnUrl, 'status=cancelled'),
     },
   };

@@ -278,7 +278,7 @@ UI as *"CFDI de prueba (sin validez fiscal)"*, and refused outright in
 production.
 
 ### Still Open
-1. Folio-model residue in `lib/stripe.ts` — `createFolioPackCheckoutPayload`, `STRIPE_FOLIO_PACKS` and the `STRIPE_PRICE_FOLIO_*` env vars survive as dead code (no route ever created the session); removing them, and deciding whether to drop the folio ledger columns/RPCs from the schema, is follow-up to #221.
+1. Whether to drop the unused folio ledger (columns + RPCs) from the schema — a migration decision, #224. (The `lib/stripe.ts` folio-pack code went with #221's PR after its review found the plan `features` strings were *live* on the Ajustes billing card, not dead.)
 2. Additional adapters (FiscalAPI, SW Sapien) behind the same `PacProvider` interface.
 3. Cancelling a complemento de pago. `/api/invoices/[id]/cancel` cancels the invoice; a complement stamped in error has no route of its own, and the SAT requires cancelling the complement before the invoice it settles.
 4. The accountant export (`lib/accountantExport.ts`) still lists one CFDI per milestone. A PPD invoice's complements are stamped documents the accountant needs and are not in the package.

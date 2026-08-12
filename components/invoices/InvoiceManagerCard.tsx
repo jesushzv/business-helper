@@ -216,8 +216,8 @@ export function InvoiceManagerCard() {
     const res = await stampCFDI(milestoneId, method);
 
     if (!res.success) {
-      // The PAC's rejection is the actionable part — a missing RFC, an
-      // exhausted folio allowance, a key that is not connected.
+      // The PAC's rejection is the actionable part — a missing RFC, a key
+      // that is not connected.
       setStampError(res.error || 'No se pudo timbrar la factura');
       return;
     }
@@ -537,7 +537,7 @@ export function InvoiceManagerCard() {
                             // exactly this sentence: a confirmation that does
                             // not say what happens is a speed bump.
                             consequence:
-                              'Se usará 1 folio y la factura quedará registrada ante el SAT. Esta acción no se puede deshacer desde la app.',
+                              'Tu PAC te cobrará este timbrado y la factura quedará registrada ante el SAT. Esta acción no se puede deshacer desde la app.',
                             confirmLabel: 'Timbrar factura',
                             destructive: false,
                             onConfirm: () => handleStamp(inv.milestoneId),

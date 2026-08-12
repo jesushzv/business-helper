@@ -66,12 +66,6 @@ const EXPECTED_TIERS = [
   { id: 'empresa', envVars: ['STRIPE_PRICE_EMPRESA'], amountMxn: 999 },
 ];
 
-/** Mirrors STRIPE_FOLIO_PACKS. One-time purchases, not subscriptions. */
-const EXPECTED_PACKS = [
-  { id: 'folio_pack_50', envVars: ['STRIPE_PRICE_FOLIO_50'], amountMxn: 100 },
-  { id: 'folio_pack_200', envVars: ['STRIPE_PRICE_FOLIO_200'], amountMxn: 350 },
-];
-
 /** The events app/api/stripe/webhook/route.ts acts on. */
 const REQUIRED_EVENTS = [
   'checkout.session.completed',
@@ -287,7 +281,7 @@ async function checkPrice({ id, envVars, amountMxn }, { recurring }) {
           ? `every ${price.json.recurring.interval_count ?? 1} ${price.json.recurring.interval}`
           : 'one-time — a subscription cannot be created from it'
         : price.json.recurring
-          ? `recurring ${price.json.recurring.interval} — a folio pack must not renew`
+          ? `recurring ${price.json.recurring.interval} — a one-time price must not renew`
           : 'one-time',
     ],
     [
@@ -327,23 +321,8 @@ record(
   new Set(configuredIds).size === configuredIds.length ? 'no duplicates' : 'two tiers share one price id'
 );
 
-console.log('\nFolio packs (optional — see #24/#27)');
-
-let packsConfigured = 0;
-for (const pack of EXPECTED_PACKS) {
-  if (!firstConfigured(pack.envVars)) {
-    note(`${pack.id}: ${pack.envVars[0]} unset — packs cannot be bought yet`);
-    continue;
-  }
-  packsConfigured += 1;
-  await checkPrice(pack, { recurring: false });
-}
-
-if (packsConfigured === 0) {
-  // Not counted as an incomplete run: no code path sells a pack yet (#24), so
-  // there is nothing these prices could mis-charge.
-  note('nothing to check — no route sells a pack yet (#24)');
-}
+// Folio packs are gone (BYOK, #221): tenants stamp through their own PAC, so
+// there is no pack product to sell and no per-pack price variable to verify.
 
 // ---------------------------------------------------------------------------
 // Stage 4 — is the webhook that grants the tier registered

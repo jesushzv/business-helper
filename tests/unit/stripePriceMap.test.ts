@@ -3,9 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   STRIPE_PLANS,
-  STRIPE_FOLIO_PACKS,
   TIER_PRICE_ENV_VARS,
-  FOLIO_PACK_PRICE_ENV_VARS,
   normalizeTierKey,
   StripeTierId,
 } from '@/lib/stripe';
@@ -181,18 +179,12 @@ describe('the verify:stripe script checks the prices the app actually sells (#68
     }
   });
 
-  it('its folio pack table matches STRIPE_FOLIO_PACKS', () => {
-    const entries = tableEntries('EXPECTED_PACKS');
-    expect(entries).toHaveLength(Object.keys(STRIPE_FOLIO_PACKS).length);
-
-    for (const entry of entries) {
-      const pack = STRIPE_FOLIO_PACKS[entry.id];
-      expect(pack, `unknown pack "${entry.id}"`).toBeDefined();
-      expect(entry.amountMxn, `pack "${entry.id}"`).toBe(pack.price);
-      expect(entry.envVars, `pack "${entry.id}"`).toEqual(
-        FOLIO_PACK_PRICE_ENV_VARS[entry.id as keyof typeof FOLIO_PACK_PRICE_ENV_VARS]
-      );
-    }
+  it('checks no folio pack — the product no longer exists (#221 BYOK)', () => {
+    // A verify table for a product nobody can buy would report "checked" on a
+    // price that can mis-charge nobody and drift silently. (Its presence made
+    // the inverse of this assertion pass before #221's PR removed it.)
+    expect(script).not.toContain('EXPECTED_PACKS');
+    expect(script).not.toContain('STRIPE_PRICE_FOLIO');
   });
 
   it('it requires exactly the events the webhook route handles', () => {

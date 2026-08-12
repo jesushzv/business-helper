@@ -232,8 +232,11 @@ organization row.
   BYOK line across pricing, landing, FAQ, comparison tables and Ajustes; the platform-key fallback
   (`FACTURAPI_SECRET_KEY`, `source: 'platform'`, folio metering, `lib/cfdiFolios.ts`) removed from
   the code. Verified by `npx vitest run` + `tsc` + `next build` (copy pinned by
-  `tests/unit/copyRules.test.ts`, shown red first). Residue: dead folio-pack code in
-  `lib/stripe.ts` and the schema's unused folio ledger — parked as a decision in #224.
+  `tests/unit/copyRules.test.ts`, shown red first). The money-path review of the PR then found
+  `STRIPE_PLANS.features` still selling folios **live on the Ajustes billing card** — fixed in the
+  same PR along with the folio-pack machinery, `verify:stripe`'s pack stage, and the stale
+  deployment docs still instructing `FACTURAPI_SECRET_KEY`. Remaining residue: the schema's unused
+  folio ledger — parked as a decision in #224.
 
 ### P2 — Can trail launch by weeks
 
