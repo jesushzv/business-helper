@@ -134,6 +134,23 @@ export function validateInvoiceParties(
 }
 
 /**
+ * The receiver as Facturapi v2 expects it.
+ *
+ * One function because the shape had drifted into four call sites, and three of
+ * them carried the v1 form — `zip` flat on the customer — which v2 refuses with
+ * `unknown_field: customer.zip` (verified against the live sandbox 2026-08-12,
+ * #26). v2 nests it: `address: { zip }`.
+ */
+export function buildCFDICustomer(receiver: CFDIParty) {
+  return {
+    legal_name: receiver.name,
+    tax_id: receiver.rfc ? String(receiver.rfc).toUpperCase().trim() : '',
+    tax_system: receiver.regimen_fiscal || '',
+    address: { zip: receiver.codigo_postal || '' },
+  };
+}
+
+/**
  * Builds the Facturapi invoice body.
  *
  * The issuer is not part of it: a PAC stamps under the account the API key
@@ -152,16 +169,14 @@ export function buildCFDIPayload(
   const form = method === 'PPD' ? '99' : (options?.paymentForm || '03');
 
   return {
-    customer: {
-      legal_name: receiver.name,
-      tax_id: receiver.rfc ? String(receiver.rfc).toUpperCase().trim() : '',
-      tax_system: receiver.regimen_fiscal || '',
-      zip: receiver.codigo_postal || ''
-    },
+    customer: buildCFDICustomer(receiver),
     use: receiver.cfdi_use || 'G03',
     payment_form: form,
     payment_method: method,
     currency: 'MXN',
+    // v2 requires the priced concept nested under `product` — a flat item is
+    // refused with `required: items.0.product` / `unknown_field:
+    // items.0.product_key` (verified live 2026-08-12, #26).
     items: (items || []).map((item) => {
       const price = item.unit_price ?? item.amount ?? 0;
       // 84111506 is "Servicios de facturación"; it applies to the professional
@@ -172,16 +187,24 @@ export function buildCFDIPayload(
       const unitKey = item.unit || 'E48';
       return {
         quantity: item.quantity || 1,
-        product_key: productKey,
-        unit_key: unitKey,
-        description: item.description || 'Servicio Profesional',
-        price: price,
-        taxes: [
-          {
-            type: 'IVA',
-            rate: 0.16
-          }
-        ]
+        product: {
+          description: item.description || 'Servicio Profesional',
+          product_key: productKey,
+          unit_key: unitKey,
+          price: price,
+          // v2 defaults `tax_included` to TRUE: a price of 100 with 16% IVA
+          // stamps a document totalling 100, not 116 (observed live — a price
+          // of 116 with IVA 0.16 came back total 116, #26). The builders here
+          // send the pre-tax base, so the default silently understates every
+          // total by the IVA. Explicit, never inferred.
+          tax_included: false,
+          taxes: [
+            {
+              type: 'IVA',
+              rate: 0.16
+            }
+          ]
+        }
       };
     })
   };
@@ -274,11 +297,19 @@ export function buildMilestoneLineItem(
 ) {
   return {
     quantity: 1,
-    product_key: satProductCode || '84111506',
-    unit_key: 'E48',
-    description,
-    price: Math.round(amountCharged * treatment.baseRatio * 100) / 100,
-    taxes: treatment.taxes,
+    // Nested per v2 — see the note in buildCFDIPayload. The taxes ride inside
+    // `product` so Facturapi computes the document totals from the base.
+    product: {
+      description,
+      product_key: satProductCode || '84111506',
+      unit_key: 'E48',
+      price: Math.round(amountCharged * treatment.baseRatio * 100) / 100,
+      // The price above is the pre-tax base (that is what baseRatio exists
+      // for), and v2's tax_included defaults to true — which would read the
+      // base as the final total and stamp the milestone short by the IVA.
+      tax_included: false,
+      taxes: treatment.taxes,
+    },
   };
 }
 
@@ -380,12 +411,7 @@ export function buildComplementoPagoPayload(input: ComplementoPagoInput) {
 
   return {
     type: 'P' as const,
-    customer: {
-      legal_name: input.customer.name,
-      tax_id: input.customer.rfc ? String(input.customer.rfc).toUpperCase().trim() : '',
-      tax_system: input.customer.regimen_fiscal || '',
-      zip: input.customer.codigo_postal || '',
-    },
+    customer: buildCFDICustomer(input.customer),
     complements: [
       {
         type: 'pago' as const,

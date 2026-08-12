@@ -434,9 +434,12 @@ export async function issuePaymentComplement(
     treatment: deriveCFDITaxTreatment(quote as QuoteTaxProfile | null),
   });
 
-  // Keyed by milestone *and* parcialidad: a retry after a timeout must not
-  // stamp the same payment twice, but the second genuine payment on the same
-  // invoice is a different document and must not be deduplicated into the first.
+  // Keyed by milestone *and* parcialidad, but as a correlation id only —
+  // Facturapi does not deduplicate on external_id (verified live 2026-08-12,
+  // #26). What actually prevents a retry stamping the same parcialidad twice
+  // is the unique index on (milestone_id, installment) that the insert below
+  // hits; the second genuine payment carries the next installment number and
+  // passes it.
   const stamp = await stampInvoice(
     credentials,
     payload as unknown as Record<string, unknown>,
