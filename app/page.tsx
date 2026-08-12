@@ -613,7 +613,7 @@ export default function LandingPage() {
                 <span>Garantía de Seguridad SAT: Nunca Almacenamos tus Certificados</span>
               </div>
               <p className="text-xs text-slate-300">
-                Tus certificados digitales (.cer/.key) se mantienen 100% seguros con tu PAC de confianza (Facturapi, Facturama, FiscalAPI). Nosotros solo enviamos los datos de la factura.
+                Tus certificados digitales (.cer/.key) se mantienen 100% seguros con tu PAC de confianza (Facturapi). Nosotros solo enviamos los datos de la factura.
               </p>
             </div>
             <div className="shrink-0 text-xs bg-slate-900/80 px-4 py-2.5 rounded-xl border border-slate-800 text-slate-200">

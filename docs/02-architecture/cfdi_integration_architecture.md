@@ -171,7 +171,9 @@ their CSD never leaves their PAC. Business Helper charges for the workflow
 lives in other features.
 
 ### Trust Messaging for Landing Page
-> *"Nunca almacenamos tus certificados SAT. Conecta tu PAC de confianza (Facturama, FiscalAPI, SW Sapien) y nosotros enviamos los datos. Tú mantienes el control total."*
+> *"Nunca almacenamos tus certificados SAT. Conecta tu PAC de confianza (Facturapi) y nosotros enviamos los datos. Tú mantienes el control total."*
+
+(Facturapi only, until a second adapter exists — #226.)
 
 ---
 
@@ -197,9 +199,8 @@ lib/complementoPago.ts → whether a PPD payment owes a complement, and filing i
 
 Database (20260807120000_cfdi_pac_integration.sql)
   pac_connections            — provider, sealed api key, hint, environment (owner-only RLS)
-  organizations.cfdi_folios_used / _period / _purchased   — retained in schema, unread since #221
-  reserve_cfdi_folio() / release_cfdi_folio()  — SECURITY DEFINER, service_role only; uncalled
-                                                 since #221 (dropping both is a separate migration decision)
+  organizations.cfdi_folios_* and reserve/release_cfdi_folio()  — dropped by
+    20260812182430_drop_cfdi_folio_ledger.sql (#224; unread/uncalled since #221)
   milestones.cfdi_uuid / _provider / _environment / _xml_path / _pdf_path
            / _stamped_at / _cancelled_at / _error
   csd_credentials            — dropped (see §02; nothing may store a CSD here)
@@ -278,10 +279,9 @@ UI as *"CFDI de prueba (sin validez fiscal)"*, and refused outright in
 production.
 
 ### Still Open
-1. Whether to drop the unused folio ledger (columns + RPCs) from the schema — a migration decision, #224. (The `lib/stripe.ts` folio-pack code went with #221's PR after its review found the plan `features` strings were *live* on the Ajustes billing card, not dead.)
-2. Additional adapters (FiscalAPI, SW Sapien) behind the same `PacProvider` interface.
-3. Cancelling a complemento de pago. `/api/invoices/[id]/cancel` cancels the invoice; a complement stamped in error has no route of its own, and the SAT requires cancelling the complement before the invoice it settles.
-4. The accountant export (`lib/accountantExport.ts`) still lists one CFDI per milestone. A PPD invoice's complements are stamped documents the accountant needs and are not in the package.
+1. Additional adapters (Facturama, FiscalAPI, SW Sapien) behind the same `PacProvider` interface. Until one exists, user-facing copy names **Facturapi only** (#226) — naming a PAC the connect form refuses is an overstatement.
+2. Cancelling a complemento de pago. `/api/invoices/[id]/cancel` cancels the invoice; a complement stamped in error has no route of its own, and the SAT requires cancelling the complement before the invoice it settles.
+3. The accountant export (`lib/accountantExport.ts`) still lists one CFDI per milestone. A PPD invoice's complements are stamped documents the accountant needs and are not in the package.
 
 ---
 

@@ -235,8 +235,13 @@ organization row.
   `tests/unit/copyRules.test.ts`, shown red first). The money-path review of the PR then found
   `STRIPE_PLANS.features` still selling folios **live on the Ajustes billing card** — fixed in the
   same PR along with the folio-pack machinery, `verify:stripe`'s pack stage, and the stale
-  deployment docs still instructing `FACTURAPI_SECRET_KEY`. Remaining residue: the schema's unused
-  folio ledger — parked as a decision in #224.
+  deployment docs still instructing `FACTURAPI_SECRET_KEY`. The last residue fell 2026-08-12: the
+  founder chose **drop** on #224, and `20260812182430_drop_cfdi_folio_ledger.sql` removed the
+  `cfdi_folios_*` columns and both folio RPCs — measured first (1 org, all counters zero, nothing
+  discarded), applied to production via the connector, and verified by reading the catalog back
+  (columns and functions absent). #226 (copy promised PACs the form refuses) closed with the same
+  PR: rendered copy names Facturapi only, pinned by `tests/unit/copyRules.test.ts` (shown red on a
+  plant).
 
 ### P2 — Can trail launch by weeks
 
