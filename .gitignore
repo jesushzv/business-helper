@@ -40,3 +40,8 @@ Thumbs.db
 
 # media & demo assets
 /assets/
+
+# Claude Code: shared rules live in .claude/settings.json (committed). This file is
+# where "Yes, don't ask again" writes each person's own approvals — personal, and a
+# guaranteed conflict if committed.
+.claude/settings.local.json
