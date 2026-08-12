@@ -69,7 +69,7 @@ export function FaqAccordion() {
             </button>
 
             {isOpen && (
-              <div className="px-5 pb-6 pt-0 sm:px-6 text-slate-300 text-xs sm:text-sm leading-relaxed border-t border-slate-800/60 mt-1 pt-4 pl-16">
+              <div className="px-5 pb-6 sm:px-6 text-slate-300 text-xs sm:text-sm leading-relaxed border-t border-slate-800/60 mt-1 pt-4 pl-16">
                 {faq.answer}
               </div>
             )}

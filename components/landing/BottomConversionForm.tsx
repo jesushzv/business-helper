@@ -9,7 +9,9 @@ export function BottomConversionForm() {
   const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [acceptTerms, setAcceptTerms] = useState(true);
+  // Consent starts unchecked: LFPDPPP consent is an affirmative act, and the
+  // input is `required` anyway — pre-checking it only removed the act (#232).
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

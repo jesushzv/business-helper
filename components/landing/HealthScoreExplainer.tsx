@@ -4,32 +4,45 @@ import React from 'react';
 import { Activity, ShieldCheck, AlertTriangle, AlertCircle, TrendingUp } from 'lucide-react';
 
 export function HealthScoreExplainer() {
+  // Mirrors the shipped engine — lib/clientHealthScore.ts computes exactly
+  // these four tiers (≥90 / 75–89 / 50–74 / <50) with these labels. The page
+  // used to advertise three different tiers with mechanics the engine does
+  // not have (#232); if the engine's cuts change, change this with it.
   const tiers = [
     {
       score: '90–100',
-      label: 'Cliente de Alto Valor',
+      label: 'Excelente',
       color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
       badgeColor: 'bg-emerald-500 text-slate-950',
       icon: ShieldCheck,
-      desc: 'Historial de pago impecable (<3 días de vencimiento). Envíos y confirmaciones inmediatas por WhatsApp.',
+      desc: 'Paga a tiempo y no tiene saldos vencidos. Aprueba y confirma sin necesidad de recordatorios.',
       recommendation: 'Recomendación: Otorgar días de crédito ampliados y prioridad en suministro.',
     },
     {
-      score: '70–89',
-      label: 'Riesgo Moderado',
+      score: '75–89',
+      label: 'Bueno',
+      color: 'text-sky-400 border-sky-500/30 bg-sky-500/10',
+      badgeColor: 'bg-sky-500 text-slate-950',
+      icon: ShieldCheck,
+      desc: 'Buen pagador con retrasos ocasionales de pocos días. Responde bien a los recordatorios.',
+      recommendation: 'Recomendación: Enviar recordatorios automáticos antes del vencimiento.',
+    },
+    {
+      score: '50–74',
+      label: 'En Riesgo',
       color: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
       badgeColor: 'bg-amber-500 text-slate-950',
       icon: AlertTriangle,
-      desc: 'Pagos recurrentes pero con retrasos leves de 5 a 12 días. Requiere recordatorios por WhatsApp.',
-      recommendation: 'Recomendación: Enviar recordatorios automáticos 3 días antes del vencimiento.',
+      desc: 'Acumula saldos vencidos o retrasos frecuentes. Requiere seguimiento cercano de cobranza.',
+      recommendation: 'Recomendación: Limitar el crédito y dar seguimiento por WhatsApp a cada factura.',
     },
     {
-      score: '<70',
-      label: 'Riesgo Severo',
+      score: '<50',
+      label: 'Moroso',
       color: 'text-rose-400 border-rose-500/30 bg-rose-500/10',
       badgeColor: 'bg-rose-500 text-white',
       icon: AlertCircle,
-      desc: 'Múltiples facturas o cotizaciones vencidas >15 días. Promesas de pago incumplidas.',
+      desc: 'Facturas vencidas por más de 30 días o promesas de pago incumplidas.',
       recommendation: 'Recomendación: Solicitar anticipo del 50% antes de generar nuevas cotizaciones.',
     },
   ];
@@ -43,7 +56,7 @@ export function HealthScoreExplainer() {
             <span>Inteligencia de Cobranza</span>
           </div>
           <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Score de Salud del Cliente (0–100)
+            Confianza de Pago (0–100)
           </h3>
           <p className="text-slate-400 text-xs sm:text-sm max-w-2xl">
             Protege tu flujo de efectivo evaluando automáticamente el riesgo crediticio de cada cliente antes de surtir o enviar nuevas cotizaciones.
@@ -55,7 +68,7 @@ export function HealthScoreExplainer() {
             94
           </div>
           <div className="text-xs">
-            <div className="font-bold text-white">Ejemplo: cliente confiable</div>
+            <div className="font-bold text-white">Ejemplo: cliente Excelente</div>
             <div className="text-emerald-400 font-semibold flex items-center gap-1">
               <TrendingUp className="w-3.5 h-3.5" /> Calculado del historial real de pagos
             </div>
@@ -63,7 +76,7 @@ export function HealthScoreExplainer() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {tiers.map((tier, idx) => {
           const Icon = tier.icon;
           return (

@@ -23,6 +23,7 @@ const COPY_MODULES = [
   'lib/tierFeaturesData.ts',
   'lib/trustData.ts',
   'lib/helpFAQ.ts',
+  'lib/landingFaq.ts',
 ];
 
 /** Jargon that must never appear in something a tenant reads. */
@@ -42,6 +43,10 @@ const BANNED = [
   'Health Score',
   'Kanban',
   'Cash Flow',
+  // #232: English feature-jargon that slipped past the original list.
+  'Self-Serve',
+  'Click-to-Chat',
+  '1-Tap',
 ];
 
 function tsxFiles(dir: string): string[] {

@@ -19,7 +19,7 @@ describe('ComparisonSection Component Suite', () => {
     render(<ComparisonSection />);
     expect(screen.getAllByText('Tiempo por Cotización').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Firma Legal & Aceptación OTP').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Score de Salud del Cliente/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Confianza de Pago/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Timbrado CFDI 4.0 PAC').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Precio & Modelo de Licencia').length).toBeGreaterThan(0);
   });

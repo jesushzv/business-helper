@@ -41,6 +41,9 @@ describe('BottomConversionForm hands the visitor’s answers to /register', () =
     fireEvent.change(businessInput(), { target: { value: 'Materiales Elizondo S.A. de C.V.' } });
     fireEvent.change(phoneInput(), { target: { value: '8112345678' } });
     fireEvent.change(emailInput(), { target: { value: 'contacto@elizondo.mx' } });
+    // Consent starts unchecked (#232); the visitor performs the affirmative
+    // act, and jsdom enforces `required` on a click-submit just like a browser.
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(submit());
 
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
@@ -75,7 +78,10 @@ describe('BottomConversionForm hands the visitor’s answers to /register', () =
     render(<BottomConversionForm />);
 
     const consent = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    expect(consent.checked).toBe(true);
+    // Unchecked by default: LFPDPPP consent is an affirmative act the visitor
+    // performs, not a default they'd have to notice and undo (#232). This
+    // assertion previously pinned the pre-checked box.
+    expect(consent.checked).toBe(false);
     expect(consent.required).toBe(true);
     expect(screen.getByText(/Aviso de Privacidad/i).getAttribute('href')).toBe('/privacy');
     expect(screen.getByText(/Términos y Condiciones/i).getAttribute('href')).toBe('/terms');
