@@ -467,6 +467,8 @@ export interface Database {
           cfdi_total: number | null;
           confirmed_at: string | null;
           created_at: string;
+          /** 1..n for conversion-created rows; null for manual cobros (#222). */
+          conversion_position: number | null;
         };
         Insert: {
           id?: string;
@@ -475,6 +477,7 @@ export interface Database {
           label: string;
           amount: number;
           due_date: string;
+          conversion_position?: number | null;
           status?: 'pending' | 'requested' | 'marked_paid' | 'confirmed';
           receipt_url?: string | null;
           tracking_reference?: string | null;
