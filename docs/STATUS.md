@@ -58,7 +58,7 @@ completion claim needs checking against source. The full findings are in
 
 | Metric | State |
 |:---|:---|
-| Test suite | **1637 tests / 168 files**, `npx vitest run` on `main` @ `719ec20` plus the Sentry SDK branch (2026-08-12). The `scripts/test-runner.js` that reported "182/182" no longer exists |
+| Test suite | **1659 tests / 171 files**, `npx vitest run` on `main` @ `ed322ee` plus the Gemini assistant branch (2026-08-12). The `scripts/test-runner.js` that reported "182/182" no longer exists |
 | Coverage gate | 85/85/80/80 is configured and **fails**; CI does not run it ([#51](https://github.com/jesushzv/business-helper/issues/51)). Judge a change on the delta, not the absolute |
 | Error monitoring | ~~Not live — `lib/sentry.ts` only called `console.error`.~~ ~~Code transmits since 2026-08-11 over a raw `fetch` envelope.~~ **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling. Coverage was the reason: the hand-rolled transport could not see an unhandled Server Component, render or Edge error. PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | `playwright.config.ts` and `tests/e2e/` exist; **never executed in any verification pass** ([#69](https://github.com/jesushzv/business-helper/issues/69)) and 8 of 10 scenarios are stale, two asserting defects since remediated ([#91](https://github.com/jesushzv/business-helper/issues/91)). Treat every Playwright claim as unverified |
