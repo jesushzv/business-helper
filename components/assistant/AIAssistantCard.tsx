@@ -44,15 +44,16 @@ export function AIAssistantCard() {
         </p>
       </div>
 
-      {/* What this assistant actually is. The card presented keyword matching
-          over a fixed sample ledger as an AI reading the user's business; both
-          halves of that are now stated. */}
+      {/* What this assistant actually is. The card once presented keyword
+          matching over a fixed sample ledger as an AI reading the user's
+          business; the banner states the grounding, and each answer carries a
+          badge naming the engine that actually wrote it. */}
       <div className="flex items-start gap-2 p-4 rounded-2xl border border-slate-800 bg-slate-900/90 text-sm text-slate-300">
         <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
         <span>
           {isDemoMode
             ? 'Estás viendo la demostración: las respuestas usan un negocio de ejemplo, no datos reales.'
-            : 'Las respuestas se calculan con reglas sobre tus clientes y cobros registrados.'}
+            : 'Las respuestas se basan únicamente en tus clientes y cobros registrados.'}
         </span>
       </div>
 
@@ -113,6 +114,15 @@ export function AIAssistantCard() {
                 {item.isDemo && (
                   <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-950/80 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
                     Ejemplo
+                  </span>
+                )}
+                {item.engine === 'gemini' ? (
+                  <span className="text-[10px] font-bold uppercase tracking-wide bg-indigo-950/80 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30">
+                    Redactada con IA
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold uppercase tracking-wide bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
+                    Calculada con reglas
                   </span>
                 )}
                 {item.timestamp}

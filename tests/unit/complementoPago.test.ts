@@ -185,9 +185,11 @@ describe('The complement is actually sent', () => {
     expect(migration).toContain('cfdi_payment_method');
   });
 
-  it('spends a folio on the complement, since the PAC charges for it', () => {
-    expect(library).toContain('reserve_cfdi_folio');
-    expect(library).toContain('release_cfdi_folio');
+  it('meters no folios — the tenant PAC bills the complement directly (#221)', () => {
+    // BYOK: the platform account and its folio ledger are gone; the inverse of
+    // this assertion passed against the pre-#221 tree, so the absence is real.
+    expect(library).not.toContain('reserve_cfdi_folio');
+    expect(library).not.toContain('release_cfdi_folio');
   });
 
   it('keys PAC idempotency on the parcialidad, not just the cobro', () => {

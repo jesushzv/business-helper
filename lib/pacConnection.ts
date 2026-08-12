@@ -1,21 +1,19 @@
 /**
  * Resolves which PAC account an organization stamps through.
  *
- * Two sources, in order of preference (integration architecture §06):
+ * One source (BYOK decision, docs/STATUS.md §05): the organization's own PAC
+ * key, connected in Ajustes. Its CSD lives with its PAC; we hold a revocable
+ * API key and nothing else. The platform never stamps on a tenant's behalf —
+ * the FACTURAPI_SECRET_KEY fallback that used to sit behind this was removed
+ * with #221.
  *
- *   1. The organization's own PAC key, connected in Ajustes. Its CSD lives with
- *      its PAC; we hold a revocable API key and nothing else.
- *   2. The platform's PAC account, for tenants who have not connected one.
- *      Those stamps are metered against the plan's folio allowance, because the
- *      platform pays the PAC for them.
- *
- * There is no third source. When neither exists the caller gets an error — the
- * previous behaviour, falling through to a fabricated stamp, is what made the
- * product record invoices the SAT had never seen.
+ * There is no second source. When no key is connected the caller gets an
+ * error — the previous behaviour, falling through to a fabricated stamp, is
+ * what made the product record invoices the SAT had never seen.
  */
 
 import { openPacApiKey, detectPacEnvironment } from './pacCredentials';
-import { getPlatformPacCredentials, type PacCredentials, type PacProvider } from './pacClient';
+import { type PacCredentials, type PacProvider } from './pacClient';
 
 /** The query surface used here; the service-role client satisfies it. */
 interface QueryableClient {
@@ -36,12 +34,11 @@ export type PacResolution =
   | { ok: false; code: 'PAC_NOT_CONNECTED' | 'PAC_KEY_UNREADABLE'; message: string };
 
 /**
- * Reads the organization's connection, falling back to the platform account.
+ * Reads the organization's connection.
  *
  * A stored key that will not open — PAC_ENCRYPTION_KEY rotated, row tampered
- * with — is reported rather than quietly replaced by the platform account: the
- * tenant chose to stamp under their own RFC, and doing it under ours instead
- * would issue the invoice from the wrong taxpayer.
+ * with — is reported as its own case: reconnecting the key in Ajustes is the
+ * fix, and nothing else may stamp in its place.
  */
 export async function resolvePacCredentials(
   client: QueryableClient,
@@ -78,11 +75,6 @@ export async function resolvePacCredentials(
         source: 'organization',
       },
     };
-  }
-
-  const platform = getPlatformPacCredentials();
-  if (platform) {
-    return { ok: true, credentials: platform };
   }
 
   return {

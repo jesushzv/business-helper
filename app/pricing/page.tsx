@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import { Check, Sparkles, Zap, ArrowRight, ShieldCheck, HelpCircle } from 'lucide-react';
 import { FaqAccordion } from '@/components/landing/FaqAccordion';
-import { FolioCalculator } from '@/components/pricing/FolioCalculator';
 import { PricingComparisonTable } from '@/components/pricing/PricingComparisonTable';
 import { getAssetUrl } from '@/lib/url';
 
@@ -19,7 +18,7 @@ const PRICING_PLANS = [
     badge: 'Cobranza Básica',
     features: [
       'Hasta 50 cotizaciones al mes',
-      'Timbrado CFDI 4.0 disponible ($5 MXN / folio)',
+      'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Envío interactivo por WhatsApp',
       'Validación de comprobantes SPEI',
       'Firma de cotizaciones vía OTP',
@@ -38,7 +37,7 @@ const PRICING_PLANS = [
     badge: 'Más Popular — Recomendado',
     features: [
       'Cotizaciones ILIMITADAS',
-      '10 folios CFDI 4.0/mes incluidos ($3 MXN / folio adicional)',
+      'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Conciliación automática SPEI Banxico',
       'Firma digital OTP con evidencia legal',
       'Reportes de cobranza & score de clientes',
@@ -58,7 +57,7 @@ const PRICING_PLANS = [
     badge: 'Multi-sucursal',
     features: [
       'Todo lo del Plan Negocio',
-      '50 folios CFDI 4.0/mes incluidos ($2 MXN / folio adicional)',
+      'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Usuarios e integrantes ILIMITADOS',
       'Acceso multi-tenant y sucursales',
       'Exportación automática 1-Clic para Contador (ZIP)',
@@ -170,11 +169,6 @@ export default function PricingPage() {
               </Link>
             </div>
           ))}
-        </div>
-
-        {/* Interactive Folio Cost Calculator */}
-        <div className="pt-8">
-          <FolioCalculator />
         </div>
 
         {/* Side-by-Side Feature Comparison Table */}

@@ -37,7 +37,7 @@ export function ComparisonSection() {
     },
     {
       feature: 'Timbrado CFDI 4.0 PAC',
-      bh: 'Sí (Integración PAC Facturapi, $2–$5 MXN/folio)',
+      bh: 'Sí (con tu propio PAC Facturapi; tu proveedor te cobra el timbrado)',
       manual: 'No (sitio SAT lento o sin PAC)',
       traditional: 'Licencias costosas o módulos opcionales',
     },

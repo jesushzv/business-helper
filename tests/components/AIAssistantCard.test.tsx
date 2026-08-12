@@ -67,7 +67,22 @@ describe('a real tenant’s question is answered from their own records', () => 
     await screen.findByText(/Constructora del Bajío te debe \$18,400\.00 MXN/);
     // No "Ejemplo" badge: this answer is the tenant's own data.
     expect(screen.queryByText('Ejemplo')).toBeNull();
-    expect(screen.getByText(/Las respuestas se calculan con reglas sobre tus clientes/i)).toBeTruthy();
+    expect(screen.getByText(/Las respuestas se basan únicamente en tus clientes/i)).toBeTruthy();
+    // The server named no engine, so the answer must not be dressed up as AI.
+    expect(screen.getByText('Calculada con reglas')).toBeTruthy();
+    expect(screen.queryByText('Redactada con IA')).toBeNull();
+  });
+
+  it('labels a model-written answer as AI only when the server says so', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ...REAL_ANSWER, engine: 'gemini' }));
+    render(<AIAssistantCard />);
+
+    fireEvent.change(askInput(), { target: { value: '¿Qué cliente me debe más?' } });
+    fireEvent.click(send());
+
+    await screen.findByText(/Constructora del Bajío te debe \$18,400\.00 MXN/);
+    expect(screen.getByText('Redactada con IA')).toBeTruthy();
+    expect(screen.queryByText('Calculada con reglas')).toBeNull();
   });
 
   it('says a failed question failed instead of leaving the feed blank', async () => {

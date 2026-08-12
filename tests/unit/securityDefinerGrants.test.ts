@@ -123,8 +123,12 @@ describe('SECURITY DEFINER functions revoke EXECUTE from anon and authenticated 
   const sql = combinedSql();
 
   it('finds the SECURITY DEFINER functions at all', () => {
-    // A scan that matches nothing passes vacuously. These three exist today;
-    // if the count drops, the parser broke rather than the debt clearing.
+    // A scan that matches nothing passes vacuously. These three are what the
+    // migration *files* define — the positive control for the parser. Two of
+    // them (the folio RPCs) were dropped live by 20260812182430 (#224); this
+    // file-based scan intentionally still sees their historical definitions,
+    // because applied migrations are never edited. If the count drops, the
+    // parser broke rather than the debt clearing.
     //
     // Deduplicated by name: a function may be defined by one migration and
     // redefined by a later `CREATE OR REPLACE`, which is how #146 restored

@@ -58,7 +58,7 @@ completion claim needs checking against source. The full findings are in
 
 | Metric | State |
 |:---|:---|
-| Test suite | **1637 tests / 168 files**, `npx vitest run` on `main` @ `719ec20` plus the Sentry SDK branch (2026-08-12). The `scripts/test-runner.js` that reported "182/182" no longer exists |
+| Test suite | **1659 tests / 171 files**, `npx vitest run` on `main` @ `ed322ee` plus the Gemini assistant branch (2026-08-12). The `scripts/test-runner.js` that reported "182/182" no longer exists |
 | Coverage gate | 85/85/80/80 is configured and **fails**; CI does not run it ([#51](https://github.com/jesushzv/business-helper/issues/51)). Judge a change on the delta, not the absolute |
 | Error monitoring | ~~Not live — `lib/sentry.ts` only called `console.error`.~~ ~~Code transmits since 2026-08-11 over a raw `fetch` envelope.~~ **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling. Coverage was the reason: the hand-rolled transport could not see an unhandled Server Component, render or Edge error. PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | `playwright.config.ts` and `tests/e2e/` exist; **never executed in any verification pass** ([#69](https://github.com/jesushzv/business-helper/issues/69)) and 8 of 10 scenarios are stale, two asserting defects since remediated ([#91](https://github.com/jesushzv/business-helper/issues/91)). Treat every Playwright claim as unverified |
@@ -227,9 +227,21 @@ organization row.
   been walked end to end on the deployment, and `/api/health` has never been called against it.
 - ~~**CFDI folio billing** (#24, #27).~~ **Superseded by the BYOK decision (§05, 2026-08-12)** —
   the platform does not stamp on behalf of tenants, so folio packs and per-folio metering have no
-  billable event; both issues closed as not planned. What replaces them is a **copy sweep**: the
-  pricing page, FAQ, comparison table and the Ajustes folio box still advertise included folios and
-  $/folio prices the product will never collect — tracked with file:line in the follow-up issue.
+  billable event; both issues closed as not planned. The copy sweep that replaced them (**#221**)
+  landed 2026-08-12: every folio-inclusion/$-per-folio claim replaced with the founder-approved
+  BYOK line across pricing, landing, FAQ, comparison tables and Ajustes; the platform-key fallback
+  (`FACTURAPI_SECRET_KEY`, `source: 'platform'`, folio metering, `lib/cfdiFolios.ts`) removed from
+  the code. Verified by `npx vitest run` + `tsc` + `next build` (copy pinned by
+  `tests/unit/copyRules.test.ts`, shown red first). The money-path review of the PR then found
+  `STRIPE_PLANS.features` still selling folios **live on the Ajustes billing card** — fixed in the
+  same PR along with the folio-pack machinery, `verify:stripe`'s pack stage, and the stale
+  deployment docs still instructing `FACTURAPI_SECRET_KEY`. The last residue fell 2026-08-12: the
+  founder chose **drop** on #224, and `20260812182430_drop_cfdi_folio_ledger.sql` removed the
+  `cfdi_folios_*` columns and both folio RPCs — measured first (1 org, all counters zero, nothing
+  discarded), applied to production via the connector, and verified by reading the catalog back
+  (columns and functions absent). #226 (copy promised PACs the form refuses) closed with the same
+  PR: rendered copy names Facturapi only, pinned by `tests/unit/copyRules.test.ts` (shown red on a
+  plant).
 
 ### P2 — Can trail launch by weeks
 
@@ -244,8 +256,14 @@ organization row.
   RLS-on-every-table. Shown red against a planted anon leak; making double-apply pass surfaced 16
   non-idempotent statements, all fixed. **It builds from the migration files, so #204's divergence is
   invisible to it.** Requiring the check in branch protection remains #38.
-- `parseNaturalLanguageQuery` is keyword matching rather than a model. It now reports `engine: 'rules'`
-  instead of implying otherwise, so it is honest but not intelligent. Degrades gracefully; does not gate launch.
+- ~~`parseNaturalLanguageQuery` is keyword matching rather than a model.~~ **Gemini wired 2026-08-12**
+  (`lib/geminiClient.ts`, raw REST): with `GEMINI_API_KEY` set — the founder configured it on Vercel —
+  the assistant routes have the model write the answer prose around figures the rules engine computed
+  from the tenant's rows; each answer is labeled `engine: 'gemini' | 'rules'` for whichever wrote it,
+  and any Gemini failure degrades to the labeled rules answer (reported to Sentry). **Verified against
+  a mocked `fetch` only — no session has held the key, so no live call has run** (the #26 lesson says
+  to exercise it once). `npm run verify:gemini` is that check, runnable wherever the key exists;
+  until it passes, treat the model half as wired but unproven. Does not gate launch.
 - Animated demo video — storyboarded in [`demo_video_storyboard.md`](03-product-specs/demo_video_storyboard.md), not produced.
 
 ---

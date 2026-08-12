@@ -6,6 +6,7 @@ import {
   matchFAQSupportQuery,
   buildAIPromptContext,
   buildAISupportPromptContext,
+  buildGroundedAssistantPrompt,
   parseNaturalLanguageQuery,
   TIER_AI_QUOTAS,
 } from '@/lib/whatsappAI';
@@ -106,6 +107,32 @@ describe('In-app AI support routing', () => {
 
     expect(prompt).toContain('Grupo Salinas');
     expect(prompt).toContain('45,000');
+  });
+});
+
+describe('Grounded model prompt', () => {
+  const orgData = {
+    clients: [{ id: 'c1', name: 'Constructora Maya', phone: '8112223344' }],
+    receivables: [{ clientId: 'c1', amount: 45000, status: 'pending' as const, label: 'Anticipo' }],
+  };
+
+  it('pins the tenant figures and the rules answer, and forbids inventing numbers', () => {
+    const rules = parseNaturalLanguageQuery('¿Cuánto debe Constructora Maya?', orgData);
+    const prompt = buildGroundedAssistantPrompt('¿Cuánto debe Constructora Maya?', rules, orgData);
+
+    expect(prompt).toContain('Constructora Maya: $45,000.00 MXN');
+    expect(prompt).toContain('Total por cobrar: $45,000.00 MXN');
+    expect(prompt).toContain(rules.answerText);
+    expect(prompt).toContain('ÚNICAMENTE');
+    expect(prompt).toContain('Nunca inventes montos');
+  });
+
+  it('states that there is no data instead of leaving a gap the model could fill', () => {
+    const rules = parseNaturalLanguageQuery('¿Cuánto me deben?', {});
+    const prompt = buildGroundedAssistantPrompt('¿Cuánto me deben?', rules, {});
+
+    expect(prompt).toContain('(sin clientes registrados)');
+    expect(prompt).toContain('Total por cobrar: $0.00 MXN');
   });
 });
 

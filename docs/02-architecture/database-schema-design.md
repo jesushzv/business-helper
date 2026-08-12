@@ -49,9 +49,7 @@
   'incomplete_expired' (widened in `20260806120000`; the union lives once in
   `lib/stripe.ts` as `SUBSCRIPTION_STATUSES`, #116)
 - `facturapi_organization_id`: text (nullable) -- Linked PAC tenant ID
-- `cfdi_folios_used`: integer (not null, default: `0`) -- Folios spent inside `cfdi_folios_period`
-- `cfdi_folios_period`: text (nullable) -- 'YYYY-MM' the counter above describes
-- `cfdi_folios_purchased`: integer (not null, default: `0`) -- Pack folios; do not expire monthly
+- ~~`cfdi_folios_used` / `cfdi_folios_period` / `cfdi_folios_purchased`~~ -- dropped in `20260812182430` (#224, BYOK: nothing meters folios)
 - `bank_name`: text (nullable) -- SPEI settlement account (`20260806120000`)
 - `bank_clabe`: text (nullable) -- 18-digit CLABE; absence blocks `/pay/` (#64); emptying it clears all three columns (#163)
 - `bank_account_holder`: text (nullable)
@@ -216,6 +214,7 @@
 - `cfdi_error`: text (nullable) -- Why the last attempt failed, in the user's language
 - `confirmed_at`: timestamptz (nullable)
 - `created_at`: timestamptz (not null, default: `now()`)
+- `conversion_position`: smallint (nullable, `chk_` >= 1) -- 1..n for rows created by quote conversion; NULL for manual cobros. UQ with `contract_id` where not null (`uq_milestones_contract_conversion_position`), so a concurrent double-conversion cannot double the schedule (#222)
 
 #### `pac_connections`
 

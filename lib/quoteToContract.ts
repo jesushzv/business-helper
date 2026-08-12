@@ -51,6 +51,13 @@ export interface ContractResult {
     amount: number;
     due_date: string;
     status: string;
+    /**
+     * 1..n position in the conversion schedule. The partial unique index
+     * `uq_milestones_contract_conversion_position` makes a concurrent
+     * double-conversion collide at the database instead of doubling the
+     * receivable (#222). Manual cobros leave the column NULL.
+     */
+    conversion_position: number;
   }>;
 }
 
@@ -108,6 +115,7 @@ export function convertQuoteToContract(quote: QuoteData, splitRatio: number[] = 
       amount: amt,
       due_date: dueDate.toISOString().split('T')[0],
       status: 'pending',
+      conversion_position: i + 1,
     });
   }
 

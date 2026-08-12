@@ -71,7 +71,7 @@ export const APP_TIERS: TierConfig[] = [
       'Recordatorios por WhatsApp con 1 toque',
       'Validación de comprobantes SPEI Banxico',
       'Gestión de hasta 15 clientes',
-      'Facturación CFDI 4.0 disponible ($5 MXN/folio o con tu PAC)',
+      'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Reporte básico de cobranza',
       'Soporte por correo electrónico',
     ],
@@ -87,7 +87,7 @@ export const APP_TIERS: TierConfig[] = [
     targetAudience: 'Hasta 3 usuarios • Clientes ilimitados',
     features: [
       'Todo lo del Plan Básico +',
-      '10 folios CFDI 4.0/mes incluidos ($3 MXN/folio adicional)',
+      'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Firma digital con evidencia legal certificada',
       'Confianza de Pago del cliente',
       'Proyección de Flujo de Efectivo a 30/60/90 días',
@@ -105,8 +105,7 @@ export const APP_TIERS: TierConfig[] = [
     targetAudience: 'Usuarios ilimitados • Multi-sucursal',
     features: [
       'Todo lo del Plan Pro +',
-      '50 folios CFDI 4.0/mes incluidos ($2 MXN/folio adicional)',
-      'Paquetes de folios add-on (50 por $100 MXN / 200 por $350 MXN)',
+      'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Permisos por rol: Dueño, Gerente, Miembro y Contador',
       'Multi-sucursal y multi-RFC',
       'Control de inventario e historial de stock',

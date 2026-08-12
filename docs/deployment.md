@@ -100,7 +100,7 @@ graph TD
      - Clients need the channel's contact populated — `clients.email` on the email channel, `clients.phone` on the deprecated ones; the issue endpoint answers 422 naming the missing field.
    - **CFDI 4.0 Invoicing**:
      - `PAC_ENCRYPTION_KEY`: 32 bytes (base64 or hex) sealing the PAC API keys tenants connect. Required before anyone can connect a PAC; without it `/api/organization/pac` answers 503 rather than storing a credential in plaintext.
-     - `FACTURAPI_SECRET_KEY` (optional): the platform's own PAC key (`sk_live_...`), used by tenants who have not connected one. Their stamps consume the folios their plan includes. A `sk_test_` key is refused in production — it produces documents with no fiscal validity.
+     - There is no platform PAC key: `FACTURAPI_SECRET_KEY` was removed by the BYOK decision (docs/STATUS.md §05, #221) and nothing reads it — do not set it. Each organization connects its own key in Ajustes; a `sk_test_` key is refused in production because it produces documents with no fiscal validity.
      - Business Helper never receives CSD certificates (`.cer`/`.key`): they stay with the user's PAC.
      - Storage: the `cfdi-documents` bucket is created by `supabase/migrations/20260807120000_cfdi_pac_integration.sql` and must stay private.
    - **Third-Party Integrations (Optional)**:

@@ -15,14 +15,15 @@ describe('App Tier Features & Value-Adds Data Engine', () => {
     expect(recommended[0].id).toBe('pro');
   });
 
-  it('states the CFDI folio allocation on every tier', () => {
-    const inicial = APP_TIERS.find((t) => t.id === 'inicial');
-    const pro = APP_TIERS.find((t) => t.id === 'pro');
-    const enterprise = APP_TIERS.find((t) => t.id === 'enterprise');
-
-    expect(inicial?.features.some((f) => f.includes('CFDI 4.0'))).toBe(true);
-    expect(pro?.features.some((f) => f.includes('10 folios CFDI'))).toBe(true);
-    expect(enterprise?.features.some((f) => f.includes('50 folios CFDI'))).toBe(true);
+  it('states the BYOK CFDI story on every tier — never a folio allowance (#221)', () => {
+    // The platform never stamps on behalf of tenants (docs/STATUS.md §05), so
+    // every tier carries the same claim: your own PAC, billed by your PAC.
+    for (const tier of APP_TIERS) {
+      expect(
+        tier.features.some((f) => f.includes('CFDI 4.0') && f.includes('con tu propio PAC')),
+        `${tier.id} must state the con-tu-propio-PAC CFDI line`
+      ).toBe(true);
+    }
   });
 
   it('gives every tier a name, description and call to action', () => {

@@ -360,13 +360,17 @@ describe('Assistant answers from the tenant, not a fixed ledger', () => {
     expect(response.whatsappUrl.startsWith('https://wa.me/?text=')).toBe(true);
   });
 
-  it('reads tenant data in the assistant routes rather than a demo constant', () => {
+  it('reads tenant data in the assistant routes and only labels an engine that answered', () => {
     for (const route of ['app/api/ai/assistant/route.ts', 'app/api/ai/support/route.ts']) {
       const source = stripComments(readSource(route));
       expect(source).not.toContain('demoOrgData');
       expect(source).toContain('loadAIOrgContext');
-      // The response names its engine so no caller has to assume a model.
-      expect(source).toContain("engine: 'rules'");
+      // The engine label starts at 'rules' and is promoted only where the
+      // model call succeeded — a hardcoded gemini label in the response
+      // literal would claim a model wrote text it did not.
+      expect(source).toMatch(/engine[^=\n]*=\s*'rules'/);
+      expect(source).toContain('generateGeminiText');
+      expect(source).not.toMatch(/engine:\s*'gemini'/);
     }
   });
 });

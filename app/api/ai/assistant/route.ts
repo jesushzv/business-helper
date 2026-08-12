@@ -1,16 +1,26 @@
 import { NextResponse } from 'next/server';
-import { parseNaturalLanguageQuery, checkRateLimit, validateAIQuota, sanitizeAIQuery } from '@/lib/whatsappAI';
+import {
+  parseNaturalLanguageQuery,
+  buildGroundedAssistantPrompt,
+  checkRateLimit,
+  validateAIQuota,
+  sanitizeAIQuery,
+} from '@/lib/whatsappAI';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { loadAIOrgContext } from '@/lib/aiOrgContext';
+import { isGeminiConfigured, generateGeminiText } from '@/lib/geminiClient';
+import { captureException } from '@/lib/sentry';
 
 /**
  * Operations assistant.
  *
- * Two things were wrong with this endpoint beyond its auth, which #1 fixed:
- * it answered from a hardcoded two-client ledger rather than the caller's
- * records, and `parseNaturalLanguageQuery` is keyword matching, not a model.
- * The data is now the tenant's own, and the response says which engine
- * produced it instead of leaving "AI" to be inferred.
+ * The rules engine computes every fact — matched client, totals, the WhatsApp
+ * link — from the tenant's own records. When `GEMINI_API_KEY` is configured,
+ * Gemini rewrites only the prose (`answerText`) around those pinned figures;
+ * it is never the source of a number. `engine` names whichever one actually
+ * produced the text, so no answer can pass for a model's when it was not:
+ * with the key unset, or on any Gemini failure (reported to Sentry), the
+ * deterministic answer stands and says so.
  */
 export async function POST(request: Request) {
   // Was anonymous, with the rate limit keyed to x-forwarded-for — a header the
@@ -61,11 +71,24 @@ export async function POST(request: Request) {
     const orgData = await loadAIOrgContext(supabase, organizationId);
 
     const response = parseNaturalLanguageQuery(sanitizedQuery, orgData);
+
+    let engine: 'rules' | 'gemini' = 'rules';
+    let answerText = response.answerText;
+
+    // A handoff answer is an action, not prose — it stays deterministic.
+    if (isGeminiConfigured() && !response.requiresHumanHandoff) {
+      try {
+        answerText = await generateGeminiText(buildGroundedAssistantPrompt(sanitizedQuery, response, orgData));
+        engine = 'gemini';
+      } catch (err) {
+        captureException(err, { organization_id: organizationId, route: '/api/ai/assistant', level: 'warning' });
+      }
+    }
+
     return NextResponse.json({
       ...response,
-      // Deterministic keyword matching over the organization's records. Named
-      // so a client cannot present the answer as a model's reasoning.
-      engine: 'rules',
+      answerText,
+      engine,
       quota: quotaCheck
     });
   } catch {

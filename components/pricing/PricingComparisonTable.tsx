@@ -53,21 +53,10 @@ export function PricingComparisonTable() {
             </tr>
             {/* Row 3 */}
             <tr className="hover:bg-slate-800/30 transition-colors">
-              <td className="p-4 sm:p-5 font-bold text-white">Folios CFDI 4.0 incluidos</td>
-              <td className="p-4 sm:p-5 text-center text-slate-400">0 folios (opcional)</td>
-              <td className="p-4 sm:p-5 text-center font-bold text-emerald-400 bg-emerald-950/20 border-x border-emerald-500/20">
-                10 folios / mes
-              </td>
-              <td className="p-4 sm:p-5 text-center font-bold text-indigo-400">50 folios / mes</td>
-            </tr>
-            {/* Row 4 */}
-            <tr className="hover:bg-slate-800/30 transition-colors">
-              <td className="p-4 sm:p-5 font-bold text-white">Costo por folio adicional</td>
-              <td className="p-4 sm:p-5 text-center">$5 MXN</td>
-              <td className="p-4 sm:p-5 text-center font-bold text-emerald-400 bg-emerald-950/20 border-x border-emerald-500/20">
-                $3 MXN
-              </td>
-              <td className="p-4 sm:p-5 text-center font-bold text-indigo-400">$2 MXN</td>
+              <td className="p-4 sm:p-5 font-bold text-white">Timbrado CFDI 4.0 (con tu propio PAC)</td>
+              <td className="p-4 sm:p-5 text-center"><Check className="w-4 h-4 text-emerald-400 mx-auto" /></td>
+              <td className="p-4 sm:p-5 text-center bg-emerald-950/20 border-x border-emerald-500/20"><Check className="w-4 h-4 text-emerald-400 mx-auto" /></td>
+              <td className="p-4 sm:p-5 text-center"><Check className="w-4 h-4 text-indigo-400 mx-auto" /></td>
             </tr>
             {/* Row 5 */}
             <tr className="hover:bg-slate-800/30 transition-colors">

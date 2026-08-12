@@ -13,11 +13,6 @@ import {
 import { resolvePacCredentials } from '@/lib/pacConnection';
 import { downloadCFDIDocuments, stampInvoice } from '@/lib/pacClient';
 import { storeCFDIDocuments } from '@/lib/cfdiStorage';
-import {
-  currentFolioPeriod,
-  describeFolioExhaustion,
-  resolveFolioAllowance,
-} from '@/lib/cfdiFolios';
 import { getAppBaseUrl } from '@/lib/url';
 import { track } from '@/lib/analytics';
 
@@ -30,12 +25,13 @@ import { track } from '@/lib/analytics';
  * a business could read its own dashboard, believe it had invoiced a client,
  * and file accordingly.
  *
- * It now stamps for real, through the organization's own PAC account or the
- * platform's (lib/pacConnection.ts). Every outcome is one of:
+ * It now stamps for real, through the organization's own PAC account
+ * (lib/pacConnection.ts — there is no platform account, per the BYOK decision
+ * in docs/STATUS.md §05). Every outcome is one of:
  *
  *   - a document with a SAT UUID, its XML and PDF stored, `cfdi_status: 'issued'`
  *   - `cfdi_status: 'failed'` with the reason recorded and returned
- *   - a 4xx that never reaches the PAC (missing fiscal data, no folios, no PAC)
+ *   - a 4xx that never reaches the PAC (missing fiscal data, no PAC connected)
  *
  * There is no simulated path. A CFDI cannot be un-issued — only cancelled, with
  * a motive, on record — so the route also refuses to stamp a milestone that
@@ -94,9 +90,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // The PAC key is sealed in a table only the owner can read, and the folio
-  // ledger is moved by SECURITY DEFINER functions granted to the service role.
-  // Both are reached with the service client, after the checks above.
+  // The PAC key is sealed in a table only the owner can read, reached with the
+  // service client after the checks above.
   if (!isServiceRoleConfigured()) {
     return NextResponse.json(
       {
@@ -168,10 +163,7 @@ export async function POST(request: Request) {
 
   const { data: organization } = await supabase
     .from('organizations')
-    .select(
-      'id, name, rfc, regimen_fiscal, codigo_postal, subscription_tier, ' +
-        'cfdi_folios_used, cfdi_folios_period, cfdi_folios_purchased'
-    )
+    .select('id, name, rfc, regimen_fiscal, codigo_postal')
     .eq('id', organizationId)
     .maybeSingle();
 
@@ -225,61 +217,6 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-
-  // Folios are the platform's cost, so they are only spent on the platform's
-  // account. A tenant stamping with its own PAC is billed by that PAC.
-  const meterFolios = credentials.source === 'platform';
-  const period = currentFolioPeriod();
-  let folioSource: string | null = null;
-
-  if (meterFolios) {
-    const allowance = resolveFolioAllowance(organization, period);
-
-    const { data: reservation, error: reservationError } = await service.rpc(
-      'reserve_cfdi_folio',
-      {
-        p_organization_id: organizationId,
-        p_period: period,
-        p_included: allowance.included,
-      }
-    );
-
-    if (reservationError) {
-      console.error('[cfdi] folio reservation failed:', reservationError.message);
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo reservar el folio CFDI' } },
-        { status: 500 }
-      );
-    }
-
-    if (!reservation?.granted) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'FOLIOS_EXHAUSTED',
-            message: describeFolioExhaustion(allowance),
-          },
-          folios: { included: allowance.included, purchased: allowance.purchased, remaining: 0 },
-        },
-        { status: 402 }
-      );
-    }
-
-    folioSource = typeof reservation.source === 'string' ? reservation.source : 'included';
-  }
-
-  /** Puts a reserved folio back when the document was never stamped. */
-  const releaseFolio = async () => {
-    if (!meterFolios || !folioSource) return;
-    const { error } = await service.rpc('release_cfdi_folio', {
-      p_organization_id: organizationId,
-      p_period: period,
-      p_source: folioSource,
-    });
-    if (error) {
-      console.error('[cfdi] folio release failed:', error.message);
-    }
-  };
 
   /** Records a failed attempt on the milestone so the UI can show what went wrong. */
   const recordFailure = async (message: string) => {
@@ -336,7 +273,6 @@ export async function POST(request: Request) {
   const stamp = await stampInvoice(credentials, payload, `milestone:${milestoneId}`);
 
   if (!stamp.ok) {
-    await releaseFolio();
     await recordFailure(stamp.message);
 
     return NextResponse.json(

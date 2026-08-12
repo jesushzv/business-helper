@@ -3,8 +3,6 @@ import {
   CFDI_CANCELLATION_MOTIVES,
   cancelInvoice,
   downloadCFDIDocuments,
-  getPlatformPacCredentials,
-  isPlatformPacConfigured,
   stampInvoice,
   type PacCredentials,
 } from '@/lib/pacClient';
@@ -201,25 +199,3 @@ describe('CFDI cancellation', () => {
   });
 });
 
-describe('Platform PAC account', () => {
-  const original = process.env.FACTURAPI_SECRET_KEY;
-
-  afterEach(() => {
-    process.env.FACTURAPI_SECRET_KEY = original;
-  });
-
-  it('is unavailable without a usable key', () => {
-    process.env.FACTURAPI_SECRET_KEY = '';
-    expect(isPlatformPacConfigured()).toBe(false);
-    expect(getPlatformPacCredentials()).toBeNull();
-  });
-
-  it('classifies the environment of the configured key', () => {
-    process.env.FACTURAPI_SECRET_KEY = ['sk', 'live', 'platformfixture0123456789'].join('_');
-    expect(getPlatformPacCredentials()).toMatchObject({
-      environment: 'live',
-      source: 'platform',
-      provider: 'facturapi',
-    });
-  });
-});

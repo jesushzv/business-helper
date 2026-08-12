@@ -17,7 +17,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 
 const REQUEST = {
   title: 'Timbrar factura ante el SAT',
-  consequence: 'Se usará 1 folio y la factura quedará registrada ante el SAT.',
+  consequence: 'Tu PAC te cobrará este timbrado y la factura quedará registrada ante el SAT.',
   confirmLabel: 'Timbrar factura',
   onConfirm: vi.fn(),
 };
@@ -31,7 +31,7 @@ describe('ConfirmDialog (#99)', () => {
   it('states the consequence, not just "¿estás seguro?"', () => {
     render(<ConfirmDialog request={{ ...REQUEST }} onClose={() => {}} />);
     // The whole point: the cost is named before the tap.
-    expect(screen.getByText(/Se usará 1 folio/)).toBeTruthy();
+    expect(screen.getByText(/Tu PAC te cobrará este timbrado/)).toBeTruthy();
     expect(screen.getByRole('alertdialog')).toBeTruthy();
   });
 

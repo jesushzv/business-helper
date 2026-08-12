@@ -19,7 +19,7 @@ export const LANDING_FAQS: LandingFaqItem[] = [
   {
     id: 'invoicing-sat',
     question: '¿Genera Notas de Venta y Facturas SAT CFDI 4.0?',
-    answer: 'Sí. Todos nuestros planes tienen acceso al timbrado fiscal CFDI 4.0 ante el SAT. En el Plan Inicial conectas tu propia cuenta de PAC y tu proveedor te cobra cada folio; Plan Negocio incluye 10 folios/mes ($3 MXN por adicional); Plan Empresa incluye 50 folios/mes ($2 MXN por adicional). Además, puedes adquirir paquetes de folios add-on (50 folios por $100 MXN / 200 folios por $350 MXN). Mantienes el control total de tus sellos CSD con tu PAC de confianza (Facturapi).',
+    answer: 'Sí. Todos nuestros planes tienen acceso al timbrado fiscal CFDI 4.0 ante el SAT. Conectas tu propia cuenta de PAC (Facturapi) en Ajustes y tu proveedor te cobra cada timbrado directamente — Business Helper no cobra por factura emitida. Mantienes el control total de tus sellos CSD con tu PAC de confianza.',
   },
   {
     id: 'otp-legal-validity',

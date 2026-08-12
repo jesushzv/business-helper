@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import {
   parseNaturalLanguageQuery,
+  buildAISupportPromptContext,
   checkRateLimit,
   validateAIQuota,
   sanitizeAIQuery,
 } from '@/lib/whatsappAI';
 import { requireUser, requireOrgAccess } from '@/lib/apiAuth';
 import { loadAIOrgContext } from '@/lib/aiOrgContext';
+import { isGeminiConfigured, generateGeminiText } from '@/lib/geminiClient';
+import { captureException } from '@/lib/sentry';
 
 /**
  * POST /api/ai/support
@@ -17,8 +20,9 @@ import { loadAIOrgContext } from '@/lib/aiOrgContext';
  *
  * Answers come from the FAQ corpus in lib/helpFAQ and from the organization's
  * own receivables — the hardcoded "Grupo Salinas" ledger this route used to
- * fall back to is gone. The matching is deterministic, which the response
- * states as `engine: 'rules'` rather than implying a model wrote it.
+ * fall back to is gone. FAQ matching stays deterministic; when
+ * `GEMINI_API_KEY` is configured, Gemini rewrites the prose around the matched
+ * FAQ, and `engine` names whichever engine actually wrote the text.
  */
 export async function POST(request: Request) {
   // Was anonymous, with the rate limit keyed to x-forwarded-for — a header the
@@ -75,11 +79,24 @@ export async function POST(request: Request) {
 
     const aiResponse = parseNaturalLanguageQuery(sanitizedQuery, orgData);
 
+    let engine: 'rules' | 'gemini' = 'rules';
+    let answerText = aiResponse.answerText;
+
+    // A handoff answer is an action, not prose — it stays deterministic.
+    if (isGeminiConfigured() && !aiResponse.requiresHumanHandoff) {
+      try {
+        answerText = await generateGeminiText(buildAISupportPromptContext(sanitizedQuery, aiResponse.matchedFAQ));
+        engine = 'gemini';
+      } catch (err) {
+        captureException(err, { route: '/api/ai/support', level: 'warning' });
+      }
+    }
+
     return NextResponse.json({
       success: true,
       query: sanitizedQuery,
-      response: aiResponse,
-      engine: 'rules',
+      response: { ...aiResponse, answerText },
+      engine,
       quota: quotaCheck,
     });
   } catch {
