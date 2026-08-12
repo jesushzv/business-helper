@@ -33,6 +33,49 @@ export const SETTLEMENT_ACCOUNT_ARCHIVED_CODE = 'SETTLEMENT_ACCOUNT_UNAVAILABLE'
 export const SETTLEMENT_ACCOUNT_ARCHIVED_MESSAGE =
   'La cuenta de cobro de esta cotización ya no está disponible. Contacta al negocio antes de transferir.';
 
+/** A legacy single-account clear arriving at an organization that holds several (#198). */
+export const SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS_CODE = 'SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS';
+
+export const SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS_MESSAGE =
+  'Tu negocio tiene varias cuentas de cobro. Entra a Ajustes y elige cuál quieres quitar.';
+
+/** The count could not be read, so we refuse rather than guess (#198). */
+export const SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_CODE = 'SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED';
+
+export const SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_MESSAGE =
+  'No pudimos revisar tus cuentas de cobro en este momento. Vuelve a intentarlo en unos segundos.';
+
+/**
+ * How many live accounts an organization holds — or that we could not tell.
+ *
+ * Three states, not two (#64's rule at the query). Collapsing "the read failed"
+ * into a number invents a fact, and the caller here uses this to decide whether
+ * to *destroy* accounts, so an invented `1` archives a tenant's whole list.
+ */
+export type LiveAccountCount = { known: true; count: number } | { known: false };
+
+export async function countLiveAccounts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  organizationId: string
+): Promise<LiveAccountCount> {
+  try {
+    const { data, error } = await supabase
+      .from('bank_accounts')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .is('archived_at', null);
+
+    // supabase-js resolves `{ data, error }` rather than throwing, so the error
+    // channel has to be read — an RLS denial arrives here as data: null, and
+    // treating that as "no accounts" is exactly the invented fact above.
+    if (error || !Array.isArray(data)) return { known: false };
+    return { known: true, count: data.length };
+  } catch {
+    return { known: false };
+  }
+}
+
 /** Archived accounts stay readable — old quotes name them — but never receive new money. */
 export function isLiveAccount(account: Pick<BankAccount, 'archived_at'> | null | undefined): boolean {
   return Boolean(account) && !account!.archived_at;
