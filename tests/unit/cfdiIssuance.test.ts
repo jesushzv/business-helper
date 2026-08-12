@@ -83,6 +83,9 @@ describe('CFDI integration migration', () => {
   });
 
   it('moves folios through functions rather than read-modify-write', () => {
+    // Historical: these assert the applied 20260807120000 file's text, which
+    // is immutable. The functions themselves were dropped live by
+    // 20260812182430 (#224) — this pins how they were defined, not that they exist.
     expect(migration).toContain('FUNCTION public.reserve_cfdi_folio');
     expect(migration).toContain('FUNCTION public.release_cfdi_folio');
     expect(migration).toContain('FOR UPDATE');

@@ -725,19 +725,9 @@ export interface Database {
     };
     // These tables are hand-written rather than generated, and omit the
     // `Relationships` key supabase-js needs to resolve a schema, which is why
-    // callers throughout the app cast the client. The signatures below document
-    // the folio RPCs installed by 20260807120000_cfdi_pac_integration.sql.
-    Functions: {
-      /** Spends one CFDI folio for the period, included allowance first. */
-      reserve_cfdi_folio: {
-        Args: { p_organization_id: string; p_period: string; p_included: number };
-        Returns: Json;
-      };
-      /** Returns a reserved folio when the stamp never happened. */
-      release_cfdi_folio: {
-        Args: { p_organization_id: string; p_period: string; p_source: string };
-        Returns: undefined;
-      };
-    };
+    // callers throughout the app cast the client. The folio RPCs that used to
+    // be declared here were dropped live by 20260812182430 (#224) — a typed
+    // RPC the catalog does not have compiles clean and 404s at runtime (#96).
+    Functions: Record<string, never>;
   };
 }
