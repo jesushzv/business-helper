@@ -117,7 +117,13 @@ export async function mapAccountQuoteExposure(
       .not('bank_account_id', 'is', null)
       .in('status', [...LIVE_QUOTE_STATUSES]);
 
-    if (error || !Array.isArray(data)) return null;
+    if (error || !Array.isArray(data)) {
+      // The caller renders generic wording for null; the cause still gets said
+      // somewhere, or a persistently failing read degrades every archive and
+      // CLABE confirmation silently.
+      if (error) console.error('[bank-accounts] exposure read failed:', error.message ?? error);
+      return null;
+    }
 
     const map: Record<string, AccountQuoteExposure> = {};
     for (const row of data as Array<{
@@ -132,7 +138,8 @@ export async function mapAccountQuoteExposure(
       }
     }
     return map;
-  } catch {
+  } catch (err) {
+    console.error('[bank-accounts] exposure read threw:', err);
     return null;
   }
 }

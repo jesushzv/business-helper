@@ -541,6 +541,8 @@ export interface Database {
           amount: number;
           last_balance: number;
           remaining_balance: number;
+          /** What the payment exceeded the balance by (#81); NULL predates the column. */
+          overpaid_amount: number | null;
           payment_form: string;
           payment_date: string;
           operation_number: string | null;
@@ -566,6 +568,7 @@ export interface Database {
           amount: number;
           last_balance: number;
           remaining_balance: number;
+          overpaid_amount?: number | null;
           payment_form?: string;
           payment_date?: string;
           operation_number?: string | null;
@@ -591,6 +594,7 @@ export interface Database {
           amount?: number;
           last_balance?: number;
           remaining_balance?: number;
+          overpaid_amount?: number | null;
           payment_form?: string;
           payment_date?: string;
           operation_number?: string | null;

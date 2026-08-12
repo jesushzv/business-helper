@@ -149,6 +149,18 @@ describe('POST /api/quotes credit gate (#203)', () => {
     expect(res.status).toBe(201);
   });
 
+  it("refuses a client id the organization does not hold, and writes nothing", async () => {
+    // The FK only proves the id exists somewhere; without this refusal a quote
+    // can be planted referencing another tenant's client (same class as #164's
+    // bank_account_id check). Not-found is a definitive answer — distinct from
+    // the failed-read case below, which stays permissive.
+    const res = await postQuote({ client_id: 'client-of-another-tenant' });
+
+    expect(res.status).toBe(404);
+    expect((await res.json()).error.code).toBe('CLIENT_NOT_FOUND');
+    expect(insertCalls).toHaveLength(0);
+  });
+
   it('a failed credit read answers "unknown" and still creates (#64 posture)', async () => {
     clientsReadFails = true;
     const res = await postQuote({ client_id: 'client-blocked' });

@@ -32,4 +32,6 @@ ALTER TABLE public.cfdi_payment_complements
 
 COMMENT ON COLUMN public.cfdi_payment_complements.overpaid_amount IS
   'What the payment exceeded the outstanding balance by (#81); not declared in '
-  'the complement (Pagos 2.0 caps ImpPagado at ImpSaldoAnt). NULL predates the column.';
+  'the complement (Pagos 2.0 caps ImpPagado at ImpSaldoAnt). NULL predates the column. '
+  'A failed attempt and its retry both carry it, so consumers summing this column '
+  'must filter status = ''issued'' or they double-count.';

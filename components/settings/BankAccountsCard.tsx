@@ -282,15 +282,18 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
                   {/* Editing the CLABE rewrites the payment instructions of
                       quotes already in clients' hands (#197): the edit is
                       allowed — the realistic case is a typo fix — but never
-                      silent. Only renders when live quotes are known to
-                      exist. */}
-                  {(account.live_quotes?.count ?? 0) > 0 && (
+                      silent. Unknown exposure gets generic caution, the same
+                      tri-state the archive copy uses; only a known zero stays
+                      quiet. */}
+                  {(account.live_quotes == null || account.live_quotes.count > 0) && (
                     <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/30 bg-amber-950/40 p-3 text-xs font-bold text-amber-200">
                       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
                       <span>
-                        {account.live_quotes!.count === 1
-                          ? '1 cotización ya enviada cobra en esta cuenta y mostrará la CLABE nueva si la cambias.'
-                          : `${account.live_quotes!.count} cotizaciones ya enviadas cobran en esta cuenta y mostrarán la CLABE nueva si la cambias.`}
+                        {account.live_quotes == null
+                          ? 'Si tienes cotizaciones ya enviadas con esta cuenta, mostrarán la CLABE nueva si la cambias.'
+                          : account.live_quotes.count === 1
+                            ? '1 cotización ya enviada cobra en esta cuenta y mostrará la CLABE nueva si la cambias.'
+                            : `${account.live_quotes.count} cotizaciones ya enviadas cobran en esta cuenta y mostrarán la CLABE nueva si la cambias.`}
                       </span>
                     </div>
                   )}

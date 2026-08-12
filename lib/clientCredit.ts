@@ -140,7 +140,8 @@ export function validateQuoteCreditLimit(
 
 export type ClientCreditGateResult =
   | { ok: true }
-  | { ok: false; status: 403; code: 'CLIENT_CREDIT_BLOCKED'; message: string };
+  | { ok: false; status: 403; code: 'CLIENT_CREDIT_BLOCKED'; message: string }
+  | { ok: false; status: 404; code: 'CLIENT_NOT_FOUND'; message: string };
 
 /**
  * The server half of the credit gate (#203).
@@ -173,7 +174,24 @@ export async function checkClientCreditGate(
       .eq('organization_id', organizationId)
       .maybeSingle();
 
-    if (error || !data) return { ok: true };
+    // A failed read is unknown → allow (the documented posture). No row is a
+    // different answer: the database said this client is not in the caller's
+    // organization. The FK only proves the id exists somewhere — without this
+    // refusal a quote can be planted referencing another tenant's client, the
+    // same class #164 closed for bank_account_id (review of #203's diff).
+    if (error) {
+      // Unknown answers permissive by design — but the cause is still said.
+      console.error('[client-credit] gate read failed, allowing:', error.message ?? error);
+      return { ok: true };
+    }
+    if (!data) {
+      return {
+        ok: false,
+        status: 404,
+        code: 'CLIENT_NOT_FOUND',
+        message: 'Ese cliente no existe en tu negocio.',
+      };
+    }
 
     if (data.credit_status === 'blocked') {
       return {
@@ -187,7 +205,8 @@ export async function checkClientCreditGate(
     }
 
     return { ok: true };
-  } catch {
+  } catch (err) {
+    console.error('[client-credit] gate read threw, allowing:', err);
     return { ok: true };
   }
 }

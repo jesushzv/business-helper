@@ -216,6 +216,19 @@
 - `created_at`: timestamptz (not null, default: `now()`)
 - `conversion_position`: smallint (nullable, `chk_` >= 1) -- 1..n for rows created by quote conversion; NULL for manual cobros. UQ with `contract_id` where not null (`uq_milestones_contract_conversion_position`), so a concurrent double-conversion cannot double the schedule (#222)
 
+#### `cfdi_payment_complements`
+*Added by `20260807170000_cfdi_payment_complements` (#29). One row per complemento de pago (CFDI type P), stamped or attempted — a PPD invoice paid in three transfers produces three. A failed attempt is kept, not deleted; the partial unique index excludes `status = 'failed'`, so a retry is a new row for the same installment.*
+
+- `id`: uuid (PK, default: `gen_random_uuid()`)
+- `organization_id`: uuid (FK -> `organizations.id`, not null, IDX)
+- `milestone_id`: uuid (FK -> `milestones.id`, not null, IDX)
+- `installment`: smallint (not null, `chk_` >= 1) -- SAT NumParcialidad, 1-based against the related document
+- `amount`: numeric(12,2) (not null, > 0) -- ImpPagado, capped at `last_balance` by `chk_complement_balances`
+- `last_balance`: numeric(12,2) (not null, > 0) -- ImpSaldoAnt; stored, never recomputed from the milestone
+- `remaining_balance`: numeric(12,2) (not null, >= 0) -- ImpSaldoInsoluto
+- `overpaid_amount`: numeric(12,2) (nullable, `chk_` NULL or >= 0) -- What the payment exceeded the balance by (`20260812230000`, #81); not declared in the complement. NULL predates the column. Failed attempt and retry both carry it — sum only `status = 'issued'`
+- `payment_form`, `payment_date`, `operation_number`, `status` ('pending' | 'issued' | 'failed' | 'cancelled'), `cfdi_id`, `cfdi_uuid`, `cfdi_provider`, `cfdi_environment`, `cfdi_xml_path`, `cfdi_pdf_path`, `stamped_at`, `cancelled_at`, `error`, `created_by`, timestamps -- see the migration; `types/database.ts` mirrors the full shape
+
 #### `pac_connections`
 
 > Replaced `csd_credentials`, which was dropped in `20260807120000_cfdi_pac_integration.sql`.
