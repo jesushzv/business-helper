@@ -170,6 +170,22 @@ describe('no folio-inclusion claims (#221)', () => {
   });
 });
 
+describe('no PAC the product cannot connect (#226)', () => {
+  it('names only Facturapi in rendered copy', () => {
+    // PacProvider is 'facturapi' only and the connect form refuses any other
+    // key. Under BYOK the PAC is the only route to invoicing, so promising
+    // Facturama/FiscalAPI/SW Sapien overstates in the dimension #221 cleaned
+    // up. Widen this list only when an adapter actually ships.
+    const offenders: string[] = [];
+    for (const file of files) {
+      const src = code(readFileSync(file, 'utf8'));
+      const m = src.match(/Facturama|FiscalAPI|SW Sapien|Conectia/);
+      if (m) offenders.push(`${file}: ${m[0]}`);
+    }
+    expect(offenders, 'Copy may only promise the PAC the connect form accepts (Facturapi).').toEqual([]);
+  });
+});
+
 describe('errorCopy (#103 §3)', () => {
   it('maps a known provider message to Spanish', () => {
     expect(authErrorMessage(new Error('User already registered'), 'fallback')).toContain(

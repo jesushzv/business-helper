@@ -25,9 +25,6 @@ export interface Database {
           subscription_tier: 'free' | 'inicial' | 'emprendedor' | 'negocio' | 'empresa';
           subscription_status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired';
           facturapi_organization_id: string | null;
-          cfdi_folios_used: number;
-          cfdi_folios_period: string | null;
-          cfdi_folios_purchased: number;
           bank_name: string | null;
           bank_clabe: string | null;
           bank_account_holder: string | null;
@@ -49,9 +46,6 @@ export interface Database {
           subscription_tier?: 'free' | 'inicial' | 'emprendedor' | 'negocio' | 'empresa';
           subscription_status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired';
           facturapi_organization_id?: string | null;
-          cfdi_folios_used?: number;
-          cfdi_folios_period?: string | null;
-          cfdi_folios_purchased?: number;
           bank_name?: string | null;
           bank_clabe?: string | null;
           bank_account_holder?: string | null;
@@ -73,9 +67,6 @@ export interface Database {
           subscription_tier?: 'free' | 'inicial' | 'emprendedor' | 'negocio' | 'empresa';
           subscription_status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired';
           facturapi_organization_id?: string | null;
-          cfdi_folios_used?: number;
-          cfdi_folios_period?: string | null;
-          cfdi_folios_purchased?: number;
           bank_name?: string | null;
           bank_clabe?: string | null;
           bank_account_holder?: string | null;
