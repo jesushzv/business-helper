@@ -35,6 +35,33 @@ interface BankAccountsCardProps {
 
 type Editing = { mode: 'none' } | { mode: 'add' } | { mode: 'edit'; account: BankAccount };
 
+/**
+ * Names the archive's blast radius (#196): how many live quotes settle at this
+ * account and whose they are. Unknown (the exposure read failed, or a response
+ * that does not carry it) falls back to the generic wording — never to an
+ * invented "ninguna" (#96).
+ */
+function archiveExposureCopy(account: BankAccount): string {
+  const exposure = account.live_quotes;
+  if (exposure === undefined || exposure === null) {
+    return 'Las cotizaciones que ya enviaste con esta cuenta dejarán de aceptar pagos y tus clientes verán un aviso para contactarte.';
+  }
+  if (exposure.count === 0) {
+    return 'Ninguna cotización activa cobra en esta cuenta.';
+  }
+  const shown = exposure.client_names.slice(0, 3);
+  const extra = exposure.client_names.length - shown.length;
+  const names =
+    shown.length === 0
+      ? ''
+      : ` — clientes: ${shown.join(', ')}${extra > 0 ? ` y ${extra} más` : ''}`;
+  const lead =
+    exposure.count === 1
+      ? '1 cotización activa cobra en esta cuenta'
+      : `${exposure.count} cotizaciones activas cobran en esta cuenta`;
+  return `${lead}${names}. Dejarán de aceptar pagos y tus clientes verán un aviso para contactarte.`;
+}
+
 export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) => {
   const { accounts, loading, error, role, createAccount, updateAccount, makeDefault, archiveAccount } =
     useBankAccounts();
@@ -177,9 +204,8 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
                   <div className="flex items-start gap-2">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
                     <p className="text-xs font-bold text-rose-200">
-                      Las cotizaciones que ya enviaste con esta cuenta dejarán de aceptar pagos y tus
-                      clientes verán un aviso para contactarte. Las cuentas no se borran: queda
-                      guardada como archivada.
+                      {archiveExposureCopy(account)} Las cuentas no se borran: queda guardada como
+                      archivada.
                     </p>
                   </div>
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -253,6 +279,21 @@ export const BankAccountsCard: React.FC<BankAccountsCardProps> = ({ canEdit }) =
 
               {mayEdit && editing.mode === 'edit' && editing.account.id === account.id && (
                 <div className="mt-4 border-t border-slate-800 pt-4">
+                  {/* Editing the CLABE rewrites the payment instructions of
+                      quotes already in clients' hands (#197): the edit is
+                      allowed — the realistic case is a typo fix — but never
+                      silent. Only renders when live quotes are known to
+                      exist. */}
+                  {(account.live_quotes?.count ?? 0) > 0 && (
+                    <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/30 bg-amber-950/40 p-3 text-xs font-bold text-amber-200">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                      <span>
+                        {account.live_quotes!.count === 1
+                          ? '1 cotización ya enviada cobra en esta cuenta y mostrará la CLABE nueva si la cambias.'
+                          : `${account.live_quotes!.count} cotizaciones ya enviadas cobran en esta cuenta y mostrarán la CLABE nueva si la cambias.`}
+                      </span>
+                    </div>
+                  )}
                   <BankAccountForm
                     account={editing.account}
                     submitLabel="Guardar cambios"

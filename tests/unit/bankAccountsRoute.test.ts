@@ -23,7 +23,9 @@ const state: {
   inserts: Row[];
   audits: Row[];
   failSetDefault: boolean;
-} = { accounts: [], updates: [], inserts: [], audits: [], failSetDefault: false };
+  /** Live quotes the exposure query (#196/#197) reads; 'fail' makes the read error. */
+  quotes: Row[] | 'fail';
+} = { accounts: [], updates: [], inserts: [], audits: [], failSetDefault: false, quotes: [] };
 
 let currentRole = 'owner';
 
@@ -136,6 +138,18 @@ vi.mock('@/lib/apiAuth', async (importOriginal) => {
                 },
               };
             }
+            if (table === 'quotes') {
+              const builder: Record<string, unknown> = {
+                select: () => builder,
+                eq: () => builder,
+                not: () => builder,
+                in: async () =>
+                  state.quotes === 'fail'
+                    ? { data: null, error: { message: 'boom' } }
+                    : { data: state.quotes, error: null },
+              };
+              return builder;
+            }
             return bankAccountsTable();
           },
         },
@@ -144,7 +158,7 @@ vi.mock('@/lib/apiAuth', async (importOriginal) => {
   };
 });
 
-const { POST } = await import('@/app/api/organization/bank-accounts/route');
+const { GET, POST } = await import('@/app/api/organization/bank-accounts/route');
 const { PATCH, DELETE } = await import('@/app/api/organization/bank-accounts/[id]/route');
 
 const VALID_CLABE = '012180001234567899';
@@ -195,7 +209,40 @@ beforeEach(() => {
   state.inserts = [];
   state.audits = [];
   state.failSetDefault = false;
+  state.quotes = [];
   currentRole = 'owner';
+});
+
+describe('the list names each account’s blast radius (#196/#197)', () => {
+  it('attaches the live quotes settling at each account, grouped and named', async () => {
+    state.accounts = [account(), account({ id: 'acct-2', label: 'Santander', is_default: false })];
+    state.quotes = [
+      { bank_account_id: 'acct-1', clients: { name: 'Constructora del Valle' } },
+      { bank_account_id: 'acct-1', clients: { name: 'Constructora del Valle' } },
+      { bank_account_id: 'acct-1', clients: { name: 'Ferretería Central' } },
+    ];
+
+    const res = await GET();
+    const body = await res.json();
+
+    const [first, second] = body.accounts;
+    expect(first.live_quotes).toEqual({
+      count: 3,
+      client_names: ['Constructora del Valle', 'Ferretería Central'],
+    });
+    // No live quotes is a known zero — distinct from unknown below.
+    expect(second.live_quotes).toEqual({ count: 0, client_names: [] });
+  });
+
+  it('answers unknown — null, never zero — when the quotes read fails', async () => {
+    state.quotes = 'fail';
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.accounts[0].live_quotes).toBeNull();
+  });
 });
 
 describe('who may write a settlement account', () => {

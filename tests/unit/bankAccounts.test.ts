@@ -5,6 +5,7 @@ import {
   selectableAccounts,
   resolveQuoteAccount,
   validateBankAccount,
+  mapAccountQuoteExposure,
   type BankAccount,
 } from '@/lib/bankAccounts';
 
@@ -205,5 +206,45 @@ describe('validating an account before it can receive money', () => {
 
     expect(result.ok === false && result.field).toBe('label');
     expect(result.ok === false && result.message).toMatch(/Ponle un nombre/);
+  });
+});
+
+describe('mapAccountQuoteExposure (#196/#197)', () => {
+  function quotesDouble(result: { data?: unknown; error?: unknown }) {
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      not: () => builder,
+      in: async () => result,
+    };
+    return { from: () => builder };
+  }
+
+  it('tolerates PostgREST returning the embed as an array', async () => {
+    const supabase = quotesDouble({
+      data: [
+        { bank_account_id: 'acct-1', clients: [{ name: 'Constructora del Valle' }] },
+        { bank_account_id: 'acct-1', clients: null },
+      ],
+      error: null,
+    });
+
+    const map = await mapAccountQuoteExposure(supabase, 'org-1');
+
+    expect(map).toEqual({
+      'acct-1': { count: 2, client_names: ['Constructora del Valle'] },
+    });
+  });
+
+  it('answers null — unknown, not an empty map — when the read fails', async () => {
+    const supabase = quotesDouble({ data: null, error: { message: 'boom' } });
+
+    expect(await mapAccountQuoteExposure(supabase, 'org-1')).toBeNull();
+  });
+
+  it('answers null when the query throws outright', async () => {
+    const supabase = { from: () => ({}) };
+
+    expect(await mapAccountQuoteExposure(supabase, 'org-1')).toBeNull();
   });
 });
