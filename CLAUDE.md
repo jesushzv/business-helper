@@ -33,12 +33,14 @@ project; agents author most PRs and the issue tracker doubles as the engineering
 
 - **Next.js 15** (App Router, RSC), React 19, Tailwind CSS v4, TypeScript strict
 - **Supabase**: Postgres 16 + RLS, Auth (HTTP-only cookies), Storage
-- **Third-party integrations are raw REST — there are no provider SDKs installed:**
+- **Third-party integrations are raw REST — Sentry is the only provider SDK installed:**
   - Stripe → `lib/stripeClient.ts`, `lib/stripeWebhook.ts`
   - Facturapi PAC (CFDI) → `lib/pacClient.ts`, `lib/facturapi.ts`
   - Resend (email OTP, launch channel) → `lib/otpDelivery.ts`; Twilio / Meta WhatsApp (OTP deprecated) → `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`
   - Gemini → `lib/whatsappAI.ts` (NL parser is rules-based, `engine: 'rules'`)
-- **Error monitoring is NOT live.** `lib/sentry.ts` is a console shim; nothing transmits.
+- **Error monitoring runs on `@sentry/nextjs`** (the exception above): three root configs nothing
+  imports, gated by `tests/unit/sentryRuntimeConfigs.test.ts`. Scrub in `beforeSend`
+  (`lib/sentryScrub.ts`) — at a call site it covers only what someone routed through it.
 
 ## Commands
 
