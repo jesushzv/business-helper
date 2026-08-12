@@ -6,6 +6,7 @@ import {
   QUOTE_WRITABLE_FIELDS,
 } from '@/lib/apiAuth';
 import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
+import { checkClientCreditGate } from '@/lib/clientCredit';
 import { readOrganizationTrialState } from '@/lib/organizationTrialGate';
 import { TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE } from '@/lib/subscriptionTrial';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
@@ -111,6 +112,19 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: { code: accountCheck.code, message: accountCheck.message } },
         { status: accountCheck.status }
+      );
+    }
+
+    // A client the owner marked `blocked` means "solo contado" — the one
+    // credit state the server refuses rather than advises on (#203). The
+    // wizard's warning was the only thing standing here, and a client fetch
+    // is not a control. A failed read answers "unknown" and does not refuse,
+    // same posture as the trial gate above.
+    const creditGate = await checkClientCreditGate(supabase, organizationId, fields.client_id);
+    if (!creditGate.ok) {
+      return NextResponse.json(
+        { error: { code: creditGate.code, message: creditGate.message } },
+        { status: creditGate.status }
       );
     }
 
