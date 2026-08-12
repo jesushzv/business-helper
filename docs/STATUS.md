@@ -58,7 +58,7 @@ completion claim needs checking against source. The full findings are in
 
 | Metric | State |
 |:---|:---|
-| Test suite | **1659 tests / 171 files**, `npx vitest run` on `main` @ `ed322ee` plus the Gemini assistant branch (2026-08-12). The `scripts/test-runner.js` that reported "182/182" no longer exists |
+| Test suite | **1665 tests / 171 files**, `npx vitest run` on `main` @ `09fd6c8` plus the AI-quota branch (2026-08-12). The `scripts/test-runner.js` that reported "182/182" no longer exists |
 | Coverage gate | 85/85/80/80 is configured and **fails**; CI does not run it ([#51](https://github.com/jesushzv/business-helper/issues/51)). Judge a change on the delta, not the absolute |
 | Error monitoring | ~~Not live — `lib/sentry.ts` only called `console.error`.~~ ~~Code transmits since 2026-08-11 over a raw `fetch` envelope.~~ **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling. Coverage was the reason: the hand-rolled transport could not see an unhandled Server Component, render or Edge error. PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | `playwright.config.ts` and `tests/e2e/` exist; **never executed in any verification pass** ([#69](https://github.com/jesushzv/business-helper/issues/69)) and 8 of 10 scenarios are stale, two asserting defects since remediated ([#91](https://github.com/jesushzv/business-helper/issues/91)). Treat every Playwright claim as unverified |
@@ -264,6 +264,12 @@ organization row.
   a mocked `fetch` only — no session has held the key, so no live call has run** (the #26 lesson says
   to exercise it once). `npm run verify:gemini` is that check, runnable wherever the key exists;
   until it passes, treat the model half as wired but unproven. Does not gate launch.
+  **The model allowance became server-derived on 2026-08-12** (#228): tier from
+  `organizations.subscription_tier`, usage in `ai_usage_monthly` (migration `20260812210000`,
+  **applied to production and read back** — RLS deny-all held against `anon`/`authenticated` probes,
+  and the atomic increment returned 1 then 2 live). The body's self-reported `tierKey`/`currentUsage`
+  are ignored; only model-written answers count, and an exhausted or unknown budget answers from the
+  rules engine, labeled.
 - Animated demo video — storyboarded in [`demo_video_storyboard.md`](03-product-specs/demo_video_storyboard.md), not produced.
 
 ---

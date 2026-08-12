@@ -3,12 +3,13 @@ import {
   parseNaturalLanguageQuery,
   buildGroundedAssistantPrompt,
   checkRateLimit,
-  validateAIQuota,
   sanitizeAIQuery,
 } from '@/lib/whatsappAI';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { loadAIOrgContext } from '@/lib/aiOrgContext';
 import { isGeminiConfigured, generateGeminiText } from '@/lib/geminiClient';
+import { resolveAIModelBudget, recordModelAnswer } from '@/lib/aiUsage';
+import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { captureException } from '@/lib/sentry';
 
 /**
@@ -41,7 +42,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { query, tierKey = 'demo', currentUsage = 0 } = body;
+    // Only `query` is read. The body once carried tierKey/currentUsage and the
+    // route believed them — the caller graded its own model allowance (#228).
+    const { query } = body;
 
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
@@ -59,29 +62,32 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Tier Quota Guard (Demo: 20, Emprendedor: 50, Negocio: 300, Empresa: 1500)
-    const quotaCheck = validateAIQuota(tierKey, currentUsage);
-    if (!quotaCheck.allowed) {
-      return NextResponse.json(
-        { error: { code: 'QUOTA_EXCEEDED', message: quotaCheck.reason, quota: quotaCheck } },
-        { status: 403 }
-      );
-    }
-
     const orgData = await loadAIOrgContext(supabase, organizationId);
 
     const response = parseNaturalLanguageQuery(sanitizedQuery, orgData);
 
     let engine: 'rules' | 'gemini' = 'rules';
     let answerText = response.answerText;
+    let quota = null;
 
-    // A handoff answer is an action, not prose — it stays deterministic.
-    if (isGeminiConfigured() && !response.requiresHumanHandoff) {
-      try {
-        answerText = await generateGeminiText(buildGroundedAssistantPrompt(sanitizedQuery, response, orgData));
-        engine = 'gemini';
-      } catch (err) {
-        captureException(err, { organization_id: organizationId, route: '/api/ai/assistant', level: 'warning' });
+    // The model runs only inside a verified budget: tier from the caller's
+    // organization row, usage from the service-only ledger. Exhausted or
+    // unknown budget answers from the rules engine — a refusal would block a
+    // healthy tenant on a read blip, and an unverified model call spends
+    // tokens nobody granted. Only model-written answers count against the
+    // quota. A handoff answer is an action, not prose — always deterministic.
+    if (isGeminiConfigured() && isServiceRoleConfigured() && !response.requiresHumanHandoff) {
+      const service = createServiceClient();
+      const budget = await resolveAIModelBudget(service, organizationId);
+      quota = budget?.quota ?? null;
+      if (budget?.quota.allowed) {
+        try {
+          answerText = await generateGeminiText(buildGroundedAssistantPrompt(sanitizedQuery, response, orgData));
+          engine = 'gemini';
+          await recordModelAnswer(service, organizationId);
+        } catch (err) {
+          captureException(err, { organization_id: organizationId, route: '/api/ai/assistant', level: 'warning' });
+        }
       }
     }
 
@@ -89,7 +95,7 @@ export async function POST(request: Request) {
       ...response,
       answerText,
       engine,
-      quota: quotaCheck
+      quota
     });
   } catch {
     return NextResponse.json(

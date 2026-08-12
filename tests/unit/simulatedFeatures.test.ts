@@ -371,6 +371,11 @@ describe('Assistant answers from the tenant, not a fixed ledger', () => {
       expect(source).toMatch(/engine[^=\n]*=\s*'rules'/);
       expect(source).toContain('generateGeminiText');
       expect(source).not.toMatch(/engine:\s*'gemini'/);
+      // The model budget is server-derived (#228): a route that reads the
+      // caller's own tier or usage from the body lets it grade its allowance.
+      expect(source).not.toContain('tierKey');
+      expect(source).not.toContain('currentUsage');
+      expect(source).toContain('resolveAIModelBudget');
     }
   });
 });
