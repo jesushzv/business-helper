@@ -468,6 +468,20 @@ ON quotes FOR SELECT TO anon
 USING (public_token IS NOT NULL);
 ```
 
+### Server-Only Tables — RLS Deny-All, Service Role Only
+
+Some tables must never be reachable from PostgREST with a tenant JWT, in either direction:
+`otp_send_log`, `stripe_webhook_events`, and `ai_usage_monthly` (#228 — a member who could UPDATE
+their own usage row could zero their own model-call counter). The pattern: enable RLS and write
+**no policies**, and revoke table privileges from `anon` and `authenticated` **by name** (Supabase's
+default privileges grant to them as named roles, so `FROM PUBLIC` alone strips nothing). Only the
+service client reads or writes these tables, and the caller carries the burden of scoping every
+query by `organization_id`.
+
+`ai_usage_monthly` (`organization_id`, `month 'YYYY-MM'`, `used`, PK on the pair) counts one row
+per organization per month of model-written assistant answers; `increment_ai_usage(uuid, text)` —
+plain SQL, *not* `SECURITY DEFINER`, executable by `service_role` only — is its atomic writer.
+
 ### `SECURITY DEFINER` Functions — Grants Must Name the Roles
 
 A `SECURITY DEFINER` function in `public` runs with its owner's privileges, outside RLS, and

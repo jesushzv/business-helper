@@ -54,7 +54,20 @@ export async function resolveAIModelBudget(
       .maybeSingle(),
   ]);
 
-  if (orgResult.error || usageResult.error || !orgResult.data) return null;
+  if (orgResult.error || usageResult.error || !orgResult.data) {
+    // Unknown budget silently degrades the routes to rules-only answers — the
+    // right call for the tenant (#64), but invisible without this: a missing
+    // table (deploy outran the migration) or a persistent read failure would
+    // otherwise switch the model off indefinitely with nothing in Sentry.
+    const detail =
+      orgResult.error?.message || usageResult.error?.message || 'organización no encontrada';
+    captureException(new Error(`presupuesto de IA ilegible: ${detail}`), {
+      organization_id: organizationId,
+      route: 'lib/aiUsage',
+      level: 'warning',
+    });
+    return null;
+  }
 
   // No ledger row is a real answer: zero model calls this month. An
   // unrecognised tier falls to the demo allowance inside validateAIQuota —

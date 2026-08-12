@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/sentry', () => ({
   captureException: vi.fn(() => ({ handled: true })),
@@ -7,6 +7,10 @@ vi.mock('@/lib/sentry', () => ({
 import { currentAIMonth, resolveAIModelBudget, recordModelAnswer } from '@/lib/aiUsage';
 import { captureException } from '@/lib/sentry';
 import { TIER_AI_QUOTAS } from '@/lib/whatsappAI';
+
+beforeEach(() => {
+  vi.mocked(captureException).mockClear();
+});
 
 /**
  * Builds a service-client stub whose organizations/ai_usage_monthly reads
@@ -79,16 +83,20 @@ describe('resolveAIModelBudget', () => {
     expect(budget?.quota.limit).toBe(TIER_AI_QUOTAS.demo);
   });
 
-  it('answers null — unknown, not zero — when the organization read fails', async () => {
+  it('answers null — unknown, not zero — when the organization read fails, and reports it', async () => {
     const service = serviceStub({ error: { message: 'boom' } }, { data: { used: 0 } });
 
     expect(await resolveAIModelBudget(service, 'org-1')).toBeNull();
+    // Unknown budget silently switches the model off; without this the
+    // degradation is invisible in Sentry, indefinitely.
+    expect(vi.mocked(captureException)).toHaveBeenCalledTimes(1);
   });
 
-  it('answers null when the ledger read fails', async () => {
+  it('answers null when the ledger read fails, and reports it', async () => {
     const service = serviceStub({ data: { subscription_tier: 'negocio' } }, { error: { message: 'boom' } });
 
     expect(await resolveAIModelBudget(service, 'org-1')).toBeNull();
+    expect(vi.mocked(captureException)).toHaveBeenCalledTimes(1);
   });
 
   it('answers null when the organization row does not exist', async () => {
