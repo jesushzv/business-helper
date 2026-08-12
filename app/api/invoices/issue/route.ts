@@ -5,6 +5,7 @@ import { requireOrgAccess } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import {
+  buildCFDICustomer,
   buildMilestoneLineItem,
   deriveCFDITaxTreatment,
   validateInvoiceParties,
@@ -312,12 +313,15 @@ export async function POST(request: Request) {
     : milestone.label;
 
   const payload = {
-    customer: {
-      legal_name: client!.name,
-      tax_id: String(client!.rfc).toUpperCase().trim(),
-      tax_system: client!.regimen_fiscal,
-      zip: client!.codigo_postal,
-    },
+    // The v2 customer shape lives in one exported builder — this route used to
+    // assemble it inline and carried the v1 form (flat `zip`) after the
+    // builders moved on, which is the drift buildCFDICustomer exists to end.
+    customer: buildCFDICustomer({
+      name: client!.name,
+      rfc: client!.rfc,
+      regimen_fiscal: client!.regimen_fiscal,
+      codigo_postal: client!.codigo_postal,
+    }),
     use: client!.cfdi_use || 'G03',
     payment_form: paymentMethod === 'PPD' ? '99' : body?.paymentForm || '03',
     payment_method: paymentMethod,
@@ -325,8 +329,10 @@ export async function POST(request: Request) {
     items: [buildMilestoneLineItem(description, amountOf(milestone.amount), treatment)],
   };
 
-  // The milestone id keys the idempotency: a retried click after a timeout must
-  // not stamp a second document against the same cobro.
+  // The milestone id rides along as external_id for reconciliation — Facturapi
+  // does NOT deduplicate on it (verified live 2026-08-12, #26): a retried click
+  // after a timeout CAN stamp a second document. The ALREADY_ISSUED read above
+  // is the only guard and it races; the DB-side claim is filed separately.
   const stamp = await stampInvoice(credentials, payload, `milestone:${milestoneId}`);
 
   if (!stamp.ok) {

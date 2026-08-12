@@ -44,7 +44,16 @@ describe('Facturapi SAT CFDI 4.0 payload construction', () => {
     expect(payload.payment_method).toBe('PUE');
     expect(payload.customer.legal_name).toBe('Cliente Ejemplo');
     expect(payload.customer.tax_id).toBe('GORM850101789');
-    expect(payload.items[0].taxes[0].rate).toBe(0.16);
+    // v2 shape, matched against what the live API accepted and refused (#26):
+    // the zip nests under address, the priced concept nests under product, and
+    // tax_included is explicit because v2 defaults it to true — which would
+    // read a pre-tax price as the final total.
+    expect(payload.customer).not.toHaveProperty('zip');
+    expect(payload.customer.address.zip).toBe('64000');
+    expect(payload.items[0]).not.toHaveProperty('product_key');
+    expect(payload.items[0].product.product_key).toBe('84111506');
+    expect(payload.items[0].product.tax_included).toBe(false);
+    expect(payload.items[0].product.taxes[0].rate).toBe(0.16);
   });
 
   it('should set payment_form to "99" (Por definir) for PPD payment_method per SAT Anexo 20 rules', () => {
@@ -296,10 +305,13 @@ describe('Tax treatment behind a milestone amount', () => {
     });
     const item = buildMilestoneLineItem('Anticipo 50%', 5800, treatment);
 
-    expect(item.price).toBe(5000);
+    expect(item.product.price).toBe(5000);
     // 5000 + 16% is the 5800 the client agreed to pay.
-    expect(item.price * 1.16).toBeCloseTo(5800, 2);
+    expect(item.product.price * 1.16).toBeCloseTo(5800, 2);
+    // The base only becomes the right total if the PAC is told the price
+    // excludes tax — v2's default is the opposite (observed live, #26).
+    expect(item.product.tax_included).toBe(false);
     expect(item.quantity).toBe(1);
-    expect(item.product_key).toBe('84111506');
+    expect(item.product.product_key).toBe('84111506');
   });
 });

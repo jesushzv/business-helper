@@ -17,7 +17,7 @@
 
 import type { PacEnvironment } from './pacCredentials';
 
-const FACTURAPI_BASE = 'https://www.facturapi.io/v1';
+const FACTURAPI_BASE = 'https://www.facturapi.io/v2';
 
 /** Stamping is a synchronous round trip through the PAC to the SAT; it is not instant. */
 const STAMP_TIMEOUT_MS = 30_000;
@@ -175,11 +175,14 @@ async function withTimeout<T>(
 /**
  * Stamps an invoice and returns the SAT UUID.
  *
- * `idempotencyKey` is sent as Facturapi's `external_id`: a retried click after
- * a timeout must not produce a second stamped document for the same milestone,
- * because a CFDI cannot be un-issued — only cancelled, with a motive, on
- * record. A response without a `uuid` is treated as a failure even on HTTP 200,
- * since a document with no folio fiscal is not a stamped invoice.
+ * `idempotencyKey` is sent as Facturapi's `external_id` — **which deduplicates
+ * nothing**: two POSTs with an identical external_id stamped two CFDIs in the
+ * live sandbox (2026-08-12, #26). It is kept as a correlation id for
+ * reconciliation, not as a guard. Until a DB-side claim exists (filed
+ * separately), the only protections against a double stamp are the caller's
+ * ALREADY_ISSUED pre-check — which is check-then-act and races — and the
+ * cancellation path. A response without a `uuid` is treated as a failure even
+ * on HTTP 200, since a document with no folio fiscal is not a stamped invoice.
  */
 export async function stampInvoice(
   credentials: PacCredentials,

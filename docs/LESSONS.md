@@ -5,9 +5,8 @@ this file is the authority for *the defects this repo actually produces*. Both a
 start of every session — if your harness did not inline this file, open it before your first edit.
 Where this file and the code disagree, the code wins: fix this file in the same PR.
 
-**Why it is a separate file.** A shared always-read doc with no headroom manufactures merge
-conflicts, and the cheap resolution drops one side's lessons under a green build (#135). Keep some
-headroom here.
+**Why separate:** a no-headroom always-read doc manufactures merge conflicts, and the cheap
+resolution drops lessons under a green build (#135). Keep headroom here.
 
 **How to add one.** New lessons go here, not `CLAUDE.md`; append to the section that fits rather
 than re-flowing its neighbours, so conflicts stay append-vs-append. A lesson backed by a
@@ -27,23 +26,20 @@ lessons a scanning gate covers or move settled history to `docs/99-archive/`.
 Every item below is the same defect: showing a user a success, a value, or a link the system has
 not earned. It has shipped here at least eight times.
 
-- **Hooks and mutations** (#33, #50, #59): every mutation applies the **server row** on success and
-  throws/surfaces on failure — never an optimistic local object. Demo fixtures only
-  behind `isClientDemoMode()`. Pin with an `*Honesty.test.ts`; `useReceivablesHonesty.test.ts` is
-  the template. **Fixing the hook does not fix the form above it** (#95): `useState(prop)` that
-  never re-syncs keeps the typed text after the server row lands, and the server normalizes
-  (`'81 1234 5678'` stores as `'8112345678'`) — a banner beside a value the DB does not hold.
-  Re-sync on the prop (`OrgProfileCard`).
+- **Hooks and mutations** (#33, #50, #59): every mutation applies the **server row** and surfaces
+  failure — never an optimistic local object; demo fixtures only behind `isClientDemoMode()`. Pin
+  with an `*Honesty.test.ts` (`useReceivablesHonesty.test.ts` is the template). **Fixing the hook
+  does not fix the form above it** (#95): `useState(prop)` that never re-syncs keeps the typed
+  text after the normalized server row lands — re-sync on the prop (`OrgProfileCard`).
 - **Public pages may simulate a mutation only behind `isClientDemoMode()`, short-circuited *before*
   the fetch — never as a `catch` fallback** (#58, #86). A catch-fallback turns a real tenant's
   network failure into a fake confirmation: `/pay/[token]` told a payer "Comprobante enviado
   correctamente" for a declaration the API had rejected.
 - **Placeholder identifiers are the same rule in a UI costume** (#44, #78, #96): `token || 'demo'`,
   `regimen_fiscal || '601'` render as a live control or a settled fact. Absent is absent — render
-  the **disabled** control and **name the record** to fix; a missing CLABE reported as missing phone
-  sends the tenant to the wrong form. `tests/unit/placeholderIdentifiers.test.ts` scans for the
-  fallback shape, but only `demo*` and 10–13 digit literals — a short fiscal default like `'601'`
-  passes it, so the rule still needs reading.
+  the **disabled** control and **name the record** to fix. `tests/unit/placeholderIdentifiers.test.ts`
+  scans the fallback shape but only `demo*` and 10–13-digit literals, so a short fiscal default
+  like `'601'` passes it — the rule still needs reading.
 - **A verification script's exit code is a claim.** `verify:webhook` printed "All 4 checks passed"
   for a run that skipped the two protecting money — and those four passed against an endpoint with
   *no* secret, which rejects everything (#63; #118 is `verify:otp`'s). An incomplete run exits
@@ -53,6 +49,12 @@ not earned. It has shipped here at least eight times.
   fixtures populated them, and real tenants got `undefined` throughout. Two habits close it: a
   flattening is a **named exported function with its own test**, and where fixtures and server rows
   share a type, assert against a **server-shaped** row.
+
+- **A mocked transport pins yesterday's API** (#26): the PAC client targeted `/v1` — 410 for every
+  call since 2023, a test asserting the dead URL — and v2 refused the payload on four fields;
+  `external_id` deduplicates nothing; `tax_included` defaults *true*, reading a pre-tax base as
+  the final total. All green under mocked `fetch`, all found in one live pass. Exercise each
+  provider assumption live once; mocks then pin the *observed* shapes.
 
 ## Client/server state
 
@@ -75,12 +77,11 @@ not earned. It has shipped here at least eight times.
 
 ## Database and migrations
 
-- **`REVOKE … FROM PUBLIC` does not lock down a `SECURITY DEFINER` function** (#76 — unlimited
-  folio minting). Supabase grants `EXECUTE` to `anon`/`authenticated` as *named roles*, so
-  PostgREST keeps serving `/rest/v1/rpc/<name>` outside RLS. Always
-  `REVOKE EXECUTE ON FUNCTION public.f(<sig>) FROM anon, authenticated;`.
-  `tests/unit/securityDefinerGrants.test.ts` is the gate and holds the one exemption; it reads
-  migration *files*, so live grants still need #76's `aclexplode` query.
+- **`REVOKE … FROM PUBLIC` does not lock down a `SECURITY DEFINER` function** (#76): Supabase
+  grants `EXECUTE` to `anon`/`authenticated` as *named roles*, so PostgREST keeps serving
+  `/rest/v1/rpc/<name>` outside RLS — revoke from both by name.
+  `tests/unit/securityDefinerGrants.test.ts` is the gate; it reads migration *files*, so live
+  grants still need #76's `aclexplode` query.
 - **Never edit a migration after it has been applied anywhere.** `ADD COLUMN IF NOT EXISTS` is
   idempotent but not convergent, and `db:migrate` skips files the ledger lists — an edited file
   leaves repo and production silently disagreeing. Reconcile the live DB explicitly (an `ALTER`
@@ -127,13 +128,11 @@ not earned. It has shipped here at least eight times.
 ## Client and API wiring
 
 - **A client `fetch` calling a method its route does not export fails the build**
-  (`tests/unit/clientFetchMethods.test.ts`). A PUT against a GET/PATCH/POST route made every save a
-  405, swallowed by `.catch(() => {})` and reported as success (#95) — invisible to any test that
-  mocks `fetch`. **The key *names* fail the same way**: both clients routes destructured camelCase
-  off a snake_case body, so four fields — two required to stamp a CFDI — were written NULL and
-  reported as saved (#96). Read bodies through `pickFields(body, <ENTITY>_WRITABLE_FIELDS)`;
-  `tests/unit/clientWritePath.test.ts` checks the modal's keys against the allowlist. Assert on what
-  reaches the DB layer, not on what `fetch` got.
+  (`tests/unit/clientFetchMethods.test.ts`): a PUT against a GET/PATCH route was a swallowed 405
+  reported as success (#95) — invisible when `fetch` is mocked. **Key *names* fail the same way**
+  (#96): camelCase destructured off a snake_case body wrote four fields NULL, two required to
+  stamp a CFDI. Read bodies through `pickFields(body, <ENTITY>_WRITABLE_FIELDS)`
+  (`tests/unit/clientWritePath.test.ts`); assert on what reaches the DB layer, not what `fetch` got.
 - **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93). Chrome identity
   comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
   `lib/whatsappLink.ts`. `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak.

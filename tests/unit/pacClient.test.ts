@@ -55,7 +55,10 @@ describe('PAC stamping', () => {
     expect(result.data.providerInvoiceId).toBe('fac_123');
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://www.facturapi.io/v1/invoices');
+    // v1 answers 410 Gone for every call since April 2023 (observed live,
+    // 2026-08-12): this assertion pinned the dead base URL while a mocked
+    // fetch kept the suite green — the exact test hard rule #7 warns about.
+    expect(url).toBe('https://www.facturapi.io/v2/invoices');
     expect(init.headers.Authorization).toBe(`Bearer ${credentials.apiKey}`);
     // A retried click after a timeout must not stamp a second document.
     expect(JSON.parse(init.body).external_id).toBe('milestone:m-1');
