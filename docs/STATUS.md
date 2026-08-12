@@ -75,7 +75,7 @@ migrations — is in the archive with its reasoning.*
 
 | Item | State | Blocks launch? |
 |:---|:---|:---|
-| **Live PAC stamp** | **Half fell on 2026-08-12.** The founder supplied a sandbox key and the integration was exercised live from a session — which found it **entirely broken**: every call targeted `/v1`, which answers 410 for everything since April 2023, and v2 refuses the payload on four fields. Mocked-`fetch` coverage had kept all of it green. Fixed and re-verified against the live sandbox end to end: real SAT UUIDs, documents, cancellation (02/03), totals landing on the milestone amount with and without retenciones. **What remains is the stamp through the deployed app** — this PR deployed, `FACTURAPI_SECRET_KEY` on Vercel, one in-app stamp (#26, #62). Also live-observed: `external_id` deduplicates nothing, so the retry guard is a no-op — filed separately. | **Yes** — CFDI ships at launch |
+| **Live PAC stamp** | **Half fell on 2026-08-12.** The founder supplied a sandbox key and the integration was exercised live from a session — which found it **entirely broken**: every call targeted `/v1`, which answers 410 for everything since April 2023, and v2 refuses the payload on four fields. Mocked-`fetch` coverage had kept all of it green. Fixed and re-verified against the live sandbox end to end: real SAT UUIDs, documents, cancellation (02/03), totals landing on the milestone amount with and without retenciones. **Re-scoped by the BYOK decision (§05, 2026-08-12): the platform does not stamp on behalf of tenants**, so the sandbox `FACTURAPI_SECRET_KEY` briefly set on Vercel comes back out, and the remaining criterion is a **tenant-connected live PAC**: an `sk_live_` key with CSDs connected in Ajustes, one stamp through `POST /api/invoices/issue`, the UUID verifying at the SAT portal. A sandbox key cannot meet it — sandbox documents have no fiscal validity, and the route refuses them in production by design (`PAC_SANDBOX_KEY`). Also live-observed: `external_id` deduplicates nothing (#213). | **Yes** — CFDI ships at launch |
 
 **Everything verified before 2026-08-09 was verified against mocked providers.** The items in §03
 that need a real handset, card, PAC stamp or deployed database are untouched by any of it.
@@ -126,7 +126,7 @@ match production. Nothing depending on `trial_ends_at` can be trusted to behave 
 | # | Item | Tracked |
 |:--|:---|:---|
 | 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path. **The OTP route got its real request on 2026-08-11** (the email-channel verification); the invoice and complemento paths remain. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
-| 2 | **Issue one CFDI through the app, end to end.** The *direct* sandbox half was done 2026-08-12 — real SAT UUIDs, XML/PDF, cancellations, totals, evidence in §02 and on the issue — and it found the integration dead (`/v1` = 410) plus three payload defects, all fixed in this PR. What remains is the same stamp through `POST /api/invoices/issue` on the deployed app, which needs this PR deployed and `FACTURAPI_SECRET_KEY` set on Vercel. That closes #62's invoice-path criterion too. | [#26](https://github.com/jesushzv/business-helper/issues/26) |
+| 2 | **Issue one CFDI through the app, end to end.** The *direct* sandbox half was done 2026-08-12 — real SAT UUIDs, XML/PDF, cancellations, totals, evidence in §02 and on the issue — and it found the integration dead (`/v1` = 410) plus three payload defects, all fixed in this PR. What remains, re-scoped by the BYOK decision (§05): **an organization's own `sk_live_` PAC connected in Ajustes and one stamp through `POST /api/invoices/issue`**, the UUID verifying at the SAT portal. Needs the founder's live Facturapi account + CSD certificates; no test key can meet it. Closes #62's invoice-path criterion too. | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 
 **The UX audit is closed** (#87/#88/#89/#90/#93/#95/#96/#99/#100/#101/#103/#104/#114/#124/#127), the
 row-by-row detail in the archive. Three things carry forward:
@@ -225,9 +225,11 @@ organization row.
   independently — a client registered through the UI (#146, with a US phone number, so #94's
   international path ran live) and a real inbox signing a real quote (#2) — but the loop has never
   been walked end to end on the deployment, and `/api/health` has never been called against it.
-- **CFDI folio billing.** Folio packs are advertised but cannot be bought ([#24](https://github.com/jesushzv/business-helper/issues/24)),
-  and the Inicial tier's pay-per-folio pricing has no billing behind it ([#27](https://github.com/jesushzv/business-helper/issues/27)).
-  CFDI ships at launch, so this is revenue the pricing page promises and the product cannot collect.
+- ~~**CFDI folio billing** (#24, #27).~~ **Superseded by the BYOK decision (§05, 2026-08-12)** —
+  the platform does not stamp on behalf of tenants, so folio packs and per-folio metering have no
+  billable event; both issues closed as not planned. What replaces them is a **copy sweep**: the
+  pricing page, FAQ, comparison table and the Ajustes folio box still advertise included folios and
+  $/folio prices the product will never collect — tracked with file:line in the follow-up issue.
 
 ### P2 — Can trail launch by weeks
 
@@ -287,6 +289,14 @@ Launch Readiness ≥ 7.0, Mobile ≥ 6.0, Credibility ≥ 7.0.
 ---
 
 ## 05 Open Decisions
+
+**Decided 2026-08-12 — tenants bring their own PAC; the platform never stamps on their behalf.**
+The `FACTURAPI_SECRET_KEY` fallback in `lib/pacConnection.ts` is deprecated and the variable comes
+out of Vercel: with it unset, a tenant without a connected PAC gets the designed "conecta tu llave"
+refusal, and Ajustes flips to the BYOK message automatically (`platformFallbackAvailable` is
+server-driven). Folio metering ships no revenue path (#24/#27 closed as not planned); each tenant's
+PAC bills them directly and keeps their CSDs. Verified: PAC tests green with the variable unset;
+the only regression is advertising copy, filed separately.
 
 These require the founder and are not resolvable from the codebase. **Still open:**
 
