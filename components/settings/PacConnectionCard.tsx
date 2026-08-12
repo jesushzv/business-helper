@@ -25,19 +25,8 @@ interface PacConnection {
   connectedAt?: string;
 }
 
-interface FolioSummary {
-  included: number;
-  used: number;
-  purchased: number;
-  remaining: number;
-  period: string;
-  addOnPricePerFolio: number;
-}
-
 export const PacConnectionCard: React.FC = () => {
   const [connection, setConnection] = useState<PacConnection | null>(null);
-  const [folios, setFolios] = useState<FolioSummary | null>(null);
-  const [platformFallback, setPlatformFallback] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -59,8 +48,6 @@ export const PacConnectionCard: React.FC = () => {
       }
 
       setConnection(data?.connection ?? null);
-      setFolios(data?.folios ?? null);
-      setPlatformFallback(Boolean(data?.platformFallbackAvailable));
     } catch {
       setError('No se pudo consultar tu conexión con el PAC');
     } finally {
@@ -218,23 +205,7 @@ export const PacConnectionCard: React.FC = () => {
             </div>
           ) : (
             <div className="rounded-2xl border border-amber-500/30 bg-amber-950/60 p-4 text-xs font-bold text-amber-300">
-              {platformFallback
-                ? 'Sin PAC propio, tus facturas se timbran con la cuenta de Business Helper y consumen los folios incluidos en tu plan.'
-                : 'Todavía no puedes emitir facturas CFDI: conecta tu llave de Facturapi para timbrar.'}
-            </div>
-          )}
-
-          {folios && (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-xs text-slate-300">
-              <p className="font-bold text-white">Folios de tu plan ({folios.period})</p>
-              <p className="mt-1">
-                {folios.included} incluidos por mes · {folios.used} usados ·{' '}
-                {folios.purchased} comprados · <strong>{folios.remaining} disponibles</strong>
-              </p>
-              <p className="mt-1 text-slate-500">
-                Los folios solo se descuentan cuando timbras con la cuenta de Business Helper. Con
-                tu propio PAC, tu proveedor te cobra directamente.
-              </p>
+              Todavía no puedes emitir facturas CFDI: conecta tu llave de Facturapi para timbrar.
             </div>
           )}
 

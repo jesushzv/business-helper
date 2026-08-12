@@ -23,6 +23,9 @@ const COPY_MODULES = [
   'lib/tierFeaturesData.ts',
   'lib/trustData.ts',
   'lib/helpFAQ.ts',
+  // STRIPE_PLANS.*.features is the "Incluye:" list on the Ajustes billing
+  // card — the copy a tenant reads at the moment of payment (#225 review).
+  'lib/stripe.ts',
 ];
 
 /** Jargon that must never appear in something a tenant reads. */
@@ -125,6 +128,45 @@ describe('user-facing copy (#103)', () => {
       if (m) offenders.push(`${file}: ${m[0].trim()}`);
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * #221 — the BYOK decision (docs/STATUS.md §05, PR #220): tenants stamp with
+ * their own PAC account and their provider bills them for it. The platform
+ * never stamps on a tenant's behalf, so there is no folio allowance to include
+ * in a plan, no per-folio price to charge, and no add-on pack to sell. Copy
+ * promising any of those is a commercial claim with no billable event behind
+ * it.
+ */
+const FOLIO_CLAIMS: Array<{ pattern: RegExp; means: string }> = [
+  { pattern: /\d+\s*folios\b/i, means: 'a folio count ("10 folios/mes", "50 folios por $100")' },
+  { pattern: /folios?\s+incluid/i, means: 'folios included in a plan' },
+  { pattern: /incluye\s+\d+\s*folios?/i, means: 'a plan including folios' },
+  { pattern: /MXN\s*\/?\s*(por\s+)?folio/i, means: 'a per-folio price in MXN' },
+  { pattern: /por\s+folio\s+adicional/i, means: 'a per-extra-folio price' },
+  { pattern: /folios?\s*\/\s*mes/i, means: 'a monthly folio allowance' },
+  { pattern: /paquetes?\s+de\s+folios/i, means: 'folio add-on packs' },
+  { pattern: /folios\s+de\s+tu\s+plan/i, means: 'a plan folio meter' },
+  { pattern: /folios(\s+extra)?\s*×/i, means: 'a folio cost computation' },
+];
+
+describe('no folio-inclusion claims (#221)', () => {
+  it('renders no folio allowance, per-folio price, or folio pack', () => {
+    const offenders: string[] = [];
+    for (const file of files) {
+      const src = code(readFileSync(file, 'utf8'));
+      for (const { pattern, means } of FOLIO_CLAIMS) {
+        const m = src.match(pattern);
+        if (m) offenders.push(`${file}: "${m[0]}" (${means})`);
+      }
+    }
+    expect(
+      offenders,
+      'BYOK (#221): every tier stamps through the tenant’s own PAC and the PAC bills them — ' +
+        'nothing meters, includes, or resells folios. "Folio fiscal" (the SAT UUID) is fine; a ' +
+        'count, price, or pack of folios is a dead billing model.'
+    ).toEqual([]);
   });
 });
 

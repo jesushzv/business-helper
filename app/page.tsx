@@ -23,7 +23,6 @@ import { BrowserFrameMockup } from '@/components/landing/BrowserFrameMockup';
 import { LiveDemoButton } from '@/components/landing/LiveDemoButton';
 import { BottomConversionForm } from '@/components/landing/BottomConversionForm';
 import { DifferentiatorTimeline } from '@/components/landing/DifferentiatorTimeline';
-import { FolioCalculator } from '@/components/pricing/FolioCalculator';
 import { PricingComparisonTable } from '@/components/pricing/PricingComparisonTable';
 import { Footer } from '@/components/layout/Footer';
 import { JsonLd } from '@/components/seo/JsonLd';
@@ -548,7 +547,7 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Enlaces directos a WhatsApp</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Portal de comprobantes SPEI</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Firma de cotizaciones vía OTP</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Facturación CFDI 4.0 disponible ($5 MXN/folio)</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Timbrado CFDI 4.0 con tu propio PAC (Facturapi)</li>
                 </ul>
               </div>
               <Link href="/upgrade?plan=starter" className="min-h-[48px] flex items-center justify-center text-center w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs active:scale-95">
@@ -569,7 +568,7 @@ export default function LandingPage() {
                 <div className="text-3xl font-black text-white">$599 <span className="text-sm font-semibold text-slate-400">MXN / mes</span></div>
                 <ul className="space-y-3 text-xs text-slate-200">
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Cotizaciones ilimitadas</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> 10 folios CFDI 4.0/mes incluidos ($3 MXN/adic.)</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Timbrado CFDI 4.0 con tu propio PAC (Facturapi)</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Firma digital OTP con evidencia legal</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Tablero de Cobranza + Recordatorios</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Confianza de Pago</li>
@@ -590,7 +589,7 @@ export default function LandingPage() {
                 <div className="text-3xl font-black text-white">$999 <span className="text-sm font-semibold text-slate-400">MXN / mes</span></div>
                 <ul className="space-y-3 text-xs text-slate-300">
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Todo lo del plan Negocio</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> 50 folios CFDI 4.0/mes incluidos ($2 MXN/adic.)</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Timbrado CFDI 4.0 con tu propio PAC (Facturapi)</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Descarga 1-click ZIP para Contador</li>
                   <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Roles de equipo y Multi-sucursal</li>
                 </ul>
@@ -599,11 +598,6 @@ export default function LandingPage() {
                 Probar 14 Días Gratis
               </Link>
             </div>
-          </div>
-
-          {/* Interactive Folio Cost Calculator */}
-          <div className="mt-16">
-            <FolioCalculator />
           </div>
 
           {/* Side-by-Side Feature Comparison Table */}
@@ -623,7 +617,7 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="shrink-0 text-xs bg-slate-900/80 px-4 py-2.5 rounded-xl border border-slate-800 text-slate-200">
-              <span className="font-bold text-emerald-400">Paquetes de Folios:</span> 50 por $100 MXN / 200 por $350 MXN
+              <span className="font-bold text-emerald-400">Timbrado CFDI 4.0:</span> disponible en todos los planes con tu propio PAC
             </div>
           </div>
         </div>

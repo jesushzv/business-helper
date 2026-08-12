@@ -61,7 +61,7 @@ afterEach(() => {
 
 describe('before a PAC is connected', () => {
   it('says plainly that no invoice can be issued yet', async () => {
-    loadWith({ connection: null, folios: null, platformFallbackAvailable: false });
+    loadWith({ connection: null });
     render(<PacConnectionCard />);
 
     await screen.findByText(/Todavía no puedes emitir facturas CFDI/i);
@@ -69,11 +69,14 @@ describe('before a PAC is connected', () => {
     expect(screen.getByText(/Nunca almacenamos tus certificados SAT/i)).toBeTruthy();
   });
 
-  it('offers the platform account as the alternative when there is one', async () => {
+  it('never offers stamping through a Business Helper account (#221 BYOK)', async () => {
+    // Even against a stale deployment still reporting the retired fallback
+    // flag, the card must not promise the platform will stamp for the tenant.
     loadWith({ connection: null, folios: null, platformFallbackAvailable: true });
     render(<PacConnectionCard />);
 
-    await screen.findByText(/se timbran con la cuenta de Business Helper/i);
+    await screen.findByText(/Todavía no puedes emitir facturas CFDI/i);
+    expect(screen.queryByText(/cuenta de Business Helper/i)).toBeNull();
   });
 
   it('will not submit an empty key', async () => {
@@ -94,7 +97,7 @@ describe('connecting', () => {
 
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { connection: LIVE_CONNECTION }));
     // The reload the card issues after a successful save.
-    loadWith({ connection: LIVE_CONNECTION, folios: null });
+    loadWith({ connection: LIVE_CONNECTION });
 
     fireEvent.change(keyInput(), { target: { value: 'sk_live_abcdef9f2c' } });
     fireEvent.click(connectButton());
@@ -148,32 +151,14 @@ describe('connecting', () => {
 
 describe('once connected', () => {
   it('warns that a sandbox key issues documents with no fiscal validity', async () => {
-    loadWith({ connection: { ...LIVE_CONNECTION, environment: 'sandbox' }, folios: null });
+    loadWith({ connection: { ...LIVE_CONNECTION, environment: 'sandbox' } });
     render(<PacConnectionCard />);
 
     await screen.findByText(/no tienen validez fiscal/i);
   });
 
-  it('shows the folio ledger the plan actually has', async () => {
-    loadWith({
-      connection: LIVE_CONNECTION,
-      folios: {
-        included: 50,
-        used: 12,
-        purchased: 0,
-        remaining: 38,
-        period: 'agosto 2026',
-        addOnPricePerFolio: 8,
-      },
-    });
-    render(<PacConnectionCard />);
-
-    await screen.findByText(/Folios de tu plan \(agosto 2026\)/i);
-    expect(screen.getByText(/38 disponibles/)).toBeTruthy();
-  });
-
   it('asks before disconnecting, and sends nothing until confirmed', async () => {
-    loadWith({ connection: LIVE_CONNECTION, folios: null });
+    loadWith({ connection: LIVE_CONNECTION });
     render(<PacConnectionCard />);
 
     fireEvent.click(await screen.findByRole('button', { name: /^Desconectar$/i }));
@@ -185,7 +170,7 @@ describe('once connected', () => {
   });
 
   it('keeps the connection on screen when disconnecting fails', async () => {
-    loadWith({ connection: LIVE_CONNECTION, folios: null });
+    loadWith({ connection: LIVE_CONNECTION });
     render(<PacConnectionCard />);
 
     fetchMock.mockResolvedValueOnce(
@@ -199,7 +184,7 @@ describe('once connected', () => {
   });
 
   it('confirms a disconnection only after the server accepted it', async () => {
-    loadWith({ connection: LIVE_CONNECTION, folios: null });
+    loadWith({ connection: LIVE_CONNECTION });
     render(<PacConnectionCard />);
 
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { disconnected: true }));

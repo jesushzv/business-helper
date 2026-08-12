@@ -15,22 +15,9 @@ import { readFileSync } from 'node:fs';
 const read = (f: string) => readFileSync(f, 'utf8');
 
 describe('horizontal overflow at 375px (#88)', () => {
-  it('does not put five nowrap labels in a row too narrow to hold them', () => {
-    const src = read('components/pricing/FolioCalculator.tsx');
-    // The legend belongs to the slider, so both are desktop-only; the phone
-    // gets steppers instead. This rendered page-wide horizontal scroll on `/`.
-    expect(src).toMatch(/hidden sm:flex justify-between text-\[10px\]/);
-    expect(src).toMatch(/hidden sm:block w-full h-2/);
-  });
-
-  it('gives the folio calculator a real mobile control, not an 8px slider', () => {
-    const src = read('components/pricing/FolioCalculator.tsx');
-    expect(src).toContain('Disminuir facturas por mes');
-    expect(src).toContain('Aumentar facturas por mes');
-    // The steppers are the mobile control, so they are the ones that must
-    // clear the touch floor.
-    expect(src).toMatch(/min-h-\[48px\] min-w-\[48px\][^"]*"\s*>\s*<Minus/);
-  });
+  // The folio calculator and its slider/stepper cases were retired with the
+  // component itself: BYOK (#221) removed per-folio pricing, so there is no
+  // folio cost to calculate.
 
   it('lets the disabled share states shrink instead of pushing the card open', () => {
     // `flex-1` + `whitespace-nowrap` next to a `shrink-0` sibling: neither can

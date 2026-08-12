@@ -18,8 +18,8 @@ import { Modal } from '@/components/shared/Modal';
  * What makes this worth a component rather than a `window.confirm`:
  *
  * - **The consequence is a required prop.** Not "¿Estás seguro?" — the actual
- *   cost, in plain Spanish, named before the tap: *"Se usará 1 folio y la
- *   factura quedará registrada ante el SAT."* A confirmation that does not say
+ *   cost, in plain Spanish, named before the tap: *"Tu PAC te cobrará este
+ *   timbrado y la factura quedará registrada ante el SAT."* A confirmation that does not say
  *   what will happen is a speed bump, not a decision point.
  * - It inherits everything from `Modal`: dialog role, Escape, focus trap,
  *   48px targets, height containment.
@@ -129,7 +129,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ request, onClose }
  *   ...
  *   confirm.ask({
  *     title: 'Timbrar factura ante el SAT',
- *     consequence: 'Se usará 1 folio y la factura quedará registrada ante el SAT.',
+ *     consequence: 'Tu PAC te cobrará este timbrado y la factura quedará registrada ante el SAT.',
  *     confirmLabel: 'Timbrar factura',
  *     onConfirm: () => handleStamp(id),
  *   });

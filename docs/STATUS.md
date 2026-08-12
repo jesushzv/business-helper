@@ -227,9 +227,16 @@ organization row.
   been walked end to end on the deployment, and `/api/health` has never been called against it.
 - ~~**CFDI folio billing** (#24, #27).~~ **Superseded by the BYOK decision (§05, 2026-08-12)** —
   the platform does not stamp on behalf of tenants, so folio packs and per-folio metering have no
-  billable event; both issues closed as not planned. What replaces them is a **copy sweep**: the
-  pricing page, FAQ, comparison table and the Ajustes folio box still advertise included folios and
-  $/folio prices the product will never collect — tracked with file:line in the follow-up issue.
+  billable event; both issues closed as not planned. The copy sweep that replaced them (**#221**)
+  landed 2026-08-12: every folio-inclusion/$-per-folio claim replaced with the founder-approved
+  BYOK line across pricing, landing, FAQ, comparison tables and Ajustes; the platform-key fallback
+  (`FACTURAPI_SECRET_KEY`, `source: 'platform'`, folio metering, `lib/cfdiFolios.ts`) removed from
+  the code. Verified by `npx vitest run` + `tsc` + `next build` (copy pinned by
+  `tests/unit/copyRules.test.ts`, shown red first). The money-path review of the PR then found
+  `STRIPE_PLANS.features` still selling folios **live on the Ajustes billing card** — fixed in the
+  same PR along with the folio-pack machinery, `verify:stripe`'s pack stage, and the stale
+  deployment docs still instructing `FACTURAPI_SECRET_KEY`. Remaining residue: the schema's unused
+  folio ledger — parked as a decision in #224.
 
 ### P2 — Can trail launch by weeks
 

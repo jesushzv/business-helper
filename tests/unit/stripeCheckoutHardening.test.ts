@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   auditStripeEnvironment,
   createCheckoutPayload,
-  createFolioPackCheckoutPayload,
   describePriceIdShape,
   resolveTierPriceEnv,
   resolveTierPriceId,
@@ -79,16 +78,6 @@ describe('a Product id in STRIPE_PRICE_* is refused before Stripe sees it', () =
     expect(built.envVar).toBe('STRIPE_PRICE_NEGOCIO');
     expect(built.value).toBe('prod_V0DOcZFUtjlMkb');
     expect(built.shape).toBe('product');
-  });
-
-  it('applies the same rule to folio packs', () => {
-    const built = createFolioPackCheckoutPayload('folio_pack_50', 'org_1', undefined, {
-      STRIPE_PRICE_FOLIO_50: 'prod_SomeFolioProduct',
-    });
-
-    expect(built.ok).toBe(false);
-    if (built.ok) return;
-    expect(built.code).toBe('PRICE_ID_MALFORMED');
   });
 
   it('is never treated as a tier mapping on the way back in', () => {

@@ -152,26 +152,23 @@ For users with very low invoice volume (< 5/month):
 
 ---
 
-## 05 CFDI Pricing Strategy (Repositioned)
+## 05 CFDI Pricing Strategy (BYOK)
 
 > [!IMPORTANT]
-> **Strategic change from Expert Review:** CFDI is repositioned from a plan-gated feature ($999 Empresa only) to a **pay-per-folio add-on** available across all plans.
+> **Superseded twice.** The original plan gated CFDI behind the $999 tier; an
+> expert review repositioned it as a pay-per-folio add-on (0/10/50 folios
+> included, $2–$5 MXN per extra, folio packs). The **BYOK decision**
+> (2026-08-12, `docs/STATUS.md` §05, #221) killed the folio model in turn: the
+> platform never stamps on behalf of tenants, so there is no folio to include,
+> meter, or resell.
 
-### Updated Pricing Model
+### Current Model
 
-| Plan | Base CFDI Allocation | Pay-Per-Folio Add-on |
-|---|---|---|
-| **Emprendedor** ($299/mo) | 0 included (Nota de Venta default) | $5 MXN/folio (connect your PAC) |
-| **Negocio** ($599/mo) | 10 CFDI folios/month included | $3 MXN/folio beyond allocation |
-| **Empresa** ($999/mo) | 50 CFDI folios/month included | $2 MXN/folio beyond allocation |
-| **Folio Pack Add-on** | — | 50 folios for $100 MXN / 200 folios for $350 MXN |
-
-### Rationale
-- A $299 PyME landing its first B2B client needing a deductible invoice should NOT have to upgrade 3.3x to $999
-- Aligns with how PyMEs actually grow: they add capabilities as needed
-- Removes the $700 upgrade barrier for a $3 invoice
-- Creates a natural upsell path: more invoices → higher plan
-- SenHub offers unlimited stamping at $79/mo — we must be competitive on accessibility
+Every tier carries the same CFDI story: the tenant connects **their own PAC
+account** (Facturapi) in Ajustes, their provider bills them per stamp, and
+their CSD never leaves their PAC. Business Helper charges for the workflow
+(quote → contract → payment → invoice), not per document. Tier differentiation
+lives in other features.
 
 ### Trust Messaging for Landing Page
 > *"Nunca almacenamos tus certificados SAT. Conecta tu PAC de confianza (Facturama, FiscalAPI, SW Sapien) y nosotros enviamos los datos. Tú mantienes el control total."*
@@ -190,19 +187,19 @@ seen. That is gone; there is no simulated path left in the codebase.
 
 ```
 lib/pacClient.ts       → provider-agnostic stamp / cancel / download
-                         └── Facturapi adapter (POST https://www.facturapi.io/v1/invoices,
-                             Authorization: Bearer <key>)
-lib/pacConnection.ts   → resolves the tenant's own PAC key, else the platform's
+                         └── Facturapi adapter (POST https://www.facturapi.io/v2/invoices,
+                             Authorization: Bearer <key>; v1 answers 410 since 2023, #26)
+lib/pacConnection.ts   → resolves the tenant's own PAC key — the only source (BYOK, #221)
 lib/pacCredentials.ts  → AES-256-GCM sealing of PAC API keys (PAC_ENCRYPTION_KEY)
-lib/cfdiFolios.ts      → plan allowance; only meters stamps on the platform account
 lib/cfdiStorage.ts     → XML/PDF into the private `cfdi-documents` bucket
 lib/facturapi.ts       → CFDI 4.0 payload construction and validation only
 lib/complementoPago.ts → whether a PPD payment owes a complement, and filing it
 
 Database (20260807120000_cfdi_pac_integration.sql)
   pac_connections            — provider, sealed api key, hint, environment (owner-only RLS)
-  organizations.cfdi_folios_used / _period / _purchased
-  reserve_cfdi_folio() / release_cfdi_folio()  — SECURITY DEFINER, service_role only
+  organizations.cfdi_folios_used / _period / _purchased   — retained in schema, unread since #221
+  reserve_cfdi_folio() / release_cfdi_folio()  — SECURITY DEFINER, service_role only; uncalled
+                                                 since #221 (dropping both is a separate migration decision)
   milestones.cfdi_uuid / _provider / _environment / _xml_path / _pdf_path
            / _stamped_at / _cancelled_at / _error
   csd_credentials            — dropped (see §02; nothing may store a CSD here)
@@ -217,7 +214,7 @@ Database (20260807170000_cfdi_payment_complements.sql)
 
 | Route | Purpose |
 |---|---|
-| `POST /api/invoices/issue` | Stamps a milestone. Validates both parties, reserves a folio, calls the PAC, stores XML/PDF, records the UUID and the payment method. |
+| `POST /api/invoices/issue` | Stamps a milestone. Validates both parties, calls the tenant's PAC, stores XML/PDF, records the UUID and the payment method. |
 | `POST /api/invoices/[id]/cancel` | Files a SAT cancellation with a motive (01–04). |
 | `GET /api/invoices/[id]/document?type=xml\|pdf[&complement=<id>]` | Signs a short-lived link to the stored document, invoice or complement. |
 | `GET/POST /api/invoices/[id]/complement` | Reports what a PPD invoice still owes, and files a complement by hand. |
@@ -256,9 +253,8 @@ complement can only be undone by cancelling it at the SAT. The PAC idempotency
 key is `complement:<milestoneId>:<installment>`, so a retry after a timeout is
 deduplicated while a genuine second payment is not.
 
-**Folios.** A complement is a stamped document the PAC bills for, so it spends a
-folio on the same terms as an invoice: only on the platform's account, released
-when the stamp does not happen.
+**Billing.** A complement is a stamped document the tenant's PAC bills for,
+exactly like the invoice it settles. Nothing is metered platform-side (#221).
 
 **Capability.** `POST /api/invoices/[id]/complement` requires `issue_cfdi`, like
 stamping. The automatic path in `confirm` does not: the PPD invoice was already
@@ -272,9 +268,9 @@ per-cobro, because the complement it obliges can finally be filed. It is not the
 default: a cobro settled on issuance is PUE, which is what most of this
 product's users are doing.
 
-**Folio metering.** A tenant stamping through its own PAC is billed by that PAC
-and is not metered. Only stamps on the platform's `FACTURAPI_SECRET_KEY` account
-spend the plan's monthly allowance, then any purchased folios.
+**No platform account.** `FACTURAPI_SECRET_KEY`, `lib/cfdiFolios.ts` and the
+`source: 'platform'` credential path were removed with #221. A tenant with no
+connected PAC gets `PAC_NOT_CONNECTED`, never a stamp on someone else's RFC.
 
 **Sandbox.** A `sk_test_` key returns structurally complete documents with no
 fiscal validity. The environment is recorded on the milestone, surfaced in the
@@ -282,11 +278,10 @@ UI as *"CFDI de prueba (sin validez fiscal)"*, and refused outright in
 production.
 
 ### Still Open
-1. Folio pack purchase — `createFolioPackCheckoutPayload` exists in `lib/stripe.ts` but no route creates the session and no webhook credits `cfdi_folios_purchased`.
-2. Per-folio metered billing for the Inicial tier (§05) — today that tier stamps by connecting its own PAC.
-3. Additional adapters (FiscalAPI, SW Sapien) behind the same `PacProvider` interface.
-4. Cancelling a complemento de pago. `/api/invoices/[id]/cancel` cancels the invoice; a complement stamped in error has no route of its own, and the SAT requires cancelling the complement before the invoice it settles.
-5. The accountant export (`lib/accountantExport.ts`) still lists one CFDI per milestone. A PPD invoice's complements are stamped documents the accountant needs and are not in the package.
+1. Whether to drop the unused folio ledger (columns + RPCs) from the schema — a migration decision, #224. (The `lib/stripe.ts` folio-pack code went with #221's PR after its review found the plan `features` strings were *live* on the Ajustes billing card, not dead.)
+2. Additional adapters (FiscalAPI, SW Sapien) behind the same `PacProvider` interface.
+3. Cancelling a complemento de pago. `/api/invoices/[id]/cancel` cancels the invoice; a complement stamped in error has no route of its own, and the SAT requires cancelling the complement before the invoice it settles.
+4. The accountant export (`lib/accountantExport.ts`) still lists one CFDI per milestone. A PPD invoice's complements are stamped documents the accountant needs and are not in the package.
 
 ---
 

@@ -131,14 +131,14 @@ describe('folio RPC grants', () => {
     );
   });
 
-  it('keeps both callers on the service-role client', () => {
-    // A caller that switched to the user's client would now 403 rather than
-    // silently spending someone else's folio, but the failure would surface to
-    // a paying tenant mid-stamp. Pin it here instead.
+  it('no longer meters folios anywhere — the tenant PAC bills the stamp (#221)', () => {
+    // BYOK (docs/STATUS.md §05): `source: 'platform'` stopped existing, so a
+    // reappearing folio RPC call means the dead billing model grew back.
+    // (This absence was shown to fail: the inverse of this assertion passed
+    // against the pre-#221 tree.)
     for (const source of [issueRoute, read('lib', 'complementoPago.ts')]) {
-      // The call is wrapped across lines in one of the two files.
-      expect(source).toMatch(/service\s*\.rpc\(\s*'reserve_cfdi_folio'/);
-      expect(source).toMatch(/service\s*\.rpc\(\s*'release_cfdi_folio'/);
+      expect(source).not.toContain('reserve_cfdi_folio');
+      expect(source).not.toContain('release_cfdi_folio');
     }
   });
 });

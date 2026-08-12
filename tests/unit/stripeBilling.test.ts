@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   STRIPE_PLANS,
-  STRIPE_FOLIO_PACKS,
   getStripeTierConfig,
   createCheckoutPayload,
-  createFolioPackCheckoutPayload,
   validateSubscriptionStatus,
   handleStripeWebhookEvent,
   auditStripeEnvironment,
@@ -13,7 +11,7 @@ import {
   resolveTierFromPriceId,
 } from '@/lib/stripe';
 
-describe('WS-B Stripe Production Billing & Folio Packs Engine', () => {
+describe('WS-B Stripe Production Billing Engine', () => {
   // The 'emprendedor' tier was renamed to 'inicial' in 4f3e260. This test kept
   // asserting the old key; the same drift left the subscription_tier CHECK
   // constraint requiring 'emprendedor' while the app wrote 'inicial', so every
@@ -22,20 +20,24 @@ describe('WS-B Stripe Production Billing & Folio Packs Engine', () => {
     expect(STRIPE_PLANS.inicial.price).toBe(299);
     expect(STRIPE_PLANS.negocio.price).toBe(599);
     expect(STRIPE_PLANS.empresa.price).toBe(999);
-    expect(STRIPE_PLANS.negocio.includedFolios).toBe(10);
-    expect(STRIPE_PLANS.empresa.includedFolios).toBe(50);
   });
 
-  it('should define folio add-on packs (50 for $100 MXN / 200 for $350 MXN)', () => {
-    expect(STRIPE_FOLIO_PACKS.folio_pack_50.price).toBe(100);
-    expect(STRIPE_FOLIO_PACKS.folio_pack_50.folios).toBe(50);
-    expect(STRIPE_FOLIO_PACKS.folio_pack_200.price).toBe(350);
-    expect(STRIPE_FOLIO_PACKS.folio_pack_200.folios).toBe(200);
+  it('sells no folio entitlement on any plan (#221 BYOK)', () => {
+    // These features render verbatim on the Ajustes billing card — the copy a
+    // tenant reads at the moment of payment. Nothing meters or delivers a
+    // folio, so no plan may claim one. (Red against the pre-fix tree, where
+    // Negocio/Empresa listed included folios and Empresa listed packs.)
+    for (const plan of Object.values(STRIPE_PLANS)) {
+      for (const feature of plan.features) {
+        expect(feature, `${plan.id} must not sell folios`).not.toMatch(/\d+\s*folios|MXN\s*\/?\s*folio|paquetes de folios/i);
+      }
+      expect(plan.features.some((f) => f.includes('con tu propio PAC'))).toBe(true);
+    }
   });
 
   it('should fallback to inicial config for invalid tier key', () => {
     // Entitlement reads fail closed: an unrecognised stored tier gets the
-    // smallest plan, never folios it did not buy.
+    // smallest plan, never features it did not buy.
     const config = getStripeTierConfig('invalid_plan');
     expect(config.id).toBe('inicial');
   });
@@ -66,27 +68,6 @@ describe('WS-B Stripe Production Billing & Folio Packs Engine', () => {
     expect(payload.metadata.tier_id).toBe('negocio');
     expect(payload.line_items[0].price).toBe('price_live_negocio');
     expect(payload.success_url).toContain('status=success');
-  });
-
-  it('should construct valid folio pack checkout payload with pack_id metadata', () => {
-    const built = createFolioPackCheckoutPayload('folio_pack_200', 'org_test_456', undefined, {
-      STRIPE_PRICE_FOLIO_200: 'price_live_folio_200',
-    });
-
-    expect(built.ok).toBe(true);
-    if (!built.ok) return;
-
-    const payload = built.payload as Record<string, never> & {
-      mode: string;
-      metadata: { organization_id: string; pack_id: string; folios: string };
-      line_items: Array<{ price: string }>;
-    };
-
-    expect(payload.mode).toBe('payment');
-    expect(payload.metadata.organization_id).toBe('org_test_456');
-    expect(payload.metadata.pack_id).toBe('folio_pack_200');
-    expect(payload.metadata.folios).toBe('200');
-    expect(payload.line_items[0].price).toBe('price_live_folio_200');
   });
 
   it('should evaluate subscription status accessibility correctly', () => {
