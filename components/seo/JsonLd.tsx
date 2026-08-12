@@ -1,6 +1,14 @@
 import React from 'react';
+import { getAppBaseUrl } from '@/lib/url';
+import { LANDING_FAQS } from '@/lib/landingFaq';
 
 export function JsonLd() {
+  const baseUrl = getAppBaseUrl();
+
+  // No aggregateRating: the product has no rating system, so any figure here
+  // would be invented — hard rule #1, and review-markup spam under Google's
+  // structured-data policy (#230). Add it back only over real collected
+  // ratings a visitor can see.
   const softwareAppSchema = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -9,57 +17,36 @@ export function JsonLd() {
     applicationCategory: 'BusinessApplication',
     description:
       'La plataforma operativa para PyMEs en México: cotizaciones en 2 minutos, cobranza por WhatsApp y facturación CFDI 4.0 con SAT PAC.',
-    url: 'https://businesshelper.app',
+    url: baseUrl,
     offers: {
       '@type': 'Offer',
       price: '299.00',
       priceCurrency: 'MXN',
       availability: 'https://schema.org/InStock',
     },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.9',
-      ratingCount: '512',
-    },
   };
 
+  // Mirrors the rendered FAQ verbatim — same source module the accordion
+  // renders, so the schema cannot drift from what the visitor reads (#232).
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: [
-      {
-        '@type': 'Question',
-        name: '¿Genera Notas de Venta y Facturas SAT CFDI 4.0?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'Sí, Business Helper permite emitir Notas de Venta ilimitadas en formato PDF y timbrar facturas CFDI 4.0 directamente con PAC autorizado del SAT.',
-        },
+    mainEntity: LANDING_FAQS.map((faq) => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.answer,
       },
-      {
-        '@type': 'Question',
-        name: '¿Cómo funciona la integración con WhatsApp?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'Genera enlaces directos wa.me pre-llenados para enviar cotizaciones, comprobantes y recordatorios de pago con 1 solo toque desde el celular.',
-        },
-      },
-      {
-        '@type': 'Question',
-        name: '¿Es seguro el manejo de comprobantes y pagos SPEI?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'Tus clientes pueden cargar comprobantes SPEI directamente y la firma digital con código OTP deja evidencia legal certificada de cada aprobación.',
-        },
-      },
-    ],
+    })),
   };
 
   const organizationSchema = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: 'Business Helper S.A.P.I. de C.V.',
-    url: 'https://businesshelper.app',
-    logo: 'https://businesshelper.app/logo-icon.svg',
+    name: 'Business Helper',
+    url: baseUrl,
+    logo: `${baseUrl}/logo-icon.svg`,
     contactPoint: {
       '@type': 'ContactPoint',
       email: 'contacto@businesshelper.app',

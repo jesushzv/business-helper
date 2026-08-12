@@ -23,7 +23,11 @@ export function RoiCalculator() {
   // Compare against $599 MXN Plan Negocio
   const monthlyCost = 599;
   const estimatedValue = hoursSaved * 250 + acceleratedCashFlow * 0.05;
-  const roiMultiplier = Math.max(5, Math.round(estimatedValue / monthlyCost));
+  // The multiplier is the formula's own answer, never floored to look better:
+  // a Math.max(5, …) here printed "+5x" for inputs whose real ratio was below
+  // 1 (#230). Math.max(1, …) only keeps the display from rounding to "+0x" at
+  // the slider minimum, where the ratio is ≈0.96 — i.e. break-even, shown as 1x.
+  const roiMultiplier = Math.max(1, Math.round(estimatedValue / monthlyCost));
 
   return (
     <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 sm:p-10 shadow-2xl backdrop-blur-xl relative overflow-hidden">

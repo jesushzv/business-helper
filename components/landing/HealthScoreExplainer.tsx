@@ -55,9 +55,9 @@ export function HealthScoreExplainer() {
             94
           </div>
           <div className="text-xs">
-            <div className="font-bold text-white">Score Promedio de PyMEs</div>
+            <div className="font-bold text-white">Ejemplo: cliente confiable</div>
             <div className="text-emerald-400 font-semibold flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5" /> +35% Cobranza a Tiempo
+              <TrendingUp className="w-3.5 h-3.5" /> Calculado del historial real de pagos
             </div>
           </div>
         </div>

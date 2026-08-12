@@ -36,12 +36,10 @@ describe('WS-A Credibility, Social Proof & Trust Architecture Data Engine', () =
     expect(satBadge?.description).toContain('Nunca almacenamos tus certificados SAT');
   });
 
-  it('should include founder profiles for Hector Zamora, Gilberto Santana, and Guillermo Fernandez', () => {
-    expect(TEAM_MEMBERS.length).toBe(3);
+  it('names only the real founder — a solo-founder project invents no teammates (#230)', () => {
+    expect(TEAM_MEMBERS.length).toBe(1);
     const names = TEAM_MEMBERS.map((m) => m.name);
     expect(names).toContain('Hector Zamora');
-    expect(names).toContain('Gilberto Santana');
-    expect(names).toContain('Guillermo Fernandez');
   });
 
   it('should resolve configurable email helpers correctly', () => {

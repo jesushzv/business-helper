@@ -121,7 +121,7 @@ export default function LandingPage() {
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15]">
-                Cobra un 40% más rápido con cotizaciones por WhatsApp y{' '}
+                Cobra más rápido con cotizaciones por WhatsApp y{' '}
                 <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 via-teal-300 to-indigo-400">
                   CFDI 4.0 automatizado
                 </span>.
@@ -167,7 +167,7 @@ export default function LandingPage() {
                 <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-[11px]">
                   Construcción • Servicios • Consultoría • Comercio
                 </span>
-                <span className="font-bold text-slate-200">+500 PyMEs en México</span>
+                <span className="font-bold text-slate-200">Hecho en México para PyMEs</span>
               </div>
             </div>
 
@@ -666,7 +666,7 @@ export default function LandingPage() {
               Toma el control de la cobranza de tu negocio hoy mismo
             </h2>
             <p className="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
-              Únete a más de 500 PyMEs en México que ya cotizan y cobran más rápido. 14 días gratis, sin tarjeta de crédito.
+              Cotiza, firma y cobra desde tu celular en una sola plataforma. 14 días gratis, sin tarjeta de crédito.
             </p>
           </div>
 

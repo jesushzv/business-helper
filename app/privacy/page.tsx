@@ -49,7 +49,7 @@ export default function PrivacyPage() {
               1. Identidad y Domicilio del Responsable
             </h2>
             <p>
-              <strong>Business Helper S.A.P.I. de C.V.</strong> (en lo sucesivo &quot;Business Helper&quot;), con domicilio en Tijuana, B.C., México / San Diego, CA, es el responsable del tratamiento y protección de sus datos personales y financieros recolectados a través de nuestra plataforma web y aplicación móvil.
+              <strong>Business Helper</strong>, con domicilio en Tijuana, B.C., México / San Diego, CA, es el responsable del tratamiento y protección de sus datos personales y financieros recolectados a través de nuestra plataforma web y aplicación móvil.
             </p>
           </div>
 

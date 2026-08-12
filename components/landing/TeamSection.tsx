@@ -9,18 +9,18 @@ export function TeamSection() {
     <div className="w-full space-y-12">
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-3.5 py-1 rounded-full border border-indigo-500/20">
-          Transparencia y Equipo Líder
+          Transparencia y Fundador
         </span>
         <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-          Diseñado por Empresarios e Ingenieros en Tijuana / San Diego
+          Diseñado en Tijuana / San Diego para las PyMEs de México
         </h2>
         <p className="text-slate-400 text-sm leading-relaxed max-w-2xl mx-auto">
-          Conoce al equipo fundador detrás de Business Helper. Construimos la plataforma que nosotros mismos necesitábamos para acelerar la cobranza y mejorar la liquidez de las PyMEs en México.
+          Conoce al fundador detrás de Business Helper: una plataforma construida para acelerar la cobranza y mejorar la liquidez de las PyMEs en México, con atención directa por correo.
         </p>
       </div>
 
-      {/* Founder & Team Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* Founder Card (solo-founder project — one real profile, centered) */}
+      <div className="grid grid-cols-1 gap-8 max-w-md mx-auto">
         {TEAM_MEMBERS.map((member) => (
           <div
             key={member.id}

@@ -39,7 +39,7 @@ export function Footer() {
             </div>
 
             <div className="text-[11px] text-slate-300 font-medium pt-1">
-              🏢 Business Helper S.A.P.I. de C.V. • Tijuana, B.C., México / San Diego, CA
+              🏢 Business Helper • Tijuana, B.C., México / San Diego, CA
             </div>
           </div>
 
@@ -133,7 +133,7 @@ export function Footer() {
 
         {/* Bottom Rights Bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-300">
-          <span>© 2026 Business Helper S.A.P.I. de C.V. Todos los derechos reservados.</span>
+          <span>© 2026 Business Helper. Todos los derechos reservados.</span>
           <div className="flex items-center gap-6">
             <Link href="/privacy" className="hover:text-white transition-colors">
               Privacidad

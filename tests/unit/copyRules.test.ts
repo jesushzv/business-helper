@@ -114,6 +114,26 @@ describe('user-facing copy (#103)', () => {
     );
   });
 
+  it('advertises no invented evidence (#230)', () => {
+    // The landing page shipped a 4.9★×512 aggregateRating in JSON-LD, a
+    // "+500 PyMEs" customer count and a "Score Promedio" over customers that
+    // do not exist. Hard rule #1 applied to marketing: no rating markup, no
+    // customer counts, no fleet statistics until they are measured.
+    const offenders: string[] = [];
+    const shapes: Array<[string, RegExp]> = [
+      ['aggregateRating', /aggregateRating/],
+      ['invented customer count', /500 PyMEs/],
+      ['invented fleet statistic', /Score Promedio/],
+    ];
+    for (const file of files) {
+      const src = code(readFileSync(file, 'utf8'));
+      for (const [label, shape] of shapes) {
+        if (shape.test(src)) offenders.push(`${file}: ${label}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it('keeps one register: tú, including the client-facing portals', () => {
     // The quote portal was usted and the payment portal mixed both, so a
     // client crossing from signing to paying saw the register flip.
