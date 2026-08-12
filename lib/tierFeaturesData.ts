@@ -79,14 +79,14 @@ export const APP_TIERS: TierConfig[] = [
   },
   {
     id: 'pro',
-    name: 'Plan Pro (PyME Crecimiento)',
+    name: 'Plan Negocio',
     priceMonthly: 599,
     badge: 'MÁS POPULAR',
     recommended: true,
     description: 'La solución completa para PyMEs que necesitan facturar al SAT y automatizar flujo de efectivo.',
     targetAudience: 'Hasta 3 usuarios • Clientes ilimitados',
     features: [
-      'Todo lo del Plan Básico +',
+      'Todo lo del Plan Inicial +',
       'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Firma digital con evidencia legal certificada',
       'Confianza de Pago del cliente',
@@ -99,12 +99,12 @@ export const APP_TIERS: TierConfig[] = [
   },
   {
     id: 'enterprise',
-    name: 'Plan Enterprise (Flotilla)',
+    name: 'Plan Empresa',
     priceMonthly: 999,
     description: 'Para empresas consolidadas con equipo comercial, varias sucursales y control de permisos.',
     targetAudience: 'Usuarios ilimitados • Multi-sucursal',
     features: [
-      'Todo lo del Plan Pro +',
+      'Todo lo del Plan Negocio +',
       'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Permisos por rol: Dueño, Gerente, Miembro y Contador',
       'Multi-sucursal y multi-RFC',
