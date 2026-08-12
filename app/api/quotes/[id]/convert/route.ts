@@ -105,7 +105,21 @@ export async function POST(
     if (milestoneError) {
       // A contract with no payment schedule is worse than no contract, and
       // there is no transaction spanning these inserts — roll back by hand.
-      await supabase.from('contracts').delete().eq('id', newContract.id);
+      const { error: rollbackError } = await supabase
+        .from('contracts')
+        .delete()
+        .eq('id', newContract.id);
+      if (rollbackError) {
+        // The orphaned contract holds `quote_id`, whose UNIQUE constraint will
+        // 409 every retry — without this log that dead-end has no diagnosis.
+        captureException(rollbackError, {
+          route: 'quotes/convert',
+          organization_id: organizationId,
+          level: 'error',
+          tags: { db_error_code: String(rollbackError.code || 'unknown'), step: 'rollback' },
+          extra: { contract_id: newContract.id, details: rollbackError.details },
+        });
+      }
       return dbWriteErrorResponse(milestoneError, 'los cobros programados', 'quotes/convert', {
         verb: 'crear',
       });
@@ -124,6 +138,11 @@ export async function POST(
         route: 'quotes/convert',
         organization_id: organizationId,
         level: 'error',
+        // formatErrorPayload keeps only message/stack — the PostgREST fields
+        // that actually diagnose the failure travel as extra, like
+        // describeDbWriteError's own capture does.
+        tags: { db_error_code: String(quoteStatusError.code || 'unknown') },
+        extra: { details: quoteStatusError.details, hint: quoteStatusError.hint },
       });
       return NextResponse.json(
         {

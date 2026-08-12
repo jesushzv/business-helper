@@ -7,6 +7,16 @@ export interface QuoteData {
   currency?: string;
   status: string;
   line_items?: Array<{ description: string; quantity: number; unit_price: number }>;
+  /**
+   * OTP signature evidence, set on the quote row when the client signed it on
+   * `/q/[token]`. Optional because the demo path builds a QuoteData by hand;
+   * absent evidence stays absent on the contract (#215).
+   */
+  accepted_at?: string | null;
+  accepted_by_name?: string | null;
+  accepted_ip?: string | null;
+  contract_hash?: string | null;
+  client_otp_verified?: boolean;
 }
 
 /**
@@ -29,7 +39,11 @@ export interface ContractResult {
     total_amount: number;
     currency: string;
     status: string;
-    accepted_at: string;
+    accepted_at: string | null;
+    accepted_by_name: string | null;
+    accepted_ip: string | null;
+    contract_hash: string | null;
+    client_otp_verified: boolean;
   };
   milestones: Array<{
     organization_id: string;
@@ -51,8 +65,17 @@ export function convertQuoteToContract(quote: QuoteData, splitRatio: number[] = 
     scope_description: `Contrato derivado de cotización: ${quote.title}`,
     total_amount: total,
     currency: quote.currency || 'MXN',
-    status: 'client_signed',
-    accepted_at: new Date().toISOString(),
+    // The signature evidence travels with the contract (#215). `client_signed`
+    // is a legal claim, so it is derived from the evidence, never asserted:
+    // a quote nobody OTP-verified becomes a draft contract. `accepted_at` is
+    // the moment the client signed the quote — never the conversion time —
+    // and a quote with no signature yields null evidence, not an invented one.
+    status: quote.client_otp_verified ? 'client_signed' : 'draft',
+    accepted_at: quote.accepted_at ?? null,
+    accepted_by_name: quote.accepted_by_name ?? null,
+    accepted_ip: quote.accepted_ip ?? null,
+    contract_hash: quote.contract_hash ?? null,
+    client_otp_verified: quote.client_otp_verified ?? false,
   };
 
   const dueNow = new Date();
