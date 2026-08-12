@@ -142,8 +142,8 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
  * The pricing page sells `starter` / `pro` / `business`; `lib/tierFeaturesData.ts`
  * calls the same three `inicial` / `pro` / `enterprise`; the database stores
  * `inicial` / `negocio` / `empresa`. Only the first alias was mapped, so
- * `getStripeTierConfig('pro')` — the $599 tier — fell through to Inicial, which
- * is the 0-included-folios entitlement `lib/cfdiFolios.ts` reads.
+ * `getStripeTierConfig('pro')` — the $599 tier — fell through to Inicial and
+ * billed the wrong plan.
  */
 const TIER_ALIASES: Record<string, StripeTierId> = {
   inicial: 'inicial',

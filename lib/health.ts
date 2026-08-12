@@ -54,7 +54,6 @@ export function auditEnvironmentSecrets(env: EnvRecord = process.env): Environme
   ];
 
   const optionalThirdParty = [
-    'FACTURAPI_SECRET_KEY',
     'STRIPE_SECRET_KEY',
     'TWILIO_ACCOUNT_SID',
     'GEMINI_API_KEY',

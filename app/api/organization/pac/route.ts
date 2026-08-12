@@ -9,8 +9,7 @@ import {
   sealPacApiKey,
   validatePacApiKey,
 } from '@/lib/pacCredentials';
-import { isPlatformPacConfigured, verifyPacCredentials } from '@/lib/pacClient';
-import { currentFolioPeriod, resolveFolioAllowance } from '@/lib/cfdiFolios';
+import { verifyPacCredentials } from '@/lib/pacClient';
 
 /**
  * The organization's PAC connection.
@@ -31,7 +30,7 @@ const REQUIRED_CAPABILITY = 'billing_management' as const;
 export async function GET() {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId, role } = auth.ctx;
+  const { organizationId, role } = auth.ctx;
 
   if (!hasCapability(role, REQUIRED_CAPABILITY)) {
     return NextResponse.json(
@@ -39,12 +38,6 @@ export async function GET() {
       { status: 403 }
     );
   }
-
-  const { data: organization } = await supabase
-    .from('organizations')
-    .select('subscription_tier, cfdi_folios_used, cfdi_folios_period, cfdi_folios_purchased')
-    .eq('id', organizationId)
-    .maybeSingle();
 
   let connection: { provider: string; api_key_hint: string; environment: string; updated_at: string } | null =
     null;
@@ -59,8 +52,6 @@ export async function GET() {
     connection = data ?? null;
   }
 
-  const allowance = resolveFolioAllowance(organization, currentFolioPeriod());
-
   return NextResponse.json({
     connection: connection
       ? {
@@ -70,16 +61,6 @@ export async function GET() {
           connectedAt: connection.updated_at,
         }
       : null,
-    // What happens if they stamp without connecting anything of their own.
-    platformFallbackAvailable: isPlatformPacConfigured(),
-    folios: {
-      included: allowance.included,
-      used: allowance.used,
-      purchased: allowance.purchased,
-      remaining: allowance.remaining,
-      period: allowance.period,
-      addOnPricePerFolio: allowance.addOnPricePerFolio,
-    },
   });
 }
 

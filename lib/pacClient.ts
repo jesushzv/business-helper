@@ -29,8 +29,12 @@ export interface PacCredentials {
   provider: PacProvider;
   apiKey: string;
   environment: PacEnvironment;
-  /** Whether the key belongs to the tenant or to the platform's shared PAC account. */
-  source: 'organization' | 'platform';
+  /**
+   * Always the tenant's own key. The platform never stamps on a tenant's
+   * behalf (BYOK decision, docs/STATUS.md §05) — the 'platform' source and the
+   * FACTURAPI_SECRET_KEY fallback were removed with it (#221).
+   */
+  source: 'organization';
 }
 
 export interface StampedCFDI {
@@ -68,31 +72,6 @@ export const CFDI_CANCELLATION_MOTIVES: Record<string, string> = {
   '03': 'No se llevó a cabo la operación',
   '04': 'Operación nominativa relacionada en una factura global',
 };
-
-/** True when the platform has a PAC account tenants can stamp against. */
-export function isPlatformPacConfigured(): boolean {
-  const key = (process.env.FACTURAPI_SECRET_KEY || '').trim();
-  return key.startsWith('sk_test_') || key.startsWith('sk_live_');
-}
-
-/**
- * The platform's own PAC credentials, for tenants who have not connected one.
- *
- * Per §06 of the integration architecture, FACTURAPI_SECRET_KEY is the default
- * account; folios stamped against it are metered by lib/cfdiFolios.ts, since
- * the platform is paying the PAC for them.
- */
-export function getPlatformPacCredentials(): PacCredentials | null {
-  const apiKey = (process.env.FACTURAPI_SECRET_KEY || '').trim();
-  if (!isPlatformPacConfigured()) return null;
-
-  return {
-    provider: 'facturapi',
-    apiKey,
-    environment: apiKey.startsWith('sk_live_') ? 'live' : 'sandbox',
-    source: 'platform',
-  };
-}
 
 function authHeaders(credentials: PacCredentials): Record<string, string> {
   return {

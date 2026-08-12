@@ -32,11 +32,6 @@ import {
 import { resolvePacCredentials } from './pacConnection';
 import { downloadCFDIDocuments, stampInvoice } from './pacClient';
 import { storeCFDIDocuments } from './cfdiStorage';
-import {
-  currentFolioPeriod,
-  describeFolioExhaustion,
-  resolveFolioAllowance,
-} from './cfdiFolios';
 
 /** Money, to the two decimals the SAT reads. */
 function toMoney(value: number): number {
@@ -302,59 +297,6 @@ export async function issuePaymentComplement(
     };
   }
 
-  // A complement is a stamped document the PAC bills for, exactly like the
-  // invoice it settles, so it spends a folio on the same terms.
-  const meterFolios = credentials.source === 'platform';
-  const period = currentFolioPeriod();
-  let folioSource: string | null = null;
-
-  if (meterFolios) {
-    const { data: organization } = await supabase
-      .from('organizations')
-      .select('subscription_tier, cfdi_folios_used, cfdi_folios_period, cfdi_folios_purchased')
-      .eq('id', organizationId)
-      .maybeSingle();
-
-    const allowance = resolveFolioAllowance(organization, period);
-
-    const { data: reservation, error: reservationError } = await service.rpc('reserve_cfdi_folio', {
-      p_organization_id: organizationId,
-      p_period: period,
-      p_included: allowance.included,
-    });
-
-    if (reservationError) {
-      console.error('[cfdi] complement folio reservation failed:', reservationError.message);
-      return {
-        ok: false,
-        code: 'SERVER_ERROR',
-        message: 'No se pudo reservar el folio para el complemento de pago.',
-        status: 500,
-      };
-    }
-
-    if (!reservation?.granted) {
-      return {
-        ok: false,
-        code: 'FOLIOS_EXHAUSTED',
-        message: describeFolioExhaustion(allowance),
-        status: 402,
-      };
-    }
-
-    folioSource = typeof reservation.source === 'string' ? reservation.source : 'included';
-  }
-
-  const releaseFolio = async () => {
-    if (!meterFolios || !folioSource) return;
-    const { error } = await service.rpc('release_cfdi_folio', {
-      p_organization_id: organizationId,
-      p_period: period,
-      p_source: folioSource,
-    });
-    if (error) console.error('[cfdi] complement folio release failed:', error.message);
-  };
-
   const paymentDate = params.paymentDate || new Date().toISOString();
   const paymentForm = params.paymentForm || '03';
   const operationNumber = params.operationNumber || null;
@@ -380,8 +322,6 @@ export async function issuePaymentComplement(
     .single();
 
   if (insertError || !row) {
-    await releaseFolio();
-
     // 23505: the partial unique index on (milestone_id, installment) — another
     // request is already filing this parcialidad.
     const duplicate = (insertError as { code?: string } | null)?.code === '23505';
@@ -447,7 +387,6 @@ export async function issuePaymentComplement(
   );
 
   if (!stamp.ok) {
-    await releaseFolio();
     await recordFailure(stamp.message);
 
     return {
