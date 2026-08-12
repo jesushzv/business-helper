@@ -3,6 +3,8 @@ import { readOrganizationTrialState } from '@/lib/organizationTrialGate';
 import { TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE } from '@/lib/subscriptionTrial';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { convertQuoteToContract } from '@/lib/quoteToContract';
+import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { captureException } from '@/lib/sentry';
 import { track } from '@/lib/analytics';
 
 /**
@@ -73,7 +75,11 @@ export async function POST(
 
     const conversion = convertQuoteToContract(quote);
 
-    const { data: newContract, error: contractErr } = await supabase
+    // The rows carry no `id`, `created_at` or `contract_id` — Postgres owns
+    // those. The fabricated `c_…` text ids this inserted before failed every
+    // conversion with 22P02 against the uuid columns, and the discarded error
+    // kept the cause out of Sentry and off the screen (#214).
+    const { data: newContract, error: contractError } = await supabase
       .from('contracts')
       // Pin the tenant from the session rather than whatever the conversion
       // helper derived from the row.
@@ -81,18 +87,14 @@ export async function POST(
       .select()
       .single();
 
-    if (contractErr || !newContract) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo convertir la cotización a contrato' } },
-        { status: 500 }
-      );
+    if (contractError || !newContract) {
+      return dbWriteErrorResponse(contractError, 'el contrato', 'quotes/convert', { verb: 'crear' });
     }
 
-    const { data: newMilestones, error: milestoneErr } = await supabase
+    const { data: newMilestones, error: milestoneError } = await supabase
       .from('milestones')
       .insert(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        conversion.milestones.map((m: any) => ({
+        conversion.milestones.map((m) => ({
           ...m,
           contract_id: newContract.id,
           organization_id: organizationId,
@@ -100,23 +102,29 @@ export async function POST(
       )
       .select();
 
-    if (milestoneErr) {
+    if (milestoneError) {
       // A contract with no payment schedule is worse than no contract, and
       // there is no transaction spanning these inserts — roll back by hand.
       await supabase.from('contracts').delete().eq('id', newContract.id);
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudieron crear los hitos de cobranza' } },
-        { status: 500 }
-      );
+      return dbWriteErrorResponse(milestoneError, 'los cobros programados', 'quotes/convert', {
+        verb: 'crear',
+      });
     }
 
-    const { error: quoteErr } = await supabase
+    const { error: quoteStatusError } = await supabase
       .from('quotes')
       .update({ status: 'converted', converted_contract_id: newContract.id })
       .eq('id', id)
       .eq('organization_id', organizationId);
 
-    if (quoteErr) {
+    if (quoteStatusError) {
+      // Partial success — the contract and milestones exist — so the specific
+      // code survives; the cause goes to the log instead of nowhere.
+      captureException(quoteStatusError, {
+        route: 'quotes/convert',
+        organization_id: organizationId,
+        level: 'error',
+      });
       return NextResponse.json(
         {
           error: {

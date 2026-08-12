@@ -99,6 +99,23 @@ describe('Quote-to-Contract Conversion', () => {
     expect(summed).toBe(contract.total_amount);
   });
 
+  // #214 — `contracts.id` and `milestones.id` are `uuid DEFAULT gen_random_uuid()`
+  // in the live schema, so a fabricated `c_…`/`m_…` text id fails every insert
+  // with 22P02 and no quote could ever become a contract. The rows must be
+  // insert-shaped: the database owns the ids and timestamps, and a milestone's
+  // contract_id cannot be known before the contract row exists.
+  it('does not fabricate identifiers or timestamps the database owns (#214)', () => {
+    const { contract, milestones } = convertQuoteToContract(acceptedQuote);
+
+    expect(contract).not.toHaveProperty('id');
+    expect(contract).not.toHaveProperty('created_at');
+    for (const milestone of milestones) {
+      expect(milestone).not.toHaveProperty('id');
+      expect(milestone).not.toHaveProperty('contract_id');
+      expect(milestone).not.toHaveProperty('created_at');
+    }
+  });
+
   it('keeps a three-way split exact against the contract total', () => {
     const { milestones } = convertQuoteToContract(
       { ...acceptedQuote, total_amount: 2905.8 },
