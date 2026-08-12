@@ -39,7 +39,7 @@ export const PAIN_POINTS_SOLUTIONS: PainPointSolution[] = [
   {
     id: 'pp-2',
     painPoint: '"Mañana te transfiero" y cobranza olvidada que mata tu liquidez.',
-    solution: 'Recordatorios automáticos 1-Tap por WhatsApp con botón de pago SPEI Banxico.',
+    solution: 'Recordatorios automáticos por WhatsApp con 1 toque y botón de pago SPEI Banxico.',
     impact: 'Cobro 3x más rápido',
     iconName: 'DollarSign',
   },
@@ -68,7 +68,7 @@ export const APP_TIERS: TierConfig[] = [
     targetAudience: '1 usuario • Hasta 15 clientes activos',
     features: [
       'Cotizaciones ilimitadas con logotipo y PDF',
-      'Recordatorios 1-Tap por WhatsApp',
+      'Recordatorios por WhatsApp con 1 toque',
       'Validación de comprobantes SPEI Banxico',
       'Gestión de hasta 15 clientes',
       'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
@@ -89,7 +89,7 @@ export const APP_TIERS: TierConfig[] = [
       'Todo lo del Plan Básico +',
       'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Firma digital con evidencia legal certificada',
-      'Score de Salud Financiera del cliente',
+      'Confianza de Pago del cliente',
       'Proyección de Flujo de Efectivo a 30/60/90 días',
       'Asistente AI por WhatsApp para alertas',
       'Exportación mensual ZIP para Contador',

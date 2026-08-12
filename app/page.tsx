@@ -42,7 +42,7 @@ export default function LandingPage() {
       {/* Top Banner Announcement */}
       <div className="bg-linear-to-r from-indigo-700 via-indigo-600 to-emerald-500 text-white text-center py-2.5 px-4 text-xs font-bold tracking-wide uppercase flex items-center justify-center gap-2 shadow-md min-h-[48px]">
         <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-        <span>⚡ LA PLATAFORMA TODO-EN-UNO PARA PYMES EN MÉXICO — Prueba 14 Días Sin Costo</span>
+        <span>LA PLATAFORMA TODO-EN-UNO PARA PYMES EN MÉXICO — Prueba 14 Días Sin Costo</span>
       </div>
 
       {/* Navigation Header */}
@@ -62,7 +62,7 @@ export default function LandingPage() {
           </div>
 
           {/* Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-7 text-xs font-bold text-slate-300">
+          <nav className="hidden lg:flex items-center gap-7 text-xs font-bold text-slate-300 whitespace-nowrap">
             <a href="#caracteristicas" className="hover:text-emerald-400 transition-colors py-2">
               Características
             </a>
@@ -87,9 +87,11 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-4">
+            {/* Hidden below sm: at 375px this label wrapped into the wordmark.
+                Mobile keeps "Probar Gratis" here and "Iniciar Sesión" in the footer. */}
             <Link
               href="/login"
-              className="min-h-[48px] px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-300 hover:text-white transition-colors rounded-xl hover:bg-slate-900 flex items-center justify-center"
+              className="min-h-[48px] px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-300 hover:text-white transition-colors rounded-xl hover:bg-slate-900 hidden sm:flex items-center justify-center whitespace-nowrap"
             >
               Iniciar Sesión
             </Link>
@@ -120,7 +122,7 @@ export default function LandingPage() {
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15]">
-                Cobra un 40% más rápido con cotizaciones por WhatsApp y{' '}
+                Cobra más rápido con cotizaciones por WhatsApp y{' '}
                 <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 via-teal-300 to-indigo-400">
                   CFDI 4.0 automatizado
                 </span>.
@@ -166,7 +168,7 @@ export default function LandingPage() {
                 <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-[11px]">
                   Construcción • Servicios • Consultoría • Comercio
                 </span>
-                <span className="font-bold text-slate-200">+500 PyMEs en México</span>
+                <span className="font-bold text-slate-200">Hecho en México para PyMEs</span>
               </div>
             </div>
 
@@ -177,7 +179,7 @@ export default function LandingPage() {
                 <img
                   src={getAssetUrl('/assets/demo/cuj_02_dashboard_kpis.png')}
                   alt="Dashboard Business Helper — Control de Cotizaciones y Cobranza"
-                  className="w-full h-full object-contain object-top bg-slate-950 rounded-b-xl"
+                  className="w-full h-full object-cover object-top bg-slate-950 rounded-b-xl"
                   loading="eager"
                 />
               </BrowserFrameMockup>
@@ -245,7 +247,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-lg font-bold text-white">100% Celular (Sin Computadora)</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Opera desde tu iPhone o Android en la obra, la bodega o en ruta con botones táctiles de 48px+ diseñados para la agilidad cotidiana.
+                Opera desde tu iPhone o Android en la obra, la bodega o en ruta, con botones grandes y fáciles de tocar diseñados para la agilidad cotidiana.
               </p>
             </div>
           </div>
@@ -266,7 +268,7 @@ export default function LandingPage() {
                 Crea propuestas profesionales en 3 pasos con cálculo automático de impuestos SAT
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Selecciona productos o servicios de tu catálogo. El sistema calcula automáticamente el IVA (16%), retenciones (ISR/IVA para personas morales) y genera una plantilla impecable con tu logotipo lista para enviar por WhatsApp.
+                Selecciona productos o servicios de tu catálogo. El sistema calcula automáticamente el IVA (16%), las retenciones de ISR e IVA cuando facturas como persona física a una empresa, y genera una plantilla impecable con tu logotipo lista para enviar por WhatsApp.
               </p>
               <ul className="space-y-3 text-xs text-slate-300">
                 <li className="flex items-center gap-2">
@@ -297,7 +299,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-6 lg:order-2 space-y-6">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
-                02. Aprobación Digital OTP por WhatsApp
+                02. Aprobación Digital con Código OTP
               </span>
               <h3 className="text-3xl font-black text-white tracking-tight">
                 Tu cliente autoriza con código OTP legal desde su celular sin crear cuentas
@@ -374,7 +376,7 @@ export default function LandingPage() {
                 04. Cobranza Visual &ldquo;Quién Me Debe&rdquo;
               </span>
               <h3 className="text-3xl font-black text-white tracking-tight">
-                Mapa de cartera vencida en tiempo real y score de riesgo crediticio
+                Mapa de cartera vencida en tiempo real y Confianza de Pago por cliente
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed">
                 Visualiza exactamente qué clientes están al día, quiénes tienen pagos por vencer y cuáles presentan morosidad, con recordatorios automatizados listos para enviar por WhatsApp.
@@ -660,7 +662,7 @@ export default function LandingPage() {
               Toma el control de la cobranza de tu negocio hoy mismo
             </h2>
             <p className="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
-              Únete a más de 500 PyMEs en México que ya cotizan y cobran más rápido. 14 días gratis, sin tarjeta de crédito.
+              Cotiza, firma y cobra desde tu celular en una sola plataforma. 14 días gratis, sin tarjeta de crédito.
             </p>
           </div>
 

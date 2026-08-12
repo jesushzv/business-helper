@@ -21,7 +21,11 @@ describe('StickyMobileCta Component Suite', () => {
 
     const ctaLink = screen.getByRole('link', { name: /Probar 14 Días Gratis/i });
     expect(ctaLink).toBeInTheDocument();
-    expect(ctaLink).toHaveAttribute('href', '/onboarding');
+    // /register, never /onboarding: an anonymous visitor can render the
+    // onboarding form but its submit requires a session, so this — the only
+    // CTA that follows the mobile persona down the page — dead-ended in a 401
+    // (#231, the #64 class). This assertion previously pinned '/onboarding'.
+    expect(ctaLink).toHaveAttribute('href', '/register');
   });
 
   it('enforces Don Roberto persona constraint: touch target min-h-[48px] on CTA button', () => {

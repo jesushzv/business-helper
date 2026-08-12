@@ -39,7 +39,7 @@ export function Footer() {
             </div>
 
             <div className="text-[11px] text-slate-300 font-medium pt-1">
-              🏢 Business Helper S.A.P.I. de C.V. • Tijuana, B.C., México / San Diego, CA
+              🏢 Business Helper • Tijuana, B.C., México / San Diego, CA
             </div>
           </div>
 
@@ -97,7 +97,7 @@ export function Footer() {
                 <span className="text-slate-300">Validación Banxico SPEI</span>
               </li>
               <li>
-                <span className="text-slate-300">Conexión cifrada de extremo a extremo</span>
+                <span className="text-slate-300">Tu información viaja y se guarda cifrada</span>
               </li>
             </ul>
           </div>
@@ -120,7 +120,7 @@ export function Footer() {
               </li>
               <li className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Horario: Lun - Vie (8am - 6pm, hora del centro de México)</span>
+                <span>Horario: Lun - Vie (8am - 6pm, hora del Pacífico — Tijuana)</span>
               </li>
               <li className="pt-1">
                 <span className="inline-block px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-[10px] text-emerald-400 font-mono font-bold">
@@ -133,7 +133,7 @@ export function Footer() {
 
         {/* Bottom Rights Bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-300">
-          <span>© 2026 Business Helper S.A.P.I. de C.V. Todos los derechos reservados.</span>
+          <span>© 2026 Business Helper. Todos los derechos reservados.</span>
           <div className="flex items-center gap-6">
             <Link href="/privacy" className="hover:text-white transition-colors">
               Privacidad

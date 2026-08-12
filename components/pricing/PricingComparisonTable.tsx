@@ -60,7 +60,7 @@ export function PricingComparisonTable() {
             </tr>
             {/* Row 5 */}
             <tr className="hover:bg-slate-800/30 transition-colors">
-              <td className="p-4 sm:p-5 font-bold text-white">Firma OTP por WhatsApp</td>
+              <td className="p-4 sm:p-5 font-bold text-white">Firma digital con código OTP</td>
               <td className="p-4 sm:p-5 text-center"><Check className="w-4 h-4 text-emerald-400 mx-auto" /></td>
               <td className="p-4 sm:p-5 text-center bg-emerald-950/20 border-x border-emerald-500/20"><Check className="w-4 h-4 text-emerald-400 mx-auto" /></td>
               <td className="p-4 sm:p-5 text-center"><Check className="w-4 h-4 text-indigo-400 mx-auto" /></td>

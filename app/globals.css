@@ -42,7 +42,7 @@
    * Emerald reads against every surface in the palette (slate-950 → slate-800)
    * and the offset keeps it clear of rounded borders. Components may still
    * override for a specific control; almost none should need to.
-   */
+   *
    * `!important` for the same reason the rule above it carries one: ~60
    * components already declare `focus:outline-none`, whose specificity (0,2,0)
    * beats anything this base layer can express, so without it the ring would

@@ -13,8 +13,9 @@ describe('P2 Audit Fixes — Verification Suite', () => {
     expect(sslBadge?.externalSealLabel).toContain('PCI DSS Nivel 1');
   });
 
-  it('should include founder profiles with valid direct email contacts and clear bios', () => {
-    expect(TEAM_MEMBERS.length).toBe(3);
+  it('should include the founder profile with a valid direct email contact and clear bio', () => {
+    // Solo-founder project (#230): exactly one real profile, never invented teammates.
+    expect(TEAM_MEMBERS.length).toBe(1);
     TEAM_MEMBERS.forEach((member) => {
       expect(member.name).toBeDefined();
       expect(member.bio).toBeDefined();

@@ -23,6 +23,7 @@ const COPY_MODULES = [
   'lib/tierFeaturesData.ts',
   'lib/trustData.ts',
   'lib/helpFAQ.ts',
+  'lib/landingFaq.ts',
   // STRIPE_PLANS.*.features is the "Incluye:" list on the Ajustes billing
   // card — the copy a tenant reads at the moment of payment (#225 review).
   'lib/stripe.ts',
@@ -45,6 +46,10 @@ const BANNED = [
   'Health Score',
   'Kanban',
   'Cash Flow',
+  // #232: English feature-jargon that slipped past the original list.
+  'Self-Serve',
+  'Click-to-Chat',
+  '1-Tap',
 ];
 
 function tsxFiles(dir: string): string[] {
@@ -115,6 +120,26 @@ describe('user-facing copy (#103)', () => {
     expect(offenders, 'Map to a fixed Spanish string and log the original — lib/errorCopy.ts').toEqual(
       []
     );
+  });
+
+  it('advertises no invented evidence (#230)', () => {
+    // The landing page shipped a 4.9★×512 aggregateRating in JSON-LD, a
+    // "+500 PyMEs" customer count and a "Score Promedio" over customers that
+    // do not exist. Hard rule #1 applied to marketing: no rating markup, no
+    // customer counts, no fleet statistics until they are measured.
+    const offenders: string[] = [];
+    const shapes: Array<[string, RegExp]> = [
+      ['aggregateRating', /aggregateRating/],
+      ['invented customer count', /500 PyMEs/],
+      ['invented fleet statistic', /Score Promedio/],
+    ];
+    for (const file of files) {
+      const src = code(readFileSync(file, 'utf8'));
+      for (const [label, shape] of shapes) {
+        if (shape.test(src)) offenders.push(`${file}: ${label}`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 
   it('keeps one register: tú, including the client-facing portals', () => {

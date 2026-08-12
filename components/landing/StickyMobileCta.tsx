@@ -39,7 +39,7 @@ export function StickyMobileCta() {
         </div>
 
         <Link
-          href="/onboarding"
+          href="/register"
           className="min-h-[48px] px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5 active:scale-95 transition-transform shrink-0"
         >
           <span>Probar 14 Días Gratis</span>

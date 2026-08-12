@@ -13,7 +13,7 @@ export function ComparisonSection() {
     },
     {
       feature: 'Envíos y Seguimiento WhatsApp',
-      bh: '1-Tap Directo (enlace wa.me con vista previa)',
+      bh: 'Directo con 1 toque (enlace de WhatsApp con vista previa)',
       manual: 'Manual (descargar y adjuntar PDF)',
       traditional: 'No (solo envío por correo interno)',
     },
@@ -30,7 +30,7 @@ export function ComparisonSection() {
       traditional: 'No (conciliación manual en banca en línea)',
     },
     {
-      feature: 'Score de Salud del Cliente (0–100)',
+      feature: 'Confianza de Pago (0–100)',
       bh: 'Sí (Evaluación automática de comportamiento de pago PyME)',
       manual: 'No (basado en memoria o corazonadas)',
       traditional: 'No (reportes estáticos de antigüedad de saldos)',
@@ -49,7 +49,7 @@ export function ComparisonSection() {
     },
     {
       feature: 'Implementación & Curva de Aprendizaje',
-      bh: '< 10 minutos (Self-Serve 100% Celular)',
+      bh: '< 10 minutos (tú solo, desde tu celular)',
       manual: 'Caótico (archivos duplicados o desactualizados)',
       traditional: '3–6 semanas (Requiere consultores o técnicos)',
     },

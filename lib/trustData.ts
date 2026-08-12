@@ -32,7 +32,7 @@ export const TESTIMONIALS: UseCaseScenario[] = [
     quote:
       'Aprobación de cotizaciones en 30 segundos por WhatsApp y anticipos SPEI inmediatos sin perder folios ni traspapelar notas de venta en papel.',
     rating: 5,
-    metricTag: 'Cobro 40% más rápido',
+    metricTag: 'Firma OTP + Anticipo SPEI',
     avatarInitials: 'CO',
     avatarBg: 'bg-emerald-600',
     avatarIcon: 'Building2',
@@ -50,7 +50,7 @@ export const TESTIMONIALS: UseCaseScenario[] = [
     quote:
       'Cotizaciones enviadas desde el celular en el lugar de la obra en menos de 2 minutos con notificación en tiempo real al recibirse la transferencia SPEI.',
     rating: 5,
-    metricTag: '15 hrs/semana Ahorradas',
+    metricTag: 'Cotiza desde la obra',
     avatarInitials: 'SI',
     avatarBg: 'bg-teal-600',
     avatarIcon: 'Wrench',
@@ -86,7 +86,7 @@ export const TESTIMONIALS: UseCaseScenario[] = [
     quote:
       'Control total de la cartera vencida con alertas de pago SPEI Banxico y timbrado CFDI 4.0 automático sin complicaciones fiscales ante el SAT.',
     rating: 5,
-    metricTag: '80% Menos Cartera Vencida',
+    metricTag: 'Cartera vencida bajo control',
     avatarInitials: 'DM',
     avatarBg: 'bg-amber-600',
     avatarIcon: 'ShieldCheck',
@@ -207,6 +207,8 @@ const activeContactoEmail = getSupportEmail();
 const activeHectorEmail = getFounderEmail();
 const activeSoporteEmail = getTechSupportEmail();
 
+// Solo-founder project (founder decision 2026-08-12, #230): the section names
+// only the real founder. No invented teammates.
 export const TEAM_MEMBERS: TeamMember[] = [
   {
     id: 'team-1',
@@ -216,30 +218,8 @@ export const TEAM_MEMBERS: TeamMember[] = [
     bio: 'Fundador y líder ejecutivo apasionado por empoderar a los dueños de PyMEs en México con tecnología móvil accesible. Enfocado en eliminar las barreras de cobranza y agilizar el flujo de efectivo.',
     avatarInitials: 'HZ',
     avatarBg: 'bg-emerald-600',
-    highlights: ['Líder de Visión & Estrategia', 'Enfoque en el flujo de efectivo de las PyMEs', 'Atención Directa a Clientes'],
+    highlights: ['Visión & Estrategia', 'Enfoque en el flujo de efectivo de las PyMEs', 'Atención Directa a Clientes'],
     contactEmail: activeHectorEmail,
-  },
-  {
-    id: 'team-2',
-    name: 'Gilberto Santana',
-    role: 'Co-Fundador & CTO',
-    location: 'Tijuana, BC / San Diego, CA',
-    bio: 'Co-Fundador y líder de arquitectura técnica. Diseña la infraestructura de seguridad en la nube, integración del SAT CFDI 4.0 y sincronización en tiempo real de tu información.',
-    avatarInitials: 'GS',
-    avatarBg: 'bg-indigo-600',
-    highlights: ['Arquitectura Cloud & Seguridad', 'Aislamiento de datos por negocio', 'Integraciones SAT & SPEI'],
-    contactEmail: activeSoporteEmail,
-  },
-  {
-    id: 'team-3',
-    name: 'Guillermo Fernandez',
-    role: 'Co-Fundador & COO',
-    location: 'Tijuana, BC / San Diego, CA',
-    bio: 'Co-Fundador y líder de operaciones comerciales y alianzas. Supervisa el acompañamiento a usuarios, la relación con despachos contables y la expansión estratégica de la plataforma.',
-    avatarInitials: 'GF',
-    avatarBg: 'bg-teal-600',
-    highlights: ['Operaciones & Alianzas B2B', 'Relación con Contadores', 'Experiencia de Usuario'],
-    contactEmail: activeContactoEmail,
   },
 ];
 
