@@ -6,8 +6,9 @@
  * owner asking what a client owed them got a confident number belonging to
  * nobody. The assistant now reads the caller's own clients and open milestones.
  *
- * This is deterministic keyword matching over those records, not a language
- * model — responses carry `engine: 'rules'` so no caller has to guess.
+ * The rules engine computes every figure from these records; when Gemini is
+ * configured it writes only the prose around them, and each response carries
+ * `engine: 'rules' | 'gemini'` for whichever actually wrote the text.
  */
 
 import type { AIOrgData } from './whatsappAI';

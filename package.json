@@ -17,7 +17,8 @@
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry-run",
     "verify:webhook": "node scripts/verify-stripe-webhook.mjs",
     "verify:stripe": "node scripts/verify-stripe-live.mjs",
-    "verify:otp": "node scripts/verify-otp-delivery.mjs"
+    "verify:otp": "node scripts/verify-otp-delivery.mjs",
+    "verify:gemini": "node scripts/verify-gemini.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.70.0",

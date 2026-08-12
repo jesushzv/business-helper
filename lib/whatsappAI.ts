@@ -142,6 +142,53 @@ Pregunta del usuario: "${cleanQuery}"
 Responde de forma amable, clara y en español neutro (para México).`;
 }
 
+/** The shape `parseNaturalLanguageQuery` returns; the model rewrites only its prose. */
+export interface RulesAnswer {
+  query: string;
+  intent: string;
+  matchedClient: string | null;
+  totalOverdue: number;
+  answerText: string;
+  whatsappUrl: string;
+}
+
+/**
+ * Prompt for the model half of the assistant. Every figure the model may use
+ * is computed deterministically first (per-client totals from the tenant's own
+ * rows, plus the rules engine's own answer) and pinned in the prompt — the
+ * model writes prose around verified numbers, it never produces one. That
+ * division is what keeps hard rule #1 intact with an LLM in the loop.
+ */
+export function buildGroundedAssistantPrompt(query: string, rules: RulesAnswer, orgData: AIOrgData = {}): string {
+  const cleanQuery = sanitizeAIQuery(query, 300);
+  const clients = orgData.clients || [];
+  const receivables = orgData.receivables || [];
+
+  const perClient = clients.map((client) => {
+    const total = receivables
+      .filter((r) => r.clientId === client.id)
+      .reduce((acc, r) => acc + (r.amount || 0), 0);
+    return `- ${client.name}: $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN pendientes`;
+  });
+  const totalPending = receivables.reduce((acc, r) => acc + (r.amount || 0), 0);
+
+  return `Eres el Asistente de Operaciones y Cobranza de Business Helper para un negocio en México.
+
+Reglas estrictas:
+- Usa ÚNICAMENTE las cifras y clientes listados abajo. Nunca inventes montos, clientes, fechas ni promesas.
+- Si los datos no alcanzan para responder, dilo con claridad.
+- Responde en español de México, tono claro y profesional, máximo 3 oraciones, montos en MXN.
+- No uses formato Markdown.
+
+Datos verificados del negocio:
+${perClient.length > 0 ? perClient.join('\n') : '- (sin clientes registrados)'}
+- Total por cobrar: $${totalPending.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+
+Respuesta calculada por el sistema: "${rules.answerText}"
+
+Pregunta del dueño: "${cleanQuery}"`;
+}
+
 export function verifyWebhookChallenge(
   receivedToken: string,
   expectedToken: string = 'business_helper_verify_token',

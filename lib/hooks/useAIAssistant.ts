@@ -26,6 +26,8 @@ export interface AIResponse {
   whatsappUrl: string;
   timestamp: string;
   isDemo: boolean;
+  /** Which engine actually wrote `answerText` — the server decides, per answer. */
+  engine: 'rules' | 'gemini';
 }
 
 /** Sample book of business for the no-backend marketing demo. */
@@ -63,7 +65,7 @@ export function useAIAssistant() {
       try {
         if (isDemoMode) {
           const res = parseNaturalLanguageQuery(inputQuery, DEMO_ORG_DATA);
-          const item: AIResponse = { ...res, timestamp: timestamp(), isDemo: true };
+          const item: AIResponse = { ...res, timestamp: timestamp(), isDemo: true, engine: 'rules' };
           setHistory((prev) => [item, ...prev]);
           setQuery('');
           return item;
@@ -90,6 +92,8 @@ export function useAIAssistant() {
           whatsappUrl: data.whatsappUrl,
           timestamp: timestamp(),
           isDemo: false,
+          // Only the server knows which engine answered; never assume the model.
+          engine: data.engine === 'gemini' ? 'gemini' : 'rules',
         };
 
         setHistory((prev) => [item, ...prev]);
