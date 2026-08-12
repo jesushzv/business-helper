@@ -702,6 +702,26 @@ export interface Database {
           processed_at?: string;
         };
       };
+      ai_usage_monthly: {
+        Row: {
+          organization_id: string;
+          month: string;
+          used: number;
+          updated_at: string;
+        };
+        Insert: {
+          organization_id: string;
+          month: string;
+          used?: number;
+          updated_at?: string;
+        };
+        Update: {
+          organization_id?: string;
+          month?: string;
+          used?: number;
+          updated_at?: string;
+        };
+      };
       otp_send_log: {
         Row: {
           id: string;

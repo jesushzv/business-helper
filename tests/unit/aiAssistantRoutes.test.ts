@@ -38,10 +38,39 @@ vi.mock('@/lib/sentry', () => ({
   captureException: vi.fn(() => ({ handled: true })),
 }));
 
+// The model budget is server-derived (#228): tier from the organization row,
+// usage from the service-only ledger. Mocked per test to steer the gate.
+vi.mock('@/lib/aiUsage', () => ({
+  resolveAIModelBudget: vi.fn(),
+  recordModelAnswer: vi.fn(async () => true),
+}));
+
+vi.mock('@/lib/supabase/service', () => ({
+  isServiceRoleConfigured: vi.fn(() => true),
+  createServiceClient: vi.fn(() => ({})),
+}));
+
 import { POST as assistantPOST } from '@/app/api/ai/assistant/route';
 import { POST as supportPOST } from '@/app/api/ai/support/route';
+import { requireOrgAccess } from '@/lib/apiAuth';
 import { isGeminiConfigured, generateGeminiText } from '@/lib/geminiClient';
+import { resolveAIModelBudget, recordModelAnswer } from '@/lib/aiUsage';
+import { isServiceRoleConfigured } from '@/lib/supabase/service';
 import { captureException } from '@/lib/sentry';
+
+function openBudget(used = 3, limit = 300) {
+  return {
+    quota: { allowed: true, remaining: limit - used, limit, tier: 'negocio' },
+    used,
+  };
+}
+
+function exhaustedBudget(limit = 50) {
+  return {
+    quota: { allowed: false, remaining: 0, limit, tier: 'inicial', reason: 'Has alcanzado tu límite mensual' },
+    used: limit,
+  };
+}
 
 function request(path: string, body: unknown): Request {
   return new Request(`http://localhost${path}`, {
@@ -53,7 +82,11 @@ function request(path: string, body: unknown): Request {
 
 beforeEach(() => {
   vi.mocked(isGeminiConfigured).mockReturnValue(true);
+  vi.mocked(isServiceRoleConfigured).mockReturnValue(true);
   vi.mocked(generateGeminiText).mockReset();
+  vi.mocked(resolveAIModelBudget).mockReset();
+  vi.mocked(resolveAIModelBudget).mockResolvedValue(openBudget());
+  vi.mocked(recordModelAnswer).mockClear();
   vi.mocked(captureException).mockClear();
 });
 
@@ -76,6 +109,9 @@ describe('POST /api/ai/assistant with Gemini configured', () => {
     expect(prompt).toContain('Constructora Maya');
     expect(prompt).toContain('45,000.00');
     expect(prompt).toContain('ÚNICAMENTE');
+    // Exactly one model answer, exactly one count against the ledger.
+    expect(vi.mocked(recordModelAnswer)).toHaveBeenCalledTimes(1);
+    expect(data.quota.tier).toBe('negocio');
   });
 
   it('degrades to the labeled rules answer when Gemini fails, and reports the failure', async () => {
@@ -88,6 +124,8 @@ describe('POST /api/ai/assistant with Gemini configured', () => {
     expect(data.engine).toBe('rules');
     expect(data.answerText).toContain('saldo pendiente');
     expect(vi.mocked(captureException)).toHaveBeenCalledTimes(1);
+    // A failed model call is not a model answer — it must not be billed.
+    expect(vi.mocked(recordModelAnswer)).not.toHaveBeenCalled();
   });
 
   it('never calls the model when the key is unset', async () => {
@@ -108,6 +146,58 @@ describe('POST /api/ai/assistant with Gemini configured', () => {
 
     expect(data.intent).toBe('human_handoff_request');
     expect(data.engine).toBe('rules');
+    expect(vi.mocked(generateGeminiText)).not.toHaveBeenCalled();
+  });
+});
+
+describe('the model budget is the server’s, not the caller’s (#228)', () => {
+  it('answers from rules when the monthly allowance is spent — no model call, no 403', async () => {
+    vi.mocked(resolveAIModelBudget).mockResolvedValue(exhaustedBudget());
+
+    const response = await assistantPOST(request('/api/ai/assistant', { query: '¿Cuánto me deben?' }));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.engine).toBe('rules');
+    expect(data.quota.allowed).toBe(false);
+    expect(vi.mocked(generateGeminiText)).not.toHaveBeenCalled();
+    expect(vi.mocked(recordModelAnswer)).not.toHaveBeenCalled();
+  });
+
+  it('ignores tierKey and currentUsage from the request body', async () => {
+    vi.mocked(resolveAIModelBudget).mockResolvedValue(exhaustedBudget());
+
+    // The self-report that used to buy unlimited model calls.
+    const response = await assistantPOST(
+      request('/api/ai/assistant', { query: '¿Cuánto me deben?', tierKey: 'empresa', currentUsage: 0 })
+    );
+    const data = await response.json();
+
+    expect(data.engine).toBe('rules');
+    expect(data.quota.tier).toBe('inicial');
+    expect(vi.mocked(generateGeminiText)).not.toHaveBeenCalled();
+  });
+
+  it('treats an unknown budget as no budget: rules answer, no token spend, no refusal', async () => {
+    vi.mocked(resolveAIModelBudget).mockResolvedValue(null);
+
+    const response = await assistantPOST(request('/api/ai/assistant', { query: '¿Cuánto me deben?' }));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.engine).toBe('rules');
+    expect(data.quota).toBeNull();
+    expect(vi.mocked(generateGeminiText)).not.toHaveBeenCalled();
+  });
+
+  it('never consults the ledger without a service role — and never calls the model', async () => {
+    vi.mocked(isServiceRoleConfigured).mockReturnValue(false);
+
+    const response = await assistantPOST(request('/api/ai/assistant', { query: '¿Cuánto me deben?' }));
+    const data = await response.json();
+
+    expect(data.engine).toBe('rules');
+    expect(vi.mocked(resolveAIModelBudget)).not.toHaveBeenCalled();
     expect(vi.mocked(generateGeminiText)).not.toHaveBeenCalled();
   });
 });
@@ -135,5 +225,22 @@ describe('POST /api/ai/support with Gemini configured', () => {
     expect(data.engine).toBe('rules');
     expect(data.response.answerText).toContain('COTIZACIONES');
     expect(vi.mocked(captureException)).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives a caller with no organization the FAQ answer, never an unmetered model call', async () => {
+    vi.mocked(requireOrgAccess).mockResolvedValueOnce({
+      ok: false,
+      response: new Response(null, { status: 401 }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const response = await supportPOST(request('/api/ai/support', { query: '¿Cómo creo una cotización?' }));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.engine).toBe('rules');
+    expect(data.response.answerText).toContain('COTIZACIONES');
+    expect(vi.mocked(resolveAIModelBudget)).not.toHaveBeenCalled();
+    expect(vi.mocked(generateGeminiText)).not.toHaveBeenCalled();
   });
 });

@@ -3,12 +3,13 @@ import {
   parseNaturalLanguageQuery,
   buildAISupportPromptContext,
   checkRateLimit,
-  validateAIQuota,
   sanitizeAIQuery,
 } from '@/lib/whatsappAI';
 import { requireUser, requireOrgAccess } from '@/lib/apiAuth';
 import { loadAIOrgContext } from '@/lib/aiOrgContext';
 import { isGeminiConfigured, generateGeminiText } from '@/lib/geminiClient';
+import { resolveAIModelBudget, recordModelAnswer } from '@/lib/aiUsage';
+import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { captureException } from '@/lib/sentry';
 
 /**
@@ -45,7 +46,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { query, tierKey = 'demo', currentUsage = 0 } = body;
+    // Only `query` is read. The body once carried tierKey/currentUsage and the
+    // route believed them — the caller graded its own model allowance (#228).
+    const { query } = body;
 
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
@@ -63,15 +66,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Tier Quota Guard
-    const quotaCheck = validateAIQuota(tierKey, currentUsage);
-    if (!quotaCheck.allowed) {
-      return NextResponse.json(
-        { error: { code: 'QUOTA_EXCEEDED', message: quotaCheck.reason, quota: quotaCheck } },
-        { status: 403 }
-      );
-    }
-
     const orgAccess = await requireOrgAccess();
     const orgData = orgAccess.ok
       ? await loadAIOrgContext(orgAccess.ctx.supabase, orgAccess.ctx.organizationId)
@@ -81,14 +75,29 @@ export async function POST(request: Request) {
 
     let engine: 'rules' | 'gemini' = 'rules';
     let answerText = aiResponse.answerText;
+    let quota = null;
 
-    // A handoff answer is an action, not prose — it stays deterministic.
-    if (isGeminiConfigured() && !aiResponse.requiresHumanHandoff) {
-      try {
-        answerText = await generateGeminiText(buildAISupportPromptContext(sanitizedQuery, aiResponse.matchedFAQ));
-        engine = 'gemini';
-      } catch (err) {
-        captureException(err, { route: '/api/ai/support', level: 'warning' });
+    // The model runs only inside a verified budget (see /api/ai/assistant).
+    // A caller with no organization has no budget to bill against, so they
+    // get the deterministic FAQ answer — never an unmetered model call.
+    // A handoff answer is an action, not prose — always deterministic.
+    if (
+      isGeminiConfigured() &&
+      isServiceRoleConfigured() &&
+      orgAccess.ok &&
+      !aiResponse.requiresHumanHandoff
+    ) {
+      const service = createServiceClient();
+      const budget = await resolveAIModelBudget(service, orgAccess.ctx.organizationId);
+      quota = budget?.quota ?? null;
+      if (budget?.quota.allowed) {
+        try {
+          answerText = await generateGeminiText(buildAISupportPromptContext(sanitizedQuery, aiResponse.matchedFAQ));
+          engine = 'gemini';
+          await recordModelAnswer(service, orgAccess.ctx.organizationId);
+        } catch (err) {
+          captureException(err, { organization_id: orgAccess.ctx.organizationId, route: '/api/ai/support', level: 'warning' });
+        }
       }
     }
 
@@ -97,7 +106,7 @@ export async function POST(request: Request) {
       query: sanitizedQuery,
       response: { ...aiResponse, answerText },
       engine,
-      quota: quotaCheck,
+      quota,
     });
   } catch {
     return NextResponse.json(
