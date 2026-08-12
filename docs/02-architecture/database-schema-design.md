@@ -216,6 +216,7 @@
 - `cfdi_error`: text (nullable) -- Why the last attempt failed, in the user's language
 - `confirmed_at`: timestamptz (nullable)
 - `created_at`: timestamptz (not null, default: `now()`)
+- `conversion_position`: smallint (nullable, `chk_` >= 1) -- 1..n for rows created by quote conversion; NULL for manual cobros. UQ with `contract_id` where not null (`uq_milestones_contract_conversion_position`), so a concurrent double-conversion cannot double the schedule (#222)
 
 #### `pac_connections`
 

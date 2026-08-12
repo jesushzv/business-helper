@@ -22,6 +22,26 @@ import { track } from '@/lib/analytics';
  * OTP evidence in `convertQuoteToContract`, so an unsigned quote yields a
  * draft contract, never a claimed signature.
  */
+/**
+ * The conversion's own schedule for a contract — manual cobros excluded.
+ *
+ * `POST /api/receivables` can attach a tenant-authored cobro to any contract,
+ * including a partial-conversion orphan; counting those rows as "the schedule
+ * already exists" would flip the quote while the anticipo/liquidación were
+ * never created. `conversion_position` is the discriminator: only rows the
+ * conversion inserted carry one. Ordered so the response is deterministic.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readConversionSchedule(supabase: any, contractId: string, organizationId: string) {
+  return supabase
+    .from('milestones')
+    .select('*')
+    .eq('contract_id', contractId)
+    .eq('organization_id', organizationId)
+    .not('conversion_position', 'is', null)
+    .order('conversion_position');
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -119,11 +139,8 @@ export async function POST(
     // was the quote update) — reuse it rather than doubling the receivable.
     let milestones = null;
     if (contract) {
-      const { data: existingMilestones, error: milestoneLookupError } = await supabase
-        .from('milestones')
-        .select('*')
-        .eq('contract_id', contract.id)
-        .eq('organization_id', organizationId);
+      const { data: existingMilestones, error: milestoneLookupError } =
+        await readConversionSchedule(supabase, contract.id, organizationId);
 
       if (milestoneLookupError) {
         captureException(milestoneLookupError, {
@@ -213,9 +230,39 @@ export async function POST(
         .single();
 
       if (contractError || !newContract) {
-        return dbWriteErrorResponse(contractError, 'el contrato', 'quotes/convert', { verb: 'crear' });
+        // 23505 on `contracts.quote_id` is a concurrent twin of this request
+        // winning the contract insert — a double-tap, not a duplicate. The
+        // twin read the same quote milliseconds ago, so its contract is not
+        // stale; resume onto it instead of reporting an error for a
+        // conversion that succeeded.
+        if (contractError?.code === '23505') {
+          const { data: twinContract } = await supabase
+            .from('contracts')
+            .select('*')
+            .eq('quote_id', id)
+            .eq('organization_id', organizationId)
+            .maybeSingle();
+          if (twinContract) {
+            const { data: twinSchedule } = await readConversionSchedule(
+              supabase,
+              twinContract.id,
+              organizationId
+            );
+            contract = twinContract;
+            resumed = true;
+            if (twinSchedule && twinSchedule.length > 0) {
+              milestones = twinSchedule;
+            }
+          }
+        }
+        if (!contract) {
+          return dbWriteErrorResponse(contractError, 'el contrato', 'quotes/convert', {
+            verb: 'crear',
+          });
+        }
+      } else {
+        contract = newContract;
       }
-      contract = newContract;
     }
 
     if (!milestones) {
@@ -231,20 +278,20 @@ export async function POST(
         .select();
 
       if (milestoneError) {
-        // 23505 here is `uq_milestones_contract_conversion_position`: a
-        // concurrent twin of this request inserted the schedule first (#222).
-        // That is a success wearing an error — read the winner's schedule back
-        // and continue. Never roll the contract back: the twin's milestones
-        // hang off it.
-        if (milestoneError.code === '23505') {
-          const { data: twinMilestones, error: twinReadError } = await supabase
-            .from('milestones')
-            .select('*')
-            .eq('contract_id', contract.id)
-            .eq('organization_id', organizationId);
-          if (!twinReadError && twinMilestones && twinMilestones.length > 0) {
-            milestones = twinMilestones;
-          }
+        // A failed insert here is not necessarily a failed conversion: on
+        // 23505 (`uq_milestones_contract_conversion_position`) a concurrent
+        // twin inserted the schedule first, and even on other failures the
+        // twin may have succeeded in between. Read the schedule back before
+        // concluding anything — if it exists, this is a success wearing an
+        // error, and rolling the contract back would cascade the twin's
+        // schedule away (`milestones.contract_id` is ON DELETE CASCADE).
+        const { data: twinMilestones, error: twinReadError } = await readConversionSchedule(
+          supabase,
+          contract.id,
+          organizationId
+        );
+        if (!twinReadError && twinMilestones && twinMilestones.length > 0) {
+          milestones = twinMilestones;
         }
 
         if (!milestones) {
@@ -256,7 +303,8 @@ export async function POST(
             const { error: rollbackError } = await supabase
               .from('contracts')
               .delete()
-              .eq('id', contract.id);
+              .eq('id', contract.id)
+              .eq('organization_id', organizationId);
             if (rollbackError) {
               // The orphaned contract holds `quote_id`, whose UNIQUE constraint
               // would 409 every blind retry — logged so the dead-end has a
