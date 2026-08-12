@@ -112,32 +112,13 @@ export async function POST(
       );
     }
 
-    const resumed = Boolean(existingContract);
+    let resumed = Boolean(existingContract);
     let contract = existingContract;
-
-    if (!contract) {
-      // The rows carry no `id`, `created_at` or `contract_id` — Postgres owns
-      // those. The fabricated `c_…` text ids this inserted before failed every
-      // conversion with 22P02 against the uuid columns, and the discarded error
-      // kept the cause out of Sentry and off the screen (#214).
-      const { data: newContract, error: contractError } = await supabase
-        .from('contracts')
-        // Pin the tenant from the session rather than whatever the conversion
-        // helper derived from the row.
-        .insert({ ...conversion.contract, organization_id: organizationId })
-        .select()
-        .single();
-
-      if (contractError || !newContract) {
-        return dbWriteErrorResponse(contractError, 'el contrato', 'quotes/convert', { verb: 'crear' });
-      }
-      contract = newContract;
-    }
 
     // A resumed contract may already carry its schedule (the only missing step
     // was the quote update) — reuse it rather than doubling the receivable.
     let milestones = null;
-    if (resumed) {
+    if (contract) {
       const { data: existingMilestones, error: milestoneLookupError } = await supabase
         .from('milestones')
         .select('*')
@@ -163,6 +144,78 @@ export async function POST(
       if (existingMilestones && existingMilestones.length > 0) {
         milestones = existingMilestones;
       }
+
+      // The quote stays editable while unconverted, so the contract found here
+      // may be a snapshot of a quote that has since changed (#222). Healing
+      // silently would marry current-quote milestones to stale contract
+      // totals — or present a stale conversion as the result of this request.
+      const stale =
+        Number(contract.total_amount) !== conversion.contract.total_amount ||
+        contract.client_id !== conversion.contract.client_id;
+
+      if (stale && milestones) {
+        // The conversion completed against the old quote; only the status flip
+        // was missing. Refusing names the real situation instead of flipping
+        // an edited quote onto a contract with different numbers.
+        return NextResponse.json(
+          {
+            error: {
+              code: 'CONVERTED_QUOTE_MODIFIED',
+              message:
+                'La cotización fue modificada después de que se creó su contrato. ' +
+                'Revisa el contrato en Cobranza antes de continuar.',
+            },
+          },
+          { status: 409 }
+        );
+      }
+
+      if (stale) {
+        // A stale orphan: no milestones reference it, so recreate it from the
+        // quote as it reads today.
+        const { error: staleDeleteError } = await supabase
+          .from('contracts')
+          .delete()
+          .eq('id', contract.id)
+          .eq('organization_id', organizationId);
+        if (staleDeleteError) {
+          captureException(staleDeleteError, {
+            route: 'quotes/convert',
+            organization_id: organizationId,
+            level: 'error',
+            tags: {
+              db_error_code: String(staleDeleteError.code || 'unknown'),
+              step: 'stale-orphan-delete',
+            },
+            extra: { contract_id: contract.id, details: staleDeleteError.details },
+          });
+          return NextResponse.json(
+            { error: { code: 'SERVER_ERROR', message: 'No se pudo convertir la cotización a contrato' } },
+            { status: 500 }
+          );
+        }
+        contract = null;
+        resumed = false;
+      }
+    }
+
+    if (!contract) {
+      // The rows carry no `id`, `created_at` or `contract_id` — Postgres owns
+      // those. The fabricated `c_…` text ids this inserted before failed every
+      // conversion with 22P02 against the uuid columns, and the discarded error
+      // kept the cause out of Sentry and off the screen (#214).
+      const { data: newContract, error: contractError } = await supabase
+        .from('contracts')
+        // Pin the tenant from the session rather than whatever the conversion
+        // helper derived from the row.
+        .insert({ ...conversion.contract, organization_id: organizationId })
+        .select()
+        .single();
+
+      if (contractError || !newContract) {
+        return dbWriteErrorResponse(contractError, 'el contrato', 'quotes/convert', { verb: 'crear' });
+      }
+      contract = newContract;
     }
 
     if (!milestones) {
@@ -178,33 +231,52 @@ export async function POST(
         .select();
 
       if (milestoneError) {
-        // A contract with no payment schedule is worse than no contract, and
-        // there is no transaction spanning these inserts — roll back by hand.
-        // Only a contract this request created: deleting a resumed orphan
-        // would just re-create the state a later retry heals from.
-        if (!resumed) {
-          const { error: rollbackError } = await supabase
-            .from('contracts')
-            .delete()
-            .eq('id', contract.id);
-          if (rollbackError) {
-            // The orphaned contract holds `quote_id`, whose UNIQUE constraint
-            // would 409 every blind retry — logged so the dead-end has a
-            // diagnosis, healed by the resume lookup above.
-            captureException(rollbackError, {
-              route: 'quotes/convert',
-              organization_id: organizationId,
-              level: 'error',
-              tags: { db_error_code: String(rollbackError.code || 'unknown'), step: 'rollback' },
-              extra: { contract_id: contract.id, details: rollbackError.details },
-            });
+        // 23505 here is `uq_milestones_contract_conversion_position`: a
+        // concurrent twin of this request inserted the schedule first (#222).
+        // That is a success wearing an error — read the winner's schedule back
+        // and continue. Never roll the contract back: the twin's milestones
+        // hang off it.
+        if (milestoneError.code === '23505') {
+          const { data: twinMilestones, error: twinReadError } = await supabase
+            .from('milestones')
+            .select('*')
+            .eq('contract_id', contract.id)
+            .eq('organization_id', organizationId);
+          if (!twinReadError && twinMilestones && twinMilestones.length > 0) {
+            milestones = twinMilestones;
           }
         }
-        return dbWriteErrorResponse(milestoneError, 'los cobros programados', 'quotes/convert', {
-          verb: 'crear',
-        });
+
+        if (!milestones) {
+          // A contract with no payment schedule is worse than no contract, and
+          // there is no transaction spanning these inserts — roll back by hand.
+          // Only a contract this request created: deleting a resumed orphan
+          // would just re-create the state a later retry heals from.
+          if (!resumed) {
+            const { error: rollbackError } = await supabase
+              .from('contracts')
+              .delete()
+              .eq('id', contract.id);
+            if (rollbackError) {
+              // The orphaned contract holds `quote_id`, whose UNIQUE constraint
+              // would 409 every blind retry — logged so the dead-end has a
+              // diagnosis, healed by the resume lookup above.
+              captureException(rollbackError, {
+                route: 'quotes/convert',
+                organization_id: organizationId,
+                level: 'error',
+                tags: { db_error_code: String(rollbackError.code || 'unknown'), step: 'rollback' },
+                extra: { contract_id: contract.id, details: rollbackError.details },
+              });
+            }
+          }
+          return dbWriteErrorResponse(milestoneError, 'los cobros programados', 'quotes/convert', {
+            verb: 'crear',
+          });
+        }
+      } else {
+        milestones = newMilestones;
       }
-      milestones = newMilestones;
     }
 
     const { error: quoteStatusError } = await supabase
@@ -250,7 +322,10 @@ export async function POST(
 
     // 200 on a resume: nothing was created that did not already exist.
     return NextResponse.json({ contract, milestones }, { status: resumed ? 200 : 201 });
-  } catch {
+  } catch (err) {
+    // A silent catch here is the thrown-away-diagnosis defect (#146) this
+    // route keeps re-learning — the cause goes to the log.
+    captureException(err, { route: 'quotes/convert', organization_id: organizationId, level: 'error' });
     return NextResponse.json(
       { error: { code: 'SERVER_ERROR', message: 'No se pudo convertir la cotización a contrato' } },
       { status: 500 }
