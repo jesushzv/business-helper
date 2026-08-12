@@ -76,7 +76,6 @@ describe('Quote-to-Contract Conversion', () => {
     expect(contract.organization_id).toBe('org_456');
     expect(contract.client_id).toBe('client_789');
     expect(contract.total_amount).toBe(20000);
-    expect(contract.status).toBe('client_signed');
   });
 
   it('splits the total into a 50/50 anticipo and entrega final by default', () => {
@@ -97,6 +96,59 @@ describe('Quote-to-Contract Conversion', () => {
 
     const summed = Math.round(milestones.reduce((acc, m) => acc + m.amount, 0) * 100) / 100;
     expect(summed).toBe(contract.total_amount);
+  });
+
+  // #214 — `contracts.id` and `milestones.id` are `uuid DEFAULT gen_random_uuid()`
+  // in the live schema, so a fabricated `c_…`/`m_…` text id fails every insert
+  // with 22P02 and no quote could ever become a contract. The rows must be
+  // insert-shaped: the database owns the ids and timestamps, and a milestone's
+  // contract_id cannot be known before the contract row exists.
+  it('does not fabricate identifiers or timestamps the database owns (#214)', () => {
+    const { contract, milestones } = convertQuoteToContract(acceptedQuote);
+
+    expect(contract).not.toHaveProperty('id');
+    expect(contract).not.toHaveProperty('created_at');
+    for (const milestone of milestones) {
+      expect(milestone).not.toHaveProperty('id');
+      expect(milestone).not.toHaveProperty('contract_id');
+      expect(milestone).not.toHaveProperty('created_at');
+    }
+  });
+
+  // #215 (option 1) — the OTP signature evidence lives on the quote row; a
+  // contract claiming `client_signed` must carry it, and its accepted_at is
+  // the moment the client signed, not the moment the tenant clicked convert.
+  it('carries the signature evidence from the quote onto the contract (#215)', () => {
+    const { contract } = convertQuoteToContract({
+      ...acceptedQuote,
+      accepted_at: '2026-08-11T04:57:49.418Z',
+      accepted_by_name: 'Camila Chavez Calette',
+      accepted_ip: '189.203.34.6',
+      contract_hash: '7f671c6b91464a7bb20016ee03a15991',
+      client_otp_verified: true,
+    });
+
+    expect(contract.accepted_at).toBe('2026-08-11T04:57:49.418Z');
+    expect(contract.accepted_by_name).toBe('Camila Chavez Calette');
+    expect(contract.accepted_ip).toBe('189.203.34.6');
+    expect(contract.contract_hash).toBe('7f671c6b91464a7bb20016ee03a15991');
+    expect(contract.client_otp_verified).toBe(true);
+    expect(contract.status).toBe('client_signed');
+  });
+
+  it('does not invent evidence the quote does not have (#215)', () => {
+    // Absent is absent: a quote with no signature yields null evidence, never
+    // a fabricated timestamp or a true flag nothing verified.
+    const { contract } = convertQuoteToContract(acceptedQuote);
+
+    expect(contract.accepted_at).toBeNull();
+    expect(contract.accepted_by_name).toBeNull();
+    expect(contract.accepted_ip).toBeNull();
+    expect(contract.contract_hash).toBeNull();
+    expect(contract.client_otp_verified).toBe(false);
+    // `client_signed` is a legal claim; with no verified signature the
+    // contract is a draft, never a signature nobody performed.
+    expect(contract.status).toBe('draft');
   });
 
   it('keeps a three-way split exact against the contract total', () => {

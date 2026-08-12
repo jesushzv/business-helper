@@ -53,8 +53,12 @@ interface PostgrestLikeError {
   hint?: string | null;
 }
 
-/** CHECK constraints on `clients`, mapped to the input that produced them. */
+/** CHECK constraints mapped to the input that produced them. */
 const CONSTRAINT_FIELDS: Record<string, { field: string; message: string }> = {
+  chk_milestone_amount_positive: {
+    field: 'amount',
+    message: 'El monto de la cotización es demasiado pequeño para dividirlo en cobros.',
+  },
   chk_client_credit_limit_non_negative: {
     field: 'credit_limit',
     message: 'El límite de crédito no puede ser negativo.',
