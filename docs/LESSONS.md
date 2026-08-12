@@ -24,7 +24,7 @@ lessons a scanning gate covers or move settled history to `docs/99-archive/`.
 ## Fabricated success — hard rule #1's recurring disguises
 
 Every item below is the same defect: showing a user a success, a value, or a link the system has
-not earned. It has shipped here at least eight times.
+not earned.
 
 - **Hooks and mutations** (#33, #50, #59): every mutation applies the **server row** and surfaces
   failure — never an optimistic local object; demo fixtures only behind `isClientDemoMode()`. Pin
@@ -38,8 +38,7 @@ not earned. It has shipped here at least eight times.
 - **Placeholder identifiers are the same rule in a UI costume** (#44, #78, #96): `token || 'demo'`,
   `regimen_fiscal || '601'` render as a live control or a settled fact. Absent is absent — render
   the **disabled** control and **name the record** to fix. `tests/unit/placeholderIdentifiers.test.ts`
-  scans the fallback shape but only `demo*` and 10–13-digit literals, so a short fiscal default
-  like `'601'` passes it — the rule still needs reading.
+  scans demo/phone-shaped fallbacks and any `||`/`??` default on a CFDI-identity field (#179).
 - **A verification script's exit code is a claim.** `verify:webhook` printed "All 4 checks passed"
   for a run that skipped the two protecting money — and those four passed against an endpoint with
   *no* secret, which rejects everything (#63; #118 is `verify:otp`'s). An incomplete run exits
@@ -55,6 +54,11 @@ not earned. It has shipped here at least eight times.
   `external_id` deduplicates nothing; `tax_included` defaults *true*, reading a pre-tax base as
   the final total. All green under mocked `fetch`, all found in one live pass. Exercise each
   provider assumption live once; mocks then pin the *observed* shapes.
+
+- **A provider-issued id must never have a literal default** (#68):
+  `STRIPE_PRICE_NEGOCIO || 'price_negocio_599_mxn'` fails with the *same* message a Stripe outage
+  produces, so misconfiguration and incident were indistinguishable. Resolve from the environment,
+  return `null`, name the variable. `tests/unit/stripePriceMap.test.ts` scans for `price_*` literals.
 
 ## Client/server state
 
@@ -74,14 +78,18 @@ not earned. It has shipped here at least eight times.
   choice for unknown becomes safe. `lib/hooks/useSettlementAccount.ts` is the reference (#64).
   **Any figure derived from a fetched list needs the same treatment** — the client detail page
   rendered "Crédito Utilizado $0 / Disponible $50,000" from a failed read (#96).
+- **Never read `process.env` into a module-level constant** (#68). Frozen at import so
+  `vi.stubEnv` does nothing; `undefined` in a client bundle for a non-`NEXT_PUBLIC_` variable
+  (`STRIPE_PLANS` reached a settings component — the browser only saw the placeholder); no seam
+  for the unset case. Read it in a function taking `env = process.env` last; tests pass a
+  literal object.
 
 ## Database and migrations
 
-- **`REVOKE … FROM PUBLIC` does not lock down a `SECURITY DEFINER` function** (#76): Supabase
-  grants `EXECUTE` to `anon`/`authenticated` as *named roles*, so PostgREST keeps serving
-  `/rest/v1/rpc/<name>` outside RLS — revoke from both by name.
-  `tests/unit/securityDefinerGrants.test.ts` is the gate; it reads migration *files*, so live
-  grants still need #76's `aclexplode` query.
+- **`REVOKE … FROM PUBLIC` does not lock down a `SECURITY DEFINER` function** (#76):
+  `anon`/`authenticated` hold `EXECUTE` as *named roles* — revoke both by name.
+  `tests/unit/securityDefinerGrants.test.ts` gates the migration files; live grants still need
+  #76's `aclexplode` query.
 - **Never edit a migration after it has been applied anywhere.** `ADD COLUMN IF NOT EXISTS` is
   idempotent but not convergent, and `db:migrate` skips files the ledger lists — an edited file
   leaves repo and production silently disagreeing. Reconcile the live DB explicitly (an `ALTER`
@@ -95,14 +103,13 @@ not earned. It has shipped here at least eight times.
   column's CHECK**: `subscription_status` kept three values after a migration widened it to seven,
   so `unpaid`/`incomplete` read as **Activo** (#95). Check `pg_get_constraintdef` before narrowing,
   and map an unrecognised value to `null`, never the nearest listed — `'free'` mapped to `'inicial'`
-  showed a $299 plan nobody bought and disabled its own subscribe button.
+  showed a $299 plan nobody bought.
 - **When the app and RLS each decide "which tenants may this user act on", they will disagree**
-  (#146). `requireOrgAccess()` returned `role: 'owner'` from `organizations.owner_id` while
-  `user_organization_ids()` — the check behind nine policies — read `organization_members` only, and
-  nothing creates a member row for an owner. Auth passed, every INSERT came back `42501`. Derive
-  both from the same fact (`tests/unit/orgOwnerAccess.test.ts` pins it), and prove access by
-  impersonating a real `auth.uid()`: it must **succeed for the caller's org and be refused for
-  another's**. Only the catalog proves the deployment.
+  (#146): `requireOrgAccess()` read `organizations.owner_id`, nine policies read
+  `organization_members`, and nothing creates a member row for an owner — auth passed, every INSERT
+  came back `42501`. Derive both from the same fact (`tests/unit/orgOwnerAccess.test.ts` pins it),
+  and prove access by impersonating a real `auth.uid()`: it must **succeed for the caller's org and
+  be refused for another's**.
 - **Nullable-with-no-default is a decision.** Where the UI must tell "never set" from "set to zero",
   refuse `DEFAULT 0`/`'active'` — the #64 tri-state rule at the column — and keep such columns
   independent in the form: coupling `credit_status` to `credit_limit` discarded an owner blocking a
@@ -113,34 +120,32 @@ not earned. It has shipped here at least eight times.
   the ambiguity must be fetched before it can be logged.
 - **A backfill's guard is a claim about rows; count them before and after** (#128). Whether
   `ADD COLUMN … DEFAULT` fills the rows already there decides what the `UPDATE` after it must do —
-  one migration got it wrong in *both* directions in a session, each time reasoned from the SQL
-  rather than measured, and left a tenant `trialing` with no end date: a trial the app reads as
-  unknown, so nothing shows or enforces it. State the count you expect, and read the rows back.
+  one migration got it wrong in *both* directions, each time reasoned from the SQL rather than
+  measured, leaving a tenant `trialing` with no end date that nothing shows or enforces. State the
+  count you expect, and read the rows back.
   **0 rows changed looks exactly like success.**
 - **A vocabulary the database enforces exists once in code, with `null` for everything else**
   (#116). The Stripe webhook wrote `obj.status` off whatever object the event carried, and
   `checkout.session.completed` carries a **Checkout Session**, whose status field holds
   `'complete'` — which `chk_subscription_status` rejects: the write failed the CHECK *after* the
-  event was claimed, and the display read the unknown word as "Cancelado" to a customer who had just
-  paid. Export the union and a `normalize*` returning `null`; write only what the event established.
+  event was claimed, and the display showed "Cancelado" to a customer who had just paid. Export the
+  union and a `normalize*` returning `null`; write only what the event established.
   It survived because the tests fed one object shape — feed the others the event can carry.
 
 ## Client and API wiring
 
-- **A client `fetch` calling a method its route does not export fails the build**
-  (`tests/unit/clientFetchMethods.test.ts`): a PUT against a GET/PATCH route was a swallowed 405
-  reported as success (#95) — invisible when `fetch` is mocked. **Key *names* fail the same way**
-  (#96): camelCase destructured off a snake_case body wrote four fields NULL, two required to
-  stamp a CFDI. Read bodies through `pickFields(body, <ENTITY>_WRITABLE_FIELDS)`
-  (`tests/unit/clientWritePath.test.ts`); assert on what reaches the DB layer, not what `fetch` got.
+- **A client `fetch` calling a method its route does not export** (#95) and **key names that do not
+  match the body's** (#96) both ship as swallowed failures reported as success. Read bodies through
+  `pickFields(body, <ENTITY>_WRITABLE_FIELDS)`; assert on what reaches the DB layer, not what
+  `fetch` got. Gates: `tests/unit/clientFetchMethods.test.ts`, `tests/unit/clientWritePath.test.ts`.
 - **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93). Chrome identity
   comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
   `lib/whatsappLink.ts`. `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak.
 - **A form the user cannot get past is usually validation that returns at the first failure and
   names no field** (#146). Both clients routes checked name → RFC → crédito → teléfono in sequence
   and 400'd at the first, so each submit revealed one more problem; the envelope carried prose with
-  no field attached; and the form put it in one banner atop a modal taller than a 375px viewport, so
-  tapping *Guardar* at the bottom looked like nothing happened. Validate everything, key each
+  no field attached; and the form put it in one banner a 375px viewport had scrolled past, so
+  tapping *Guardar* looked like nothing happened. Validate everything, key each
   message by **column** in `error.fields`, and pin it under its own input with focus moved there — a
   message the tenant must scroll to find is not a message. Corollary: **a validation gate belongs
   where the value is load-bearing.** The RFC gate cost the whole client record for a field only CFDI
@@ -148,8 +153,7 @@ not earned. It has shipped here at least eight times.
 - **A layer-by-layer suite cannot see a defect between the layers** (#146). Ask the tenant's
   question, not the function's — *can I complete this?* A form component gets a test that fills the
   minimum and submits; `tests/unit/formComponentsAreTested.test.ts` fails the build on a new one.
-- **One `catch`-all 500 on a write is a diagnosis you threw away** (#146) — a missing column, a
-  CHECK, an RLS denial and an outage, identical on screen *and* in the logs. Map the code to a
+- **One `catch`-all 500 on a write is a diagnosis you threw away** (#146). Map the code to a
   Spanish cause naming the column and `captureException` the original: `lib/dbWriteError.ts` is the
   reference, `tests/unit/writeErrorLegibility.test.ts` the gate.
 - **localStorage is demo-sandbox state, never a real tenant's store.** Real tenants read the API
