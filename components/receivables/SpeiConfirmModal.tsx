@@ -56,6 +56,23 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
         return;
       }
 
+      // The payment exceeded the invoice's balance (#81). The complement
+      // declares only the balance — the surplus is real money in the bank
+      // that no document mentions, so it is said here, before the modal
+      // closes over it.
+      const overpaid = Number(outcome.complement?.overpaidAmount) || 0;
+      if (overpaid > 0) {
+        const formatted = new Intl.NumberFormat('es-MX', {
+          style: 'currency',
+          currency: 'MXN',
+        }).format(overpaid);
+        setComplementWarning(
+          `Se recibieron ${formatted} por encima del saldo de esta factura. ` +
+            'El complemento se timbró por el saldo; aplica el excedente a otro cobro o devuélvelo a tu cliente.'
+        );
+        return;
+      }
+
       onClose();
     } finally {
       setLoading(false);

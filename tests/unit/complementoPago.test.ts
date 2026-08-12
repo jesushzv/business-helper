@@ -108,6 +108,31 @@ describe('planPaymentComplement — partial payments', () => {
     expect(plan.remainingBalance).toBe(0);
   });
 
+  it('records what the clamp removed instead of discarding it (#81)', () => {
+    // $20,000 arrived against an $11,600 balance: the complement declares
+    // $11,600, and the $8,400 the tenant actually holds is a fact, not noise.
+    const plan = planPaymentComplement(PPD_INVOICE, [], 20000);
+
+    expect(plan.required).toBe(true);
+    if (!plan.required) return;
+    expect(plan.overpaidAmount).toBe(8400);
+  });
+
+  it('reports zero surplus for a payment that fits the balance (#81)', () => {
+    const plan = planPaymentComplement(PPD_INVOICE, [], 5000);
+
+    expect(plan.required).toBe(true);
+    if (!plan.required) return;
+    expect(plan.overpaidAmount).toBe(0);
+  });
+
+  it('persists the surplus on the complement row (#81)', () => {
+    // The plan's number must reach the insert — a computed value nothing
+    // stores is how the receivables bug felt from the user's side (#33).
+    const source = readFileSync(join(process.cwd(), 'lib/complementoPago.ts'), 'utf8');
+    expect(source).toMatch(/overpaid_amount:\s*plan\.overpaidAmount/);
+  });
+
   it('stops asking once the invoice is settled', () => {
     const plan = planPaymentComplement(PPD_INVOICE, [
       { installment: 1, amount: 5000, status: 'issued' },

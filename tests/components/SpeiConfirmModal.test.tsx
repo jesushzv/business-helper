@@ -142,3 +142,41 @@ describe('a payment that confirmed but whose complemento did not stamp', () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+describe('a payment that exceeded the invoice balance (#81)', () => {
+  it('holds the modal open naming the surplus and what to do with it', async () => {
+    // The complement declares the balance; the extra money is real and no
+    // document mentions it. Closing quietly is how the fact used to die.
+    const { onClose } = renderModal(async () => ({
+      success: true,
+      complement: {
+        uuid: 'AAA-111',
+        amount: 10000,
+        overpaidAmount: 500,
+        settles: true,
+      },
+    } as ReceivableMutationOutcome));
+
+    fireEvent.click(confirmButton());
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/\$500\.00/);
+    expect(alert.textContent).toMatch(/por encima del saldo/i);
+    expect(alert.textContent).toMatch(/aplica el excedente a otro cobro o devuélvelo/i);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Entendido — pago confirmado/i }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('closes normally when the payment fit the balance', async () => {
+    const { onClose } = renderModal(async () => ({
+      success: true,
+      complement: { uuid: 'AAA-111', amount: 10000, overpaidAmount: 0, settles: false },
+    } as ReceivableMutationOutcome));
+
+    fireEvent.click(confirmButton());
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+});
