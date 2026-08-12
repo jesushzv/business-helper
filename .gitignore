@@ -26,6 +26,10 @@ yarn-error.log*
 .env
 .env.production
 
+# Sentry source-map upload token, written here by `npx @sentry/wizard` and read
+# by withSentryConfig at build time. Secret — it can write releases to the org.
+.env.sentry-build-plugin
+
 # vercel
 .vercel
 
