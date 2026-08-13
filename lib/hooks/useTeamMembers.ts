@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { validateInviteInput, UserRole } from '@/lib/teamRBAC';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { hasCapability, validateInviteInput, UserRole } from '@/lib/teamRBAC';
 
 /**
  * Team state.
@@ -132,10 +132,13 @@ export function useTeamMembers() {
 
   const updateRole = useCallback(
     async (memberId: string, newRole: UserRole): Promise<{ success: boolean; error?: string }> => {
-      // Optimistic, then reconciled against the server response.
-      const previous = members;
-      setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m)));
+      setError(null);
 
+      // No optimistic write. The row used to change in the list before the
+      // request went out and snapped back on the refusal, so an accountant saw
+      // a permission they do not have appear and then vanish — and on success
+      // the *server's* role was never applied, so a value the route normalized
+      // would not have been reflected (the LESSONS optimistic-mutation shape).
       try {
         const res = await fetch('/api/organization/members', {
           method: 'PATCH',
@@ -143,23 +146,47 @@ export function useTeamMembers() {
           body: JSON.stringify({ memberId, role: newRole }),
         });
 
+        const data = await res.json().catch(() => null);
+
         if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          setMembers(previous);
           const message = data?.error?.message || 'No se pudo actualizar el rol';
           setError(message);
           return { success: false, error: message };
         }
 
+        // What the server recorded, which is what it echoes back.
+        const appliedRole = (data?.role as UserRole) || newRole;
+        setMembers((prev) =>
+          prev.map((m) => (m.id === memberId ? { ...m, role: appliedRole } : m))
+        );
+
         return { success: true };
       } catch {
-        setMembers(previous);
         setError('No se pudo actualizar el rol');
         return { success: false, error: 'No se pudo actualizar el rol' };
       }
     },
-    [members]
+    []
   );
+
+  /**
+   * The caller's own role, read off the members payload — which already carries
+   * `isCurrentUser` and `role` for exactly this.
+   *
+   * `null` means **unknown**: the list has not loaded, the read failed, or the
+   * caller is not among the rows. Unknown is not "no" (#64) — it leaves the
+   * controls alone and lets the server refuse, which it does either way. Only a
+   * role the payload actually stated withholds them.
+   */
+  const currentUserRole = useMemo<UserRole | null>(() => {
+    const me = members.find((m) => m.isCurrentUser);
+    return me?.role ?? null;
+  }, [members]);
+
+  const canManageTeam = useMemo<boolean | null>(() => {
+    if (!currentUserRole) return null;
+    return hasCapability(currentUserRole, 'invite_members');
+  }, [currentUserRole]);
 
   return {
     members,
@@ -167,6 +194,8 @@ export function useTeamMembers() {
     loading,
     inviting,
     error,
+    currentUserRole,
+    canManageTeam,
     inviteMember,
     updateRole,
     refresh,

@@ -129,13 +129,18 @@ function SettingsPageContent() {
             {/* SPEI Settlement Account */}
             <BankAccountsCard canEdit={canEdit} />
 
-            {/* CFDI 4.0 stamping credentials */}
-            <PacConnectionCard />
+            {/* CFDI 4.0 stamping credentials. Both verbs on
+                /api/organization/pac require billing_management, so this card
+                takes the same gate as its siblings (#265). */}
+            <PacConnectionCard canEdit={canEdit} />
 
             {/* White-Labeling & Branding Settings */}
             <BrandingSettingsCard
               settings={settings}
-              onSave={(patch) => saveWithConfirmation(patch, 'Tu logotipo y marca')}
+              // Names only what the request actually carries. "Tu logotipo y
+              // marca" claimed the colour, lema and divisa were saved too —
+              // none of which has a column (#288).
+              onSave={(patch) => saveWithConfirmation(patch, 'Tu logotipo')}
               saving={saving}
               canEdit={canEdit}
             />
@@ -152,6 +157,9 @@ function SettingsPageContent() {
               statusInfo={subscriptionStatusInfo}
               onSelectTier={handleSelectTier}
               highlightTier={requestedTier}
+              // Checkout requires `billing_management` (owner-only), so the
+              // same gate the sibling cards use applies here (#266).
+              canManageBilling={canEdit}
             />
           </>
         )}

@@ -39,7 +39,9 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
   const [primaryColor, setPrimaryColor] = useState<string>(branding.primaryColor);
   const [logoUrl, setLogoUrl] = useState<string>(settings?.logo_url || '');
   const [tagline, setTagline] = useState<string>(settings?.tagline || '');
-  const [defaultCurrency, setDefaultCurrency] = useState<'MXN' | 'USD'>(settings?.default_currency === 'USD' ? 'USD' : 'MXN');
+  // Read-only until there is a column to write it to (#288) — no setter, so
+  // nothing can accept a change this card cannot keep.
+  const defaultCurrency: 'MXN' | 'USD' = settings?.default_currency === 'USD' ? 'USD' : 'MXN';
 
   // Same reason as OrgProfileCard: the server trims the logo URL and rejects a
   // non-https one, and the hook then applies the row it returned. Without this
@@ -143,29 +145,37 @@ export function BrandingSettingsCard({ settings, onSave, saving, canEdit }: Bran
         {/* Currency Preference Selector */}
         <div>
           <p id="branding-currency-label" className="block text-sm font-bold text-slate-300 mb-2">
-            Divisa Predeterminada para Cotizaciones
+            Divisa Predeterminada para Cotizaciones{' '}
+            <span className="ml-1 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Muy pronto
+            </span>
           </p>
+          {/* This toggle was live while `handleSaveBranding` sent only
+              `logo_url`, so an owner switched to USD, read "se guardó
+              correctamente", reloaded and was back on MXN (#288). There is no
+              column behind it: it is disabled like the colour group and the
+              tagline until one exists, rather than accepting input it drops. */}
           <div role="group" aria-labelledby="branding-currency-label" className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => setDefaultCurrency('MXN')}
+              disabled
               aria-pressed={defaultCurrency === 'MXN'}
-              className={`min-h-[48px] px-6 py-3 rounded-2xl border font-bold text-sm flex items-center gap-2 transition-all ${
+              className={`min-h-[48px] px-6 py-3 rounded-2xl border font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-60 ${
                 defaultCurrency === 'MXN'
                   ? 'border-emerald-500 bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
-                  : 'border-slate-800 text-slate-300 bg-slate-950/80 hover:bg-slate-800'
+                  : 'border-slate-800 text-slate-300 bg-slate-950/80'
               }`}
             >
               🇲🇽 Peso Mexicano (MXN)
             </button>
             <button
               type="button"
-              onClick={() => setDefaultCurrency('USD')}
+              disabled
               aria-pressed={defaultCurrency === 'USD'}
-              className={`min-h-[48px] px-6 py-3 rounded-2xl border font-bold text-sm flex items-center gap-2 transition-all ${
+              className={`min-h-[48px] px-6 py-3 rounded-2xl border font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-60 ${
                 defaultCurrency === 'USD'
                   ? 'border-emerald-500 bg-emerald-950/80 text-emerald-400 border-emerald-500/30'
-                  : 'border-slate-800 text-slate-300 bg-slate-950/80 hover:bg-slate-800'
+                  : 'border-slate-800 text-slate-300 bg-slate-950/80'
               }`}
             >
               🇺🇸 Dólar Americano (USD)

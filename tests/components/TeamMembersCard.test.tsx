@@ -152,3 +152,116 @@ describe('creating an invitation', () => {
     expect(emailInput().className).toMatch(/min-h-\[48px\]/);
   });
 });
+
+/**
+ * #268 — the screen offered writes the server always refuses.
+ *
+ * POST and PATCH `/api/organization/members` both require `invite_members`,
+ * which `member` and `accountant` lack. Both controls were rendered for
+ * everyone, so an accountant changed a colleague's dropdown, saw the row
+ * change, and saw it snap back with "Tu rol no permite cambiar permisos" — the
+ * CLAUDE.md corollary, on a screen whose own payload already carries the
+ * caller's role (`isCurrentUser` + `role`).
+ */
+describe('the team controls follow the caller’s own role', () => {
+  const teamWhereIAm = (role: string) => ({
+    members: [
+      { id: 'mem-1', name: 'Roberto Elizondo', email: 'roberto@elizondo.mx', role: 'owner', isCurrentUser: role === 'owner' },
+      { id: 'mem-2', name: 'Mariana Sada', email: 'mariana@elizondo.mx', role, isCurrentUser: role !== 'owner' },
+    ],
+    invitations: [],
+  });
+
+  async function renderAs(role: string) {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, teamWhereIAm(role)));
+    render(<TeamMembersCard />);
+    await screen.findByText('Mariana Sada');
+  }
+
+  it.each(['member', 'accountant'])('withholds the invite CTA from a %s', async (role) => {
+    await renderAs(role);
+
+    expect(screen.queryByRole('button', { name: /Invitar Colaborador/i })).toBeNull();
+    expect(screen.getByText(/Solo el dueño y los gerentes pueden invitar/i)).toBeTruthy();
+  });
+
+  it.each(['member', 'accountant'])('withholds the role dropdown from a %s', async (role) => {
+    await renderAs(role);
+
+    // The badge still names each role — reading is not the problem.
+    expect(screen.getByText('Dueño del Negocio')).toBeTruthy();
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
+
+  it.each(['owner', 'manager'])('leaves both controls with a %s', async (role) => {
+    await renderAs(role);
+
+    expect(screen.getByRole('button', { name: /Invitar Colaborador/i })).toBeTruthy();
+    expect(screen.queryByText(/Solo el dueño y los gerentes pueden invitar/i)).toBeNull();
+  });
+
+  it('leaves the controls alone when the caller is not in the payload', async () => {
+    // Unknown is not "no" (#64): the server refuses either way, and hiding the
+    // controls from an owner whose row has not resolved is the worse error.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        members: [
+          { id: 'mem-2', name: 'Mariana Sada', email: 'mariana@elizondo.mx', role: 'manager' },
+        ],
+        invitations: [],
+      })
+    );
+    render(<TeamMembersCard />);
+    await screen.findByText('Mariana Sada');
+
+    expect(screen.getByRole('button', { name: /Invitar Colaborador/i })).toBeTruthy();
+  });
+});
+
+describe('a role change shows what the server recorded, not what was clicked', () => {
+  const TEAM_AS_OWNER = {
+    members: [
+      { id: 'mem-1', name: 'Roberto Elizondo', email: 'roberto@elizondo.mx', role: 'owner', isCurrentUser: true },
+      { id: 'mem-2', name: 'Mariana Sada', email: 'mariana@elizondo.mx', role: 'member', isCurrentUser: false },
+    ],
+    invitations: [],
+  };
+
+  it('does not move the row until the PATCH lands', async () => {
+    // It used to set the new role optimistically and revert on failure, so a
+    // refusal read as a permission that appeared and then vanished.
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, TEAM_AS_OWNER));
+    render(<TeamMembersCard />);
+    await screen.findByText('Mariana Sada');
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(403, { error: { code: 'FORBIDDEN', message: 'Tu rol no permite cambiar permisos' } })
+    );
+
+    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'manager' } });
+
+    await screen.findByText(/Tu rol no permite cambiar permisos/i);
+    // The row never claimed the change: no promoted badge, and the control is
+    // still showing the role the server holds.
+    expect(screen.queryByText('Gerente Operativo')).toBeNull();
+    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('member');
+  });
+
+  it('applies the role the response echoes back', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, TEAM_AS_OWNER));
+    render(<TeamMembersCard />);
+    await screen.findByText('Mariana Sada');
+
+    // The route lowercases the role it stores and echoes that row back; the
+    // hook used to discard the response entirely on success.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { success: true, memberId: 'mem-2', role: 'accountant' })
+    );
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'manager' } });
+
+    await waitFor(() => expect(screen.getByText('Contador Externo')).toBeTruthy());
+    expect(screen.queryByText('Gerente Operativo')).toBeNull();
+  });
+});
