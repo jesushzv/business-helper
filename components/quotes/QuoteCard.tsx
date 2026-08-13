@@ -6,6 +6,7 @@ import { QuoteStatusBadge } from './QuoteStatusBadge';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
 import { track } from '@/lib/analytics';
 import { getQuotePublicUrl } from '@/lib/url';
+import { isQuoteExpired } from '@/lib/quoteSignability';
 import { MessageSquare, ArrowRight, CheckCircle, FileText } from 'lucide-react';
 
 interface QuoteCardProps {
@@ -60,7 +61,18 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
             </span>
             <h3 className="text-lg font-bold text-white leading-snug mt-0.5">{quote.title}</h3>
           </div>
-          <QuoteStatusBadge status={quote.status} />
+          {/* Computed on read (#258): nothing writes status='expired', so the
+              badge's "Vencida" arm was unreachable and a stale quote read
+              "Enviada" forever. Only a still-open quote can expire — a signed
+              or converted one already concluded. */}
+          <QuoteStatusBadge
+            status={
+              (quote.status === 'sent' || quote.status === 'draft') &&
+              isQuoteExpired(quote.valid_until)
+                ? 'expired'
+                : quote.status
+            }
+          />
         </div>
 
         <div className="text-sm text-slate-300 mb-4 space-y-1">

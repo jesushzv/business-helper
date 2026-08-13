@@ -39,7 +39,8 @@ export async function POST(
     return publicApiError(
       503,
       'BACKEND_NOT_CONFIGURED',
-      'La subida de comprobantes no está disponible en modo demo'
+      // Covers the sandbox and a broken deployment alike (#259).
+      'La subida de comprobantes no está disponible en este momento. Intente de nuevo más tarde.'
     );
   }
 

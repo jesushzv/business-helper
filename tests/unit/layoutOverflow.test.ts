@@ -71,7 +71,9 @@ describe('horizontal overflow at 375px (#88)', () => {
     // they need break-all — the repo already does this for the SHA-256 seal.
     const clabe = read('app/pay/[token]/page.tsx')
       .split('\n')
-      .find((l) => l.includes('{milestone.clabe}'));
+      // Rendered through formatClabe since #285; the grouped form still needs
+      // break-all on a 375px screen.
+      .find((l) => l.includes('formatClabe(milestone.clabe)'));
     expect(clabe).toContain('break-all');
 
     const clave = read('components/receivables/SpeiConfirmModal.tsx')

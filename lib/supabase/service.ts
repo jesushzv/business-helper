@@ -21,6 +21,26 @@ import { Database } from '@/types/database';
  * is server-only and is deliberately not prefixed with NEXT_PUBLIC_.
  */
 
+/**
+ * Is this deployment the public marketing sandbox?
+ *
+ * The deployment-level half of `isClientDemoMode()`, for the server. It exists
+ * because `isServiceRoleConfigured()` was doing this job and cannot: it also
+ * answers false when Supabase *is* configured and only the service key is
+ * missing — a preview environment without the secret, a rotated key, a dropped
+ * variable. The public routes read that as "we are the demo" and served
+ * invented data to a real tenant's client (#259).
+ *
+ * Neither condition below can be true of a deployment serving paying tenants:
+ * the app cannot authenticate anyone without a Supabase URL, and no production
+ * build sets `NEXT_PUBLIC_DEMO_MODE`.
+ */
+export function isDemoDeployment(): boolean {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return true;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return !url || url.includes('placeholder-url') || !url.startsWith('https://');
+}
+
 export function isServiceRoleConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
