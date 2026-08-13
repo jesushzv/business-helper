@@ -169,6 +169,55 @@ describe('a payment that exceeded the invoice balance (#81)', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('holds the modal open when the complement stamped but its copies did not store (#238)', async () => {
+    // The CFDI exists at the SAT; the XML/PDF copies do not exist in storage.
+    // With no overpayment the modal used to close silently over the warning,
+    // and the tenant learned the copies were missing from the accountant
+    // export.
+    const { onClose } = renderModal(async () => ({
+      success: true,
+      complement: {
+        uuid: 'AAA-111',
+        amount: 10000,
+        overpaidAmount: 0,
+        settles: true,
+        warning:
+          'El complemento de pago se timbró, pero no se pudo guardar una copia del XML y PDF.',
+      },
+    } as ReceivableMutationOutcome));
+
+    fireEvent.click(confirmButton());
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/no se pudo guardar una copia/i);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Entendido — pago confirmado/i }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('says both when the payment overpaid AND the copies did not store', async () => {
+    // Two independent facts the tenant must hear; surfacing one must not
+    // swallow the other.
+    const { onClose } = renderModal(async () => ({
+      success: true,
+      complement: {
+        uuid: 'AAA-111',
+        amount: 10000,
+        overpaidAmount: 500,
+        settles: true,
+        warning: 'El complemento de pago se timbró, pero no se pudo guardar una copia del XML y PDF.',
+      },
+    } as ReceivableMutationOutcome));
+
+    fireEvent.click(confirmButton());
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/por encima del saldo/i);
+    expect(alert.textContent).toMatch(/no se pudo guardar una copia/i);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('closes normally when the payment fit the balance', async () => {
     const { onClose } = renderModal(async () => ({
       success: true,
