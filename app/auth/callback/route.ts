@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { track } from '@/lib/analytics';
+import { safeInternalPath } from '@/lib/url';
 
 /**
  * OAuth callback — the missing half of "Continuar con Google" (#48).
@@ -16,15 +17,11 @@ import { track } from '@/lib/analytics';
  * goes to the dashboard (or the validated `next` path an invitation carried).
  */
 
-/** Same-site relative paths only, so `next` cannot become an open redirect. */
-function safeNextPath(next: string | null): string | null {
-  return next && /^\/[^/\\]/.test(next) ? next : null;
-}
-
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = safeNextPath(searchParams.get('next'));
+  // Same-site relative paths only, so `next` cannot become an open redirect.
+  const next = safeInternalPath(searchParams.get('next'));
 
   // A user who declines on the provider's consent screen comes back here with
   // `error=access_denied` and no code. That is a choice, not a failure —
@@ -73,7 +70,10 @@ export async function GET(request: Request) {
     // this in the register page; the OAuth branch has no client-side moment
     // where a session is known to exist, so it fires here.
     track('signup_completed', { provider: 'google' }, { distinctId: user.id });
-    return NextResponse.redirect(`${origin}/onboarding`);
+    // `next` wins over onboarding (#249): an invited first-timer has no
+    // organization precisely because they are joining someone else's — sending
+    // them to create their own would split one team into two tenants.
+    return NextResponse.redirect(`${origin}${next || '/onboarding'}`);
   }
 
   return NextResponse.redirect(`${origin}${next || '/dashboard'}`);

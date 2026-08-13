@@ -122,3 +122,95 @@ describe('updateSession bypass paths', () => {
     expect(createServerClient).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * #248 — a signed-out visitor on the app shell used to get the full chrome
+ * with every fetch answering 401: a wall of error states with no "inicia
+ * sesión" anywhere. The guard redirects only the *deterministically*
+ * signed-out (no Supabase auth cookie at all); an auth cookie the server
+ * could not validate is unknown, and unknown never locks anyone out.
+ */
+describe('the signed-out route guard (#248)', () => {
+  const PROTECTED = [
+    '/assistant',
+    '/clients',
+    '/dashboard',
+    '/help',
+    '/invoices',
+    '/products',
+    '/quotes',
+    '/receivables',
+    '/settings',
+    '/team',
+  ];
+
+  it('redirects a signed-out visitor to login, carrying the page as next', async () => {
+    const response = await updateSession(makeRequest('https://app.test/quotes/abc-123'));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://app.test/login?next=%2Fquotes%2Fabc-123'
+    );
+  });
+
+  it('guards every route group under the app shell', async () => {
+    for (const path of PROTECTED) {
+      const response = await updateSession(makeRequest(`https://app.test${path}`));
+      expect(response.headers.get('location'), path).toContain('/login?next=');
+    }
+  });
+
+  it('leaves public pages alone — including the signing and payment portals', async () => {
+    for (const path of [
+      '/',
+      '/login',
+      '/register',
+      '/forgot-password',
+      '/reset-password',
+      '/pricing',
+      '/onboarding',
+      '/q/tok123',
+      '/pay/tok123',
+      '/invitacion/tok123',
+    ]) {
+      const response = await updateSession(makeRequest(`https://app.test${path}`));
+      expect(response.headers.get('location'), path).toBeNull();
+    }
+  });
+
+  it('lets the ?demo=true entry navigation through — the demo tour is signed-out by design', async () => {
+    for (const query of ['?demo=true', '?sandbox=true']) {
+      const response = await updateSession(makeRequest(`https://app.test/dashboard${query}`));
+      expect(response.headers.get('location'), query).toBeNull();
+    }
+  });
+
+  it('lets a browser carrying the demo opt-in cookie through, without granting it anything', async () => {
+    const response = await updateSession(
+      makeRequest('https://app.test/receivables', { demo_mode: 'true' })
+    );
+
+    expect(response.headers.get('location')).toBeNull();
+    // Declining to block is not granting: still no demo cookies minted.
+    expect(response.cookies.get('business_helper_sandbox')).toBeUndefined();
+  });
+
+  it('does NOT redirect a browser whose auth cookie failed validation — unknown is not signed out', async () => {
+    // getUser answers user: null both for "no session" and "GoTrue
+    // unreachable"; with a cookie present the truth is unknown, and the app
+    // shell handles the authoritative 401 instead.
+    const response = await updateSession(
+      makeRequest('https://app.test/dashboard', { 'sb-abc123-auth-token': 'expired-or-garbled' })
+    );
+
+    expect(response.headers.get('location')).toBeNull();
+  });
+
+  it('does not redirect a signed-in user', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
+
+    const response = await updateSession(makeRequest('https://app.test/dashboard'));
+
+    expect(response.headers.get('location')).toBeNull();
+  });
+});

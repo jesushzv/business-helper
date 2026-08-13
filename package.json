@@ -19,7 +19,8 @@
     "verify:webhook": "node scripts/verify-stripe-webhook.mjs",
     "verify:stripe": "node scripts/verify-stripe-live.mjs",
     "verify:otp": "node scripts/verify-otp-delivery.mjs",
-    "verify:gemini": "node scripts/verify-gemini.mjs"
+    "verify:gemini": "node scripts/verify-gemini.mjs",
+    "media:landing": "node scripts/generate-landing-media.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.70.0",

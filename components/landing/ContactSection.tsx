@@ -3,6 +3,7 @@
 import React from 'react';
 import { CONTACT_INFO } from '@/lib/trustData';
 import { Mail, MapPin, Clock, ShieldCheck, User, HelpCircle } from 'lucide-react';
+import { CopyEmailButton } from '@/components/landing/CopyEmailButton';
 
 export function ContactSection() {
   return (
@@ -32,8 +33,9 @@ export function ContactSection() {
               <h3 className="text-base font-bold text-white tracking-tight">Contacto General</h3>
               <p className="text-xs text-slate-400 mt-1">Demos, información comercial y facturación.</p>
             </div>
-            <div className="text-sm font-extrabold text-indigo-400 break-all border-t border-slate-800/80 pt-4">
-              {CONTACT_INFO.email}
+            <div className="border-t border-slate-800/80 pt-4 flex items-center justify-between gap-3">
+              <span className="text-sm font-extrabold text-indigo-400 break-all">{CONTACT_INFO.email}</span>
+              <CopyEmailButton email={CONTACT_INFO.email} />
             </div>
           </div>
           <a
@@ -60,8 +62,9 @@ export function ContactSection() {
               </div>
               <p className="text-xs text-slate-400 mt-1">Ayuda con CFDI 4.0, timbrado y plataforma.</p>
             </div>
-            <div className="text-sm font-extrabold text-teal-400 break-all border-t border-slate-800/80 pt-4">
-              {CONTACT_INFO.supportEmail}
+            <div className="border-t border-slate-800/80 pt-4 flex items-center justify-between gap-3">
+              <span className="text-sm font-extrabold text-teal-400 break-all">{CONTACT_INFO.supportEmail}</span>
+              <CopyEmailButton email={CONTACT_INFO.supportEmail} />
             </div>
           </div>
           <a
@@ -83,8 +86,9 @@ export function ContactSection() {
               <h3 className="text-base font-bold text-white tracking-tight">Fundador & CEO</h3>
               <p className="text-xs text-slate-400 mt-1">Contacto directo con Hector Zamora para alianzas.</p>
             </div>
-            <div className="text-sm font-extrabold text-emerald-400 break-all border-t border-slate-800/80 pt-4">
-              {CONTACT_INFO.founderEmail}
+            <div className="border-t border-slate-800/80 pt-4 flex items-center justify-between gap-3">
+              <span className="text-sm font-extrabold text-emerald-400 break-all">{CONTACT_INFO.founderEmail}</span>
+              <CopyEmailButton email={CONTACT_INFO.founderEmail} />
             </div>
           </div>
           <a
@@ -107,10 +111,13 @@ export function ContactSection() {
           <Clock className="w-4 h-4 text-indigo-400 shrink-0" />
           <span>{CONTACT_INFO.hours}</span>
         </div>
-        <a href={`mailto:${CONTACT_INFO.privacyEmail}`} className="text-slate-400 hover:text-white transition-colors text-xs flex items-center gap-1.5">
-          <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0" />
-          <span>Derechos ARCO: <strong className="text-slate-300">{CONTACT_INFO.privacyEmail}</strong></span>
-        </a>
+        <div className="flex items-center gap-2">
+          <a href={`mailto:${CONTACT_INFO.privacyEmail}`} className="text-slate-400 hover:text-white transition-colors text-xs flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0" />
+            <span>Derechos ARCO: <strong className="text-slate-300">{CONTACT_INFO.privacyEmail}</strong></span>
+          </a>
+          <CopyEmailButton email={CONTACT_INFO.privacyEmail} className="px-2.5" />
+        </div>
       </div>
     </div>
   );

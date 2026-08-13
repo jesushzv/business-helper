@@ -8,7 +8,7 @@ export interface UseCaseScenario {
   rating: number;
   metricTag: string;
   avatarIcon: string;
-  avatarUrl: string;
+
   // Backward compatibility fields
   author: string;
   role: string;
@@ -36,7 +36,6 @@ export const TESTIMONIALS: UseCaseScenario[] = [
     avatarInitials: 'CO',
     avatarBg: 'bg-emerald-600',
     avatarIcon: 'Building2',
-    avatarUrl: '/avatars/industry_construction.png',
   },
   {
     id: 'usecase-2',
@@ -54,7 +53,6 @@ export const TESTIMONIALS: UseCaseScenario[] = [
     avatarInitials: 'SI',
     avatarBg: 'bg-teal-600',
     avatarIcon: 'Wrench',
-    avatarUrl: '/avatars/industry_hvac.png',
   },
   {
     id: 'usecase-3',
@@ -72,7 +70,6 @@ export const TESTIMONIALS: UseCaseScenario[] = [
     avatarInitials: 'AD',
     avatarBg: 'bg-indigo-600',
     avatarIcon: 'Briefcase',
-    avatarUrl: '/avatars/industry_agency.png',
   },
   {
     id: 'usecase-4',
@@ -90,7 +87,6 @@ export const TESTIMONIALS: UseCaseScenario[] = [
     avatarInitials: 'DM',
     avatarBg: 'bg-amber-600',
     avatarIcon: 'ShieldCheck',
-    avatarUrl: '/avatars/industry_distribution.png',
   },
 ];
 
@@ -112,7 +108,7 @@ export interface TeamMember {
   bio: string;
   avatarInitials: string;
   avatarBg: string;
-  avatarUrl?: string;
+
   highlights: string[];
   linkedinUrl?: string;
   contactEmail: string;

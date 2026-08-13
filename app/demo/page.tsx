@@ -52,7 +52,7 @@ export default function DemoPage() {
             Prueba la plataforma en vivo sin necesidad de registrarte
           </h1>
           <p className="text-slate-400 text-base sm:text-lg leading-relaxed">
-            Entra a la demostración interactiva para probar el generador de cotizaciones, la firma OTP por WhatsApp y el flujo de conciliación SPEI en tiempo real.
+            Entra a la demostración interactiva para probar el generador de cotizaciones, la firma con código OTP por correo y el flujo de conciliación SPEI en tiempo real.
           </p>
 
           <div className="pt-2">
@@ -94,7 +94,7 @@ export default function DemoPage() {
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
               <CheckCircle2 className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-white">Firma OTP por WhatsApp</h3>
+            <h3 className="text-base font-bold text-white">Firma Digital con Código OTP</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
               Tus clientes aprueban cotizaciones en 1 clic con código OTP legal sin instalar aplicaciones.
             </p>

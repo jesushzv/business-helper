@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   FileText,
@@ -60,14 +60,32 @@ const PRIMARY_MOBILE_ITEMS = [
 
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTierModalOpen, setIsTierModalOpen] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
-  const { org, loading: orgLoading } = useCurrentOrg();
+  const { org, denied, loading: orgLoading } = useCurrentOrg();
 
   useEffect(() => {
     setIsDemo(isDemoModeActive());
   }, []);
+
+  /**
+   * The recovery path off a dead dashboard (#248). Fires only on the API's
+   * *authoritative* denial — 401 (session expired mid-use, or a stale auth
+   * cookie the middleware guard deliberately lets through) goes to the login
+   * form carrying the current page; 403 NO_ORGANIZATION (a signup that
+   * abandoned onboarding) goes back to onboarding. A failed read keeps the
+   * shell: `denied` stays null on network errors, so a blip never throws a
+   * healthy tenant out (#64's tri-state).
+   */
+  useEffect(() => {
+    if (denied === 'unauthenticated') {
+      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    } else if (denied === 'no_organization') {
+      router.replace('/onboarding');
+    }
+  }, [denied, pathname, router]);
 
   const isSecondaryActive = NAV_ITEMS.slice(4).some(
     (item) => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))

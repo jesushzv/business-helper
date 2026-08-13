@@ -64,7 +64,7 @@ const DEMO_STATE: CurrentOrgState = {
 
 // The chrome mounts on every dashboard page; one fetch serves them all.
 let cached: CurrentOrgState | null = null;
-let pending: Promise<CurrentOrgState | null> | null = null;
+let pending: Promise<LoadResult | null> | null = null;
 
 export function __resetCurrentOrgCacheForTests(): void {
   cached = null;
@@ -83,10 +83,36 @@ function toCurrentOrg(row: Record<string, unknown>): CurrentOrg {
   };
 }
 
-async function loadCurrentOrg(): Promise<CurrentOrgState | null> {
+/**
+ * Why the caller has no organization — but only when the API *said so*.
+ * `unauthenticated` is a 401 UNAUTHENTICATED, `no_organization` a 403
+ * NO_ORGANIZATION; anything else (network failure, 503 demo deployment, a
+ * malformed body) stays `null` = unknown, because a redirect fired off a
+ * network blip would throw a healthy tenant out of their dashboard (#64's
+ * tri-state; #248 is the consumer).
+ */
+export type OrgDeniedReason = 'unauthenticated' | 'no_organization' | null;
+
+interface LoadResult {
+  state: CurrentOrgState | null;
+  denied: OrgDeniedReason;
+}
+
+async function loadCurrentOrg(): Promise<LoadResult> {
   const res = await fetch('/api/organization');
   const data = await res.json().catch(() => null);
-  if (!res.ok || !data?.organization) return null;
+  if (!res.ok || !data?.organization) {
+    const code = data?.error?.code;
+    return {
+      state: null,
+      denied:
+        res.status === 401 && code === 'UNAUTHENTICATED'
+          ? 'unauthenticated'
+          : res.status === 403 && code === 'NO_ORGANIZATION'
+            ? 'no_organization'
+            : null,
+    };
+  }
 
   let user: CurrentUser | null = null;
   if (isSupabaseConfigured()) {
@@ -107,18 +133,22 @@ async function loadCurrentOrg(): Promise<CurrentOrgState | null> {
 
   const role = data.role;
   return {
-    org: toCurrentOrg(data.organization),
-    role:
-      role === 'owner' || role === 'manager' || role === 'member' || role === 'accountant'
-        ? role
-        : null,
-    user,
+    state: {
+      org: toCurrentOrg(data.organization),
+      role:
+        role === 'owner' || role === 'manager' || role === 'member' || role === 'accountant'
+          ? role
+          : null,
+      user,
+    },
+    denied: null,
   };
 }
 
 export function useCurrentOrg() {
   const demo = isClientDemoMode();
   const [state, setState] = useState<CurrentOrgState | null>(demo ? DEMO_STATE : cached);
+  const [denied, setDenied] = useState<OrgDeniedReason>(null);
   const [loading, setLoading] = useState<boolean>(!demo && !cached);
 
   useEffect(() => {
@@ -128,8 +158,11 @@ export function useCurrentOrg() {
     pending = pending ?? loadCurrentOrg().catch(() => null);
     pending
       .then((loaded) => {
-        if (loaded) cached = loaded;
-        if (!cancelled) setState(loaded);
+        if (loaded?.state) cached = loaded.state;
+        if (!cancelled) {
+          setState(loaded?.state ?? null);
+          setDenied(loaded?.denied ?? null);
+        }
       })
       .finally(() => {
         pending = null;
@@ -166,6 +199,7 @@ export function useCurrentOrg() {
     org: state?.org ?? null,
     role: state?.role ?? null,
     user: state?.user ?? null,
+    denied,
     loading,
     signOut,
   };

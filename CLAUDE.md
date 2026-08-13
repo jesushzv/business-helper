@@ -162,8 +162,8 @@ project; agents author most PRs and the issue tracker doubles as the engineering
 ## Mexican tax domain in 30 seconds
 
 IVA 16%; ISR withholding and IVA retention for personas físicas; CFDI 4.0 stamped through a PAC
-(Facturapi) — platform or tenant key sealed with `PAC_ENCRYPTION_KEY`; folio ledger on
-`organizations`, 402 `FOLIOS_EXHAUSTED` when spent; **PUE** (paid on issue) vs **PPD**
+(Facturapi) — the tenant's **own** key only (BYOK, `docs/STATUS.md` §05; the platform never stamps
+on its own key), sealed with `PAC_ENCRYPTION_KEY`; **PUE** (paid on issue) vs **PPD**
 (installments — a *complemento de pago* per payment, `lib/complementoPago.ts`); payments arrive by
 SPEI to the org's CLABE. Deep dive: `docs/02-architecture/cfdi_integration_architecture.md`.
 

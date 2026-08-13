@@ -872,7 +872,53 @@ declared all along in `20260811150000_organization_trial.sql`.) Before resolutio
 defect with the arrow reversed: a fresh database (including CI's) did not match production, so
 nothing depending on `trial_ends_at` could be trusted to behave the same in both.
 
-## Sentry — why the hand-rolled transport was replaced (settled 2026-08-12; moved from STATUS §02 on 2026-08-13 for the size budget)
+---
+
+## Entries moved 2026-08-13 (STATUS.md budget trim)
+
+*Moved verbatim from `docs/STATUS.md` when the file went over its 32,000-byte budget. Everything
+below describes work that had merged (and, where noted, been verified live) by 2026-08-12; the
+compressed pointers remain in STATUS.md §03.*
+
+### From §03 — the superseded bug-issue paragraph (its #204 diagnosis, since resolved)
+
+**Two of the three open `bug`-tagged issues are closed in code**, with #115 alongside them — #116
+(the webhook no longer writes a Checkout Session's `'complete'` into `subscription_status`, and an
+unknown status is no longer badged "Cancelado" to someone who has just paid), #133
+(`requireOrgAccess` resolves the tenant deterministically) and #115 (`stripe_customer_id` and
+`stripe_subscription_id` stored at last). Tests, lint and build only. The third is **#204, and its
+central claim is wrong** — it reports `trial_ends_at` as a column no migration creates, citing
+`git grep 'trial_ends_at' -- supabase/migrations` returning nothing at `aedf521`; re-run at exactly
+that commit it returns **9 matches**, the column being declared in
+`20260811150000_organization_trial.sql:27`. What *is* undeclared, confirmed against `pg_indexes` on
+production, is the two **indexes**. A migration written to the issue as filed would add a column
+that already exists.
+
+*(#204 was subsequently resolved 2026-08-12 — `20260812060000` applied and `pg_indexes` read back —
+which is why this diagnostic paragraph became history; the surviving bullet list in STATUS.md §03 is
+the current record.)*
+
+### From §03 P1 — CFDI folio billing → BYOK (all landed 2026-08-12)
+
+- ~~**CFDI folio billing** (#24, #27).~~ **Superseded by the BYOK decision (§05, 2026-08-12)** —
+  the platform does not stamp on behalf of tenants, so folio packs and per-folio metering have no
+  billable event; both issues closed as not planned. The copy sweep that replaced them (**#221**)
+  landed 2026-08-12: every folio-inclusion/$-per-folio claim replaced with the founder-approved
+  BYOK line across pricing, landing, FAQ, comparison tables and Ajustes; the platform-key fallback
+  (`FACTURAPI_SECRET_KEY`, `source: 'platform'`, folio metering, `lib/cfdiFolios.ts`) removed from
+  the code. Verified by `npx vitest run` + `tsc` + `next build` (copy pinned by
+  `tests/unit/copyRules.test.ts`, shown red first). The money-path review of the PR then found
+  `STRIPE_PLANS.features` still selling folios **live on the Ajustes billing card** — fixed in the
+  same PR along with the folio-pack machinery, `verify:stripe`'s pack stage, and the stale
+  deployment docs still instructing `FACTURAPI_SECRET_KEY`. The last residue fell 2026-08-12: the
+  founder chose **drop** on #224, and `20260812182430_drop_cfdi_folio_ledger.sql` removed the
+  `cfdi_folios_*` columns and both folio RPCs — measured first (1 org, all counters zero, nothing
+  discarded), applied to production via the connector, and verified by reading the catalog back
+  (columns and functions absent). #226 (copy promised PACs the form refuses) closed with the same
+  PR: rendered copy names Facturapi only, pinned by `tests/unit/copyRules.test.ts` (shown red on a
+  plant).
+
+### From §02 — why the hand-rolled Sentry transport was replaced (settled 2026-08-12)
 
 Coverage was the reason for moving to `@sentry/nextjs`: the hand-rolled `fetch` envelope could not
 see an unhandled Server Component, render or Edge error. The live state of error monitoring stays in
