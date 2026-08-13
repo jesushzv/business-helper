@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { calculateReceivablesSummary, type MilestoneItem } from '@/lib/receivablesCalculator';
+import {
+  agingBucketOf,
+  calculateReceivablesSummary,
+  collectedAmount,
+  outstandingAmount,
+  type MilestoneItem,
+} from '@/lib/receivablesCalculator';
 import {
   calculateBusinessMetrics,
   getTopClientsByRevenue,
@@ -109,5 +115,135 @@ describe('Business Dashboard Analytics Engine', () => {
     );
 
     expect(forecast.totalForecast).toBe(0);
+  });
+});
+
+/**
+ * #253 — a partial payment is not a collected cobro.
+ *
+ * The confirm path deliberately records what *arrived* ("Monto Transferido
+ * Confirmado"), and the complemento de pago is filed for that figure — but
+ * every summary read `amount` instead, so a $20,000 wire against a $48,720
+ * milestone moved the full $48,720 into "Cobrado" and the row left every
+ * pending bucket, while Facturación showed the same cobro owing $28,720.
+ *
+ * The fixtures below all carry `transferred_amount !== amount`; the ones above
+ * never did, which is why a green suite sat on top of this.
+ */
+describe('partially paid cobros', () => {
+  const today = '2026-08-30';
+  const partial: MilestoneItem = {
+    id: 'p1',
+    label: 'Anticipo 50%',
+    amount: 48720,
+    transferred_amount: 20000,
+    due_date: '2026-08-15',
+    status: 'confirmed',
+  };
+
+  it('splits one cobro into what arrived and what is still owed', () => {
+    expect(collectedAmount(partial)).toBe(20000);
+    expect(outstandingAmount(partial)).toBe(28720);
+  });
+
+  it('leaves the remainder in the aging bucket its due date puts it in', () => {
+    expect(agingBucketOf(partial, today)).toBe('overdue');
+
+    const summary = calculateReceivablesSummary([partial], today);
+
+    expect(summary.totalConfirmed).toBe(20000);
+    expect(summary.totalOverdue).toBe(28720);
+    // Counted once: still owed, so not among the settled.
+    expect(summary.countConfirmed).toBe(0);
+    expect(summary.countOverdue).toBe(1);
+    expect(summary.countPartial).toBe(1);
+    expect(summary.totalPartialOutstanding).toBe(28720);
+  });
+
+  it('never books more than the cobro is worth when the client overpaid', () => {
+    // The surplus is real money, but it is not this cobro's revenue — #81
+    // surfaces it at confirmation time so the tenant applies or returns it.
+    const overpaid = { ...partial, transferred_amount: 50000 };
+
+    expect(collectedAmount(overpaid)).toBe(48720);
+    expect(outstandingAmount(overpaid)).toBe(0);
+    expect(agingBucketOf(overpaid, today)).toBeNull();
+  });
+
+  it('reads a confirmation that recorded no figure as fully paid', () => {
+    // Rows confirmed before the column carried a number: the confirmation
+    // itself recorded "the amount arrived".
+    const legacy = { ...partial, transferred_amount: null };
+
+    expect(collectedAmount(legacy)).toBe(48720);
+    expect(calculateReceivablesSummary([legacy], today).countConfirmed).toBe(1);
+  });
+
+  it('keeps an explicit zero at zero rather than falling back to the amount', () => {
+    // `transferred_amount || amount` would read this as fully collected.
+    const nothing = { ...partial, transferred_amount: 0 };
+
+    expect(collectedAmount(nothing)).toBe(0);
+    expect(outstandingAmount(nothing)).toBe(48720);
+  });
+
+  it('carries the same split into the dashboard metrics', () => {
+    const metrics = calculateBusinessMetrics([partial as AnalyticsMilestone], [], [], today);
+
+    expect(metrics.collectedRevenue).toBe(20000);
+    expect(metrics.pendingReceivables).toBe(28720);
+    expect(metrics.overdueDebt).toBe(28720);
+  });
+
+  it('ranks a client by what they transferred, not what they were billed', () => {
+    const top = getTopClientsByRevenue(
+      [{ ...partial, client_id: 'c1' } as AnalyticsMilestone],
+      [{ id: 'c1', name: 'Constructora del Bajío' }],
+      5
+    );
+
+    expect(top[0].totalRevenue).toBe(20000);
+  });
+});
+
+/**
+ * #297 — the count under an amount describes the amount's own cobros.
+ *
+ * `totalMilestonesCount` was `milestones.length` across every status, printed
+ * under *Por Cobrar (Pendiente)*, whose figure excludes collected ones. An org
+ * that had collected all twelve of its cobros read "$0.00 / 12 hitos".
+ */
+describe('the Por Cobrar count and its amount are one derived pair', () => {
+  const today = '2026-08-30';
+
+  it('counts nothing pending once every cobro is collected', () => {
+    const metrics = calculateBusinessMetrics(
+      [
+        { id: 'm1', label: 'A', amount: 10000, due_date: '2026-08-10', status: 'confirmed' },
+        { id: 'm2', label: 'B', amount: 5000, due_date: '2026-08-20', status: 'confirmed' },
+      ],
+      [],
+      [],
+      today
+    );
+
+    expect(metrics.pendingReceivables).toBe(0);
+    expect(metrics.pendingMilestonesCount).toBe(0);
+    expect(metrics.collectedRevenue).toBe(15000);
+  });
+
+  it('counts a partially paid cobro among the pending, since it still owes', () => {
+    const metrics = calculateBusinessMetrics(
+      [
+        { id: 'm1', label: 'A', amount: 10000, transferred_amount: 4000, due_date: '2026-08-10', status: 'confirmed' },
+        { id: 'm2', label: 'B', amount: 5000, due_date: '2026-09-20', status: 'pending' },
+      ],
+      [],
+      [],
+      today
+    );
+
+    expect(metrics.pendingMilestonesCount).toBe(2);
+    expect(metrics.pendingReceivables).toBe(11000);
   });
 });

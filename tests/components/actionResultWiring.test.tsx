@@ -76,11 +76,20 @@ describe('receivables page announces only a clean confirmation', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
-  it('gates the success dialog on success AND no complementError', () => {
+  it('gates the success dialog on every outcome the modal holds itself open for', () => {
     const src = pageSource();
     // The load-bearing condition, pinned: verified red by flipping it to
     // `outcome.success` alone while a complementError fixture was in play.
+    //
+    // All three, not just the first (#272). The modal stays open for a
+    // complement that did not stamp, for an overpayment (#81) and for the
+    // unknown-método / storage warning (#213, #238) — and ActionResultDialog
+    // renders at z-[60] over the modal's z-50, so a green "Pago confirmado"
+    // on any of them covers the thing the tenant has to act on.
     expect(src).toMatch(/outcome\.success && !outcome\.complementError/);
+    expect(src).toMatch(/overpaid <= 0/);
+    expect(src).toMatch(/!complementWarning/);
+    expect(src).toMatch(/if \(cleanConfirmation\)/);
     // And the outcome must still reach the modal, which renders the warning.
     expect(src).toMatch(/return outcome;/);
   });

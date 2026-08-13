@@ -51,6 +51,9 @@ function makeSupabaseMock() {
   const chain = {
     update: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    // The confirm route carries its not-yet-confirmed precondition inside the
+    // UPDATE (#286), so the chain has to answer `neq` too.
+    neq: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     insert: vi.fn().mockResolvedValue({ error: null }),
     maybeSingle: vi.fn().mockResolvedValue({ data: updated, error: null }),

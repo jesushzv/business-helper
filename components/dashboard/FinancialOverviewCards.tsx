@@ -59,7 +59,13 @@ export const FinancialOverviewCards: React.FC<FinancialOverviewCardsProps> = ({ 
         <div className="mt-3 flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
           <div className="flex items-center gap-1.5 font-semibold text-amber-300">
             <ShieldCheck className="h-4 w-4 text-amber-400" />
-            <span>{metrics.totalMilestonesCount} hitos registrados</span>
+            {/* The count under an amount describes the same cobros the amount
+                sums (#297): all-collected orgs read "$0.00 / 12 hitos
+                registrados" here when this was every milestone ever created. */}
+            <span>
+              {metrics.pendingMilestonesCount}{' '}
+              {metrics.pendingMilestonesCount === 1 ? 'hito por cobrar' : 'hitos por cobrar'}
+            </span>
           </div>
           <Link
             href="/receivables"

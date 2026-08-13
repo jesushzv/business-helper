@@ -61,11 +61,18 @@ export async function POST(
       updates.transferred_amount = amount;
     }
 
+    // The precondition rides *inside* the write, the way the public sibling
+    // does it (`public/[token]/route.ts`): checking first and updating second
+    // leaves a window where two taps both pass the check. Without it, a second
+    // POST rewrote `confirmed_at`, fired `payment_confirmed` again — inflating
+    // the funnel with a payment that arrived once — and added a second audit
+    // row (#286).
     const { data: updated, error } = await supabase
       .from('milestones')
       .update(updates)
       .eq('id', id)
       .eq('organization_id', organizationId)
+      .neq('status', 'confirmed')
       .select()
       .maybeSingle();
 
@@ -79,7 +86,35 @@ export async function POST(
     }
 
     if (!updated) {
-      return NextResponse.json({ error: 'Cobro no encontrado' }, { status: 404 });
+      // Zero rows changed looks exactly like success, and here it has two very
+      // different causes: the cobro is not this organization's (or does not
+      // exist), or it was already confirmed and the `neq` above refused to
+      // touch it. The tenant is told which — "ya lo confirmaste" and "no existe"
+      // call for opposite next steps.
+      const { data: existing } = await supabase
+        .from('milestones')
+        .select('id, status, confirmed_at')
+        .eq('id', id)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (existing?.status === 'confirmed') {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'ALREADY_CONFIRMED',
+              message: 'Este cobro ya estaba confirmado; no se registró dos veces.',
+            },
+            milestone: existing,
+          },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
+        { status: 404 }
+      );
     }
 
     // Audit against the session's organization, not a value read back off the

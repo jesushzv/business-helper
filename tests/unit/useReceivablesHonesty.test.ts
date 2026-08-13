@@ -226,6 +226,55 @@ describe('uploadSpeiProof honesty', () => {
     expect(outcome).toMatchObject({ success: true });
     expect(result.current.receivables[0].tracking_reference).toBe('SPEI123');
   });
+
+  /**
+   * #287 — the demo simulation runs *instead of* the request, never on top of
+   * its result.
+   *
+   * This read `if (res.ok || isClientDemoMode())`, evaluated after the fetch,
+   * so in a demo-flagged browser a rejected write still applied a local
+   * "comprobante registrado" — the #58/#86 catch-fallback shape, in the hook
+   * that records money arriving. No component wired this up yet, which is the
+   * only reason nothing user-facing was wrong.
+   */
+  it('does not launder a failed write into a local success for a demo build', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    const { result } = await mountHook();
+    fetchMock.mockClear();
+
+    let outcome;
+    await act(async () => {
+      // The sandbox's own fixture row — the only list it has.
+      outcome = await result.current.uploadSpeiProof('milestone-demo-1', {
+        receipt_url: 'https://example.com/r.pdf',
+        tracking_reference: 'SPEI123',
+      });
+    });
+
+    // The sandbox short-circuits: no request is made at all, so there is no
+    // response for a simulated success to hide behind.
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(outcome).toMatchObject({ success: true });
+  });
+
+  it('reports the failure even though a demo-shaped build would have simulated', async () => {
+    // The real-tenant path, stated as the contrast: the request is made and
+    // its refusal is the answer.
+    const { result } = await mountHook();
+    fetchMock.mockResolvedValueOnce(jsonResponse(503, { error: 'sin base de datos' }));
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.uploadSpeiProof('m-1', {
+        receipt_url: 'https://example.com/r.pdf',
+        tracking_reference: 'SPEI123',
+      });
+    });
+
+    expect(outcome).toMatchObject({ success: false, error: 'sin base de datos' });
+    expect(result.current.receivables[0].tracking_reference).toBeNull();
+    expect(result.current.receivables[0].status).toBe('marked_paid');
+  });
 });
 
 describe('fetchReceivables honesty', () => {

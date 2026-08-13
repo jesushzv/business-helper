@@ -133,6 +133,16 @@ export default function PublicPayPortalPage() {
       return;
     }
 
+    // `parseFloat(x) || milestone.amount` at the submit used to turn a typed 0
+    // — or anything unparseable — into a declaration for the FULL cobro (#284).
+    // A payer who wires part of it must be able to say so, and one who typed
+    // nothing must be asked rather than answered for.
+    const declaredAmount = Number(transferredAmount.trim());
+    if (transferredAmount.trim() === '' || !Number.isFinite(declaredAmount) || declaredAmount <= 0) {
+      setFormError('Escribe el monto que transferiste (mayor a cero).');
+      return;
+    }
+
     if (!selectedFile) {
       setFormError('Por favor selecciona o adjunta tu comprobante de pago (imagen o PDF < 5MB).');
       return;
@@ -189,7 +199,7 @@ export default function PublicPayPortalPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tracking_reference: trackingRef.trim(),
-          transferred_amount: parseFloat(transferredAmount) || milestone?.amount,
+          transferred_amount: declaredAmount,
           ...(receiptPath ? { receipt_path: receiptPath } : {}),
         }),
       });

@@ -61,6 +61,15 @@ export interface InvoiceItem {
   clientPhone: string | null;
   concept: string;
   amount: number;
+  /**
+   * The milestone's own status. Absent from this type until #252: the Nota de
+   * Venta button declared every row "PAGADO" and thanked the client for a
+   * payment, and the component *could not* have known better — it had no field
+   * saying whether the cobro had been paid.
+   */
+  status: string;
+  /** What the owner confirmed actually arrived, when a confirmation recorded one. */
+  transferredAmount: number | null;
   dueDate: string;
   cfdiStatus: CFDIStatus;
   cfdiUuid: string | null;
@@ -97,6 +106,8 @@ interface ReceivableRow {
   id: string;
   label: string;
   amount: number | string;
+  status?: string | null;
+  transferred_amount?: number | string | null;
   due_date: string;
   cfdi_status?: CFDIStatus | null;
   cfdi_uuid?: string | null;
@@ -166,6 +177,11 @@ function toInvoiceItem(row: ReceivableRow): InvoiceItem {
     clientPhone: client?.phone || null,
     concept: row.contracts?.title ? `${row.contracts.title} — ${row.label}` : row.label,
     amount: toNumber(row.amount),
+    status: row.status || 'pending',
+    transferredAmount:
+      row.transferred_amount === null || row.transferred_amount === undefined
+        ? null
+        : toNumber(row.transferred_amount),
     dueDate: row.due_date,
     cfdiStatus: row.cfdi_status || 'none',
     cfdiUuid: row.cfdi_uuid || null,
@@ -195,6 +211,14 @@ export interface ComplementOutcome {
   uuid?: string;
   installment?: number;
   remainingBalance?: number;
+  /**
+   * Money received above the invoice's balance. The complement is stamped for
+   * the balance only, so this surplus is real pesos no fiscal document
+   * mentions (#81). The route has always returned it; this type had no field
+   * for it, so the manual path silently dropped the one fact #81 exists to
+   * surface (#272).
+   */
+  overpaidAmount?: number;
   environment?: 'sandbox' | 'live';
   warning?: string | null;
   message?: string;
@@ -337,6 +361,7 @@ export function useInvoices() {
           uuid: data.uuid,
           installment: data.installment,
           remainingBalance: data.remainingBalance,
+          overpaidAmount: Number(data.overpaidAmount) || 0,
           environment: data.environment,
           warning: data.warning,
         };

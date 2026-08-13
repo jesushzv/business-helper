@@ -74,13 +74,48 @@ describe('confirming a payment', () => {
     await waitFor(() => expect(confirm).toHaveBeenCalledWith('m-1', 20000));
   });
 
-  it('falls back to the full amount rather than confirming zero', async () => {
-    const { confirm } = renderModal(async () => ok());
+  /**
+   * This block replaces a test titled "falls back to the full amount rather
+   * than confirming zero", which asserted `confirm('m-1', 24500)` for a cleared
+   * field — pinning the defect in place (#284). The screen showed one number
+   * and the write carried another, on money: `Number('') || milestone.amount`
+   * substituted the full $24,500 cobro for whatever the owner had erased, and
+   * that figure is what the complemento de pago declares to the SAT.
+   */
+  describe('an unreadable amount is a question, not a default (#284)', () => {
+    it.each([
+      ['cleared', ''],
+      ['zero', '0'],
+      ['whitespace', '   '],
+    ])('refuses to confirm on a %s field instead of substituting the full cobro', async (_label, typed) => {
+      const { confirm, onClose } = renderModal(async () => ok());
 
-    fireEvent.change(amountInput(), { target: { value: '' } });
-    fireEvent.click(confirmButton());
+      fireEvent.change(amountInput(), { target: { value: typed } });
+      fireEvent.click(confirmButton());
 
-    await waitFor(() => expect(confirm).toHaveBeenCalledWith('m-1', 24500));
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toMatch(/monto que recibiste/i);
+      expect(confirm).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('confirms once a real amount is typed over the refusal', async () => {
+      const { confirm } = renderModal(async () => ok());
+
+      fireEvent.change(amountInput(), { target: { value: '' } });
+      fireEvent.click(confirmButton());
+      await screen.findByRole('alert');
+
+      fireEvent.change(amountInput(), { target: { value: '18250.55' } });
+      fireEvent.click(confirmButton());
+
+      await waitFor(() => expect(confirm).toHaveBeenCalledWith('m-1', 18250.55));
+    });
+
+    // The state is now the typed string rather than a number, which is also
+    // what #151 asks for — but jsdom normalizes a partial decimal ("1500.") to
+    // "" inside `input[type=number]` whatever the component does, so that half
+    // is not assertable here and is not claimed.
   });
 });
 
