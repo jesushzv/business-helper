@@ -86,6 +86,16 @@ export function useQuotes() {
     setError(null);
 
     if (!isClientDemoMode()) {
+      // A mirror written before the demo gate below existed holds real rows —
+      // public_token signing secrets included — and isClientDemoMode() also
+      // honors a visitor-settable sandbox flag that would render them back
+      // into the UI. Already-leaked state is removed, not just no longer
+      // written (#113).
+      try {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      } catch {
+        // Storage unavailable — nothing persisted there to remove.
+      }
       try {
         const res = await fetch('/api/quotes');
         const data = await res.json().catch(() => null);
@@ -138,6 +148,11 @@ export function useQuotes() {
   }, [fetchQuotes]);
 
   const syncLocalStorage = (updated: Quote[]) => {
+    // Demo-sandbox state only, like useClients/useProducts. For a real tenant
+    // every serialized quote carries public_token — the secret /q/ and /pay/
+    // resolve — so the mirror would persist working signing links at rest in
+    // the browser (#113).
+    if (!isClientDemoMode()) return;
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
@@ -348,6 +363,10 @@ export function useQuotes() {
   }, [quotes, statusFilter, searchQuery]);
 
   const resetDemoQuotes = useCallback(() => {
+    // One of the four localStorage surfaces the #93/#96 audit names. No real
+    // caller exists today, but a future wire-up must not re-seed a real
+    // tenant's quote list with fixtures (#113).
+    if (!isClientDemoMode()) return;
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_QUOTES));
     setQuotes(INITIAL_DEMO_QUOTES);
   }, []);

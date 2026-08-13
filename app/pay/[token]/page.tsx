@@ -45,6 +45,10 @@ export default function PublicPayPortalPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Set when the declaration was recorded but the receipt file itself could
+  // not be stored (#85): the payer must not walk away believing the vendor
+  // holds a comprobante that never left this machine.
+  const [receiptNotice, setReceiptNotice] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchPublicMilestone() {
@@ -121,6 +125,7 @@ export default function PublicPayPortalPage() {
   const handleSubmitProof = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    setReceiptNotice(null);
 
     const trackingVal = validateTrackingReference(trackingRef);
     if (!trackingVal.isValid) {
@@ -146,11 +151,38 @@ export default function PublicPayPortalPage() {
     }
 
     try {
-      // NOTE: the selected file itself is not uploaded anywhere yet — this
-      // blob: URL only dereferences inside the payer's own browser session.
-      // Tracked as #85; the declaration below (clave de rastreo + monto) is
-      // what the API actually records.
-      const fakeFileUrl = URL.createObjectURL(selectedFile);
+      // The receipt goes to storage first (#85 — before this, the page sent
+      // `URL.createObjectURL(file)`, a blob: URL valid only inside this tab,
+      // and the vendor's Cobranza held a dead link for every payment declared
+      // here). The declaration then references the path the server issued.
+      //
+      // Decided on #85: an upload failure does not block the declaration. The
+      // clave de rastreo is the load-bearing evidence — Banxico resolves it —
+      // and a storage outage must not stop a payer from registering a
+      // transfer already made. The declaration proceeds receipt-less and the
+      // confirmation says so.
+      let receiptPath: string | null = null;
+      try {
+        const uploadData = new FormData();
+        uploadData.append('file', selectedFile);
+        const uploadRes = await fetch(`/api/receivables/public/${token}/upload`, {
+          method: 'POST',
+          body: uploadData,
+        });
+        const uploaded = await uploadRes.json().catch(() => null);
+        if (uploadRes.ok && typeof uploaded?.receipt_path === 'string') {
+          receiptPath = uploaded.receipt_path;
+        }
+      } catch {
+        // Network failure on the upload alone — fall through to declare.
+      }
+
+      if (!receiptPath) {
+        setReceiptNotice(
+          'Tu comprobante no se pudo adjuntar. Tu pago quedó registrado con la Clave de Rastreo; ' +
+            'si el negocio necesita el comprobante, envíaselo directamente.'
+        );
+      }
 
       const res = await fetch(`/api/receivables/public/${token}`, {
         method: 'POST',
@@ -158,7 +190,7 @@ export default function PublicPayPortalPage() {
         body: JSON.stringify({
           tracking_reference: trackingRef.trim(),
           transferred_amount: parseFloat(transferredAmount) || milestone?.amount,
-          receipt_url: fakeFileUrl,
+          ...(receiptPath ? { receipt_path: receiptPath } : {}),
         }),
       });
 
@@ -348,6 +380,14 @@ export default function PublicPayPortalPage() {
               <p className="text-sm text-slate-300 max-w-xs mx-auto">
                 El proveedor revisará la Clave de Rastreo en Banxico y confirmará tu pago. ¡Gracias!
               </p>
+              {receiptNotice && (
+                <div
+                  role="alert"
+                  className="mx-auto max-w-xs p-3 bg-amber-950/60 border border-amber-500/30 text-amber-200 text-xs font-semibold rounded-xl text-left"
+                >
+                  {receiptNotice}
+                </div>
+              )}
             </div>
           ) : (
             <form onSubmit={handleSubmitProof} className="space-y-4">

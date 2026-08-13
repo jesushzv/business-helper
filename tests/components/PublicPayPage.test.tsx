@@ -50,7 +50,6 @@ function jsonResponse(status: number, body: unknown): Response {
 }
 
 const fetchMock = vi.fn<typeof fetch>();
-let originalCreateObjectURL: typeof URL.createObjectURL;
 
 /** A payer's receipt: the validator accepts PNG/JPG/PDF under 5MB. */
 function receiptFile(name = 'comprobante-spei.pdf', type = 'application/pdf', size = 240_000) {
@@ -80,21 +79,23 @@ function fillMinimum(reference = 'SPEI20260830123456') {
   fireEvent.change(fileInput(), { target: { files: [receiptFile()] } });
 }
 
+/** Queues the receipt upload (#85) that now precedes every declaration. */
+function mockUploadOk() {
+  fetchMock.mockResolvedValueOnce(
+    jsonResponse(200, { success: true, receipt_path: 'org-1/spei_m-1_1723500000000.pdf' })
+  );
+}
+
 beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
-  // Only the static method — replacing the whole `URL` global takes the
-  // *constructor* with it, and jsdom's own fetch plumbing calls `new URL`.
-  // In isolation that never surfaces; in a full run it fails four cases here
-  // with an unhandled "URL is not a constructor" from tough-cookie.
-  originalCreateObjectURL = URL.createObjectURL;
-  URL.createObjectURL = (() => 'blob:receipt') as typeof URL.createObjectURL;
+  // No URL.createObjectURL stub: the page no longer mints blob: URLs at all
+  // (#85) — the file goes to the upload endpoint as FormData instead.
   // The real-tenant path. Without this the submit never reaches the API.
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
 });
 
 afterEach(() => {
-  URL.createObjectURL = originalCreateObjectURL;
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
@@ -156,13 +157,14 @@ describe('what the payer is shown before paying', () => {
 describe('declaring the transfer', () => {
   it('goes through with the clave de rastreo and a receipt, amount pre-filled', async () => {
     await renderLoaded();
+    mockUploadOk();
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true }));
 
     fillMinimum();
     fireEvent.click(submit());
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    const [url, init] = fetchMock.mock.calls[2] as [string, RequestInit];
     expect(url).toBe('/api/receivables/public/tok-real-1');
     expect(init.method).toBe('POST');
     expect(JSON.parse(String(init.body))).toMatchObject({
@@ -213,6 +215,7 @@ describe('declaring the transfer', () => {
 describe('a declaration the API did not record is never shown as one (#58/#86)', () => {
   it('renders the API’s message and keeps the form open on a rejected write', async () => {
     await renderLoaded();
+    mockUploadOk();
     fetchMock.mockResolvedValueOnce(
       jsonResponse(503, {
         error: {
@@ -233,6 +236,7 @@ describe('a declaration the API did not record is never shown as one (#58/#86)',
 
   it('reports a network failure as a failure, not from the catch as a success', async () => {
     await renderLoaded();
+    mockUploadOk();
     fetchMock.mockRejectedValueOnce(new Error('offline'));
 
     fillMinimum();
@@ -244,6 +248,7 @@ describe('a declaration the API did not record is never shown as one (#58/#86)',
 
   it('re-enables the submit after a failure so the payer is not stranded', async () => {
     await renderLoaded();
+    mockUploadOk();
     fetchMock.mockResolvedValueOnce(jsonResponse(500, { error: { code: 'X', message: 'falló' } }));
 
     fillMinimum();
@@ -251,6 +256,103 @@ describe('a declaration the API did not record is never shown as one (#58/#86)',
 
     await screen.findByText('falló');
     await waitFor(() => expect((submit() as HTMLButtonElement).disabled).toBe(false));
+  });
+});
+
+describe('#85 — the receipt leaves the machine, and no blob: URL ever does', () => {
+  const uploadOk = () =>
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { success: true, receipt_path: 'org-1/spei_m-1_1723500000000.pdf' })
+    );
+
+  it('uploads the attached file to the public upload endpoint before declaring', async () => {
+    await renderLoaded();
+    uploadOk();
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true }));
+
+    fillMinimum();
+    fireEvent.click(submit());
+
+    await screen.findByText(/¡Comprobante Enviado Exitosamente!/i);
+
+    const uploadCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/upload'));
+    expect(uploadCall).toBeTruthy();
+    const [uploadUrl, uploadInit] = uploadCall as [string, RequestInit];
+    expect(uploadUrl).toBe('/api/receivables/public/tok-real-1/upload');
+    expect(uploadInit.method).toBe('POST');
+    // The file itself, as multipart form data — not a JSON body about a file.
+    expect(uploadInit.body).toBeInstanceOf(FormData);
+    expect((uploadInit.body as FormData).get('file')).toBeInstanceOf(File);
+  });
+
+  it('sends the server-issued receipt_path in the declaration, never a receipt_url', async () => {
+    await renderLoaded();
+    uploadOk();
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true }));
+
+    fillMinimum();
+    fireEvent.click(submit());
+
+    await screen.findByText(/¡Comprobante Enviado Exitosamente!/i);
+
+    const declaration = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url) === '/api/receivables/public/tok-real-1' && init?.method === 'POST'
+    );
+    expect(declaration).toBeTruthy();
+    const sent = JSON.parse(String((declaration as [string, RequestInit])[1].body));
+    expect(sent.receipt_path).toBe('org-1/spei_m-1_1723500000000.pdf');
+    expect(sent.receipt_url).toBeUndefined();
+
+    // A blob: URL dereferences only inside this browser tab; storing one gives
+    // the vendor a dead "receipt" link for a real payment (#85). Nothing the
+    // page sends may carry one.
+    for (const [, init] of fetchMock.mock.calls) {
+      if (typeof init?.body === 'string') {
+        expect(init.body).not.toContain('blob:');
+      }
+    }
+  });
+
+  it('declares without a receipt — and says so — when the upload fails', async () => {
+    // Decided on #85: the clave de rastreo is the load-bearing evidence
+    // (Banxico resolves it); a storage outage must not block the payer from
+    // registering a transfer already made. The declaration proceeds
+    // receipt-less and the payer is told the file did not attach.
+    await renderLoaded();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(502, {
+        error: { code: 'RECEIPT_UPLOAD_FAILED', message: 'No se pudo guardar el comprobante.' },
+      })
+    );
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true }));
+
+    fillMinimum();
+    fireEvent.click(submit());
+
+    await screen.findByText(/¡Comprobante Enviado Exitosamente!/i);
+    // The truth about the file, on the confirmation the payer reads.
+    await screen.findByText(/no se pudo adjuntar/i);
+
+    const declaration = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url) === '/api/receivables/public/tok-real-1' && init?.method === 'POST'
+    );
+    const sent = JSON.parse(String((declaration as [string, RequestInit])[1].body));
+    expect(sent.receipt_path).toBeUndefined();
+    expect(sent.receipt_url).toBeUndefined();
+  });
+
+  it('declares without a receipt when the upload network-fails', async () => {
+    await renderLoaded();
+    fetchMock.mockRejectedValueOnce(new Error('offline durante la subida'));
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true }));
+
+    fillMinimum();
+    fireEvent.click(submit());
+
+    await screen.findByText(/¡Comprobante Enviado Exitosamente!/i);
+    await screen.findByText(/no se pudo adjuntar/i);
   });
 });
 

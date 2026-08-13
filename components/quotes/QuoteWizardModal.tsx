@@ -632,8 +632,23 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
               </button>
             ) : <div />}
 
+            {/*
+              The two branches below need distinct keys. Without them React
+              reconciles "Siguiente" and "Generar y Compartir" as the same DOM
+              node, so the click that advances step 2 → 3 mutates the button it
+              is being dispatched on from type="button" to type="submit" — and
+              the browser then runs the click's default action against the
+              morphed node, submitting the form. The tenant skipped the entire
+              review step (credit warning, bank-account picker) and the quote
+              was created the moment they left step 2. jsdom does not evaluate
+              the default action this way, so only the Playwright suite can see
+              it: tests/e2e/scenarios.spec.ts scenario 02 is the regression
+              test, and tests/components/QuoteWizardModal.test.tsx pins the
+              node replacement.
+            */}
             {step < 3 ? (
               <button
+                key="wizard-next"
                 type="button"
                 onClick={handleNext}
                 disabled={step === 1 && (!clientId || !title.trim())}
@@ -644,6 +659,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
               </button>
             ) : (
               <button
+                key="wizard-submit"
                 type="submit"
                 // A blocked client is refused by the server (#203) — a submit
                 // that will answer 403 is not offered (#64's corollary). The

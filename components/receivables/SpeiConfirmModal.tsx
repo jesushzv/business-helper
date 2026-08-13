@@ -56,20 +56,32 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
         return;
       }
 
-      // The payment exceeded the invoice's balance (#81). The complement
+      // Two facts the modal must not close over, held in one amber block so
+      // neither swallows the other. The overpayment (#81): the complement
       // declares only the balance — the surplus is real money in the bank
-      // that no document mentions, so it is said here, before the modal
-      // closes over it.
+      // that no document mentions. The storage warning (#238): the complement
+      // stamped at the SAT but its XML/PDF copies could not be saved, which
+      // the tenant would otherwise first learn from the accountant export.
+      const warnings: string[] = [];
+
       const overpaid = Number(outcome.complement?.overpaidAmount) || 0;
       if (overpaid > 0) {
         const formatted = new Intl.NumberFormat('es-MX', {
           style: 'currency',
           currency: 'MXN',
         }).format(overpaid);
-        setComplementWarning(
+        warnings.push(
           `Se recibieron ${formatted} por encima del saldo de esta factura. ` +
             'El complemento se timbró por el saldo; aplica el excedente a otro cobro o devuélvelo a tu cliente.'
         );
+      }
+
+      if (outcome.complement?.warning) {
+        warnings.push(String(outcome.complement.warning));
+      }
+
+      if (warnings.length > 0) {
+        setComplementWarning(warnings.join(' '));
         return;
       }
 
@@ -118,7 +130,10 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
             </div>
           )}
 
-          {milestone.receipt_url && (
+          {/* A blob: URL dereferences only in the payer's own browser tab —
+              rendering one gives the vendor a dead "receipt" link (#85). Rows
+              written by pre-#85 clients may still carry them. */}
+          {milestone.receipt_url && !milestone.receipt_url.startsWith('blob:') && (
             <div>
               <span className="text-xs font-bold text-slate-400 uppercase mb-1 block">Comprobante Adjunto</span>
               <a

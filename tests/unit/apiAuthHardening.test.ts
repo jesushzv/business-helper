@@ -103,6 +103,7 @@ describe('every API route is authenticated or explicitly public', () => {
     'quotes/public/[token]/route.ts',      // shared quote link, scoped by token
     'quotes/public/[token]/otp/route.ts',  // issues an OTP for the above
     'receivables/public/[token]/route.ts', // shared payment link, scoped by token
+    'receivables/public/[token]/upload/route.ts', // receipt upload for the above (#85): token-scoped, magic-byte checked, 5MB cap
     'stripe/webhook/route.ts',             // authenticated by HMAC signature
     'health/route.ts',                     // liveness probe
   ]);

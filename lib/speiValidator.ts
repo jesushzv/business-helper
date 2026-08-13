@@ -79,3 +79,40 @@ export function validateReceiptFile(file: FileMetadata): ValidationResult {
 
   return { isValid: true };
 }
+
+export type ReceiptContentType = 'png' | 'jpg' | 'pdf';
+
+export const RECEIPT_CONTENT_TYPES: Record<ReceiptContentType, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  pdf: 'application/pdf',
+};
+
+/**
+ * Identifies the actual content of a receipt from its leading bytes.
+ *
+ * `validateReceiptFile` above checks the *claimed* name/size/type — UX, not
+ * enforcement, since both are caller-supplied. On the server, where the bytes
+ * are in hand, the magic bytes decide: PNG (`\x89PNG\r\n\x1a\n`), JPEG
+ * (`\xFF\xD8\xFF`) or PDF (`%PDF`). Returns null for anything else, which an
+ * upload route must refuse.
+ */
+export function sniffReceiptContent(bytes: Uint8Array): ReceiptContentType | null {
+  if (bytes.length >= 8) {
+    const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    if (png.every((b, i) => bytes[i] === b)) return 'png';
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return 'jpg';
+  }
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x25 && // %
+    bytes[1] === 0x50 && // P
+    bytes[2] === 0x44 && // D
+    bytes[3] === 0x46 // F
+  ) {
+    return 'pdf';
+  }
+  return null;
+}

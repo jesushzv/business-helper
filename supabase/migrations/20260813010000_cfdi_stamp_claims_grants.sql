@@ -1,0 +1,13 @@
+-- ----------------------------------------------------------------------------
+-- cfdi_stamp_claims: revoke the named roles, not just rely on RLS (#213)
+--
+-- 20260813000000 enabled RLS with zero policies, which blocks anon and
+-- authenticated row access through PostgREST — but Supabase's default
+-- privileges still GRANT ALL on new tables to both roles, and TRUNCATE is not
+-- governed by RLS: an anon TRUNCATE would delete a live claim mid-stamp. Same
+-- lesson as #76 (a PUBLIC revoke does not cover the named roles), applied at
+-- table level, matching otp_send_log and ai_usage_monthly. A separate file
+-- because the parent migration is already applied in production and applied
+-- migrations are never edited.
+-- ----------------------------------------------------------------------------
+REVOKE ALL ON TABLE public.cfdi_stamp_claims FROM PUBLIC, anon, authenticated;

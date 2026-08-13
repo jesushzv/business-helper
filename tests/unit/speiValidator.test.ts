@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { validateTrackingReference, validateReceiptFile } from '@/lib/speiValidator';
+import {
+  validateTrackingReference,
+  validateReceiptFile,
+  sniffReceiptContent,
+} from '@/lib/speiValidator';
 
 describe('SPEI Receipt & Banxico Tracking Reference Validator Suite', () => {
   it('should validate valid Banxico SPEI tracking reference (2024080488991234)', () => {
@@ -35,5 +39,24 @@ describe('SPEI Receipt & Banxico Tracking Reference Validator Suite', () => {
     const invalidExt = validateReceiptFile({ name: 'receipt.exe', size: 500, type: 'application/octet-stream' });
     expect(invalidExt.isValid).toBe(false);
     expect(invalidExt.error).toContain('Formato de archivo inválido');
+  });
+});
+
+describe('sniffReceiptContent (#85 — the bytes decide, not the claimed type)', () => {
+  it('identifies PNG, JPEG and PDF by their magic bytes', () => {
+    expect(
+      sniffReceiptContent(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]))
+    ).toBe('png');
+    expect(sniffReceiptContent(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00]))).toBe('jpg');
+    expect(sniffReceiptContent(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]))).toBe('pdf');
+  });
+
+  it('answers null for anything else, truncated headers included', () => {
+    // An executable renamed .pdf is the case the server-side check exists for.
+    expect(sniffReceiptContent(new Uint8Array([0x4d, 0x5a, 0x90, 0x00]))).toBeNull();
+    expect(sniffReceiptContent(new Uint8Array([]))).toBeNull();
+    expect(sniffReceiptContent(new Uint8Array([0x89, 0x50]))).toBeNull();
+    // HTML masquerading as an image.
+    expect(sniffReceiptContent(new TextEncoder().encode('<html><script>'))).toBeNull();
   });
 });
