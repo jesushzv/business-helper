@@ -268,6 +268,50 @@ describe('LoginPage Component (Task C7 Remediation Suite)', () => {
     });
   });
 
+  /**
+   * #247 — every signInWithPassword failure used to render "Correo o
+   * contraseña incorrectos", including the two where that diagnosis sends the
+   * user the wrong way: an unconfirmed email (the password was *right* — the
+   * fix is in their inbox, not a reset) and a rate limit (retrying is the one
+   * thing that makes it worse). lib/errorCopy already carried the mapped
+   * Spanish; this pins that the login page actually uses it.
+   */
+  describe('auth failures keep their own diagnosis (#247)', () => {
+    function submitWith(error: Error) {
+      mockSignInWithPassword.mockResolvedValueOnce({ data: {}, error });
+      render(<LoginPage />);
+      fireEvent.change(screen.getByPlaceholderText(/don.roberto@negocio.mx/i), {
+        target: { value: 'test@negocio.mx' },
+      });
+      fireEvent.change(screen.getByPlaceholderText(/••••••••/i), {
+        target: { value: 'Password123!' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Entrar a mi Cuenta/i }));
+    }
+
+    it('an unconfirmed email is not "wrong password"', async () => {
+      submitWith(new Error('Email not confirmed'));
+      await waitFor(() =>
+        expect(screen.getByText(/Todavía no confirmas tu correo/i)).toBeInTheDocument()
+      );
+      expect(screen.queryByText(/Correo o contraseña incorrectos/i)).not.toBeInTheDocument();
+    });
+
+    it('a rate limit says "wait", not "check your password"', async () => {
+      submitWith(new Error('For security purposes, you can only request this after 55 seconds.'));
+      await waitFor(() =>
+        expect(screen.getByText(/Demasiados intentos seguidos/i)).toBeInTheDocument()
+      );
+    });
+
+    it('an unmapped failure keeps the generic fallback, which never confirms whether the email exists', async () => {
+      submitWith(new Error('unexpected backend detail'));
+      await waitFor(() =>
+        expect(screen.getByText(/Correo o contraseña incorrectos/i)).toBeInTheDocument()
+      );
+    });
+  });
+
   it('submits form successfully and redirects to /dashboard', async () => {
     mockSignInWithPassword.mockResolvedValueOnce({ error: null });
     render(<LoginPage />);

@@ -9,6 +9,7 @@ import { fetchOAuthProviderEnabled } from '@/lib/authProviders';
 import { exitDemoMode } from '@/lib/demoUtils';
 import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 import { identifyPostHogUser } from '@/components/PostHogInit';
+import { authErrorMessage } from '@/lib/errorCopy';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -60,7 +61,12 @@ export default function LoginPage() {
       const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (authError) {
-        setError('Correo o contraseña incorrectos. Por favor verifica tus datos.');
+        // Not every failure is a wrong password (#247): "Email not confirmed"
+        // means the password was *right*, and a rate limit means "stop
+        // retrying" — telling either "contraseña incorrectos" sends the user
+        // to reset a password that works. authErrorMessage carries the mapped
+        // Spanish for both and keeps the anti-enumeration fallback generic.
+        setError(authErrorMessage(authError, 'Correo o contraseña incorrectos. Por favor verifica tus datos.'));
         setLoading(false);
         return;
       }

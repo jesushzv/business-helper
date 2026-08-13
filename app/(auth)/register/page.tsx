@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Building2, Lock, Mail, ArrowRight, AlertCircle, Sparkles, FileText, Users, ShieldCheck } from 'lucide-react';
+import { Building2, Lock, Mail, ArrowRight, AlertCircle, Sparkles, FileText, Users, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { validateRFC } from '@/lib/rfcValidator';
 import { isPlausibleE164 } from '@/lib/phoneCountries';
 import { PhoneField } from '@/components/shared/PhoneField';
@@ -39,6 +39,12 @@ function RegisterFormContent() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Set when the account was created but GoTrue sent a confirmation email
+   * instead of a session. It replaces the form with a success state — this is
+   * a completed step, not a failure, so it must not render in the error alert.
+   */
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   /**
    * Fires on arrival, not on submit. "Started" has to mean *reached the form*
@@ -149,22 +155,38 @@ function RegisterFormContent() {
         return;
       }
 
+      // GoTrue returns a non-null `data.user` in *every* non-error outcome —
+      // signed in, confirmation email sent, even an already-registered email
+      // (an obfuscated user with no identities, so the response can't be used
+      // to enumerate accounts). The session, not the user, says "signed in"
+      // (#246).
+      if (data.user && data.user.identities?.length === 0) {
+        setError('Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.');
+        setLoading(false);
+        return;
+      }
+
       if (data.user) {
         identifyPostHogUser(data.user.id, {
           email: data.user.email ?? undefined,
         });
+      }
+      // A real account exists now — demo-browsing flags must not survive it.
+      exitDemoMode();
+
+      if (data.session) {
         track('signup_completed', { company_size: companySize, tax_regime: taxRegime });
-        // A real account exists now — demo-browsing flags must not survive it.
-        exitDemoMode();
         // The plan they clicked on the pricing page rides along to onboarding
         // and from there to Ajustes. It used to die here: this form reads four
         // query params and `plan` was never one of them, so a visitor who chose
         // Negocio finished signing up and was never shown a checkout for it.
         router.push(withPlanParam('/onboarding', searchParams.get('plan')));
       } else {
-        // Email confirmation pending — the account exists, the funnel step is done.
+        // Email confirmation pending — the account exists, the funnel step is
+        // done, but there is no session: pushing to /onboarding here would
+        // strand a signed-out user in a form whose submit answers 401.
         track('signup_completed', { company_size: companySize, tax_regime: taxRegime, pending_email_confirmation: true });
-        setError('Registro iniciado. Por favor revisa tu correo electrónico para confirmar.');
+        setPendingEmail(email);
         setLoading(false);
       }
     } catch {
@@ -172,6 +194,39 @@ function RegisterFormContent() {
       setLoading(false);
     }
   };
+
+  if (pendingEmail) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-950 to-slate-950 pointer-events-none" />
+
+        <div className="sm:mx-auto sm:w-full sm:max-w-md z-10 px-4">
+          <div className="bg-slate-900/90 backdrop-blur-xl py-8 px-6 shadow-2xl rounded-3xl border border-slate-800 sm:px-10">
+            <div className="text-center py-4 space-y-4">
+              <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-emerald-400">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <h2 className="text-lg font-bold text-white">¡Tu Cuenta está Creada!</h2>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Te enviamos un enlace de confirmación a{' '}
+                <strong className="text-white">{pendingEmail}</strong>. Ábrelo para activar tu
+                cuenta y después inicia sesión. Revisa también tu carpeta de spam.
+              </p>
+              <div className="pt-4">
+                <Link
+                  href="/login"
+                  className="w-full flex justify-center items-center gap-2 min-h-[48px] py-3 px-4 border border-slate-800 rounded-xl text-sm font-bold text-slate-200 bg-slate-950 hover:bg-slate-900 transition-all"
+                >
+                  Ir a Iniciar Sesión
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
