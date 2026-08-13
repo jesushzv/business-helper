@@ -96,6 +96,9 @@ export async function POST(request: Request) {
           engine = 'gemini';
           await recordModelAnswer(service, orgAccess.ctx.organizationId);
         } catch (err) {
+          // Also to stdout — same rationale as /api/ai/assistant: a silent
+          // degradation must be readable in Vercel logs, not only in Sentry.
+          console.warn('[AI] Gemini no disponible, respondiendo con reglas:', err instanceof Error ? err.message : String(err));
           captureException(err, { organization_id: orgAccess.ctx.organizationId, route: '/api/ai/support', level: 'warning' });
         }
       }

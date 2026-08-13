@@ -23,7 +23,9 @@
  */
 
 const env = process.env;
-const MODEL = env.GEMINI_MODEL || 'gemini-2.5-flash';
+// Mirrors lib/geminiClient.ts: the rolling alias, because the pinned
+// gemini-2.5-flash id started returning 404 for new API keys in July 2026.
+const MODEL = env.GEMINI_MODEL || 'gemini-flash-latest';
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const MARKER = 'BH-OK';
 
@@ -35,15 +37,20 @@ function record(name, passed, detail) {
 }
 
 async function generate(apiKey, promptText) {
-  // Mirrors lib/geminiClient.ts's generationConfig: Gemini 2.5 thinks by
-  // default and thought tokens spend maxOutputTokens before visible text, so
-  // a small budget with thinking on returns an EMPTY candidate
-  // (finishReason: MAX_TOKENS) — this script once had exactly that bug, so a
-  // valid key could fail the positive control. Pro models refuse a zero
-  // thinking budget; for those the default stands.
-  const generationConfig = { temperature: 0, maxOutputTokens: 1024 };
-  if (!MODEL.includes('pro')) {
-    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  // Mirrors lib/geminiClient.ts's geminiGenerationConfig: thought tokens spend
+  // maxOutputTokens before visible text, so unbounded thinking returns an
+  // EMPTY candidate (finishReason: MAX_TOKENS) — this script once had exactly
+  // that bug, so a valid key could fail the positive control. Gemini 2.5 takes
+  // thinkingBudget (0 disables; pro models refuse it); Gemini 3+ and the
+  // -latest aliases take thinkingLevel and prefer temperature untouched.
+  let generationConfig;
+  if (MODEL.includes('2.5')) {
+    generationConfig = { temperature: 0, maxOutputTokens: 2048 };
+    if (!MODEL.includes('pro')) {
+      generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    }
+  } else {
+    generationConfig = { maxOutputTokens: 2048, thinkingConfig: { thinkingLevel: 'low' } };
   }
   try {
     const response = await fetch(`${BASE}/models/${MODEL}:generateContent`, {

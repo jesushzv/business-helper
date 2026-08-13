@@ -14,9 +14,15 @@
  */
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+// The rolling alias, not a pinned id: `gemini-2.5-flash` started returning 404
+// for new API keys in July 2026 (retired ahead of its October shutdown), which
+// is how every assistant answer silently degraded to the rules engine. Google
+// publishes `-latest` aliases exactly so a hardcoded model id cannot rot into
+// a 404; the cost is that behavior shifts when Google re-points the alias.
+// Pin a specific model via GEMINI_MODEL if that trade ever goes the other way.
+const DEFAULT_MODEL = 'gemini-flash-latest';
 const REQUEST_TIMEOUT_MS = 15_000;
-const MAX_OUTPUT_TOKENS = 1024;
+const MAX_OUTPUT_TOKENS = 2048;
 
 export class GeminiUnavailableError extends Error {
   constructor(message: string) {
@@ -34,21 +40,30 @@ export function geminiModel(env: Record<string, string | undefined> = process.en
 }
 
 /**
- * Gemini 2.5 models think by default, and thought tokens spend
- * `maxOutputTokens` before any visible text does — a short budget comes back
- * as an empty candidate with `finishReason: MAX_TOKENS`, which this client
- * (correctly) treats as a failure, so every answer degrades to the rules
- * engine. The assistant only needs prose around pre-computed figures, so
- * thinking is disabled where the model allows it. Pro models refuse a zero
- * budget outright — for those the default stands and the token ceiling is the
- * only guard.
+ * Gemini models think by default, and thought tokens spend `maxOutputTokens`
+ * before any visible text does — a short budget comes back as an empty
+ * candidate with `finishReason: MAX_TOKENS`, which this client (correctly)
+ * treats as a failure, so every answer degrades to the rules engine. The
+ * assistant only needs short prose around pre-computed figures, so thinking is
+ * held to the minimum each generation takes:
+ *
+ * - Gemini 2.5 era: `thinkingBudget: 0` disables it (except pro models, which
+ *   refuse a zero budget — there the token ceiling is the only guard), and
+ *   `temperature` is honored.
+ * - Gemini 3+ (and the `-latest` aliases, which resolve there): the API
+ *   replaced `thinkingBudget` with the enum `thinkingLevel` — `'low'` is the
+ *   floor every 3.x model accepts — and Google advises leaving `temperature`
+ *   at its default, so it is omitted.
  */
 export function geminiGenerationConfig(model: string): Record<string, unknown> {
-  const config: Record<string, unknown> = { temperature: 0.2, maxOutputTokens: MAX_OUTPUT_TOKENS };
-  if (!model.includes('pro')) {
-    config.thinkingConfig = { thinkingBudget: 0 };
+  if (model.includes('2.5')) {
+    const config: Record<string, unknown> = { temperature: 0.2, maxOutputTokens: MAX_OUTPUT_TOKENS };
+    if (!model.includes('pro')) {
+      config.thinkingConfig = { thinkingBudget: 0 };
+    }
+    return config;
   }
-  return config;
+  return { maxOutputTokens: MAX_OUTPUT_TOKENS, thinkingConfig: { thinkingLevel: 'low' } };
 }
 
 interface GeminiCandidatePart {
