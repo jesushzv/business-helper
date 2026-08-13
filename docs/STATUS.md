@@ -58,7 +58,7 @@ completion claim needs checking against source. The full findings are in
 
 | Metric | State |
 |:---|:---|
-| Test suite | **1750 tests / 177 files**, `npx vitest run` on the PR #241 branch @ `cdaa7a0` (2026-08-13). The `scripts/test-runner.js` that reported "182/182" no longer exists |
+| Test suite | **1800 tests / 182 files**, `npx vitest run` on the admin-surface branch (2026-08-13). The `scripts/test-runner.js` that reported "182/182" no longer exists |
 | Coverage gate | 85/85/80/80 is configured and **fails**; CI does not run it ([#51](https://github.com/jesushzv/business-helper/issues/51)). Judge a change on the delta, not the absolute |
 | Error monitoring | ~~Not live — `lib/sentry.ts` only called `console.error`.~~ ~~Code transmits since 2026-08-11 over a raw `fetch` envelope.~~ **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling. Coverage was the reason: the hand-rolled transport could not see an unhandled Server Component, render or Edge error. PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | **Rewritten and executed 2026-08-13** ([#69](https://github.com/jesushzv/business-helper/issues/69)/[#91](https://github.com/jesushzv/business-helper/issues/91)): **18 passed, 2 skipped, 0 failed** — 10 scenarios × desktop + mobile chromium, production build, demo posture. Skipped: scenario 10 (deployed health, `E2E_HEALTH_URL` guard — #70). Scenarios pinning remediated defects (P0-4 CLABE, pre-#57 OTP) now assert the opposite; suite joined CI. It caught a live wizard defect (`docs/LESSONS.md` #91) |
@@ -92,6 +92,13 @@ is still open on the tracker.
 
 **Schema/catalog divergence (#204) resolved 2026-08-12** — every index on `organizations` matches a
 migration, verified against `pg_indexes`; the full account is in the archive.
+
+### Founder admin surface (2026-08-13)
+
+`/admin` + `/api/admin/*` (metrics, trial extension with audit row) exist behind the
+`PLATFORM_ADMIN_USER_IDS` allowlist — fail closed: unset, every caller gets 404, so the surface is
+**off in production until the variable is set on Vercel**. Verified with Vitest doubles only; no
+live pass yet.
 
 ---
 
