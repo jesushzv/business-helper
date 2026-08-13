@@ -58,7 +58,7 @@ completion claim needs checking against source. The full findings are in
 
 | Metric | State |
 |:---|:---|
-| Test suite | **1836 tests / 184 files**, `npx vitest run` on the auth-flow branch with `main` merged in (2026-08-13). The `scripts/test-runner.js` that reported "182/182" no longer exists |
+| Test suite | **1855 tests / 185 files**, `npx vitest run` on the deployed-smoke branch with `main` merged in (2026-08-13). The `scripts/test-runner.js` that reported "182/182" no longer exists |
 | Coverage gate | 85/85/80/80 is configured and **fails**; CI does not run it ([#51](https://github.com/jesushzv/business-helper/issues/51)). Judge a change on the delta, not the absolute |
 | Error monitoring | **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling (why it replaced the hand-rolled transport: archive). PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | **Rewritten and executed 2026-08-13** ([#69](https://github.com/jesushzv/business-helper/issues/69)/[#91](https://github.com/jesushzv/business-helper/issues/91)): **18 passed, 0 skipped, 0 failed** — 9 scenarios × desktop + mobile chromium, production build, demo posture. Scenarios pinning remediated defects (P0-4 CLABE, pre-#57 OTP) now assert the opposite; suite joined CI. It caught a live wizard defect (`docs/LESSONS.md` #91). Scenario 10 (deployed health) left for the row below — it had never run |
