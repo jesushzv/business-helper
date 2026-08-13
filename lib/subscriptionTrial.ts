@@ -31,8 +31,16 @@
 
 import { normalizeSubscriptionStatus } from './stripe';
 
-/** How long a new organization gets. One month, in whole days. */
-export const TRIAL_DAYS = 30;
+/**
+ * How long a new organization gets.
+ *
+ * 14, by the founder's decision on #270: marketing promised 14 días on every
+ * surface while the product granted 30, so one of the two was wrong for every
+ * signup — and the marketing number is the real one. Existing trialing
+ * organizations keep the end date already stored on their row; only new grants
+ * change (the migration alters the column DEFAULT, never stored values).
+ */
+export const TRIAL_DAYS = 14;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

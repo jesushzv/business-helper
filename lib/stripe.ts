@@ -55,7 +55,9 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
     interval: 'mes',
     description: 'Ideal para independientes y freelancers que van iniciando.',
     features: [
-      'Hasta 25 cotizaciones por mes',
+      // 50, everywhere it is stated — one number, decided on #271 and
+      // enforced by lib/quoteQuota.ts.
+      'Hasta 50 cotizaciones al mes',
       'Firma digital con código OTP por correo',
       'Portal público de carga SPEI',
       'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',

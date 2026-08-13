@@ -98,21 +98,41 @@ describe('resolveTrialState', () => {
 });
 
 describe('trialEndsAt', () => {
-  it('is one month out, and matches the migration', () => {
-    expect(TRIAL_DAYS).toBe(30);
-    expect(trialEndsAt(NOW)).toBe(inDays(30));
+  it('is 14 days out — the number marketing has promised all along (#270)', () => {
+    // This used to pin 30 against the original migration: the product granted
+    // 30 while every marketing surface said 14, so one of the two was wrong
+    // for every signup. The founder decided 14; the 20260811 migration keeps
+    // its historical 30 (applied migrations are never edited) and the
+    // 20260814 migration's ALTER DEFAULT is what grants trials now.
+    expect(TRIAL_DAYS).toBe(14);
+    expect(trialEndsAt(NOW)).toBe(inDays(14));
 
     // The column default is what actually grants the trial — the app never
-    // writes it on insert — so a TRIAL_DAYS the migration disagrees with would
-    // make every countdown in the UI a fiction. Read out of the SQL, not
-    // restated here.
+    // writes it on insert — so a TRIAL_DAYS the granting migration disagrees
+    // with would make every countdown in the UI a fiction. Read out of the
+    // SQL, not restated here.
     const sql = readFileSync(
-      join(process.cwd(), 'supabase/migrations/20260811150000_organization_trial.sql'),
+      join(process.cwd(), 'supabase/migrations/20260814000000_trial_days_14.sql'),
       'utf8'
     );
     const intervals = [...sql.matchAll(/interval '(\d+) days'/g)].map((m) => Number(m[1]));
     expect(intervals.length).toBeGreaterThan(0);
     for (const days of intervals) expect(days).toBe(TRIAL_DAYS);
+  });
+
+  it('no migration after the 14-day decision re-widens the default', () => {
+    // The decision holds until a *newer* migration deliberately changes it —
+    // an older file carrying 30 is history, a newer one would be a regression.
+    const { readdirSync } = require('node:fs') as typeof import('node:fs');
+    const later = readdirSync(join(process.cwd(), 'supabase/migrations'))
+      .filter((f) => f.endsWith('.sql') && f > '20260814000000_trial_days_14.sql');
+    for (const file of later) {
+      const sql = readFileSync(join(process.cwd(), 'supabase/migrations', file), 'utf8');
+      const defaults = [...sql.matchAll(/trial_ends_at[^;]*interval '(\d+) days'/g)];
+      for (const m of defaults) {
+        expect(Number(m[1]), `${file} changes the trial default`).toBe(TRIAL_DAYS);
+      }
+    }
   });
 });
 

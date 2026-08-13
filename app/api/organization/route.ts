@@ -458,6 +458,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: { code: 'INVALID_INPUT', message: 'El nombre del negocio es obligatorio' } }, { status: 400 });
     }
 
+    // The WhatsApp number registration required and then discarded (#142).
+    // Register validates it as E.164 and stores it in the auth user's
+    // metadata; nothing ever copied it onto the organization, so the field
+    // every tenant filled in powered nothing — including the public quote
+    // page's "Solicitar Cambios por WhatsApp" button, which renders only when
+    // organizations.phone is set (#44's absent-is-absent rule). Read from the
+    // session's own metadata, never the request body: the value was validated
+    // at registration and belongs to the caller by construction.
+    const { data: userData } = await supabase.auth.getUser();
+    const metadataPhone = userData?.user?.user_metadata?.phone;
+    const ownerPhone =
+      typeof metadataPhone === 'string' && metadataPhone.trim().startsWith('+')
+        ? metadataPhone.trim()
+        : null;
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from('organizations')
@@ -467,6 +482,7 @@ export async function POST(request: Request) {
         regimen_fiscal: regimenFiscal || null,
         codigo_postal: codigoPostal || null,
         industry: industry || null,
+        phone: ownerPhone,
         owner_id: userId,
       })
       .select()

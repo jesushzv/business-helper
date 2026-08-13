@@ -8,6 +8,7 @@ import {
 import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
 import { checkClientCreditGate } from '@/lib/clientCredit';
 import { readOrganizationTrialState } from '@/lib/organizationTrialGate';
+import { checkQuoteQuotaGate } from '@/lib/quoteQuota';
 import { TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE } from '@/lib/subscriptionTrial';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
@@ -96,6 +97,25 @@ export async function POST(request: Request) {
           },
         },
         { status: 402 }
+      );
+    }
+
+    // Plan Inicial's 50/mes quota (#271) — enforced at the same door as the
+    // trial gate, with the same posture: only a *known* overage refuses;
+    // unknown tier or a failed count allows. 402 like the trial, because the
+    // remedy is the same screen: a plan change in Ajustes.
+    const quota = await checkQuoteQuotaGate(supabase, organizationId);
+    if (!quota.ok) {
+      return NextResponse.json(
+        {
+          error: {
+            code: quota.code,
+            message: quota.message,
+            used: quota.used,
+            limit: quota.limit,
+          },
+        },
+        { status: quota.status || 402 }
       );
     }
 
