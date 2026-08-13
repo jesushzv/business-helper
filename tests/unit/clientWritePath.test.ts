@@ -155,6 +155,15 @@ describe('POST /api/clients persists the whole form (#96)', () => {
     expect(insertCalls[0].organization_id).toBe('org-1');
   });
 
+  it('writes no health score for a client with no history (#276)', async () => {
+    // The insert hardcoded `health_score: 100`, so a client registered thirty
+    // seconds ago read "Excelente (100)" on the surface where the owner
+    // decides how much credit to extend — defeating #108's "Sin historial"
+    // state one layer down. Absent is absent.
+    await POST(postRequest(formPayload()));
+    expect(insertCalls[0]).not.toHaveProperty('health_score');
+  });
+
   it('rejects an out-of-vocabulary credit status in Spanish, before the DB CHECK', async () => {
     const res = await POST(postRequest(formPayload({ credit_status: 'moroso' })));
     expect(res.status).toBe(400);

@@ -386,6 +386,18 @@ export function InvoiceManagerCard() {
             <div className="h-20 w-full animate-pulse rounded-xl bg-slate-800/70" />
             <div className="h-20 w-full animate-pulse rounded-xl bg-slate-800/70" />
           </div>
+        ) : loadError ? (
+          // A failed read is not an empty book of business (#260): "Aún no
+          // tienes cobros" off a dropped request told a tenant with real
+          // invoices they had nothing to facturar. The banner above already
+          // shows `loadError`; this branch keeps the list area from
+          // contradicting it.
+          <div className="p-8 text-center space-y-2">
+            <p className="text-slate-300 font-semibold">No pudimos cargar tus cobros.</p>
+            <p className="text-sm text-slate-400">
+              Revisa tu conexión e intenta de nuevo. Tus cobros y facturas no se han perdido.
+            </p>
+          </div>
         ) : invoices.length === 0 ? (
           <div className="p-8 text-center space-y-2">
             <p className="text-slate-300 font-semibold">Aún no tienes cobros registrados.</p>

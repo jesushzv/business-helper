@@ -10,7 +10,7 @@ import { Search, Users, Plus, ShieldCheck } from 'lucide-react';
 import { Client } from '@/types';
 
 export default function ClientsPage() {
-  const { filteredClients, searchQuery, setSearchQuery, addClient, loading } = useClients();
+  const { filteredClients, searchQuery, setSearchQuery, addClient, loading, error } = useClients();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const result = useActionResult();
 
@@ -44,7 +44,11 @@ export default function ClientsPage() {
     }
   };
 
-  const excellentCount = filteredClients.filter((c) => (c.health_score ?? 100) >= 90).length;
+  // Only scores that exist count (#276): `?? 100` counted every unscored
+  // client into "Excelente" — the same invented 100 one aggregation up.
+  const excellentCount = filteredClients.filter(
+    (c) => typeof c.health_score === 'number' && c.health_score >= 90
+  ).length;
 
   return (
     <div className="min-h-screen pb-12">
@@ -85,25 +89,45 @@ export default function ClientsPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-2.5 text-xs font-bold text-slate-300 shadow-xl">
-              <Users className="h-4 w-4 text-indigo-400" />
-              <span>{filteredClients.length} Clientes</span>
-            </div>
+          {/* Figures derived from a failed read are not figures (#260): "0
+              Clientes" off a dropped request is a claim about the directory
+              the app cannot back. */}
+          {!error && (
+            <div className="flex items-center gap-2">
+              <div className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-2.5 text-xs font-bold text-slate-300 shadow-xl">
+                <Users className="h-4 w-4 text-indigo-400" />
+                <span>{filteredClients.length} Clientes</span>
+              </div>
 
-            <div className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-950/80 px-4 py-2.5 text-xs font-bold text-emerald-400 shadow-xl">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span>{excellentCount} Excelente Score</span>
+              <div className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-950/80 px-4 py-2.5 text-xs font-bold text-emerald-400 shadow-xl">
+                <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                <span>{excellentCount} Excelente Score</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Client Cards Grid */}
+        {/* Client Cards Grid. Three states, not two (#97/#260): a failed read
+            used to render "No se encontraron clientes" with a "Registrar
+            Cliente Ahora" CTA — the owner's worst case being re-registering a
+            client that already exists. */}
         {loading ? (
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-48 animate-pulse rounded-2xl bg-slate-800/80" />
             ))}
+          </div>
+        ) : error ? (
+          <div role="alert" className="mt-12 rounded-3xl border border-rose-500/30 bg-rose-950/60 p-12 text-center space-y-3">
+            <Users className="mx-auto h-12 w-12 text-rose-400" />
+            <h3 className="text-lg font-bold text-white">No pudimos cargar tu directorio</h3>
+            <p className="mx-auto max-w-sm text-sm text-rose-200">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="min-h-[48px] rounded-2xl bg-slate-800 px-6 py-3 text-sm font-bold text-white transition-all hover:bg-slate-700 active:scale-95"
+            >
+              Reintentar
+            </button>
           </div>
         ) : filteredClients.length > 0 ? (
           <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

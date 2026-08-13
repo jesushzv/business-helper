@@ -30,7 +30,8 @@ export interface ClientItem {
   name: string;
   contact_name?: string | null;
   phone?: string | null;
-  health_score?: number;
+  /** Absent or null = no score on record (#276). */
+  health_score?: number | null;
   rfc?: string | null;
 }
 
@@ -50,7 +51,8 @@ export interface TopClientRevenue {
   name: string;
   contact_name: string;
   phone: string;
-  health_score: number;
+  /** `null` = no score on record. Never invented as 100 (#108, #276). */
+  health_score: number | null;
   rfc: string;
   totalRevenue: number;
   confirmedMilestonesCount: number;
@@ -151,12 +153,18 @@ export function getTopClientsByRevenue(
         name: client.name || 'Cliente sin nombre',
         contact_name: client.contact_name || '',
         phone: client.phone || '',
-        health_score: typeof client.health_score === 'number' ? client.health_score : 100,
+        // Absent is absent (#276): the `: 100` fallback here manufactured an
+        // "Excelente" judgment for clients with no score on record.
+        health_score: typeof client.health_score === 'number' ? client.health_score : null,
         rfc: client.rfc || '',
         totalRevenue: Math.round(stats.totalRevenue * 100) / 100,
         confirmedMilestonesCount: stats.count,
       };
     })
+    // A leaderboard "por Facturación" ranks money that arrived. Without this
+    // filter a new tenant's dashboard listed every client at $0.00 and the
+    // empty state was unreachable (#277).
+    .filter((client) => client.totalRevenue > 0)
     .sort((a, b) => b.totalRevenue - a.totalRevenue);
 
   return rankedClients.slice(0, topN);

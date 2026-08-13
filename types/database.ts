@@ -154,7 +154,8 @@ export interface Database {
           codigo_postal: string | null;
           cfdi_use: string | null;
           notes: string | null;
-          health_score: number;
+          // null = no score on record; never invented as 100 (#276)
+          health_score: number | null;
           credit_limit: number | null;
           credit_days: number | null;
           credit_status: 'active' | 'suspended' | 'blocked' | null;
@@ -173,7 +174,7 @@ export interface Database {
           codigo_postal?: string | null;
           cfdi_use?: string | null;
           notes?: string | null;
-          health_score?: number;
+          health_score?: number | null;
           credit_limit?: number | null;
           credit_days?: number | null;
           credit_status?: 'active' | 'suspended' | 'blocked' | null;
@@ -192,7 +193,7 @@ export interface Database {
           codigo_postal?: string | null;
           cfdi_use?: string | null;
           notes?: string | null;
-          health_score?: number;
+          health_score?: number | null;
           credit_limit?: number | null;
           credit_days?: number | null;
           credit_status?: 'active' | 'suspended' | 'blocked' | null;

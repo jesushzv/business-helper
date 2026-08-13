@@ -171,7 +171,9 @@ export function useClients() {
       ...clientData,
       id: `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       organization_id: 'org-demo-1',
-      health_score: 100,
+      // Even the sandbox does not invent a payment-history judgment for a
+      // client registered seconds ago (#276).
+      health_score: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
