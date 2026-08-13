@@ -871,3 +871,9 @@ Migration `20260812060000` drops the redundant `idx_organizations_owner_id` and 
 declared all along in `20260811150000_organization_trial.sql`.) Before resolution this was #96's
 defect with the arrow reversed: a fresh database (including CI's) did not match production, so
 nothing depending on `trial_ends_at` could be trusted to behave the same in both.
+
+## Sentry — why the hand-rolled transport was replaced (settled 2026-08-12; moved from STATUS §02 on 2026-08-13 for the size budget)
+
+Coverage was the reason for moving to `@sentry/nextjs`: the hand-rolled `fetch` envelope could not
+see an unhandled Server Component, render or Edge error. The live state of error monitoring stays in
+[`../STATUS.md`](../STATUS.md).

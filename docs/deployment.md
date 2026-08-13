@@ -160,11 +160,47 @@ proves the redirect allow-list and the client credentials are right. That round-
 
 ## 05 Step 4: Post-Deployment Smoke Test & Verification
 
-Run health check verification against the live domain:
+The smoke test has two halves, and only one of them can be automated. Both are #70.
+
+### 05.1 The automated half — scheduled, read-only
+
+`.github/workflows/deployed-smoke.yml` runs `npm run test:e2e:deployed` against the production apex
+every six hours, and on demand via **Actions → Deployed smoke test → Run workflow** (whose optional
+`target_url` input points it at a preview deployment instead). It is deliberately **not** part of
+`ci.yml`: the pull-request gate must never depend on a deployed URL, so a Supabase incident cannot
+block an unrelated merge.
+
+What it checks, over both a desktop and a mobile viewport:
+
+- `/api/health` → HTTP 200, `status: "healthy"`, `services.database: "connected"`,
+  `services.auth: "active"`.
+- The apex resolves and completes a TLS handshake against a valid certificate, and serves the
+  landing page. There is no separate certificate step: the config does not set
+  `ignoreHTTPSErrors`, so a bad chain fails the request.
+- `/login`, `/register` and `/pricing` each render their own copy — a 200 alone proves nothing,
+  because Next.js serves an error boundary with one.
+- An unknown `/api/quotes/public/<token>` is refused with `404 QUOTE_NOT_FOUND`. A **200** here is
+  the production failure worth catching: it means the deployment lost `SUPABASE_SERVICE_ROLE_KEY`
+  and is serving the built-in demo quote — cement and rebar totalling $97,440 — to whoever opens a
+  shared link.
+
+The run cannot pass by doing nothing: there is no skip path, and an unusable target throws before a
+browser starts. It fails loudly and its job summary lists exactly what it checked.
+
+To run it by hand from a machine with network access to the deployment:
+
+```bash
+npm run test:e2e:deployed                                  # against the production apex
+E2E_HEALTH_URL=https://<preview>.vercel.app npm run test:e2e:deployed
+```
+
+Or the single check on its own:
+
 ```bash
 curl -i https://businesshelper.app/api/health
 ```
-Expected HTTP 200 payload:
+
+Expected HTTP 200 payload (the deployed route also folds in `releaseGates`):
 ```json
 {
   "status": "healthy",
@@ -175,6 +211,37 @@ Expected HTTP 200 payload:
   }
 }
 ```
+
+### 05.2 The manual half — the full loop, walked by a human, once
+
+A green scheduled run does **not** mean the loop has been walked. Every write step below creates
+real rows, sends a real OTP to a real handset, and uploads a real receipt, so it is a runbook rather
+than a cron job. It is also the only check that exercises the *joins* between steps, which is where
+this codebase has repeatedly broken: #58 (a signing page that never called the API the OTP flow
+used), #50 (a quote created client-side whose `/q/` link led nowhere), #36 (a link built against a
+domain nobody owns). Each of those passed its own unit coverage.
+
+Walk it against the deployed URL, on a phone, as a new account:
+
+- [ ] Register a new account
+- [ ] Complete onboarding, including the CLABE step
+- [ ] Create a client
+- [ ] Create a quote
+- [ ] Share the WhatsApp link
+- [ ] Open `/q/[token]` from the client's phone, as the client
+- [ ] Sign with the OTP
+- [ ] Convert to contract
+- [ ] Upload the SPEI proof
+- [ ] Confirm the payment
+
+Requires the OTP provider configured (#2) and the production migrations applied (#62); without
+those the loop stops at signing. The prefix up to "open `/q/[token]`" is walkable without them and
+covers the steps #50 and #58 broke.
+
+**Recording the result.** Per the doc contract, whether this has been done is *status*, so it goes
+in [`docs/STATUS.md`](STATUS.md) — with the date, the deployment URL, and every step that could not
+be completed written down with its reason. This section owns the procedure only. #70 stays open
+until that row exists.
 
 ---
 

@@ -12,6 +12,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:deployed": "playwright test --config=playwright.deployed.config.ts",
     "sync-blob": "node scripts/upload-to-vercel-blob.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry-run",

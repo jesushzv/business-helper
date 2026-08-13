@@ -1,0 +1,112 @@
+name: Deployed smoke test
+
+# Every launch-gate item in this repo is verified in isolation — one PAC stamp
+# (#26), one OTP on a handset (#2), one card charge (#68). Nothing checked the
+# deployment itself, and nothing walked the joins between the steps, which is
+# where this codebase has repeatedly broken (#50, #58, #36). That is #70.
+#
+# This is deliberately NOT part of ci.yml. The pull-request gate must never
+# depend on a live provider or a deployed URL, so that a Supabase incident or
+# an expired certificate cannot block an unrelated merge (#250). The cost of
+# that boundary is that a broken deployment is invisible to CI — which is what
+# this schedule buys back.
+on:
+  schedule:
+    # Every six hours. A deployment broken by a merge, an expired certificate
+    # or a revoked key surfaces within a quarter day rather than whenever
+    # someone next opens the app.
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Origin to smoke test (default: the production apex). Must be https.'
+        required: false
+        type: string
+
+# Never cancel a run in flight: the point is the answer, and a cancelled run
+# reports neither pass nor fail.
+concurrency:
+  group: deployed-smoke
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke test the deployed app
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Without this every test fails in ~2ms with "Executable doesn't exist"
+      # — a failure mode easy to misread as "the deployment is broken" (#91).
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # No build and no local server: playwright.deployed.config.ts declares no
+      # `webServer`, so there is nothing on :3000 for a misresolved target to
+      # fall back to. It contacts the deployment or it fails.
+      #
+      # E2E_HEALTH_URL is left unset on the schedule so the run resolves the
+      # production apex itself. It is NOT defaulted here to an expression that
+      # could evaluate empty: resolveDeployedTarget() throws on an unusable
+      # target, and an empty string would be one.
+      - name: Run the deployed smoke test
+        id: smoke
+        run: npm run test:e2e:deployed
+        env:
+          E2E_HEALTH_URL: ${{ inputs.target_url }}
+
+      # `always()`: the summary matters most when the step above failed, and a
+      # run that reports a pass must say what that pass covers. "Smoke test
+      # green" reads as "#70 is done" unless the half it does not cover is
+      # written down next to it (hard rule #2).
+      - name: Report what was and was not checked
+        if: always()
+        run: |
+          TARGET="${{ inputs.target_url }}"
+          if [ -z "$TARGET" ]; then
+            TARGET="https://businesshelper.app (production apex, resolved by default)"
+          else
+            TARGET="$TARGET (OVERRIDE via workflow_dispatch — this run did NOT check the production apex)"
+          fi
+
+          if [ "${{ steps.smoke.outcome }}" = "success" ]; then
+            RESULT=":white_check_mark: All checks passed"
+          else
+            RESULT=":x: FAILED — see the step log above for which check and the response it got"
+          fi
+
+          {
+            echo "## Deployed smoke test — $RESULT"
+            echo ""
+            echo "**Target:** $TARGET"
+            echo ""
+            echo "### Checked automatically (read-only GETs, both viewports)"
+            echo "- \`/api/health\` → 200, \`status: healthy\`, \`services.database: connected\`, \`services.auth: active\`"
+            echo "- The apex resolves over TLS with a valid certificate and serves the landing page"
+            echo "- \`/login\`, \`/register\`, \`/pricing\` render their own copy (not an error boundary)"
+            echo "- An unknown \`/api/quotes/public/<token>\` is refused with 404 \`QUOTE_NOT_FOUND\` — a 200 here would mean the deployment lost its service-role key and is serving invented quote data to real visitors"
+            echo ""
+            echo "### NOT checked here — human-only, and still open on #70"
+            echo "A green run above does **not** mean the loop has been walked. These steps write real"
+            echo "rows, send a real OTP to a real handset and upload a real receipt, so they are a"
+            echo "runbook rather than a cron job:"
+            echo ""
+            echo "> register → onboarding (incl. CLABE) → create client → create quote → share the"
+            echo "> WhatsApp link → open \`/q/[token]\` as the client → OTP sign → convert to contract →"
+            echo "> SPEI proof upload → confirm payment"
+            echo ""
+            echo "Procedure: \`docs/deployment.md\` §05.2. Whether it has been run: \`docs/STATUS.md\`."
+          } >> "$GITHUB_STEP_SUMMARY"
