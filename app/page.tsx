@@ -302,7 +302,7 @@ export default function LandingPage() {
                 02. Aprobación Digital con Código OTP
               </span>
               <h3 className="text-3xl font-black text-white tracking-tight">
-                Tu cliente autoriza con código OTP legal desde su celular sin crear cuentas
+                Tu cliente autoriza con un código OTP legal que llega a su correo, sin crear cuentas
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed">
                 Al recibir tu mensaje en WhatsApp, tu cliente abre su propuesta en 1 clic y aprueba con el código que llega a su correo, con evidencia digital de aceptación y fecha certificada.

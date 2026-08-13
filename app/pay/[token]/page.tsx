@@ -308,17 +308,26 @@ export default function PublicPayPortalPage() {
           <div className="space-y-3 pt-2">
             <div>
               <span className="text-xs text-slate-400 block font-medium">CLABE Interbancaria (18 dígitos)</span>
-              <div className="flex items-center justify-between mt-1 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
-                <span className="min-w-0 break-all font-mono text-lg font-bold tracking-wider text-white">{milestone.clabe}</span>
-                <button
-                  type="button"
-                  onClick={handleCopyClabe}
-                  aria-label={copiedClabe ? 'CLABE copiada' : 'Copiar CLABE'}
-                  className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center shadow-md"
-                >
-                  {copiedClabe ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
+              {milestone.clabe ? (
+                <div className="flex items-center justify-between mt-1 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+                  <span className="min-w-0 break-all font-mono text-lg font-bold tracking-wider text-white">{milestone.clabe}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyClabe}
+                    aria-label={copiedClabe ? 'CLABE copiada' : 'Copiar CLABE'}
+                    className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center shadow-md"
+                  >
+                    {copiedClabe ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              ) : (
+                /* No CLABE on the row → say so; an empty box with a copy button
+                   that copies nothing reads as a broken page (#44: absent is
+                   absent — never a control that pretends the value exists). */
+                <div className="mt-1 bg-slate-950/80 p-3 rounded-2xl border border-slate-800 text-xs text-slate-400">
+                  El proveedor aún no registra su CLABE. Confírmala con él directamente antes de transferir.
+                </div>
+              )}
             </div>
 
             <div>

@@ -56,7 +56,7 @@ export const STRIPE_PLANS: Record<string, StripeTierConfig> = {
     description: 'Ideal para independientes y freelancers que van iniciando.',
     features: [
       'Hasta 25 cotizaciones por mes',
-      'Firma digital OTP por WhatsApp',
+      'Firma digital con código OTP por correo',
       'Portal público de carga SPEI',
       'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Soporte por correo electrónico',
