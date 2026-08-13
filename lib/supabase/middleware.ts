@@ -7,6 +7,63 @@ import { NextResponse, type NextRequest } from 'next/server';
  */
 const DEMO_COOKIE_NAMES = ['demo_mode', 'business_helper_sandbox', 'sandbox'];
 
+/**
+ * The signed-in surface: every route group under app/(dashboard)/. A visitor
+ * here without a session used to get the full app shell with every fetch
+ * answering 401 — a wall of error states with no "inicia sesión" anywhere,
+ * which reads as "the app is broken", not "you are signed out" (#248).
+ * Deliberately excludes /onboarding: a fresh signup is pushed there in the
+ * same tick its session cookie is being written, and a race here would
+ * bounce a brand-new tenant to the login form.
+ */
+const PROTECTED_PREFIXES = [
+  '/assistant',
+  '/clients',
+  '/dashboard',
+  '/help',
+  '/invoices',
+  '/products',
+  '/quotes',
+  '/receivables',
+  '/settings',
+  '/team',
+];
+
+function isProtectedPage(pathname: string): boolean {
+  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+/**
+ * Whether this request belongs to a client-side demo tour. The dashboard
+ * renders demo fixtures for a signed-out browser that opted in via
+ * ?demo=true — that opt-in lives in localStorage, which the server cannot
+ * see, but the entry navigation carries the query param and
+ * lib/demoUtils.ts plants a `demo_mode` cookie for the navigations after
+ * it. This function only declines to *block*; it never grants demo state —
+ * the client still decides what to render, and a real session purges these
+ * cookies below.
+ */
+function carriesDemoOptIn(request: NextRequest): boolean {
+  const params = request.nextUrl.searchParams;
+  if (params.get('demo') === 'true' || params.get('sandbox') === 'true') return true;
+  return DEMO_COOKIE_NAMES.some((name) => request.cookies.get(name)?.value === 'true');
+}
+
+/**
+ * Whether the browser carries a Supabase auth cookie (`sb-<ref>-auth-token`,
+ * possibly chunked). Its absence is the one *deterministic* signed-out signal
+ * available here: `getUser()` answers `user: null` both for "no session" and
+ * for "Auth server unreachable", and redirecting on the second would lock
+ * every tenant out during a GoTrue blip (#64's tri-state, again). A carried
+ * cookie that fails validation stays on the page — the app shell redirects on
+ * the API's authoritative 401 instead.
+ */
+function carriesAuthCookie(request: NextRequest): boolean {
+  return request.cookies
+    .getAll()
+    .some(({ name }) => name.startsWith('sb-') && name.includes('-auth-token'));
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -69,10 +126,24 @@ export async function updateSession(request: NextRequest) {
           supabaseResponse.cookies.set(name, '', { path: '/', maxAge: 0 });
         }
       }
+    } else if (
+      isProtectedPage(pathname) &&
+      !carriesDemoOptIn(request) &&
+      !carriesAuthCookie(request)
+    ) {
+      // Definitively signed out on the signed-in surface → the login form,
+      // carrying the page they wanted so a successful sign-in returns them to
+      // it (#248). An unauthenticated visitor is still never granted demo
+      // state by the server; the demo opt-in check above only declines to
+      // block.
+      return NextResponse.redirect(
+        new URL(`/login?next=${encodeURIComponent(pathname)}`, request.url)
+      );
     }
-    // No user: an unauthenticated visitor is simply unauthenticated — never
-    // granted demo state by the server (the demo is a client-side opt-in).
   } catch (error) {
+    // Fail open: an unreachable Auth server means the session is *unknown*,
+    // not absent (#64's tri-state) — redirecting here would lock every tenant
+    // out during a GoTrue blip. The API routes still 401 on their own.
     console.error('Middleware session update error:', error);
   }
 

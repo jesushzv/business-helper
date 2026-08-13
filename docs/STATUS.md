@@ -58,7 +58,7 @@ completion claim needs checking against source. The full findings are in
 
 | Metric | State |
 |:---|:---|
-| Test suite | **1800 tests / 182 files**, `npx vitest run` on the admin-surface branch (2026-08-13). The `scripts/test-runner.js` that reported "182/182" no longer exists |
+| Test suite | **1836 tests / 184 files**, `npx vitest run` on the auth-flow branch with `main` merged in (2026-08-13). The `scripts/test-runner.js` that reported "182/182" no longer exists |
 | Coverage gate | 85/85/80/80 is configured and **fails**; CI does not run it ([#51](https://github.com/jesushzv/business-helper/issues/51)). Judge a change on the delta, not the absolute |
 | Error monitoring | ~~Not live — `lib/sentry.ts` only called `console.error`.~~ ~~Code transmits since 2026-08-11 over a raw `fetch` envelope.~~ **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling. Coverage was the reason: the hand-rolled transport could not see an unhandled Server Component, render or Edge error. PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | **Rewritten and executed 2026-08-13** ([#69](https://github.com/jesushzv/business-helper/issues/69)/[#91](https://github.com/jesushzv/business-helper/issues/91)): **18 passed, 2 skipped, 0 failed** — 10 scenarios × desktop + mobile chromium, production build, demo posture. Skipped: scenario 10 (deployed health, `E2E_HEALTH_URL` guard — #70). Scenarios pinning remediated defects (P0-4 CLABE, pre-#57 OTP) now assert the opposite; suite joined CI. It caught a live wizard defect (`docs/LESSONS.md` #91) |
@@ -139,18 +139,6 @@ row-by-row detail in the archive. Three things carry forward:
   tenant with a contract.
 - **Deferred as decisions:** #174 (CFDI cancel UI), #185 (plan naming).
 
-**Two of the three open `bug`-tagged issues are closed in code**, with #115 alongside them — #116
-(the webhook no longer writes a Checkout Session's `'complete'` into `subscription_status`, and an
-unknown status is no longer badged "Cancelado" to someone who has just paid), #133
-(`requireOrgAccess` resolves the tenant deterministically) and #115 (`stripe_customer_id` and
-`stripe_subscription_id` stored at last). Tests, lint and build only. The third is **#204, and its
-central claim is wrong** — it reports `trial_ends_at` as a column no migration creates, citing
-`git grep 'trial_ends_at' -- supabase/migrations` returning nothing at `aedf521`; re-run at exactly
-that commit it returns **9 matches**, the column being declared in
-`20260811150000_organization_trial.sql:27`. What *is* undeclared, confirmed against `pg_indexes` on
-production, is the two **indexes**. A migration written to the issue as filed would add a column
-that already exists.
-
 **CFDI cancellation stays out of the app for launch** (#174, decided): the route ships with no UI
 caller — it needs a motivo, the `01` replacement UUID, receptor refusal and an async SAT answer
 (#30). Tenants cancel at their PAC portal; the stamping dialog says so, and
@@ -215,7 +203,12 @@ organization row.
   `.env.example` are corrected; the source instance was #36, **now closed** (PR #47) — the remaining work
   here is DNS, not code. Confirm the apex resolves with SSL, then sync the Supabase Auth Site/Redirect
   URLs and the Stripe webhook endpoint to it. No issue tracks the DNS step; it is a founder action.
-- **Require the `CI` check in branch protection** ([#38](https://github.com/jesushzv/business-helper/issues/38)).
+- **Password recovery and the signup/login seams**
+  ([#245](https://github.com/jesushzv/business-helper/issues/245)–#249). Recovery emails linked
+  to `/reset-password`, which did not exist (a lockout). The page now exists; register keys
+  "signed in" on `data.session` (#246); login maps errors via `authErrorMessage` (#247); the
+  middleware guards the app shell (#248); OAuth carries `?next=` (#249). Mock-verified only —
+  **a live recovery pass closes #245.**
   CI was silently absent on PR #28 for ten hours across four pushes while Vercel and GitGuardian reported
   green, so the PR looked checked. The cause is still unexplained — which is the argument for a rule that
   fails closed rather than one that depends on understanding it. It has since missed again, three times
@@ -227,22 +220,9 @@ organization row.
   international path ran live) and a real inbox signing a real quote (#2) — but the loop has never
   been walked end to end on the deployment, and `/api/health` has never been called against it.
 - ~~**CFDI folio billing** (#24, #27).~~ **Superseded by the BYOK decision (§05, 2026-08-12)** —
-  the platform does not stamp on behalf of tenants, so folio packs and per-folio metering have no
-  billable event; both issues closed as not planned. The copy sweep that replaced them (**#221**)
-  landed 2026-08-12: every folio-inclusion/$-per-folio claim replaced with the founder-approved
-  BYOK line across pricing, landing, FAQ, comparison tables and Ajustes; the platform-key fallback
-  (`FACTURAPI_SECRET_KEY`, `source: 'platform'`, folio metering, `lib/cfdiFolios.ts`) removed from
-  the code. Verified by `npx vitest run` + `tsc` + `next build` (copy pinned by
-  `tests/unit/copyRules.test.ts`, shown red first). The money-path review of the PR then found
-  `STRIPE_PLANS.features` still selling folios **live on the Ajustes billing card** — fixed in the
-  same PR along with the folio-pack machinery, `verify:stripe`'s pack stage, and the stale
-  deployment docs still instructing `FACTURAPI_SECRET_KEY`. The last residue fell 2026-08-12: the
-  founder chose **drop** on #224, and `20260812182430_drop_cfdi_folio_ledger.sql` removed the
-  `cfdi_folios_*` columns and both folio RPCs — measured first (1 org, all counters zero, nothing
-  discarded), applied to production via the connector, and verified by reading the catalog back
-  (columns and functions absent). #226 (copy promised PACs the form refuses) closed with the same
-  PR: rendered copy names Facturapi only, pinned by `tests/unit/copyRules.test.ts` (shown red on a
-  plant).
+  no billable event, both closed as not planned. The copy sweep (#221), the folio-machinery
+  removal, the production `cfdi_folio_ledger` drop (#224, applied and read back live) and #226 all
+  landed 2026-08-12; the full account is in the archive.
 
 ### P2 — Can trail launch by weeks
 

@@ -125,4 +125,30 @@ describe('GET /auth/callback', () => {
       expect(redirectTarget(res)).toBe('https://app.example.com/dashboard');
     }
   });
+
+  /**
+   * #249 — an invited first-timer has no organization *because* they are
+   * joining someone else's. Routing them to onboarding here made them found
+   * their own company instead of accepting the invitation: one team, two
+   * tenants.
+   */
+  it('sends an invited first-timer (no organization, next present) to the invitation, not onboarding', async () => {
+    const res = await GET(callbackRequest('?code=abc&next=%2Finvitacion%2Ftok123'));
+
+    expect(redirectTarget(res)).toBe('https://app.example.com/invitacion/tok123');
+    // Still their first arrival — the funnel event fires either way.
+    expect(track).toHaveBeenCalledWith(
+      'signup_completed',
+      { provider: 'google' },
+      { distinctId: 'user-1' }
+    );
+  });
+
+  it('sends a first-timer with a malicious next to onboarding, not off-site', async () => {
+    const res = await GET(
+      callbackRequest(`?code=abc&next=${encodeURIComponent('//evil.example.com')}`)
+    );
+
+    expect(redirectTarget(res)).toBe('https://app.example.com/onboarding');
+  });
 });

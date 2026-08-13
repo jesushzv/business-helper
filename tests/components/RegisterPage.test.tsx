@@ -5,11 +5,12 @@ import RegisterPage from '@/app/(auth)/register/page';
 
 // Mock next/navigation
 const mockPush = vi.fn();
+let mockSearchParams = new URLSearchParams();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
   }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }));
 
 // Mock Supabase client
@@ -55,9 +56,27 @@ describe('RegisterPage Component (Task C1 Progressive Profiling Suite)', () => {
     vi.unstubAllEnvs();
     supabaseConfigured = true;
     localStorage.clear();
+    mockSearchParams = new URLSearchParams();
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'real-anon-key');
     stubProviderSettings(true);
+  });
+
+  /**
+   * #249 — an invitee can land here instead of /login; without forwarding,
+   * Google registration dropped the invitation's next at the round-trip.
+   */
+  it('forwards a validated invitation next through the Google round-trip (#249)', async () => {
+    mockSearchParams = new URLSearchParams('next=/invitacion/tok123');
+    mockSignInWithOAuth.mockResolvedValue({ error: null });
+    render(<RegisterPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Continuar con Google/i }));
+
+    await waitFor(() => expect(mockSignInWithOAuth).toHaveBeenCalledTimes(1));
+    expect(mockSignInWithOAuth.mock.calls[0][0].options.redirectTo).toContain(
+      '/auth/callback?next=%2Finvitacion%2Ftok123'
+    );
   });
 
   /**
@@ -150,7 +169,15 @@ describe('RegisterPage Component (Task C1 Progressive Profiling Suite)', () => {
   });
 
   it('allows user to sign up cleanly WITHOUT providing an RFC (Task C1 Progressive Profiling)', async () => {
-    mockSignUp.mockResolvedValueOnce({ data: { user: { id: 'user_123' } }, error: null });
+    // Server-shaped success: user AND session (confirmations off). The session
+    // is what authorizes the push to /onboarding — see the #246 suite below.
+    mockSignUp.mockResolvedValueOnce({
+      data: {
+        user: { id: 'user_123', identities: [{ id: 'ident_1' }] },
+        session: { access_token: 'jwt' },
+      },
+      error: null,
+    });
     render(<RegisterPage />);
 
     const businessNameInput = screen.getByPlaceholderText(/Materiales MTY SA de CV/i);
@@ -210,5 +237,70 @@ describe('RegisterPage Component (Task C1 Progressive Profiling Suite)', () => {
 
     expect(screen.getByText(/Por favor ingresa un RFC válido/i)).toBeInTheDocument();
     expect(mockSignUp).not.toHaveBeenCalled();
+  });
+
+  /**
+   * #246 — GoTrue returns a non-null `data.user` in every non-error outcome,
+   * so branching on it read "confirmation email sent" as "signed in" and
+   * pushed a sessionless user into an onboarding whose submit answers 401.
+   * The #116 lesson applies: the old branch survived because the suite only
+   * ever fed one object shape. These feed the other two signUp can return.
+   */
+  describe('signUp outcomes that are not a signed-in session (#246)', () => {
+    async function fillAndSubmit() {
+      fireEvent.change(screen.getByPlaceholderText(/Materiales MTY SA de CV/i), {
+        target: { value: 'Mi Empresa Demo' },
+      });
+      fireEvent.change(document.getElementById('register-phone') as HTMLInputElement, {
+        target: { value: '8112345678' },
+      });
+      fireEvent.change(screen.getByPlaceholderText(/roberto@materialesmty.mx/i), {
+        target: { value: 'demo@empresa.mx' },
+      });
+      fireEvent.change(screen.getByPlaceholderText(/Mínimo 6 caracteres/i), {
+        target: { value: 'Password123!' },
+      });
+      fireEvent.click(screen.getByRole('checkbox'));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Comenzar Prueba Gratis/i }));
+      });
+    }
+
+    it('a user without a session means "confirma tu correo" — success-styled, and no push to /onboarding', async () => {
+      mockSignUp.mockResolvedValueOnce({
+        data: { user: { id: 'user_123', identities: [{ id: 'ident_1' }] }, session: null },
+        error: null,
+      });
+      render(<RegisterPage />);
+
+      await fillAndSubmit();
+
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(screen.getByText(/Te enviamos un enlace de confirmación/i)).toBeInTheDocument();
+      expect(screen.getByText(/demo@empresa.mx/i)).toBeInTheDocument();
+      // A completed step, not a failure — it must not render in the error alert.
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(mockTrack).toHaveBeenCalledWith(
+        'signup_completed',
+        expect.objectContaining({ pending_email_confirmation: true })
+      );
+    });
+
+    it('the anti-enumeration fake user (no identities) is an already-registered email, not a new account', async () => {
+      mockSignUp.mockResolvedValueOnce({
+        data: { user: { id: 'user_obfuscated', identities: [] }, session: null },
+        error: null,
+      });
+      render(<RegisterPage />);
+
+      await fillAndSubmit();
+
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(screen.getByText(/Ese correo ya tiene una cuenta/i)).toBeInTheDocument();
+      expect(mockTrack).not.toHaveBeenCalledWith(
+        'signup_completed',
+        expect.objectContaining({ pending_email_confirmation: true })
+      );
+    });
   });
 });
