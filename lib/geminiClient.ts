@@ -16,6 +16,7 @@
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const REQUEST_TIMEOUT_MS = 15_000;
+const MAX_OUTPUT_TOKENS = 1024;
 
 export class GeminiUnavailableError extends Error {
   constructor(message: string) {
@@ -30,6 +31,24 @@ export function isGeminiConfigured(env: Record<string, string | undefined> = pro
 
 export function geminiModel(env: Record<string, string | undefined> = process.env): string {
   return env.GEMINI_MODEL || DEFAULT_MODEL;
+}
+
+/**
+ * Gemini 2.5 models think by default, and thought tokens spend
+ * `maxOutputTokens` before any visible text does — a short budget comes back
+ * as an empty candidate with `finishReason: MAX_TOKENS`, which this client
+ * (correctly) treats as a failure, so every answer degrades to the rules
+ * engine. The assistant only needs prose around pre-computed figures, so
+ * thinking is disabled where the model allows it. Pro models refuse a zero
+ * budget outright — for those the default stands and the token ceiling is the
+ * only guard.
+ */
+export function geminiGenerationConfig(model: string): Record<string, unknown> {
+  const config: Record<string, unknown> = { temperature: 0.2, maxOutputTokens: MAX_OUTPUT_TOKENS };
+  if (!model.includes('pro')) {
+    config.thinkingConfig = { thinkingBudget: 0 };
+  }
+  return config;
 }
 
 interface GeminiCandidatePart {
@@ -56,9 +75,10 @@ export async function generateGeminiText(
     throw new GeminiUnavailableError('GEMINI_API_KEY no está configurada');
   }
 
+  const model = geminiModel(env);
   let response: Response;
   try {
-    response = await fetch(`${GEMINI_API_BASE}/models/${geminiModel(env)}:generateContent`, {
+    response = await fetch(`${GEMINI_API_BASE}/models/${model}:generateContent`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -66,7 +86,7 @@ export async function generateGeminiText(
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
+        generationConfig: geminiGenerationConfig(model),
       }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });

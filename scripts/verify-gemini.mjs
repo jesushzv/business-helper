@@ -35,22 +35,33 @@ function record(name, passed, detail) {
 }
 
 async function generate(apiKey, promptText) {
+  // Mirrors lib/geminiClient.ts's generationConfig: Gemini 2.5 thinks by
+  // default and thought tokens spend maxOutputTokens before visible text, so
+  // a small budget with thinking on returns an EMPTY candidate
+  // (finishReason: MAX_TOKENS) — this script once had exactly that bug, so a
+  // valid key could fail the positive control. Pro models refuse a zero
+  // thinking budget; for those the default stands.
+  const generationConfig = { temperature: 0, maxOutputTokens: 1024 };
+  if (!MODEL.includes('pro')) {
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
   try {
     const response = await fetch(`${BASE}/models/${MODEL}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: promptText }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 128 },
+        generationConfig,
       }),
       signal: AbortSignal.timeout(15_000),
     });
     const json = await response.json().catch(() => ({}));
-    const text = (json?.candidates?.[0]?.content?.parts || [])
+    const candidate = json?.candidates?.[0];
+    const text = (candidate?.content?.parts || [])
       .map((p) => p.text || '')
       .join('')
       .trim();
-    return { ok: response.ok, status: response.status, text };
+    return { ok: response.ok, status: response.status, text, finishReason: candidate?.finishReason };
   } catch (err) {
     const reason = err instanceof Error && err.name === 'TimeoutError' ? 'timed out' : 'network error';
     return { ok: false, status: 0, text: '', transport: reason };
@@ -73,7 +84,9 @@ const positive = await generate(
 record(
   `live completion echoes ${MARKER}`,
   positive.ok && positive.text.includes(MARKER),
-  positive.ok ? `got: "${positive.text.slice(0, 60)}"` : `status ${positive.status}${positive.transport ? ` (${positive.transport})` : ''}`
+  positive.ok
+    ? `got: "${positive.text.slice(0, 60)}"${positive.text ? '' : ` (vacío, finishReason: ${positive.finishReason || 'desconocido'})`}`
+    : `status ${positive.status}${positive.transport ? ` (${positive.transport})` : ''}`
 );
 
 const negative = await generate('AIza-invalid-key-for-negative-control', 'hola');

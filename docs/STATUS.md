@@ -264,6 +264,15 @@ organization row.
   a mocked `fetch` only — no session has held the key, so no live call has run** (the #26 lesson says
   to exercise it once). `npm run verify:gemini` is that check, runnable wherever the key exists;
   until it passes, treat the model half as wired but unproven. Does not gate launch.
+  **2026-08-13, "assistant not working" report:** static audit found the likely cause — the client
+  sent `maxOutputTokens: 512` with no `thinkingConfig`, and Gemini 2.5 spends that budget on
+  thought tokens before visible text, so live calls return an empty candidate
+  (`finishReason: MAX_TOKENS`), throw, and every answer degrades to the rules engine, labeled
+  "Calculada con reglas". Fixed (thinking disabled for flash, 1024-token ceiling; `verify:gemini`
+  shared the bug and now mirrors the client and prints `finishReason` on an empty candidate) —
+  **still verified against mocked `fetch` only; the diagnosis and the fix are unconfirmed until
+  `npm run verify:gemini` passes where the key exists, and Sentry's
+  `/api/ai/assistant` warnings would confirm or refute the MAX_TOKENS reading.**
   **The model allowance became server-derived on 2026-08-12** (#228): tier from
   `organizations.subscription_tier`, usage in `ai_usage_monthly` (migration `20260812210000`,
   **applied to production and read back** — RLS deny-all held against `anon`/`authenticated` probes,
