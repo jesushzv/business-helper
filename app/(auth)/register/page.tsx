@@ -16,6 +16,7 @@ import { identifyPostHogUser } from '@/components/PostHogInit';
 import { exitDemoMode } from '@/lib/demoUtils';
 import { regimenOptions } from '@/lib/satRegimenes';
 import { authErrorMessage } from '@/lib/errorCopy';
+import { safeInternalPath } from '@/lib/url';
 
 const COMPANY_SIZES = [
   { value: '1-5', label: '1 - 5 colaboradores (Micro)' },
@@ -93,11 +94,16 @@ function RegisterFormContent() {
       // they never expire, and a new tenant must not land on fixtures.
       exitDemoMode();
       const supabase = createClient();
+      // An invitee can land here instead of /login; the invitation's `next`
+      // has to ride through the provider round-trip or it is lost (#249).
+      const next = safeInternalPath(searchParams.get('next'));
       // Guards errors the SDK *can* report; never a disabled provider.
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback${
+            next ? `?next=${encodeURIComponent(next)}` : ''
+          }`,
         },
       });
 

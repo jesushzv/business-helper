@@ -5,11 +5,12 @@ import RegisterPage from '@/app/(auth)/register/page';
 
 // Mock next/navigation
 const mockPush = vi.fn();
+let mockSearchParams = new URLSearchParams();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
   }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }));
 
 // Mock Supabase client
@@ -55,9 +56,27 @@ describe('RegisterPage Component (Task C1 Progressive Profiling Suite)', () => {
     vi.unstubAllEnvs();
     supabaseConfigured = true;
     localStorage.clear();
+    mockSearchParams = new URLSearchParams();
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'real-anon-key');
     stubProviderSettings(true);
+  });
+
+  /**
+   * #249 — an invitee can land here instead of /login; without forwarding,
+   * Google registration dropped the invitation's next at the round-trip.
+   */
+  it('forwards a validated invitation next through the Google round-trip (#249)', async () => {
+    mockSearchParams = new URLSearchParams('next=/invitacion/tok123');
+    mockSignInWithOAuth.mockResolvedValue({ error: null });
+    render(<RegisterPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Continuar con Google/i }));
+
+    await waitFor(() => expect(mockSignInWithOAuth).toHaveBeenCalledTimes(1));
+    expect(mockSignInWithOAuth.mock.calls[0][0].options.redirectTo).toContain(
+      '/auth/callback?next=%2Finvitacion%2Ftok123'
+    );
   });
 
   /**

@@ -24,6 +24,9 @@ import { __resetCurrentOrgCacheForTests } from '@/lib/hooks/useCurrentOrg';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard',
+  // AppShell resolves a router for the #248 denial redirect; these tests all
+  // answer 200, so it must never fire.
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 
 const PRODUCTION_ORG_BODY = {

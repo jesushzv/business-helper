@@ -10,6 +10,7 @@ import { exitDemoMode } from '@/lib/demoUtils';
 import { useOAuthProviderEnabled } from '@/lib/hooks/useOAuthProvider';
 import { identifyPostHogUser } from '@/components/PostHogInit';
 import { authErrorMessage } from '@/lib/errorCopy';
+import { safeInternalPath } from '@/lib/url';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,16 +18,16 @@ export default function LoginPage() {
   /**
    * An invitation link sends the invitee here with `?next=/invitacion/<token>`
    * so they land back on the invitation instead of a generic dashboard. Only a
-   * same-site path is honored — `//evil.example` and absolute URLs are not —
-   * so the parameter cannot be used as an open redirect. Read from
-   * `window.location` rather than `useSearchParams` to keep this page
-   * statically renderable.
+   * same-site path is honored (`safeInternalPath`) — `//evil.example` and
+   * absolute URLs are not — so the parameter cannot be used as an open
+   * redirect. Read from `window.location` rather than `useSearchParams` to
+   * keep this page statically renderable.
    */
-  const resolveRedirect = (): string => {
-    if (typeof window === 'undefined') return '/dashboard';
-    const next = new URLSearchParams(window.location.search).get('next');
-    return next && /^\/[^/\\]/.test(next) ? next : '/dashboard';
+  const resolveNext = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    return safeInternalPath(new URLSearchParams(window.location.search).get('next'));
   };
+  const resolveRedirect = (): string => resolveNext() ?? '/dashboard';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -122,12 +123,18 @@ export default function LoginPage() {
       // the dashboard reads them.
       exitDemoMode();
       const supabase = createClient();
+      // The invitation's `next` has to ride through the provider round-trip
+      // inside redirectTo, or Google sign-in silently drops it and the invitee
+      // lands on a generic dashboard with their invitation lost (#249).
+      const next = resolveNext();
       // Kept as a guard for errors the SDK *can* report (a failure to persist
       // the PKCE verifier, say). It cannot fire for a disabled provider.
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback${
+            next ? `?next=${encodeURIComponent(next)}` : ''
+          }`,
         },
       });
 

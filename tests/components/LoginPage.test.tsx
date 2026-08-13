@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import LoginPage from '@/app/(auth)/login/page';
 
 // Mock next/navigation
@@ -265,6 +265,48 @@ describe('LoginPage Component (Task C7 Remediation Suite)', () => {
         expect(screen.getByText(/Correo o contraseña incorrectos/i)).toBeInTheDocument()
       );
       expect(localStorage.getItem('business_helper_sandbox')).toBe('true');
+    });
+  });
+
+  /**
+   * #249 — the email/password path honors ?next=, but the OAuth path starts a
+   * provider round-trip: unless `next` rides inside redirectTo, Google
+   * sign-in drops it and the invitee lands on a generic dashboard with their
+   * invitation lost. /auth/callback already validates and honors the param —
+   * it just never received one.
+   */
+  describe('Google sign-in carries the invitation next through the round-trip (#249)', () => {
+    afterEach(() => {
+      window.history.replaceState({}, '', '/login');
+    });
+
+    async function clickGoogle() {
+      mockSignInWithOAuth.mockResolvedValue({ error: null });
+      render(<LoginPage />);
+      fireEvent.click(screen.getByRole('button', { name: /Continuar con Google/i }));
+      await waitFor(() => expect(mockSignInWithOAuth).toHaveBeenCalledTimes(1));
+      return mockSignInWithOAuth.mock.calls[0][0].options.redirectTo as string;
+    }
+
+    it('forwards a validated next into the callback redirect', async () => {
+      window.history.replaceState({}, '', '/login?next=/invitacion/tok123');
+      const redirectTo = await clickGoogle();
+      expect(redirectTo).toContain('/auth/callback?next=%2Finvitacion%2Ftok123');
+    });
+
+    it('omits the parameter entirely when no next was carried', async () => {
+      const redirectTo = await clickGoogle();
+      expect(redirectTo).toMatch(/\/auth\/callback$/);
+    });
+
+    it('drops a non-relative next instead of forwarding it (no open redirect)', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        `/login?next=${encodeURIComponent('//evil.example.com')}`
+      );
+      const redirectTo = await clickGoogle();
+      expect(redirectTo).toMatch(/\/auth\/callback$/);
     });
   });
 

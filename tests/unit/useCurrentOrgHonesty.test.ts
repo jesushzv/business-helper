@@ -85,6 +85,58 @@ describe('real tenant', () => {
   });
 });
 
+/**
+ * #248 — AppShell redirects on `denied` (401 → login, NO_ORGANIZATION →
+ * onboarding), so it must be an *authoritative* signal: only the API's own
+ * status + code pair sets it. Anything ambiguous stays null, because a
+ * redirect fired off a network blip throws a healthy tenant out of their
+ * dashboard mid-work.
+ */
+describe('denied — the authoritative signals the app shell redirects on (#248)', () => {
+  it("reports 'unauthenticated' for the API's own 401 UNAUTHENTICATED", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(401, { error: { code: 'UNAUTHENTICATED', message: 'Sesión requerida' } })
+    );
+    const { result } = renderHook(() => useCurrentOrg());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.denied).toBe('unauthenticated');
+  });
+
+  it("reports 'no_organization' for 403 NO_ORGANIZATION", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(403, {
+        error: { code: 'NO_ORGANIZATION', message: 'La cuenta no pertenece a ninguna organización' },
+      })
+    );
+    const { result } = renderHook(() => useCurrentOrg());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.denied).toBe('no_organization');
+  });
+
+  it('stays null (unknown) on a 500, a network failure, and the 503 demo deployment', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(500, { error: { message: 'boom' } }));
+    const server = renderHook(() => useCurrentOrg());
+    await waitFor(() => expect(server.result.current.loading).toBe(false));
+    expect(server.result.current.denied).toBeNull();
+
+    __resetCurrentOrgCacheForTests();
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const network = renderHook(() => useCurrentOrg());
+    await waitFor(() => expect(network.result.current.loading).toBe(false));
+    expect(network.result.current.denied).toBeNull();
+
+    __resetCurrentOrgCacheForTests();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(503, { error: { code: 'BACKEND_NOT_CONFIGURED', message: 'Sin base de datos' } })
+    );
+    const demo = renderHook(() => useCurrentOrg());
+    await waitFor(() => expect(demo.result.current.loading).toBe(false));
+    expect(demo.result.current.denied).toBeNull();
+  });
+});
+
 describe('demo deployment', () => {
   it('serves the demo persona only behind the demo signal, without touching the network', async () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');

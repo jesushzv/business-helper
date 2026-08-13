@@ -210,10 +210,10 @@ organization row.
   URLs and the Stripe webhook endpoint to it. No issue tracks the DNS step; it is a founder action.
 - **Password recovery and the signup/login seams**
   ([#245](https://github.com/jesushzv/business-helper/issues/245)–#249). Recovery emails linked
-  to `/reset-password`, which did not exist — a forgotten password was a lockout. The page now
-  exists; register keys "signed in" on `data.session` (#246); login maps errors via
-  `authErrorMessage` (#247). Mock-verified only — **a live recovery pass closes #245.**
-  #248 (route guard) and #249 (OAuth `next`) stay open.
+  to `/reset-password`, which did not exist (a lockout). The page now exists; register keys
+  "signed in" on `data.session` (#246); login maps errors via `authErrorMessage` (#247); the
+  middleware guards the app shell (#248); OAuth carries `?next=` (#249). Mock-verified only —
+  **a live recovery pass closes #245.**
   CI was silently absent on PR #28 for ten hours across four pushes while Vercel and GitGuardian reported
   green, so the PR looked checked. The cause is still unexplained — which is the argument for a rule that
   fails closed rather than one that depends on understanding it. It has since missed again, three times

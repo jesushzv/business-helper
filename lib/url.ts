@@ -83,6 +83,19 @@ export function getStripeWebhookUrl(): string {
  * Returns relative path by default to serve bundled static assets reliably, or
  * prefixes with NEXT_PUBLIC_CDN_URL / NEXT_PUBLIC_VERCEL_BLOB_BASE_URL when explicitly set.
  */
+/**
+ * Validates a `?next=` redirect target as a same-site relative path.
+ *
+ * `next` rides through login, the OAuth start, the auth callback and the
+ * middleware guard (#248/#249); every consumer must apply the same rule or
+ * the laxest one becomes an open redirect. Accepts only paths like
+ * `/invitacion/abc` — never absolute URLs, `//host` protocol-relative forms,
+ * or `/\` backslash tricks.
+ */
+export function safeInternalPath(next: string | null | undefined): string | null {
+  return next && /^\/[^/\\]/.test(next) ? next : null;
+}
+
 export function getAssetUrl(path: string): string {
   if (!path) return '';
   if (path.startsWith('http://') || path.startsWith('https://')) {
