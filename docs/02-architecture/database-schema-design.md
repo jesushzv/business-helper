@@ -484,8 +484,10 @@ USING (public_token IS NOT NULL);
 ### Server-Only Tables — RLS Deny-All, Service Role Only
 
 Some tables must never be reachable from PostgREST with a tenant JWT, in either direction:
-`otp_send_log`, `stripe_webhook_events`, and `ai_usage_monthly` (#228 — a member who could UPDATE
-their own usage row could zero their own model-call counter). The pattern: enable RLS and write
+`otp_send_log`, `stripe_webhook_events`, `ai_usage_monthly` (#228 — a member who could UPDATE
+their own usage row could zero their own model-call counter), and `cfdi_stamp_claims` (#213 — the
+claim row inserted before every PAC stamp; PK on `milestone_id`, so a concurrent claimant collides
+with `23505` instead of issuing a second CFDI). The pattern: enable RLS and write
 **no policies**, and revoke table privileges from `anon` and `authenticated` **by name** (Supabase's
 default privileges grant to them as named roles, so `FROM PUBLIC` alone strips nothing). Only the
 service client reads or writes these tables, and the caller carries the burden of scoping every

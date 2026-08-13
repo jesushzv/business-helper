@@ -47,12 +47,19 @@ describe('planPaymentComplement — when a complement is owed', () => {
     expect(plan).toMatchObject({ required: false, reason: 'not_ppd' });
   });
 
-  it('treats a document stamped before the method was recorded as PUE', () => {
-    // NULL predates the column. Everything stamped then went out as PUE — the
-    // route default, and the only thing the UI could produce — so reading it as
-    // PPD would invent an obligation that does not exist.
+  it('flags an issued document whose method is unknown instead of assuming PUE', () => {
+    // Decided on #213 (founder, 2026-08-13): null no longer reads as PUE.
+    // Since the stale-claim adoption path landed, null can mean "recovered
+    // document whose PAC listing omitted the field" — and waving a PPD
+    // invoice through as PUE silently skips every complemento the SAT
+    // requires. (Production was checked before the change: no issued
+    // milestone carries a null method, so no legacy row regresses.)
     const plan = planPaymentComplement({ ...PPD_INVOICE, cfdi_payment_method: null }, []);
-    expect(plan).toMatchObject({ required: false, reason: 'not_ppd' });
+    expect(plan).toMatchObject({ required: false, reason: 'unknown_method' });
+    if (!plan.required) {
+      expect(plan.message).toMatch(/complemento/i);
+      expect(plan.message).toMatch(/verifica/i);
+    }
   });
 
   it('owes nothing when no CFDI was ever stamped', () => {

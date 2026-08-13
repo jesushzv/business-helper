@@ -50,7 +50,12 @@ export interface ComplementMilestoneState {
   /** The PAC's own total for the stamped document; authoritative over `amount`. */
   cfdi_total?: number | string | null;
   cfdi_status?: string | null;
-  /** SAT MetodoPago of the stamped document. NULL predates the column and means PUE. */
+  /**
+   * SAT MetodoPago of the stamped document. NULL means **unknown**, never PUE
+   * (decided on #213): since the stale-claim adoption path landed, null can be
+   * a recovered document whose PAC listing omitted the field, and reading a
+   * PPD invoice as PUE silently skips the complementos the SAT requires.
+   */
   cfdi_payment_method?: string | null;
   cfdi_uuid?: string | null;
   cfdi_id?: string | null;
@@ -66,6 +71,8 @@ export interface ComplementRecordState {
 export type ComplementSkipReason =
   | 'not_stamped'
   | 'not_ppd'
+  /** Issued, but the document's MetodoPago is unknown — the tenant must verify, not the code assume. */
+  | 'unknown_method'
   | 'cancelled'
   | 'settled'
   | 'no_payment';
@@ -128,10 +135,24 @@ export function planPaymentComplement(
     };
   }
 
-  // NULL predates the column. Every document stamped before it existed went out
-  // as PUE — that is what the route defaulted to and the only thing the UI
-  // could produce — and a PUE invoice already records its own payment.
-  if ((milestone.cfdi_payment_method || 'PUE') !== 'PPD') {
+  // Unknown is not PUE (decided on #213, 2026-08-13). An earlier reading —
+  // "NULL predates the column, everything stamped then was PUE" — stopped
+  // being safe once the stale-claim adoption path could record a document
+  // whose PAC listing omitted the field; production was checked before the
+  // change and no issued milestone carries a null method, so no legacy row
+  // regresses. The skip is surfaced to the tenant at confirm time rather
+  // than silently waved through.
+  if (milestone.cfdi_payment_method == null || milestone.cfdi_payment_method === '') {
+    return {
+      required: false,
+      reason: 'unknown_method',
+      message:
+        'El pago quedó confirmado, pero no se pudo determinar si esta factura es PUE o PPD, así que no se emitió un complemento de pago. Verifica el método de pago con tu PAC o tu contador; si es PPD, emite el complemento desde Facturación.',
+    };
+  }
+
+  // A PUE invoice already records its own payment.
+  if (milestone.cfdi_payment_method !== 'PPD') {
     return {
       required: false,
       reason: 'not_ppd',

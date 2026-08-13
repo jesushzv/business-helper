@@ -706,6 +706,26 @@ export interface Database {
           processed_at?: string;
         };
       };
+      cfdi_stamp_claims: {
+        Row: {
+          milestone_id: string;
+          organization_id: string;
+          claimed_by: string | null;
+          claimed_at: string;
+        };
+        Insert: {
+          milestone_id: string;
+          organization_id: string;
+          claimed_by?: string | null;
+          claimed_at?: string;
+        };
+        Update: {
+          milestone_id?: string;
+          organization_id?: string;
+          claimed_by?: string | null;
+          claimed_at?: string;
+        };
+      };
       ai_usage_monthly: {
         Row: {
           organization_id: string;

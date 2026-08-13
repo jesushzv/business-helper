@@ -234,6 +234,41 @@ describe('convertToContract honesty (configured deployment)', () => {
     expect(result.current.quotes[0].status).toBe('sent');
   });
 
+  it('never mirrors a real tenant\'s quotes — public_token included — into localStorage (#113)', async () => {
+    // A serialized quote carries public_token, the value /q/[token] and
+    // /pay/[token] resolve without any session. Persisting it at rest hands a
+    // working signing link to anything that can read this origin's
+    // localStorage. The mirror is demo-sandbox state only (#93).
+    const { result } = await mountHook([SERVER_QUOTE]);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, {
+        contract: { id: 'srv-contract-1', title: 'Cotización real', total_amount: 1160 },
+        milestones: [{ id: 'ms-1', amount: 1160, label: 'Pago único' }],
+      })
+    );
+
+    await act(async () => {
+      await result.current.convertToContract('srv-quote-1');
+    });
+
+    // The successful path is the leak: applyStatusLocally runs after the
+    // server confirms, and its mirror must be demo-gated.
+    expect(result.current.quotes[0].status).toBe('converted');
+    expect(localStorage.getItem('business_helper_quotes_v1')).toBeNull();
+  });
+
+  it('removes an already-leaked quotes mirror for a real tenant on mount (#113)', async () => {
+    // Tokens leaked before the gate existed stay on disk otherwise — and
+    // isClientDemoMode() also honors a sandbox flag the visitor can flip,
+    // which would render the stale rows back into the UI.
+    localStorage.setItem('business_helper_quotes_v1', JSON.stringify([SERVER_QUOTE]));
+
+    const { result } = await mountHook([SERVER_QUOTE]);
+
+    expect(result.current.quotes).toHaveLength(1);
+    expect(localStorage.getItem('business_helper_quotes_v1')).toBeNull();
+  });
+
   it('makes exactly one request and returns the server contract and milestones', async () => {
     const { result } = await mountHook([SERVER_QUOTE]);
     const serverContract = { id: 'srv-contract-1', title: 'Cotización real', total_amount: 1160 };

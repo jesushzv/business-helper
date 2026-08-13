@@ -58,7 +58,7 @@ completion claim needs checking against source. The full findings are in
 
 | Metric | State |
 |:---|:---|
-| Test suite | **1665 tests / 171 files**, `npx vitest run` on `main` @ `09fd6c8` plus the AI-quota branch (2026-08-12). The `scripts/test-runner.js` that reported "182/182" no longer exists |
+| Test suite | **1750 tests / 177 files**, `npx vitest run` on the PR #241 branch @ `cdaa7a0` (2026-08-13). The `scripts/test-runner.js` that reported "182/182" no longer exists |
 | Coverage gate | 85/85/80/80 is configured and **fails**; CI does not run it ([#51](https://github.com/jesushzv/business-helper/issues/51)). Judge a change on the delta, not the absolute |
 | Error monitoring | ~~Not live — `lib/sentry.ts` only called `console.error`.~~ ~~Code transmits since 2026-08-11 over a raw `fetch` envelope.~~ **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling. Coverage was the reason: the hand-rolled transport could not see an unhandled Server Component, render or Edge error. PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | `playwright.config.ts` and `tests/e2e/` exist; **never executed in any verification pass** ([#69](https://github.com/jesushzv/business-helper/issues/69)) and 8 of 10 scenarios are stale, two asserting defects since remediated ([#91](https://github.com/jesushzv/business-helper/issues/91)). Treat every Playwright claim as unverified |
@@ -75,7 +75,7 @@ migrations — is in the archive with its reasoning.*
 
 | Item | State | Blocks launch? |
 |:---|:---|:---|
-| **Live PAC stamp** | **Half fell on 2026-08-12.** The founder supplied a sandbox key and the integration was exercised live from a session — which found it **entirely broken**: every call targeted `/v1`, which answers 410 for everything since April 2023, and v2 refuses the payload on four fields. Mocked-`fetch` coverage had kept all of it green. Fixed and re-verified against the live sandbox end to end: real SAT UUIDs, documents, cancellation (02/03), totals landing on the milestone amount with and without retenciones. **Re-scoped by the BYOK decision (§05, 2026-08-12): the platform does not stamp on behalf of tenants**, so the sandbox `FACTURAPI_SECRET_KEY` briefly set on Vercel comes back out, and the remaining criterion is a **tenant-connected live PAC**: an `sk_live_` key with CSDs connected in Ajustes, one stamp through `POST /api/invoices/issue`, the UUID verifying at the SAT portal. A sandbox key cannot meet it — sandbox documents have no fiscal validity, and the route refuses them in production by design (`PAC_SANDBOX_KEY`). Also live-observed: `external_id` deduplicates nothing (#213). | **Yes** — CFDI ships at launch |
+| **Live PAC stamp** | **Half fell on 2026-08-12.** The founder supplied a sandbox key and the integration was exercised live from a session — which found it **entirely broken**: every call targeted `/v1`, which answers 410 for everything since April 2023, and v2 refuses the payload on four fields. Mocked-`fetch` coverage had kept all of it green. Fixed and re-verified against the live sandbox end to end: real SAT UUIDs, documents, cancellation (02/03), totals landing on the milestone amount with and without retenciones. **Re-scoped by the BYOK decision (§05, 2026-08-12): the platform does not stamp on behalf of tenants**, so the sandbox `FACTURAPI_SECRET_KEY` briefly set on Vercel comes back out, and the remaining criterion is a **tenant-connected live PAC**: an `sk_live_` key with CSDs connected in Ajustes, one stamp through `POST /api/invoices/issue`, the UUID verifying at the SAT portal. A sandbox key cannot meet it — sandbox documents have no fiscal validity, and the route refuses them in production by design (`PAC_SANDBOX_KEY`). Also live-observed: `external_id` deduplicates nothing (#213) — **the DB-side claim guard landed 2026-08-13 (PR #241)**: `cfdi_stamp_claims` applied to production, duplicate claim refused `23505` live; the guard's own live exercise (a deliberate double-submit) rides with this row's stamp. | **Yes** — CFDI ships at launch |
 
 **Everything verified before 2026-08-09 was verified against mocked providers.** The items in §03
 that need a real handset, card, PAC stamp or deployed database are untouched by any of it.
@@ -90,14 +90,8 @@ organizations, so #168's "0 duplicates" was stale — and the older was deleted 
 quote. The decision behind it is recorded; [#109](https://github.com/jesushzv/business-helper/issues/109)
 is still open on the tracker.
 
-**~~Production holds schema no migration creates~~ Resolved 2026-08-12** ([#204](https://github.com/jesushzv/business-helper/issues/204)):
-migration `20260812060000` drops the redundant `idx_organizations_owner_id` and declares
-`idx_organizations_trial_ends_at`; applied to production and the catalog read back — every index on
-`organizations` now matches a migration. (The issue's *column* claim was wrong; `trial_ends_at` was
-declared all along in `20260811150000_organization_trial.sql`.) The stale text this replaces said the
-column was undeclared —
-This is #96's defect with the arrow reversed, and it means a fresh database (including CI's) does not
-match production. Nothing depending on `trial_ends_at` can be trusted to behave the same in both.
+**Schema/catalog divergence (#204) resolved 2026-08-12** — every index on `organizations` matches a
+migration, verified against `pg_indexes`; the full account is in the archive.
 
 ---
 

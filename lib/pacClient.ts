@@ -156,12 +156,12 @@ async function withTimeout<T>(
  *
  * `idempotencyKey` is sent as Facturapi's `external_id` — **which deduplicates
  * nothing**: two POSTs with an identical external_id stamped two CFDIs in the
- * live sandbox (2026-08-12, #26). It is kept as a correlation id for
- * reconciliation, not as a guard. Until a DB-side claim exists (filed
- * separately), the only protections against a double stamp are the caller's
- * ALREADY_ISSUED pre-check — which is check-then-act and races — and the
- * cancellation path. A response without a `uuid` is treated as a failure even
- * on HTTP 200, since a document with no folio fiscal is not a stamped invoice.
+ * live sandbox (2026-08-12, #26). It is a correlation id for reconciliation,
+ * not a guard — the guard is the DB-side claim in lib/cfdiStampClaim.ts
+ * (#213), which the issue route must hold before calling this, and
+ * `findInvoiceByExternalId` below is how a stale claim is reconciled. A
+ * response without a `uuid` is treated as a failure even on HTTP 200, since a
+ * document with no folio fiscal is not a stamped invoice.
  */
 export async function stampInvoice(
   credentials: PacCredentials,
@@ -219,6 +219,87 @@ export async function stampInvoice(
     });
   } catch (error) {
     return toTransportError(error, 'stamp');
+  }
+}
+
+/**
+ * Looks up a stamped document by the `external_id` a previous attempt sent.
+ *
+ * This is the reconciliation half of the stamp claim (#213): `external_id`
+ * deduplicates nothing, but the live pass (#26) confirmed it IS returned on
+ * list responses and searchable — so after a timed-out attempt, this is how
+ * the route learns whether a document already exists at the SAT before it
+ * dares stamp again. A cancelled document does not count: re-issuing after a
+ * cancellation is legitimate, exactly as the ALREADY_ISSUED guard treats it.
+ */
+/**
+ * A found document also reports its `payment_method` when the list item
+ * carries one: the adopting route must know whether the orphaned document is
+ * PPD — a PPD invoice silently read as PUE skips every complemento de pago
+ * the SAT requires. `null` means the listing did not say, which the caller
+ * must treat as unknown, never as PUE.
+ */
+export type FoundCFDI = StampedCFDI & { paymentMethod: 'PUE' | 'PPD' | null };
+
+export async function findInvoiceByExternalId(
+  credentials: PacCredentials,
+  externalId: string
+): Promise<PacResult<{ document: FoundCFDI | null }>> {
+  if (!credentials?.apiKey) {
+    return {
+      ok: false,
+      code: 'NOT_CONFIGURED',
+      message: 'No hay un PAC conectado para verificar la factura.',
+    };
+  }
+
+  try {
+    return await withTimeout(DOCUMENT_TIMEOUT_MS, async (signal) => {
+      const params = new URLSearchParams({ q: externalId, limit: '50' });
+      const response = await fetch(`${FACTURAPI_BASE}/invoices?${params.toString()}`, {
+        headers: authHeaders(credentials),
+        signal,
+      });
+
+      if (!response.ok) return toPacError(response, 'find by external_id');
+
+      const body = await response.json().catch(() => null);
+      const items: any[] = Array.isArray(body?.data) ? body.data : []; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      // `q` is a text search, not an exact filter — match the field itself,
+      // and skip documents whose cancellation already went through.
+      const match = items.find(
+        (item) =>
+          item?.external_id === externalId &&
+          item?.status !== 'canceled' &&
+          typeof item?.uuid === 'string' &&
+          item?.uuid
+      );
+
+      if (!match) return { ok: true as const, data: { document: null } };
+
+      return {
+        ok: true as const,
+        data: {
+          document: {
+            providerInvoiceId: String(match.id),
+            uuid: String(match.uuid),
+            verificationUrl:
+              typeof match.verification_url === 'string' ? match.verification_url : null,
+            series: typeof match.series === 'string' ? match.series : null,
+            folioNumber: typeof match.folio_number === 'number' ? match.folio_number : null,
+            total: typeof match.total === 'number' ? match.total : null,
+            stampedAt: typeof match.date === 'string' ? match.date : new Date().toISOString(),
+            paymentMethod:
+              match.payment_method === 'PPD' || match.payment_method === 'PUE'
+                ? match.payment_method
+                : null,
+          },
+        },
+      };
+    });
+  } catch (error) {
+    return toTransportError(error, 'find by external_id');
   }
 }
 
