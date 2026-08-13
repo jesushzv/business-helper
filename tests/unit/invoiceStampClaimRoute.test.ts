@@ -19,9 +19,11 @@ const claimState: {
 
 const milestoneState: {
   row: Record<string, unknown> | null;
+  /** Per-read overrides, consumed in order; falls back to `row` when empty. */
+  selectResults: Array<Record<string, unknown> | null>;
   updates: Array<Record<string, unknown>>;
   updateError: { message: string } | null;
-} = { row: null, updates: [], updateError: null };
+} = { row: null, selectResults: [], updates: [], updateError: null };
 
 const stampMock = vi.fn();
 const findMock = vi.fn();
@@ -38,7 +40,16 @@ vi.mock('@/lib/apiAuth', () => ({
           if (table === 'milestones') {
             return {
               select: () => ({
-                eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: milestoneState.row, error: null }) }) }),
+                eq: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({
+                      data: milestoneState.selectResults.length
+                        ? milestoneState.selectResults.shift()
+                        : milestoneState.row,
+                      error: null,
+                    }),
+                  }),
+                }),
               }),
               update: (values: Record<string, unknown>) => ({
                 eq: () => ({
@@ -114,8 +125,10 @@ vi.mock('@/lib/supabase/service', () => ({
             eq: () => {
               claimState.deletes += 1;
               return {
-                lt: async () => ({ error: null }),
-                then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
+                eq: () => ({
+                  lt: async () => ({ error: null }),
+                  then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
+                }),
               };
             },
           }),
@@ -215,6 +228,7 @@ beforeEach(() => {
       },
     },
   };
+  milestoneState.selectResults = [];
   milestoneState.updates = [];
   milestoneState.updateError = null;
   stampMock.mockReset();
@@ -238,7 +252,9 @@ describe('claim held by a concurrent request', () => {
 describe('stale claim — a previous attempt died mid-flight', () => {
   const stale = () => {
     claimState.insertResults = [{ error: { code: '23505' } }];
-    claimState.existingClaimedAt = new Date(Date.now() - 120_000).toISOString();
+    // Comfortably past STAMP_CLAIM_STALE_MS (120s), which is sized to a
+    // healthy holder's whole lifetime: stamp + download + writes.
+    claimState.existingClaimedAt = new Date(Date.now() - 600_000).toISOString();
   };
 
   it('adopts the document the PAC already has instead of stamping a second one', async () => {
@@ -271,6 +287,66 @@ describe('stale claim — a previous attempt died mid-flight', () => {
     expect(claimState.deletes).toBeGreaterThan(0);
   });
 
+  it('keeps the claim when the adoption write fails — releasing it would re-open the double-stamp', async () => {
+    // Reviewer finding on this PR: the adoption path discarded its write
+    // result and released the claim anyway, so a transient update failure led
+    // straight back to a second stamp on the next retry.
+    stale();
+    findMock.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        document: {
+          providerInvoiceId: 'inv-old',
+          uuid: 'UUID-OLD',
+          verificationUrl: null,
+          series: null,
+          folioNumber: null,
+          total: 1160,
+          stampedAt: '2026-08-13T09:00:00Z',
+          paymentMethod: 'PUE',
+        },
+      },
+    });
+    milestoneState.updateError = { message: 'connection reset' };
+
+    const res = await post();
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error.code).toBe('STAMP_NOT_RECORDED');
+    expect(body.uuid).toBe('UUID-OLD');
+    expect(stampMock).not.toHaveBeenCalled();
+    expect(claimState.deletes).toBe(0);
+  });
+
+  it('carries the found document\'s payment_method — a PPD invoice must not silently read as PUE', async () => {
+    stale();
+    findMock.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        document: {
+          providerInvoiceId: 'inv-old',
+          uuid: 'UUID-OLD',
+          verificationUrl: 'https://verificacfdi.example/UUID-OLD',
+          series: null,
+          folioNumber: null,
+          total: 1160,
+          stampedAt: '2026-08-13T09:00:00Z',
+          paymentMethod: 'PPD',
+        },
+      },
+    });
+
+    await post();
+
+    const adopted = milestoneState.updates.find((u) => u.cfdi_uuid === 'UUID-OLD');
+    // The complemento-de-pago obligation survives the recovery: PPD from the
+    // PAC's own listing, never from this retry's request body.
+    expect(adopted?.cfdi_payment_method).toBe('PPD');
+    // The tenant is pointed at the copies the PAC still holds.
+    expect(adopted?.cfdi_xml_url).toBe('https://verificacfdi.example/UUID-OLD');
+  });
+
   it('takes the claim over and stamps when the PAC has nothing', async () => {
     stale();
     findMock.mockResolvedValueOnce({ ok: true, data: { document: null } });
@@ -298,6 +374,28 @@ describe('stale claim — a previous attempt died mid-flight', () => {
     expect(body.error.code).toBe('STAMP_RECONCILIATION_FAILED');
     expect(stampMock).not.toHaveBeenCalled();
     expect(claimState.deletes).toBe(0);
+  });
+});
+
+describe('the post-claim re-check', () => {
+  it('never re-stamps a milestone issued between the pre-check and the claim', async () => {
+    // The pre-check read runs before the claim exists; a competing request
+    // can record its stamp in that window. The re-read under the claim is
+    // what closes check-then-act from the other side.
+    claimState.insertResults = [{ error: null }];
+    milestoneState.selectResults = [
+      milestoneState.row, // the pre-check still sees no CFDI
+      { cfdi_status: 'issued', cfdi_uuid: 'UUID-RACED' }, // under the claim, one exists
+    ];
+
+    const res = await post();
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.error.code).toBe('ALREADY_ISSUED');
+    expect(body.error.message).toContain('UUID-RACED');
+    expect(stampMock).not.toHaveBeenCalled();
+    expect(claimState.deletes).toBe(1);
   });
 });
 

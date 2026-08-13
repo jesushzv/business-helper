@@ -363,6 +363,10 @@ export function useQuotes() {
   }, [quotes, statusFilter, searchQuery]);
 
   const resetDemoQuotes = useCallback(() => {
+    // One of the four localStorage surfaces the #93/#96 audit names. No real
+    // caller exists today, but a future wire-up must not re-seed a real
+    // tenant's quote list with fixtures (#113).
+    if (!isClientDemoMode()) return;
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_DEMO_QUOTES));
     setQuotes(INITIAL_DEMO_QUOTES);
   }, []);

@@ -232,10 +232,19 @@ export async function stampInvoice(
  * dares stamp again. A cancelled document does not count: re-issuing after a
  * cancellation is legitimate, exactly as the ALREADY_ISSUED guard treats it.
  */
+/**
+ * A found document also reports its `payment_method` when the list item
+ * carries one: the adopting route must know whether the orphaned document is
+ * PPD — a PPD invoice silently read as PUE skips every complemento de pago
+ * the SAT requires. `null` means the listing did not say, which the caller
+ * must treat as unknown, never as PUE.
+ */
+export type FoundCFDI = StampedCFDI & { paymentMethod: 'PUE' | 'PPD' | null };
+
 export async function findInvoiceByExternalId(
   credentials: PacCredentials,
   externalId: string
-): Promise<PacResult<{ document: StampedCFDI | null }>> {
+): Promise<PacResult<{ document: FoundCFDI | null }>> {
   if (!credentials?.apiKey) {
     return {
       ok: false,
@@ -281,6 +290,10 @@ export async function findInvoiceByExternalId(
             folioNumber: typeof match.folio_number === 'number' ? match.folio_number : null,
             total: typeof match.total === 'number' ? match.total : null,
             stampedAt: typeof match.date === 'string' ? match.date : new Date().toISOString(),
+            paymentMethod:
+              match.payment_method === 'PPD' || match.payment_method === 'PUE'
+                ? match.payment_method
+                : null,
           },
         },
       };

@@ -22,12 +22,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
- * A claim older than this is stale: the stamp call itself is capped at 30s
- * (STAMP_TIMEOUT_MS in lib/pacClient.ts), so a claim still present afterwards
- * belongs to a request that died. The margin covers clock skew between the
- * app and the database — `claimed_at` is written by `now()` server-side.
+ * A claim older than this is stale — sized to a healthy holder's WHOLE
+ * lifetime, not just the stamp call: 30s stamp (STAMP_TIMEOUT_MS) + 20s
+ * document download (DOCUMENT_TIMEOUT_MS) + storage and milestone writes.
+ * A holder can legitimately be alive well past an in-flight minute, and a
+ * threshold that undercuts it would let a second request delete a live claim
+ * and stamp in parallel — the exact race this table exists to prevent. The
+ * remainder is margin for clock skew (`claimed_at` is server-side `now()`).
  */
-export const STAMP_CLAIM_STALE_MS = 45_000;
+export const STAMP_CLAIM_STALE_MS = 120_000;
 
 export type StampClaimAcquisition =
   | { ok: true }
@@ -97,10 +100,15 @@ export async function takeOverStaleClaim(
 ): Promise<StampClaimAcquisition> {
   const staleBefore = new Date(now - STAMP_CLAIM_STALE_MS).toISOString();
 
+  // organization_id is redundant with the PK today, but a service-role delete
+  // has no RLS behind it — the tenant scope travels with the query so a future
+  // caller cannot cross tenants (hard rule #4 applies to the service client
+  // MORE, not less).
   const { error: deleteError } = await service
     .from('cfdi_stamp_claims')
     .delete()
     .eq('milestone_id', milestoneId)
+    .eq('organization_id', organizationId)
     .lt('claimed_at', staleBefore);
 
   if (deleteError) {
@@ -121,6 +129,20 @@ export async function takeOverStaleClaim(
  * on the milestone (the ALREADY_ISSUED read-guard takes over from here).
  * Never called on timeout — the document may exist at the SAT.
  */
-export async function releaseStampClaim(service: any, milestoneId: string): Promise<void> {
-  await service.from('cfdi_stamp_claims').delete().eq('milestone_id', milestoneId);
+export async function releaseStampClaim(
+  service: any,
+  organizationId: string,
+  milestoneId: string
+): Promise<void> {
+  const { error } = await service
+    .from('cfdi_stamp_claims')
+    .delete()
+    .eq('milestone_id', milestoneId)
+    .eq('organization_id', organizationId);
+
+  if (error) {
+    // A failed release self-heals through the stale window, but silently — a
+    // tenant would wait STAMP_CLAIM_STALE_MS wondering why. Say it happened.
+    console.error('[cfdi] failed to release stamp claim:', error.message || error);
+  }
 }

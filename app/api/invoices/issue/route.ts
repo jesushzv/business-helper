@@ -266,7 +266,7 @@ export async function POST(request: Request) {
       // The earlier attempt DID stamp. Record the document the SAT already
       // has instead of leaving the milestone in limbo — and never stamp again.
       const found = search.data.document;
-      await supabase
+      const { error: adoptError } = await supabase
         .from('milestones')
         .update({
           cfdi_id: found.providerInvoiceId,
@@ -275,12 +275,38 @@ export async function POST(request: Request) {
           cfdi_provider: credentials.provider,
           cfdi_environment: credentials.environment,
           cfdi_stamped_at: found.stampedAt,
+          // From the PAC's listing, never from this retry's request body —
+          // the retry can name a different method than the attempt that
+          // actually stamped. `null` means the listing did not say.
+          cfdi_payment_method: found.paymentMethod,
           cfdi_total: found.total ?? null,
-          cfdi_error: null,
+          // The copies were never downloaded here; the PAC still has them.
+          cfdi_error:
+            'La factura se timbró en un intento anterior y no se guardó una copia del XML y PDF. Descárgalos desde tu PAC.',
+          cfdi_xml_url: found.verificationUrl,
+          cfdi_pdf_url: found.verificationUrl,
         })
         .eq('id', milestoneId)
         .eq('organization_id', organizationId);
-      await releaseStampClaim(service, milestoneId);
+
+      if (adoptError) {
+        // The document exists at the SAT and the milestone still does not say
+        // so. The claim is deliberately kept: released, a retry would pass
+        // the ALREADY_ISSUED read and stamp a second document.
+        console.error('[cfdi] found orphaned stamp but failed to record it:', adoptError.message);
+        return NextResponse.json(
+          {
+            error: {
+              code: 'STAMP_NOT_RECORDED',
+              message: `Un intento anterior timbró la factura con folio fiscal ${found.uuid}, pero no se pudo guardar en el cobro. Anota el folio y vuelve a intentarlo.`,
+            },
+            uuid: found.uuid,
+          },
+          { status: 500 }
+        );
+      }
+
+      await releaseStampClaim(service, organizationId, milestoneId);
 
       return NextResponse.json(
         {
@@ -317,7 +343,30 @@ export async function POST(request: Request) {
         error: {
           code: 'STAMP_IN_PROGRESS',
           message:
-            'Ya hay un timbrado en curso para este cobro. Espera unos segundos y actualiza para ver el resultado.',
+            'Ya hay un timbrado en curso para este cobro. Espera unos segundos y actualiza para ver el resultado, o vuelve a intentarlo en unos minutos.',
+        },
+      },
+      { status: 409 }
+    );
+  }
+
+  // The ALREADY_ISSUED pre-check above ran before this request held the
+  // claim. Re-read now that it does: a stamp recorded by a competing request
+  // in between must never be repeated (check-then-act closed on both sides).
+  const { data: recheck } = await supabase
+    .from('milestones')
+    .select('cfdi_status, cfdi_uuid')
+    .eq('id', milestoneId)
+    .eq('organization_id', organizationId)
+    .maybeSingle();
+
+  if (recheck?.cfdi_status === 'issued' && recheck?.cfdi_uuid) {
+    await releaseStampClaim(service, organizationId, milestoneId);
+    return NextResponse.json(
+      {
+        error: {
+          code: 'ALREADY_ISSUED',
+          message: `Este cobro ya tiene una factura timbrada (${recheck.cfdi_uuid}). Cancélala ante el SAT antes de emitir otra.`,
         },
       },
       { status: 409 }
@@ -379,7 +428,7 @@ export async function POST(request: Request) {
     const documentMayExist =
       stamp.code === 'TIMEOUT' || stamp.code === 'UNAVAILABLE' || stamp.code === 'INVALID_RESPONSE';
     if (!documentMayExist) {
-      await releaseStampClaim(service, milestoneId);
+      await releaseStampClaim(service, organizationId, milestoneId);
     }
 
     await recordFailure(stamp.message);
@@ -476,7 +525,7 @@ export async function POST(request: Request) {
 
   // Recorded on the milestone — the ALREADY_ISSUED read-guard takes over from
   // here, so the claim has done its job.
-  await releaseStampClaim(service, milestoneId);
+  await releaseStampClaim(service, organizationId, milestoneId);
 
   await service.from('audit_logs').insert({
     organization_id: organizationId,

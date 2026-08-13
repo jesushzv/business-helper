@@ -50,7 +50,7 @@ interface ClaimState {
   insertResults: Array<{ error: { code?: string; message?: string } | null }>;
   existingClaimedAt: string | null;
   readError: { message: string } | null;
-  deletes: Array<{ milestoneId?: string; staleBefore?: string }>;
+  deletes: Array<{ milestoneId?: string; organizationId?: string; staleBefore?: string }>;
   inserted: Array<Record<string, unknown>>;
 }
 
@@ -73,17 +73,22 @@ function makeService(state: ClaimState) {
         }),
         delete: () => ({
           eq: (_col: string, milestoneId: string) => {
-            const record: { milestoneId?: string; staleBefore?: string } = { milestoneId };
+            const record: { milestoneId?: string; organizationId?: string; staleBefore?: string } =
+              { milestoneId };
             state.deletes.push(record);
-            const thenable = {
-              lt: async (_c: string, staleBefore: string) => {
-                record.staleBefore = staleBefore;
-                return { error: null };
+            return {
+              eq: (_c2: string, organizationId: string) => {
+                record.organizationId = organizationId;
+                return {
+                  lt: async (_c3: string, staleBefore: string) => {
+                    record.staleBefore = staleBefore;
+                    return { error: null };
+                  },
+                  // Awaiting the org-scoped delete directly (releaseStampClaim).
+                  then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
+                };
               },
-              // Awaiting the .eq() directly (releaseStampClaim's shape).
-              then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
             };
-            return thenable;
           },
         }),
       };
@@ -152,6 +157,8 @@ describe('takeOverStaleClaim', () => {
 
     expect(result).toEqual({ ok: true });
     expect(state.deletes[0].milestoneId).toBe('m-1');
+    // Tenant scope travels with the service-role delete (no RLS behind it).
+    expect(state.deletes[0].organizationId).toBe('org-1');
     // The age guard: a claim refreshed between the check and this call survives.
     expect(state.deletes[0].staleBefore).toBe(new Date(NOW - STAMP_CLAIM_STALE_MS).toISOString());
   });
@@ -165,9 +172,9 @@ describe('takeOverStaleClaim', () => {
 });
 
 describe('releaseStampClaim', () => {
-  it('deletes the claim by milestone id', async () => {
-    await releaseStampClaim(makeService(state), 'm-1');
-    expect(state.deletes).toEqual([{ milestoneId: 'm-1' }]);
+  it('deletes the claim scoped by milestone and organization', async () => {
+    await releaseStampClaim(makeService(state), 'org-1', 'm-1');
+    expect(state.deletes).toEqual([{ milestoneId: 'm-1', organizationId: 'org-1' }]);
   });
 });
 

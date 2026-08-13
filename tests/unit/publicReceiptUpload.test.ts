@@ -25,6 +25,8 @@ const state: {
   uploadCalls: Array<{ path: string; options: Record<string, unknown> }>;
   updatedRows: Array<{ id: string }>;
   lastUpdate: { values?: Record<string, unknown> } | null;
+  /** Object names present in the bucket under org-1/ — feeds storage.list. */
+  storedObjects: string[];
 } = {
   configured: true,
   milestones: [],
@@ -32,6 +34,7 @@ const state: {
   uploadCalls: [],
   updatedRows: [{ id: 'm-1' }],
   lastUpdate: null,
+  storedObjects: [],
 };
 
 vi.mock('@/lib/supabase/service', () => ({
@@ -75,6 +78,12 @@ vi.mock('@/lib/supabase/service', () => ({
         },
         getPublicUrl: (path: string) => ({
           data: { publicUrl: `https://project.supabase.co/storage/v1/object/public/spei-vouchers/${path}` },
+        }),
+        list: async (_folder: string, options?: { search?: string }) => ({
+          data: state.storedObjects
+            .filter((name) => !options?.search || name.includes(options.search))
+            .map((name) => ({ name })),
+          error: null,
         }),
       }),
     },
@@ -123,6 +132,7 @@ beforeEach(() => {
   state.uploadCalls = [];
   state.updatedRows = [{ id: 'm-1' }];
   state.lastUpdate = null;
+  state.storedObjects = [];
 });
 
 describe('POST /api/receivables/public/[token]/upload', () => {
@@ -178,6 +188,16 @@ describe('POST /api/receivables/public/[token]/upload', () => {
     expect(body.receipt_path).toBeUndefined();
   });
 
+  it('refuses uploads past the per-milestone cap — an unauthenticated surface is not free hosting', async () => {
+    state.storedObjects = Array.from({ length: 10 }, (_, i) => `spei_m-1_${1723500000000 + i}.png`);
+    const res = await post(PNG_BYTES, 'c.png', 'image/png');
+    const body = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(body.error.code).toBe('RECEIPT_UPLOAD_LIMIT');
+    expect(state.uploadCalls).toHaveLength(0);
+  });
+
   it('answers 503 on the demo deployment instead of pretending to store', async () => {
     state.configured = false;
     const res = await post(PNG_BYTES, 'c.png', 'image/png');
@@ -202,6 +222,7 @@ describe('the declaration write never stores a caller-supplied URL (#85)', () =>
   });
 
   it('turns a valid receipt_path into the storage URL server-side', async () => {
+    state.storedObjects = ['spei_m-1_1723500000000.png'];
     const res = await post({ receipt_path: 'org-1/spei_m-1_1723500000000.png' });
 
     expect(res.status).toBe(200);
@@ -212,6 +233,19 @@ describe('the declaration write never stores a caller-supplied URL (#85)', () =>
 
   it('refuses a path minted for another org or milestone, and writes nothing', async () => {
     const res = await post({ receipt_path: 'org-2/spei_m-9_1723500000000.png' });
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe('INVALID_RECEIPT_PATH');
+    expect(state.lastUpdate).toBeNull();
+  });
+
+  it('refuses a well-formed path whose object was never uploaded — no deliberate dead links', async () => {
+    // Shape is not existence: a payer who edits the timestamp would otherwise
+    // hand the vendor a receipt link that resolves nothing (#85's defect,
+    // minted on purpose).
+    state.storedObjects = [];
+    const res = await post({ receipt_path: 'org-1/spei_m-1_9999999999999.png' });
     const body = await res.json();
 
     expect(res.status).toBe(400);

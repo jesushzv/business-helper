@@ -26,6 +26,9 @@ import {
  * with the storage path; the declaration POST turns it back into a URL after
  * validating it against the same org and milestone.
  */
+/** Per-milestone ceiling on stored receipts — one real receipt plus retries. */
+const RECEIPT_UPLOADS_PER_MILESTONE = 10;
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
@@ -103,6 +106,27 @@ export async function POST(
         400,
         'INVALID_FILE',
         'El archivo no es una imagen PNG, JPG ni un documento PDF válido.'
+      );
+    }
+
+    // Anti-abuse cap: this is an unauthenticated surface writing to a
+    // public-read bucket, and every upload lands at a fresh timestamped path.
+    // A vendor needs one receipt and maybe a few retries per milestone — not
+    // unbounded free hosting under the tenant's storage. A failed count reads
+    // as unknown and does not block: the upload itself still fails loudly if
+    // storage is down.
+    const { data: existing } = await supabase.storage
+      .from(SPEI_VOUCHERS_BUCKET)
+      .list(quote.organization_id, {
+        search: `spei_${target.id}_`,
+        limit: RECEIPT_UPLOADS_PER_MILESTONE + 1,
+      });
+
+    if ((existing?.length ?? 0) >= RECEIPT_UPLOADS_PER_MILESTONE) {
+      return publicApiError(
+        429,
+        'RECEIPT_UPLOAD_LIMIT',
+        'Se alcanzó el límite de comprobantes para este cobro. Contacta directamente al negocio.'
       );
     }
 

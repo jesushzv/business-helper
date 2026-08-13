@@ -230,6 +230,27 @@ export async function POST(
           'El comprobante no corresponde a este cobro. Vuelve a adjuntarlo.'
         );
       }
+
+      // Shape is not existence: a payer who edits the timestamp in a
+      // well-formed path would hand the vendor a link to nothing — #85's dead
+      // link, minted deliberately. Only a path whose object is actually in
+      // the bucket becomes the vendor's evidence link.
+      const [folder, filename] = [
+        body.receipt_path.slice(0, body.receipt_path.indexOf('/')),
+        body.receipt_path.slice(body.receipt_path.indexOf('/') + 1),
+      ];
+      const { data: objects, error: listError } = await supabase.storage
+        .from(SPEI_VOUCHERS_BUCKET)
+        .list(folder, { search: filename, limit: 1 });
+
+      if (listError || !objects?.some((o: { name: string }) => o.name === filename)) {
+        return publicApiError(
+          400,
+          'INVALID_RECEIPT_PATH',
+          'El comprobante no corresponde a este cobro. Vuelve a adjuntarlo.'
+        );
+      }
+
       const { data: publicUrlData } = supabase.storage
         .from(SPEI_VOUCHERS_BUCKET)
         .getPublicUrl(body.receipt_path);
