@@ -5,8 +5,8 @@ this file is the authority for *the defects this repo actually produces*. Both a
 start of every session — if your harness did not inline this file, open it before your first edit.
 Where this file and the code disagree, the code wins: fix this file in the same PR.
 
-**Why separate:** a no-headroom always-read doc manufactures merge conflicts, and the cheap
-resolution drops lessons under a green build (#135). Keep headroom here.
+**Why separate:** a no-headroom always-read doc manufactures merge conflicts (#135). Keep
+headroom here.
 
 **How to add one.** New lessons go here, not `CLAUDE.md`; append to the section that fits rather
 than re-flowing its neighbours, so conflicts stay append-vs-append. A lesson backed by a
@@ -35,9 +35,8 @@ not earned.
   the fetch — never as a `catch` fallback** (#58, #86). A catch-fallback turns a real tenant's
   network failure into a fake confirmation: `/pay/[token]` told a payer "Comprobante enviado
   correctamente" for a declaration the API had rejected.
-- **Placeholder identifiers are the same rule in a UI costume** (#44, #78, #96): `token || 'demo'`,
-  `regimen_fiscal || '601'` render as a live control or a settled fact. Absent is absent — render
-  the **disabled** control and **name the record** to fix. `tests/unit/placeholderIdentifiers.test.ts`
+- **Placeholder identifiers are the same rule in a UI costume** (#44, #78, #96): absent is absent —
+  render the **disabled** control and **name the record** to fix. `tests/unit/placeholderIdentifiers.test.ts`
   scans demo/phone-shaped fallbacks and any `||`/`??` default on a CFDI-identity field (#179).
 - **A verification script's exit code is a claim.** `verify:webhook` printed "All 4 checks passed"
   for a run that skipped the two protecting money — and those four passed against an endpoint with
@@ -55,9 +54,7 @@ not earned.
   the final total. All green under mocked `fetch`, all found in one live pass. Exercise each
   provider assumption live once; mocks then pin the *observed* shapes.
 
-- **A provider-issued id must never have a literal default** (#68):
-  `STRIPE_PRICE_NEGOCIO || 'price_negocio_599_mxn'` fails with the *same* message a Stripe outage
-  produces, so misconfiguration and incident were indistinguishable. Resolve from the environment,
+- **A provider-issued id must never have a literal default** (#68): resolve from the environment,
   return `null`, name the variable. `tests/unit/stripePriceMap.test.ts` scans for `price_*` literals.
 
 ## Client/server state
@@ -135,9 +132,8 @@ not earned.
 ## Client and API wiring
 
 - **A client `fetch` calling a method its route does not export** (#95) and **key names that do not
-  match the body's** (#96) both ship as swallowed failures reported as success. Read bodies through
-  `pickFields(body, <ENTITY>_WRITABLE_FIELDS)`; assert on what reaches the DB layer, not what
-  `fetch` got. Gates: `tests/unit/clientFetchMethods.test.ts`, `tests/unit/clientWritePath.test.ts`.
+  match the body's** (#96) ship as swallowed failures reported as success. Gates:
+  `tests/unit/clientFetchMethods.test.ts`, `tests/unit/clientWritePath.test.ts`.
 - **The demo persona lives behind `isClientDemoMode()` and nowhere else** (#93). Chrome identity
   comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
   `lib/whatsappLink.ts`. `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak.
@@ -156,6 +152,11 @@ not earned.
 - **One `catch`-all 500 on a write is a diagnosis you threw away** (#146). Map the code to a
   Spanish cause naming the column and `captureException` the original: `lib/dbWriteError.ts` is the
   reference, `tests/unit/writeErrorLegibility.test.ts` the gate.
+- **A conditional button morphs under the click that switches it** (#91). React reconciles
+  `cond ? <button type="button"> : <button type="submit">` as one DOM node, so the click's default
+  action ran against the morphed submit — quote created from step 2, review step never shown.
+  jsdom skips default actions: only E2E sees it. Distinct `key`s force node replacement;
+  `tests/components/QuoteWizardModal.test.tsx` pins it.
 - **localStorage is demo-sandbox state, never a real tenant's store.** Real tenants read the API
   (an empty list is a real answer), see errors as errors, and their mutations apply the server row
   or throw. Seeding fixtures on a failed fetch is how a new tenant's directory opened with three
@@ -179,7 +180,7 @@ not earned.
 - CI has been **silently absent** on a draft PR for ten hours while Vercel showed green (#38), and
   it skips the odd later push. Compare the run's head SHA to the PR's — absence looks identical to
   passing; a merge commit re-triggers it.
-- E2E is not in CI: never cite Playwright results you didn't run.
+- E2E is in CI since #91 — still never cite Playwright results you didn't run.
 - Docs drift is a known failure mode (the roadmap once claimed 100% while integrations were
   simulated). Where a doc contradicts the code, the code wins — fix it same-PR.
 - **In a remote session, local `main` can be stale — cut branches from `origin/main` after an

@@ -118,6 +118,38 @@ describe('Precio Unitario carries the price the owner typed', () => {
   });
 });
 
+describe('advancing to the review step replaces the button node', () => {
+  /**
+   * The step 2 → 3 transition swaps "Siguiente" for "Generar y Compartir".
+   * Reconciled as the SAME DOM node, the click that advances the step mutates
+   * the button it is being dispatched on from type="button" to type="submit",
+   * and a real browser then runs the click's default action against the
+   * morphed node — submitting the form. The tenant never saw the review step:
+   * the quote was created the instant they left step 2, skipping the credit
+   * warning and the bank-account picker. jsdom does not evaluate default
+   * actions this way (the sibling test above clicks the same sequence and
+   * stays green either way), so this pins the mechanism — the node must be
+   * replaced, not morphed — and E2E scenario 02 pins the user-visible flow.
+   */
+  it('does not morph Siguiente into the submit button under the in-flight click', () => {
+    renderWizard();
+    goToLineItems();
+    fillFirstItem('150', '2');
+
+    const nextButton = next();
+    fireEvent.click(nextButton);
+
+    // We advanced to the review step…
+    expect(screen.getByText(/Resumen y Confirmación/i)).toBeTruthy();
+
+    // …and the submit button is a NEW node; the one the click landed on is
+    // gone from the document, so the default action cannot re-target it.
+    const submitButton = screen.getByRole('button', { name: /Generar y Compartir/i });
+    expect(submitButton).not.toBe(nextButton);
+    expect(nextButton.isConnected).toBe(false);
+  });
+});
+
 describe('an incomplete concepto says so', () => {
   it('names the field instead of leaving Siguiente inert', () => {
     renderWizard();

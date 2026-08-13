@@ -1,8 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import * as path from 'path';
-import * as fs from 'fs';
 
-const ARTIFACT_DIR = '/Users/jhzamora/.gemini/antigravity-ide/brain/5a4eec02-95e6-40bb-82d7-a6dd971900ee';
+// Where the captures land. The default keeps them with Playwright's other
+// output; override with E2E_MEDIA_DIR. (This file used to hardwire an
+// absolute path on one specific laptop, so it failed everywhere else.)
+const ARTIFACT_DIR = process.env.E2E_MEDIA_DIR || path.join('test-results', 'media');
 
 // Configure video recording directory
 test.use({
