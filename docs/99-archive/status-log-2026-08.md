@@ -862,3 +862,12 @@ choice.
   quotes, contract conversion, CFDI stamping, complementos and outbound reminders (#195 widened
   this past quotes alone); collecting, correcting and every public `/q/` and `/pay/` page stay
   open. Both migrations applied and read back.
+
+## #204 — production held schema no migration creates (resolved 2026-08-12; moved from STATUS §02 on 2026-08-13 for the size budget)
+
+Migration `20260812060000` drops the redundant `idx_organizations_owner_id` and declares
+`idx_organizations_trial_ends_at`; applied to production and the catalog read back — every index on
+`organizations` now matches a migration. (The issue's *column* claim was wrong; `trial_ends_at` was
+declared all along in `20260811150000_organization_trial.sql`.) Before resolution this was #96's
+defect with the arrow reversed: a fresh database (including CI's) did not match production, so
+nothing depending on `trial_ends_at` could be trusted to behave the same in both.

@@ -90,14 +90,8 @@ organizations, so #168's "0 duplicates" was stale — and the older was deleted 
 quote. The decision behind it is recorded; [#109](https://github.com/jesushzv/business-helper/issues/109)
 is still open on the tracker.
 
-**~~Production holds schema no migration creates~~ Resolved 2026-08-12** ([#204](https://github.com/jesushzv/business-helper/issues/204)):
-migration `20260812060000` drops the redundant `idx_organizations_owner_id` and declares
-`idx_organizations_trial_ends_at`; applied to production and the catalog read back — every index on
-`organizations` now matches a migration. (The issue's *column* claim was wrong; `trial_ends_at` was
-declared all along in `20260811150000_organization_trial.sql`.) The stale text this replaces said the
-column was undeclared —
-This is #96's defect with the arrow reversed, and it means a fresh database (including CI's) does not
-match production. Nothing depending on `trial_ends_at` can be trusted to behave the same in both.
+**Schema/catalog divergence (#204) resolved 2026-08-12** — every index on `organizations` matches a
+migration, verified against `pg_indexes`; the full account is in the archive.
 
 ---
 
