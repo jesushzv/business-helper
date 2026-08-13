@@ -228,7 +228,7 @@ describe('POST /api/ai/support with Gemini configured', () => {
 
     expect(response.status).toBe(200);
     expect(data.engine).toBe('rules');
-    expect(data.response.answerText).toContain('COTIZACIONES');
+    expect(data.response.answerText).toContain('Cotizaciones:'); // the category as copy, not the raw slug (#274)
     expect(vi.mocked(captureException)).toHaveBeenCalledTimes(1);
   });
 
@@ -244,7 +244,7 @@ describe('POST /api/ai/support with Gemini configured', () => {
 
     expect(response.status).toBe(200);
     expect(data.engine).toBe('rules');
-    expect(data.response.answerText).toContain('COTIZACIONES');
+    expect(data.response.answerText).toContain('Cotizaciones:'); // the category as copy, not the raw slug (#274)
     expect(vi.mocked(resolveAIModelBudget)).not.toHaveBeenCalled();
     expect(vi.mocked(generateGeminiText)).not.toHaveBeenCalled();
   });

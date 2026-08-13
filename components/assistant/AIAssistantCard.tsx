@@ -11,6 +11,19 @@ const SUGGESTED_QUERIES = [
   '¿Cuánto hemos cobrado este mes?'
 ];
 
+/**
+ * What tapping the WhatsApp link will actually do, by intent (#274). The one
+ * label "Enviar Recordatorio por WhatsApp" covered answers with nobody to
+ * remind — a FAQ how-to, the human handoff, a summary of the tenant's own
+ * numbers.
+ */
+function ctaLabelFor(item: { intent: string; matchedClient: string | null }): string {
+  if (item.intent === 'human_handoff_request') return 'Chatear con soporte por WhatsApp';
+  if (item.intent === 'app_support_faq') return 'Preguntar a soporte por WhatsApp';
+  if (item.matchedClient) return 'Enviar Recordatorio por WhatsApp';
+  return 'Compartir resumen por WhatsApp';
+}
+
 export function AIAssistantCard() {
   const { query, setQuery, history, loading, error, isDemoMode, askAssistant } = useAIAssistant();
 
@@ -139,16 +152,22 @@ export function AIAssistantCard() {
                 </span>
               )}
 
-              <a
-                href={item.whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="min-h-[48px] px-5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl transition-all flex items-center gap-2 text-sm shadow-md ml-auto"
-              >
-                <MessageSquare className="w-4 h-4" />
-                Enviar Recordatorio por WhatsApp
-                <ArrowRight className="w-4 h-4" />
-              </a>
+              {/* Labeled by what the link actually does (#274): "Enviar
+                  Recordatorio" on a FAQ or handoff answer promised an action
+                  with nobody to remind. No URL — the handoff with no support
+                  line configured — renders no button at all (#296). */}
+              {item.whatsappUrl && (
+                <a
+                  href={item.whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[48px] px-5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl transition-all flex items-center gap-2 text-sm shadow-md ml-auto"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  {ctaLabelFor(item)}
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              )}
             </div>
           </div>
         ))}

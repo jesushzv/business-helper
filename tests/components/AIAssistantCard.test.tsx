@@ -144,3 +144,55 @@ describe('the sample ledger stays inside the marketing demo', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * #274 (kin) / #296 — the WhatsApp CTA says what it does, and exists only
+ * when there is somewhere to go.
+ */
+describe('the CTA is labeled by intent', () => {
+  async function askAndGet(answer: Record<string, unknown>) {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { engine: 'rules', ...answer }));
+    render(<AIAssistantCard />);
+    fireEvent.change(askInput(), { target: { value: 'pregunta' } });
+    fireEvent.click(send());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  }
+
+  it('offers a reminder only when a client was identified', async () => {
+    await askAndGet(REAL_ANSWER);
+
+    await screen.findByRole('link', { name: /Enviar Recordatorio por WhatsApp/i });
+  });
+
+  it('labels a FAQ answer as asking support, not as reminding a client', async () => {
+    // "Enviar Recordatorio" on a how-to promised an action with nobody to
+    // remind (#274).
+    await askAndGet({
+      query: '¿Cómo facturo?',
+      intent: 'app_support_faq',
+      matchedClient: null,
+      totalOverdue: 0,
+      answerText: '📌 Facturación SAT: conecta tu PAC…',
+      whatsappUrl: 'https://wa.me/5218112345678?text=Consulta',
+    });
+
+    await screen.findByRole('link', { name: /Preguntar a soporte por WhatsApp/i });
+    expect(screen.queryByRole('link', { name: /Enviar Recordatorio/i })).toBeNull();
+  });
+
+  it('renders no chat button at all when the answer carries no link (#296)', async () => {
+    // The handoff with no support line configured: promising a chat that
+    // opens nowhere is the fabrication the issue names.
+    await askAndGet({
+      query: 'quiero hablar con un humano',
+      intent: 'human_handoff_request',
+      matchedClient: null,
+      totalOverdue: 0,
+      answerText: 'Escríbenos a soporte@businesshelper.app y te respondemos por correo.',
+      whatsappUrl: '',
+    });
+
+    await screen.findByText(/soporte@businesshelper\.app/i);
+    expect(screen.queryByRole('link', { name: /WhatsApp/i })).toBeNull();
+  });
+});

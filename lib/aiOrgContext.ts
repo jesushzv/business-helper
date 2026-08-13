@@ -42,7 +42,7 @@ export async function loadAIOrgContext(
   supabase: any,
   organizationId: string
 ): Promise<AIOrgData> {
-  const [{ data: clients }, { data: milestones }] = await Promise.all([
+  const [{ data: clients }, { data: milestones }, { data: confirmed }] = await Promise.all([
     supabase
       .from('clients')
       .select('id, name, phone')
@@ -52,6 +52,14 @@ export async function loadAIOrgContext(
       .select('id, label, amount, status, due_date, contracts(client_id)')
       .eq('organization_id', organizationId)
       .in('status', OPEN_MILESTONE_STATUSES),
+    // Confirmed payments, for "¿cuánto hemos cobrado?" (#274): the context
+    // used to hold only open milestones, so the question was answered with the
+    // por-cobrar total — the semantic opposite of what was asked.
+    supabase
+      .from('milestones')
+      .select('id, amount, confirmed_at, contracts(client_id)')
+      .eq('organization_id', organizationId)
+      .eq('status', 'confirmed'),
   ]);
 
   return {
@@ -66,6 +74,13 @@ export async function loadAIOrgContext(
       amount: typeof m.amount === 'string' ? Number(m.amount) : m.amount,
       status: m.status,
       label: m.label,
+      // Carried through since #274: the due-today intent filters on it.
+      due_date: m.due_date ?? null,
+    })),
+    collected: (confirmed || []).map((m: MilestoneContextRow & { confirmed_at?: string | null }) => ({
+      clientId: contractClientId(m),
+      amount: typeof m.amount === 'string' ? Number(m.amount) : m.amount,
+      confirmed_at: m.confirmed_at ?? null,
     })),
   };
 }
