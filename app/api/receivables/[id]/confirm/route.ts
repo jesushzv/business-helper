@@ -187,8 +187,17 @@ async function fileComplementIfOwed(ctx: ComplementContext): Promise<Record<stri
     }
 
     // A milestone with no PPD invoice is the common case and says nothing worth
-    // reporting; the response stays the confirmed milestone.
-    if (!outcome.issued) return {};
+    // reporting — except the one skip the tenant must hear (decided on #213):
+    // an issued invoice whose método de pago is unknown may owe the SAT a
+    // complement nobody filed. SpeiConfirmModal holds open on
+    // `complement.warning` (#238's plumbing), so the fact reaches the person
+    // who can act on it instead of dying with the modal.
+    if (!outcome.issued) {
+      if (outcome.reason === 'unknown_method') {
+        return { complement: { warning: outcome.message } };
+      }
+      return {};
+    }
 
     return { complement: outcome.complement };
   } catch (error) {
