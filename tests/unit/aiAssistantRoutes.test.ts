@@ -116,6 +116,7 @@ describe('POST /api/ai/assistant with Gemini configured', () => {
 
   it('degrades to the labeled rules answer when Gemini fails, and reports the failure', async () => {
     vi.mocked(generateGeminiText).mockRejectedValueOnce(new Error('Gemini respondió 503'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const response = await assistantPOST(request('/api/ai/assistant', { query: '¿Cuánto debe Constructora Maya?' }));
     const data = await response.json();
@@ -124,8 +125,12 @@ describe('POST /api/ai/assistant with Gemini configured', () => {
     expect(data.engine).toBe('rules');
     expect(data.answerText).toContain('saldo pendiente');
     expect(vi.mocked(captureException)).toHaveBeenCalledTimes(1);
+    // The reason must also reach stdout (Vercel logs): with Sentry configured
+    // the degradation was otherwise invisible outside the Sentry dashboard.
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Gemini no disponible'), 'Gemini respondió 503');
     // A failed model call is not a model answer — it must not be billed.
     expect(vi.mocked(recordModelAnswer)).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 
   it('never calls the model when the key is unset', async () => {

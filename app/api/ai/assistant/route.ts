@@ -86,6 +86,11 @@ export async function POST(request: Request) {
           engine = 'gemini';
           await recordModelAnswer(service, organizationId);
         } catch (err) {
+          // Also to stdout: the degradation is invisible in Vercel logs when
+          // Sentry is configured, and reading the status there is how the
+          // "always Calculada con reglas" report gets a cause. The message
+          // carries only a status or reason — never the key.
+          console.warn('[AI] Gemini no disponible, respondiendo con reglas:', err instanceof Error ? err.message : String(err));
           captureException(err, { organization_id: organizationId, route: '/api/ai/assistant', level: 'warning' });
         }
       }
