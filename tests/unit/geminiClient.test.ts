@@ -27,21 +27,34 @@ describe('Gemini client configuration', () => {
     expect(isGeminiConfigured(envWithKey())).toBe(true);
   });
 
-  it('uses the default model unless GEMINI_MODEL overrides it', () => {
-    expect(geminiModel({})).toBe('gemini-2.5-flash');
+  it('defaults to the rolling -latest alias unless GEMINI_MODEL overrides it', () => {
+    // The pinned gemini-2.5-flash id began returning 404 for new API keys in
+    // July 2026 — the alias is what keeps a hardcoded default from rotting.
+    expect(geminiModel({})).toBe('gemini-flash-latest');
     expect(geminiModel({ GEMINI_MODEL: 'gemini-2.5-pro' })).toBe('gemini-2.5-pro');
   });
 
-  // Gemini 2.5 thinks by default and thought tokens spend maxOutputTokens
-  // before any visible text: with the old 512-token budget and no
-  // thinkingConfig, live calls came back as an empty candidate
-  // (finishReason: MAX_TOKENS), so every assistant answer silently degraded
-  // to the rules engine. Flash disables thinking; Pro refuses a zero budget.
-  it('disables thinking for flash models and leaves pro models alone', () => {
+  // Thought tokens spend maxOutputTokens before any visible text: with the
+  // old 512-token budget and no thinkingConfig, live calls came back as an
+  // empty candidate (finishReason: MAX_TOKENS), so every assistant answer
+  // silently degraded to the rules engine. Each API generation caps thinking
+  // its own way: 2.5 flash takes thinkingBudget 0, 2.5 pro refuses a zero
+  // budget, and Gemini 3+/the aliases take the thinkingLevel enum instead
+  // (with temperature left at its default, per Google's 3.x guidance).
+  it('caps thinking per model generation', () => {
     expect(geminiGenerationConfig('gemini-2.5-flash')).toMatchObject({
+      temperature: 0.2,
       thinkingConfig: { thinkingBudget: 0 },
     });
     expect(geminiGenerationConfig('gemini-2.5-pro')).not.toHaveProperty('thinkingConfig');
+    expect(geminiGenerationConfig('gemini-flash-latest')).toEqual({
+      maxOutputTokens: 2048,
+      thinkingConfig: { thinkingLevel: 'low' },
+    });
+    expect(geminiGenerationConfig('gemini-3.6-flash')).toMatchObject({
+      thinkingConfig: { thinkingLevel: 'low' },
+    });
+    expect(geminiGenerationConfig('gemini-3.6-flash')).not.toHaveProperty('temperature');
   });
 });
 
@@ -69,14 +82,14 @@ describe('generateGeminiText', () => {
 
     expect(text).toBe('Respuesta del modelo.');
     const [url, init] = fetchMock.mock.calls[0];
-    expect(String(url)).toContain('/models/gemini-2.5-flash:generateContent');
+    expect(String(url)).toContain('/models/gemini-flash-latest:generateContent');
     // The key travels in a header only — a URL lands in request logs.
     expect(String(url)).not.toContain(KEY);
     expect(init.headers['x-goog-api-key']).toBe(KEY);
-    // The wire request must carry the no-thinking config: without it the
-    // token budget is spent on thoughts and the answer arrives empty.
+    // The wire request must cap thinking: without it the token budget is
+    // spent on thoughts and the answer arrives empty (MAX_TOKENS).
     const body = JSON.parse(init.body);
-    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingLevel: 'low' });
     expect(body.generationConfig.maxOutputTokens).toBeGreaterThanOrEqual(1024);
   });
 
