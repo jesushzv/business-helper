@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { OrgProfileCard } from '@/components/settings/OrgProfileCard';
 import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard';
@@ -298,13 +298,15 @@ describe('branding offers no control it cannot keep', () => {
     expect(usd.disabled).toBe(true);
   });
 
-  it('marks the currency as pending, the way the colour and lema already are', () => {
+  it('marks the currency as pending, the way the colour already is', () => {
     render(
       <BrandingSettingsCard settings={SERVER_ROW} onSave={vi.fn()} saving={false} canEdit />
     );
 
-    // Three "Muy pronto" markers now: colour, lema placeholder, divisa.
-    expect(screen.getAllByText(/Muy pronto/i).length).toBeGreaterThanOrEqual(2);
+    // Scoped to the divisa label: a bare count over the whole card passes on
+    // the colour group's marker alone and says nothing about this one.
+    const label = document.getElementById('branding-currency-label') as HTMLElement;
+    expect(within(label).getByText(/Muy pronto/i)).toBeTruthy();
   });
 
   it('submits only the field that has somewhere to persist', async () => {

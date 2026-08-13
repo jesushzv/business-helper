@@ -227,25 +227,37 @@ describe('a role change shows what the server recorded, not what was clicked', (
     invitations: [],
   };
 
-  it('does not move the row until the PATCH lands', async () => {
+  it('does not move the row while the PATCH is still in flight', async () => {
     // It used to set the new role optimistically and revert on failure, so a
     // refusal read as a permission that appeared and then vanished.
+    //
+    // Asserted against an *unresolved* request on purpose: once the revert has
+    // run, the end state is identical either way, so a test that waits for the
+    // error cannot tell the optimistic write from its absence.
     fetchMock.mockResolvedValueOnce(jsonResponse(200, TEAM_AS_OWNER));
     render(<TeamMembersCard />);
     await screen.findByText('Mariana Sada');
 
-    fetchMock.mockResolvedValueOnce(
+    let releasePatch: (value: Response) => void = () => {};
+    fetchMock.mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        releasePatch = resolve;
+      })
+    );
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'manager' } });
+
+    // Mid-flight: nothing has been recorded, so nothing may be shown.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('Gerente Operativo')).toBeNull();
+    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('member');
+
+    releasePatch(
       jsonResponse(403, { error: { code: 'FORBIDDEN', message: 'Tu rol no permite cambiar permisos' } })
     );
 
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'manager' } });
-
     await screen.findByText(/Tu rol no permite cambiar permisos/i);
-    // The row never claimed the change: no promoted badge, and the control is
-    // still showing the role the server holds.
     expect(screen.queryByText('Gerente Operativo')).toBeNull();
-    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('member');
   });
 
   it('applies the role the response echoes back', async () => {
