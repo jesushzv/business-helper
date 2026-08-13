@@ -11,7 +11,12 @@ import {
   validateInvoiceParties,
 } from '@/lib/facturapi';
 import { resolvePacCredentials } from '@/lib/pacConnection';
-import { downloadCFDIDocuments, stampInvoice } from '@/lib/pacClient';
+import { downloadCFDIDocuments, findInvoiceByExternalId, stampInvoice } from '@/lib/pacClient';
+import {
+  acquireStampClaim,
+  takeOverStaleClaim,
+  releaseStampClaim,
+} from '@/lib/cfdiStampClaim';
 import { storeCFDIDocuments } from '@/lib/cfdiStorage';
 import { getAppBaseUrl } from '@/lib/url';
 import { track } from '@/lib/analytics';
@@ -227,6 +232,98 @@ export async function POST(request: Request) {
       .eq('organization_id', organizationId);
   };
 
+  // The external_id every attempt for this milestone sends — and the key the
+  // stale-claim reconciliation searches for at the PAC.
+  const externalId = `milestone:${milestoneId}`;
+
+  // Claim before stamping (#213). The ALREADY_ISSUED read above is
+  // check-then-act — two concurrent requests both pass it, both stamp — and
+  // Facturapi's external_id deduplicates nothing (verified live, #26). The
+  // primary key on cfdi_stamp_claims makes the second claimant collide here
+  // instead of issuing a second document the SAT has on record.
+  let claim = await acquireStampClaim(service, organizationId, milestoneId, userId);
+
+  if (!claim.ok && claim.reason === 'stale') {
+    // A previous attempt died holding the claim — after a timeout the document
+    // may exist at the SAT, so the claim is released only once the PAC's own
+    // list confirms no document carries this milestone's external_id.
+    const search = await findInvoiceByExternalId(credentials, externalId);
+
+    if (!search.ok) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'STAMP_RECONCILIATION_FAILED',
+            message:
+              'Un intento anterior de timbrado no terminó y no se pudo verificar con tu PAC si la factura ya existe. Intenta de nuevo en unos minutos.',
+          },
+        },
+        { status: 502 }
+      );
+    }
+
+    if (search.data.document) {
+      // The earlier attempt DID stamp. Record the document the SAT already
+      // has instead of leaving the milestone in limbo — and never stamp again.
+      const found = search.data.document;
+      await supabase
+        .from('milestones')
+        .update({
+          cfdi_id: found.providerInvoiceId,
+          cfdi_uuid: found.uuid,
+          cfdi_status: 'issued',
+          cfdi_provider: credentials.provider,
+          cfdi_environment: credentials.environment,
+          cfdi_stamped_at: found.stampedAt,
+          cfdi_total: found.total ?? null,
+          cfdi_error: null,
+        })
+        .eq('id', milestoneId)
+        .eq('organization_id', organizationId);
+      await releaseStampClaim(service, milestoneId);
+
+      return NextResponse.json(
+        {
+          error: {
+            code: 'ALREADY_ISSUED',
+            message: `Un intento anterior sí timbró la factura (folio fiscal ${found.uuid}). Ya quedó registrada en este cobro; no se emitió una nueva.`,
+          },
+          uuid: found.uuid,
+        },
+        { status: 409 }
+      );
+    }
+
+    claim = await takeOverStaleClaim(service, organizationId, milestoneId, userId);
+  }
+
+  if (!claim.ok) {
+    if (claim.reason === 'error') {
+      // Fail closed: without the claim, a concurrent request could stamp a
+      // second document the SAT has on record.
+      return NextResponse.json(
+        {
+          error: {
+            code: 'STAMP_CLAIM_FAILED',
+            message: 'No se pudo iniciar el timbrado de forma segura. Intenta de nuevo.',
+          },
+        },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: {
+          code: 'STAMP_IN_PROGRESS',
+          message:
+            'Ya hay un timbrado en curso para este cobro. Espera unos segundos y actualiza para ver el resultado.',
+        },
+      },
+      { status: 409 }
+    );
+  }
+
   // 'pending' before the call, not after: if the PAC times out, the milestone
   // must not still read as never attempted while a document may exist.
   await supabase
@@ -266,13 +363,25 @@ export async function POST(request: Request) {
     items: [buildMilestoneLineItem(description, amountOf(milestone.amount), treatment)],
   };
 
-  // The milestone id rides along as external_id for reconciliation — Facturapi
-  // does NOT deduplicate on it (verified live 2026-08-12, #26): a retried click
-  // after a timeout CAN stamp a second document. The ALREADY_ISSUED read above
-  // is the only guard and it races; the DB-side claim is filed separately.
-  const stamp = await stampInvoice(credentials, payload, `milestone:${milestoneId}`);
+  // The milestone id rides along as external_id — a correlation id for the
+  // stale-claim reconciliation above, NOT a guard: Facturapi does not
+  // deduplicate on it (verified live 2026-08-12, #26). The guard is the claim
+  // this request now holds.
+  const stamp = await stampInvoice(credentials, payload, externalId);
 
   if (!stamp.ok) {
+    // REJECTED/UNAUTHORIZED/NOT_CONFIGURED are definitive: the PAC answered
+    // (or was never called) and no document exists, so the claim is released
+    // and a genuine retry can proceed. TIMEOUT, UNAVAILABLE and
+    // INVALID_RESPONSE are not — the document may exist at the SAT — so the
+    // claim is kept, and the next attempt reconciles it against the PAC's
+    // list once it goes stale.
+    const documentMayExist =
+      stamp.code === 'TIMEOUT' || stamp.code === 'UNAVAILABLE' || stamp.code === 'INVALID_RESPONSE';
+    if (!documentMayExist) {
+      await releaseStampClaim(service, milestoneId);
+    }
+
     await recordFailure(stamp.message);
 
     return NextResponse.json(
@@ -348,7 +457,10 @@ export async function POST(request: Request) {
 
   if (updateError) {
     // The document is stamped and the folio spent; losing the row would leave a
-    // CFDI nobody can find. Report it loudly with the UUID in hand.
+    // CFDI nobody can find. Report it loudly with the UUID in hand. The claim
+    // is deliberately NOT released: the milestone does not say 'issued', so
+    // without it a retry would stamp a second document — held, the retry hits
+    // the stale-claim reconciliation and adopts this one instead.
     console.error('[cfdi] stamped but failed to record milestone:', updateError.message);
     return NextResponse.json(
       {
@@ -361,6 +473,10 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+
+  // Recorded on the milestone — the ALREADY_ISSUED read-guard takes over from
+  // here, so the claim has done its job.
+  await releaseStampClaim(service, milestoneId);
 
   await service.from('audit_logs').insert({
     organization_id: organizationId,
