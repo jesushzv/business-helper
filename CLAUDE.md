@@ -55,15 +55,16 @@ project; agents author most PRs and the issue tracker doubles as the engineering
 | `npm run test:coverage` | Gate: 85% lines/statements, 80% functions/branches |
 | `npm run test:e2e` | Playwright (not in CI — treat e2e claims as unverified) |
 | `npm run db:migrate` / `:dry` | Apply `supabase/migrations/` — **manual, never automatic** |
-| `npm run verify:webhook` | Stripe webhook signature check |
+| `npm run verify:otp` / `:stripe` / `:webhook` | Preflights calling the **real** provider — what satisfies hard rule #2. `:stripe` is read-only, safe against live; **`:webhook` sends real events — never at production.** Run the one matching your diff, say so |
 
 - **Node 22 required** for the tests (Node 20 reports "no tests", not a failure).
 - **A fresh clone has no `node_modules` — run `npm ci` first.** Without it `npm run typecheck` emits
   ~200 `TS2307: Cannot find module 'vitest'` errors that read like your change broke the build.
 - **`npm run test:coverage` currently fails on `main`** — the 85/85/80/80 thresholds are
   aspirational and CI does not run them (#51); `docs/STATUS.md` carries the live figures. Judge your
-  change on the **delta**: measure on a stashed tree (`git stash -u`) and again with your work, and
-  say which way it moved. Don't "fix" a red run you didn't cause, or report the gate as passing.
+  change on the **delta** — but `git stash -u` covers only *uncommitted* work; once committed it
+  measures the branch against itself. Baseline with `git worktree add /tmp/base origin/main` plus a
+  `node_modules` symlink, and say which way it moved. Don't "fix" a red run you didn't cause.
 - Quality gate before any commit: `npm run typecheck && npm run lint && npx vitest run` (plus
   `npm run build` for structural changes — Vitest strips TS annotations, so only `tsc`/`build`
   catch interface mismatches).
@@ -93,12 +94,10 @@ project; agents author most PRs and the issue tracker doubles as the engineering
 6. Never hardcode a domain or origin — use `getAppBaseUrl()` / `getAssetUrl()` from `lib/url.ts`.
    The domain is `businesshelper.app`; `.mx` was never registered (#36).
 7. **Public routes** (`/api/quotes/public/*`, `/api/receivables/public/*`) build every error through
-   `publicApiError()` — same envelope, Spanish message safe to render verbatim, machine state in
-   `code`, siblings (`retry_after_seconds`, `attempts`, `remaining`, `expired`) via its `extra` arg.
-   Consumers read `error.message` and branch on `error.code`; `data?.error || fallback` renders
-   `[object Object]` against the envelope (#65 — these routes had four shapes, some English, shown
-   to the tenant's *client* mid-signature). `tests/unit/publicErrorEnvelope.test.ts` fails the build
-   on a bare-string body, a sibling `code`, or an English message.
+   `publicApiError()` — Spanish message safe to render verbatim, machine state in `code`, extras
+   (`retry_after_seconds`, …) via its `extra` arg (#65). Consumers read `error.message` and branch on
+   `error.code`. `tests/unit/publicErrorEnvelope.test.ts` fails the build on a bare-string body, a
+   sibling `code`, or an English message.
 
 ## Hard rules — every change, any size
 
@@ -172,13 +171,12 @@ SPEI to the org's CLABE. Deep dive: `docs/02-architecture/cfdi_integration_archi
 `quotes.public_token` — the payment route looks the quote up and walks to its contract and
 milestones. So a `/pay/` link is **never** built from a milestone or contract id (#72 was that bug,
 a 404 in front of a paying client). `getQuotePublicUrl()` / `getPaymentPublicUrl()` in `lib/url.ts`
-are the only builders — never a literal origin, which has shipped four times (#36, #47, #73's pair,
-plus one #73 missed). `tests/unit/url.test.ts` fails the build on a literal app origin in `lib/*.ts`.
+are the only builders — never a literal origin (shipped four times: #36, #47, #73's pair plus one).
+`tests/unit/url.test.ts` fails the build on a literal app origin in `lib/*.ts`.
 
-**`milestones` has no `public_token` column.** It reaches a milestone via
-`contract.quote_id → quotes.public_token`, and that embed **needs the FK hint**
-`quotes!quote_id(...)` — `quotes` and `contracts` are joined by two FKs, so an unhinted embed gets
-`300 PGRST201` live, which 404'd every `/pay/` link from the day the route shipped (#79).
+**`milestones` has no `public_token` column** — reach one via `contract.quote_id →
+quotes.public_token`, and that embed **needs the FK hint** `quotes!quote_id(...)`: two FKs join
+`quotes`/`contracts`, so an unhinted embed gets `300 PGRST201` live (#79).
 `tests/unit/postgrestEmbedHints.test.ts` scans every `.select()` and fails the build on one.
 A share action whose row has no token offers **no link at all**.
 

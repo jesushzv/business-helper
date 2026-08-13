@@ -3,6 +3,7 @@ import { requireOrgAccess } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
 import {
   BANK_ACCOUNT_COLUMNS,
+  mapAccountQuoteExposure,
   validateBankAccount,
   type BankAccount,
   type BankAccountValidation,
@@ -60,9 +61,19 @@ export async function GET() {
     );
   }
 
+  // Which live quotes settle at each account (#196/#197): the archive
+  // confirmation and the CLABE edit warn with these facts. `null` (the read
+  // failed) travels as-is — the card falls back to generic wording rather
+  // than rendering an invented zero.
+  const exposure = await mapAccountQuoteExposure(supabase, organizationId);
+  const accounts = ((data as BankAccount[]) ?? []).map((account) => ({
+    ...account,
+    live_quotes: exposure ? (exposure[account.id] ?? { count: 0, client_names: [] }) : null,
+  }));
+
   // `role` travels with the list so the settings card can address the person
   // who can actually act: only an owner may write these.
-  return NextResponse.json({ accounts: (data as BankAccount[]) ?? [], role });
+  return NextResponse.json({ accounts, role });
 }
 
 export async function POST(request: Request) {

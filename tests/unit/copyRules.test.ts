@@ -250,3 +250,42 @@ describe('errorCopy (#103 §3)', () => {
     expect(userFacingMessage(null, 'fb')).toBe('fb');
   });
 });
+
+/**
+ * #185 — the product's plans are named once: Inicial / Negocio / Empresa
+ * (what the landing page, /pricing and the tier badges already said). The
+ * tier-comparison modal carried a second scheme — "Plan Pro (PyME
+ * Crecimiento)", "Plan Enterprise (Flotilla)" — plus a "Plan Básico" that
+ * exists in none of them. `starter` / `pro` / `business` remain legal as
+ * internal keys (URLs, Stripe price mapping) but must never render as copy.
+ */
+describe('one plan naming scheme (#185)', () => {
+  const RETIRED_PLAN_NAMES = [
+    'Plan Pro',
+    'Plan Enterprise',
+    'Plan Básico',
+    'Plan Basico',
+    'PyME Crecimiento',
+    'Flotilla',
+    'Plan Starter',
+    'Plan Business',
+  ];
+
+  it('renders no plan name outside Inicial / Negocio / Empresa', () => {
+    const offenders: string[] = [];
+    for (const file of files) {
+      const src = code(readFileSync(file, 'utf8'));
+      for (const name of RETIRED_PLAN_NAMES) {
+        if (rendersTerm(src, name)) offenders.push(`${file}: ${name}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('the scan catches a retired name (positive control)', () => {
+    expect(rendersTerm("name: 'Plan Pro (PyME Crecimiento)',", 'Plan Pro')).toBe(true);
+    expect(rendersTerm("'Todo lo del Plan Básico +',", 'Plan Básico')).toBe(true);
+    // "Plan Profesional" would be a new name, not the retired 'Plan Pro':
+    expect(rendersTerm("name: 'Plan Profesional',", 'Plan Pro')).toBe(false);
+  });
+});

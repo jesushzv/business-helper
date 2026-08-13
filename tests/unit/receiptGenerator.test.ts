@@ -30,11 +30,14 @@ describe('Nota de Venta & Zero-SAT Recibo Generator', () => {
     expect(payload.total).toBe(10000);
   });
 
-  it('falls back to the generic client and tenant RFC when none is on file', () => {
+  it('leaves the RFC absent when none is on file — never the generic XAXX (#179)', () => {
+    // The old fallback printed XAXX010101000 (*público en general*) as if it
+    // were the party's RFC — an identity the system never established.
     const payload = generateNotaDeVentaPayload({ title: 'Servicio', amount: 500 });
 
     expect(payload.client.name).toBe('Cliente General');
-    expect(payload.client.rfc).toBe('XAXX010101000');
+    expect(payload.client.rfc).toBe('');
+    expect(payload.tenant.rfc).toBe('');
   });
 
   it('shares the receipt over a wa.me link naming the concept', () => {

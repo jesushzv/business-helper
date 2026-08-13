@@ -21,6 +21,13 @@ export interface BankAccount {
   account_holder: string | null;
   is_default: boolean;
   archived_at: string | null;
+  /**
+   * Live quotes settling at this account (#196/#197), attached by the list
+   * GET. Three states: an object (known), `null` (the read failed — unknown,
+   * never rendered as zero), `undefined` (a response that does not carry it,
+   * e.g. a write's returning row).
+   */
+  live_quotes?: AccountQuoteExposure | null;
 }
 
 /** Columns every consumer needs; named explicitly so a future column is a decision. */
@@ -73,6 +80,67 @@ export async function countLiveAccounts(
     return { known: true, count: data.length };
   } catch {
     return { known: false };
+  }
+}
+
+/** Quote states still collectable — the ones whose payment instructions an archive strands or a CLABE edit rewrites. */
+export const LIVE_QUOTE_STATUSES = ['sent', 'accepted', 'converted'] as const;
+
+export interface AccountQuoteExposure {
+  count: number;
+  /** Distinct client names, so the tenant can recognise which deals are affected. */
+  client_names: string[];
+}
+
+/**
+ * Which live quotes settle at each of the organization's accounts (#196/#197).
+ *
+ * The archive confirmation used to name no count and no client, and after a
+ * quote is created no screen shows which account it settles at — so a tenant
+ * archiving an account with twenty live quotes learned about it from a
+ * confused client. This is the query that gives the confirmation its facts.
+ *
+ * `null` means the read failed — unknown, not zero (#96): the caller falls
+ * back to generic wording rather than telling a tenant "ninguna cotización"
+ * off a network blip.
+ */
+export async function mapAccountQuoteExposure(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  organizationId: string
+): Promise<Record<string, AccountQuoteExposure> | null> {
+  try {
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('bank_account_id, clients!client_id(name)')
+      .eq('organization_id', organizationId)
+      .not('bank_account_id', 'is', null)
+      .in('status', [...LIVE_QUOTE_STATUSES]);
+
+    if (error || !Array.isArray(data)) {
+      // The caller renders generic wording for null; the cause still gets said
+      // somewhere, or a persistently failing read degrades every archive and
+      // CLABE confirmation silently.
+      if (error) console.error('[bank-accounts] exposure read failed:', error.message ?? error);
+      return null;
+    }
+
+    const map: Record<string, AccountQuoteExposure> = {};
+    for (const row of data as Array<{
+      bank_account_id: string;
+      clients?: { name?: string } | Array<{ name?: string }> | null;
+    }>) {
+      const entry = (map[row.bank_account_id] ||= { count: 0, client_names: [] });
+      entry.count += 1;
+      const related = Array.isArray(row.clients) ? row.clients[0] : row.clients;
+      if (related?.name && !entry.client_names.includes(related.name)) {
+        entry.client_names.push(related.name);
+      }
+    }
+    return map;
+  } catch (err) {
+    console.error('[bank-accounts] exposure read threw:', err);
+    return null;
   }
 }
 

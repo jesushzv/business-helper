@@ -71,11 +71,14 @@ export function generateNotaDeVentaPayload(
   tenantOrg?: TenantBrandingOrg
 ): NotaDeVentaPayload {
   const orgName = tenantOrg?.name || 'Mi Empresa';
-  const orgRfc = tenantOrg?.rfc || 'XAXX010101000';
+  // Absent is absent (#179): XAXX010101000 is *público en general* — printing
+  // it for a tenant or client whose RFC is simply not on file records an
+  // identity nobody established. Consumers render the RFC line only when set.
+  const orgRfc = tenantOrg?.rfc || '';
   const orgLogo = tenantOrg?.logo_url || tenantOrg?.logoUrl || '/logo.svg';
 
   const clientName = data?.clientName || data?.client_name || 'Cliente General';
-  const clientRfc = data?.clientRfc || data?.client_rfc || 'XAXX010101000';
+  const clientRfc = data?.clientRfc || data?.client_rfc || '';
 
   const title = data?.title || data?.milestoneLabel || 'Nota de Venta / Recibo de Pago';
   const rawSubtotal = Number(data?.subtotal || data?.amount || 0);

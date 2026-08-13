@@ -374,3 +374,112 @@ describe('editing', () => {
     await waitFor(() => expect(screen.getByText('Santander obra')).toBeInTheDocument());
   });
 });
+
+describe('the archive confirmation names its blast radius (#196)', () => {
+  it('counts and names the live quotes settling at the account', async () => {
+    mockFetch(() =>
+      jsonResponse({
+        accounts: [
+          BBVA,
+          {
+            ...SANTANDER,
+            live_quotes: {
+              count: 3,
+              client_names: ['Constructora del Valle', 'Ferretería Central'],
+            },
+          },
+        ],
+        role: 'owner',
+      })
+    );
+
+    render(<BankAccountsCard canEdit />);
+    await waitFor(() => expect(screen.getByText('Santander nómina')).toBeInTheDocument());
+
+    const row = screen.getByText('Santander nómina').closest('li')!;
+    fireEvent.click(within(row).getByRole('button', { name: /Archivar/i }));
+
+    expect(
+      screen.getByText(/3 cotizaciones activas cobran en esta cuenta/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Constructora del Valle/)).toBeInTheDocument();
+  });
+
+  it('says so when no live quote settles here — a known zero', async () => {
+    mockFetch(() =>
+      jsonResponse({
+        accounts: [BBVA, { ...SANTANDER, live_quotes: { count: 0, client_names: [] } }],
+        role: 'owner',
+      })
+    );
+
+    render(<BankAccountsCard canEdit />);
+    await waitFor(() => expect(screen.getByText('Santander nómina')).toBeInTheDocument());
+
+    const row = screen.getByText('Santander nómina').closest('li')!;
+    fireEvent.click(within(row).getByRole('button', { name: /Archivar/i }));
+
+    expect(screen.getByText(/Ninguna cotización activa cobra en esta cuenta/i)).toBeInTheDocument();
+  });
+
+  it('falls back to the generic wording when the exposure is unknown — never an invented zero', async () => {
+    mockFetch(() =>
+      jsonResponse({
+        accounts: [BBVA, { ...SANTANDER, live_quotes: null }],
+        role: 'owner',
+      })
+    );
+
+    render(<BankAccountsCard canEdit />);
+    await waitFor(() => expect(screen.getByText('Santander nómina')).toBeInTheDocument());
+
+    const row = screen.getByText('Santander nómina').closest('li')!;
+    fireEvent.click(within(row).getByRole('button', { name: /Archivar/i }));
+
+    expect(
+      screen.getByText(/cotizaciones que ya enviaste con esta cuenta dejarán de aceptar pagos/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Ninguna cotización/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('editing warns before rewriting sent payment instructions (#197)', () => {
+  it('tells the tenant how many sent quotes will show the new CLABE', async () => {
+    mockFetch(() =>
+      jsonResponse({
+        accounts: [
+          BBVA,
+          { ...SANTANDER, live_quotes: { count: 2, client_names: ['Constructora del Valle'] } },
+        ],
+        role: 'owner',
+      })
+    );
+
+    render(<BankAccountsCard canEdit />);
+    await waitFor(() => expect(screen.getByText('Santander nómina')).toBeInTheDocument());
+
+    const row = screen.getByText('Santander nómina').closest('li')!;
+    fireEvent.click(within(row).getByRole('button', { name: /Editar/i }));
+
+    expect(
+      screen.getByText(/2 cotizaciones ya enviadas cobran en esta cuenta y mostrarán la CLABE nueva/i)
+    ).toBeInTheDocument();
+  });
+
+  it('stays quiet when nothing sent settles at the account', async () => {
+    mockFetch(() =>
+      jsonResponse({
+        accounts: [BBVA, { ...SANTANDER, live_quotes: { count: 0, client_names: [] } }],
+        role: 'owner',
+      })
+    );
+
+    render(<BankAccountsCard canEdit />);
+    await waitFor(() => expect(screen.getByText('Santander nómina')).toBeInTheDocument());
+
+    const row = screen.getByText('Santander nómina').closest('li')!;
+    fireEvent.click(within(row).getByRole('button', { name: /Editar/i }));
+
+    expect(screen.queryByText(/mostrarán la CLABE nueva/i)).not.toBeInTheDocument();
+  });
+});

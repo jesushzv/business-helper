@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess, pickFields, QUOTE_WRITABLE_FIELDS } from '@/lib/apiAuth';
 import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
+import { checkClientCreditGate } from '@/lib/clientCredit';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 
 /**
@@ -86,6 +87,19 @@ export async function PUT(
         return NextResponse.json(
           { error: { code: accountCheck.code, message: accountCheck.message } },
           { status: accountCheck.status }
+        );
+      }
+    }
+
+    // Same rule as on create (#203): an edit can re-point a quote at a client
+    // whose credit the owner has blocked. Only fires when the edit names a
+    // client, so a title-only edit never pays for (or fails on) this read.
+    if ('client_id' in updates) {
+      const creditGate = await checkClientCreditGate(supabase, organizationId, updates.client_id);
+      if (!creditGate.ok) {
+        return NextResponse.json(
+          { error: { code: creditGate.code, message: creditGate.message } },
+          { status: creditGate.status }
         );
       }
     }

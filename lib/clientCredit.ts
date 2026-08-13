@@ -137,3 +137,76 @@ export function validateQuoteCreditLimit(
     warningMessage: null,
   };
 }
+
+export type ClientCreditGateResult =
+  | { ok: true }
+  | { ok: false; status: 403; code: 'CLIENT_CREDIT_BLOCKED'; message: string }
+  | { ok: false; status: 404; code: 'CLIENT_NOT_FOUND'; message: string };
+
+/**
+ * The server half of the credit gate (#203).
+ *
+ * `blocked` is the one credit state the server refuses rather than advises on:
+ * the owner personally marked the client as "solo contado", and a quote for
+ * them is almost always someone else in the organization not knowing. Over-limit
+ * and `suspended` stay warnings in the wizard — extending trust is the owner's
+ * call, and `validateQuoteCreditLimit` above words those cases.
+ *
+ * A read that fails answers "unknown" and does NOT refuse — the same posture as
+ * the trial gate (#64's tri-state rule): this gate exists to stop the blocked
+ * case, not to make quote creation depend on one more read succeeding.
+ */
+export async function checkClientCreditGate(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  organizationId: string,
+  clientId: unknown
+): Promise<ClientCreditGateResult> {
+  if (typeof clientId !== 'string' || !clientId) return { ok: true };
+
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('name, credit_status')
+      // Scoped by organization as well as id, so a by-id lookup cannot read
+      // another tenant's row (API convention 3).
+      .eq('id', clientId)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    // A failed read is unknown → allow (the documented posture). No row is a
+    // different answer: the database said this client is not in the caller's
+    // organization. The FK only proves the id exists somewhere — without this
+    // refusal a quote can be planted referencing another tenant's client, the
+    // same class #164 closed for bank_account_id (review of #203's diff).
+    if (error) {
+      // Unknown answers permissive by design — but the cause is still said.
+      console.error('[client-credit] gate read failed, allowing:', error.message ?? error);
+      return { ok: true };
+    }
+    if (!data) {
+      return {
+        ok: false,
+        status: 404,
+        code: 'CLIENT_NOT_FOUND',
+        message: 'Ese cliente no existe en tu negocio.',
+      };
+    }
+
+    if (data.credit_status === 'blocked') {
+      return {
+        ok: false,
+        status: 403,
+        code: 'CLIENT_CREDIT_BLOCKED',
+        message:
+          `El crédito de ${data.name} está bloqueado por mora o decisión comercial, ` +
+          'así que solo se permiten ventas de contado. Puedes cambiar su estado de crédito en la ficha del cliente.',
+      };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    console.error('[client-credit] gate read threw, allowing:', err);
+    return { ok: true };
+  }
+}

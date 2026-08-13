@@ -20,6 +20,27 @@ const ROOTS = ['app', 'components', 'lib'];
 //   || 'demo'      || "demo_token"   ?? 'demo'      || '8115551234'
 const FALLBACK_PATTERN = /(\|\||\?\?)\s*['"`](demo[\w-]*|[0-9]{10,13})['"`]/;
 
+/**
+ * CFDI-identity fields (#179, the #96 `regimen_fiscal || '601'` shape): rfc,
+ * regimen_fiscal and codigo_postal are SAT-registry facts with no legitimate
+ * default — the columns have none, and `validateInvoiceParties` refuses to
+ * stamp without them. A short catalog literal filled in for one of these
+ * renders an identity nobody established, so any `||` / `??` fallback to a
+ * catalog-shaped literal (SAT codes, postal codes, RFCs) on these fields
+ * fails the build. Spanish absent-labels (`|| 'Sin RFC'`) stay legal — the
+ * literal must look like a catalog value, not copy.
+ *
+ * Deliberately NOT listed, same as `sat_product_code` below:
+ *   - cfdi_use — the column carries a DEFAULT 'G03' by design (see
+ *     app/api/clients/route.ts), so a G03 fallback restates the schema.
+ */
+const CFDI_IDENTITY_FIELDS = ['rfc', 'regimen_fiscal', 'codigo_postal'];
+const CFDI_IDENTITY_PATTERN = new RegExp(
+  '\\b(?:' +
+    CFDI_IDENTITY_FIELDS.join('|') +
+    ")\\b[^|?\\n]*(?:\\|\\||\\?\\?)\\s*['\"`](?:[0-9A-Z]{2,5}|[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{3})['\"`]"
+);
+
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = join(dir, entry.name);
@@ -47,7 +68,7 @@ describe('no placeholder identifier ever fills an absent value (#106)', () => {
           ) {
             return;
           }
-          if (FALLBACK_PATTERN.test(line)) {
+          if (FALLBACK_PATTERN.test(line) || CFDI_IDENTITY_PATTERN.test(line)) {
             offenders.push(`${rel}:${i + 1}: ${trimmed}`);
           }
         });
@@ -71,5 +92,27 @@ describe('no placeholder identifier ever fills an absent value (#106)', () => {
     expect(FALLBACK_PATTERN.test("const name = org?.name || '';")).toBe(false);
     // SAT product codes are 8 digits — under the phone-length floor.
     expect(FALLBACK_PATTERN.test("sat_product_code: p.code || '84111506',")).toBe(false);
+  });
+
+  it('the CFDI-identity pattern catches short catalog defaults on identity fields (#179)', () => {
+    // The exact #96 shape the old gate could not see:
+    expect(CFDI_IDENTITY_PATTERN.test("regimen_fiscal: c.regimen_fiscal || '601',")).toBe(true);
+    expect(CFDI_IDENTITY_PATTERN.test("const orgRfc = tenantOrg?.rfc || 'XAXX010101000';")).toBe(
+      true
+    );
+    expect(CFDI_IDENTITY_PATTERN.test('codigo_postal: row.codigo_postal ?? "06600",')).toBe(true);
+  });
+
+  it('the CFDI-identity pattern leaves absent-labels, empties and defaulted fields alone', () => {
+    // Spanish copy naming the absence is the fix, not the defect:
+    expect(CFDI_IDENTITY_PATTERN.test("<span>RFC: {client.rfc || 'Sin RFC registrado'}</span>")).toBe(
+      false
+    );
+    // Empty string renders absent — that is the point:
+    expect(CFDI_IDENTITY_PATTERN.test("tax_system: receiver.regimen_fiscal || '',")).toBe(false);
+    // cfdi_use carries a DB DEFAULT 'G03' by design — a fallback restates the schema:
+    expect(CFDI_IDENTITY_PATTERN.test("use: receiver.cfdi_use || 'G03',")).toBe(false);
+    // sat_product_code stays a deliberate convenience (see above):
+    expect(CFDI_IDENTITY_PATTERN.test("sat_product_code: p.code || '84111506',")).toBe(false);
   });
 });

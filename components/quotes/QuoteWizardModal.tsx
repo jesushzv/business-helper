@@ -645,8 +645,11 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
             ) : (
               <button
                 type="submit"
-                disabled={submitting}
-                className="min-h-[48px] px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg text-sm"
+                // A blocked client is refused by the server (#203) — a submit
+                // that will answer 403 is not offered (#64's corollary). The
+                // credit alert above this button says why.
+                disabled={submitting || !creditValidation.isAllowed}
+                className="min-h-[48px] px-8 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg text-sm"
               >
                 <Check className="w-5 h-5" />
                 <span>{submitting ? 'Creando...' : 'Generar y Compartir'}</span>

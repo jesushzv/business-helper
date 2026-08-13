@@ -84,6 +84,14 @@ export type ComplementPlan =
       remainingBalance: number;
       /** True when this payment closes the invoice. */
       settles: boolean;
+      /**
+       * What arrived above the outstanding balance (#81). The complement
+       * declares `amount` — Pagos 2.0 caps ImpPagado at ImpSaldoAnt — but the
+       * money exists in the organization's bank account, so the fact is
+       * recorded rather than discarded: an anticipo, a credit or a refund is
+       * the tenant's call, and they cannot make it about money nothing shows.
+       */
+      overpaidAmount: number;
     };
 
 /**
@@ -160,6 +168,8 @@ export function planPaymentComplement(
 
   const amount = toMoney(Math.min(raw, lastBalance));
   const remainingBalance = toMoney(lastBalance - amount);
+  // The clamp is fiscally required; losing the difference is not (#81).
+  const overpaidAmount = toMoney(Math.max(0, toMoney(raw) - lastBalance));
 
   return {
     required: true,
@@ -170,6 +180,7 @@ export function planPaymentComplement(
     lastBalance,
     remainingBalance,
     settles: remainingBalance === 0,
+    overpaidAmount,
   };
 }
 
@@ -181,6 +192,8 @@ export interface IssuedComplement {
   remainingBalance: number;
   environment: 'sandbox' | 'live';
   settles: boolean;
+  /** What arrived above the balance and is NOT declared in this complement (#81). */
+  overpaidAmount: number;
   xmlUrl: string | null;
   pdfUrl: string | null;
   warning: string | null;
@@ -310,6 +323,9 @@ export async function issuePaymentComplement(
       amount: plan.amount,
       last_balance: plan.lastBalance,
       remaining_balance: plan.remainingBalance,
+      // The surplus the clamp removed from `amount` (#81): 0 when the payment
+      // fit the balance. NULL on this column means a row from before it existed.
+      overpaid_amount: plan.overpaidAmount,
       payment_form: paymentForm,
       payment_date: paymentDate,
       operation_number: operationNumber,
@@ -463,7 +479,10 @@ export async function issuePaymentComplement(
     details:
       `Complemento de pago ${document.uuid} (parcialidad ${plan.installment}) por ` +
       `$${plan.amount.toFixed(2)} MXN sobre el CFDI ${milestone.cfdi_uuid} del cobro ${milestone.label}. ` +
-      `Saldo insoluto $${plan.remainingBalance.toFixed(2)} MXN.`,
+      `Saldo insoluto $${plan.remainingBalance.toFixed(2)} MXN.` +
+      (plan.overpaidAmount > 0
+        ? ` El pago excedió el saldo por $${plan.overpaidAmount.toFixed(2)} MXN; el excedente no se declaró en este complemento.`
+        : ''),
   });
 
   const base = params.baseUrl ? params.baseUrl.replace(/\/$/, '') : '';
@@ -481,6 +500,7 @@ export async function issuePaymentComplement(
       remainingBalance: plan.remainingBalance,
       environment: credentials.environment,
       settles: plan.settles,
+      overpaidAmount: plan.overpaidAmount,
       xmlUrl: xmlPath ? documentUrl('xml') : null,
       pdfUrl: pdfPath ? documentUrl('pdf') : null,
       warning,
