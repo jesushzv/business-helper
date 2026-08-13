@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { DollarSign, Plus } from 'lucide-react';
 import { useDashboardAnalytics } from '@/lib/hooks/useDashboardAnalytics';
 import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
+import { greetingFirstName } from '@/lib/greeting';
 import { FinancialOverviewCards } from '@/components/dashboard/FinancialOverviewCards';
 import { CashFlowForecastCard } from '@/components/dashboard/CashFlowForecastCard';
 import { TopClientsCard } from '@/components/dashboard/TopClientsCard';
@@ -15,8 +16,9 @@ export default function DashboardPage() {
   const { org, user } = useCurrentOrg();
 
   // Greet whoever we actually know — first name, business name, or nobody.
-  // "¡Hola, Don Roberto!" used to greet every real owner (#93).
-  const greetName = user?.name?.trim().split(/\s+/)[0] || org?.name || null;
+  // "¡Hola, Don Roberto!" used to greet every real owner (#93). First name
+  // honorific-aware: splitting on the first word alone greeted "¡Hola, Don!".
+  const greetName = greetingFirstName(user?.name) || org?.name || null;
 
   return (
     <div className="min-h-screen pb-16">

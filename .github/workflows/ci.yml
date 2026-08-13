@@ -58,6 +58,40 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder-url.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
 
+  e2e:
+    name: Playwright E2E (demo posture)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    # The suite sat un-run for its whole life, long enough to accumulate
+    # assertions that contradicted the unit suite (#69/#91) — a check that
+    # never runs is indistinguishable from one that passes (#35/#38/#46).
+    # It runs against a build with no Supabase env at all, so
+    # isClientDemoMode() is on and the scenarios assert the demo-deployment
+    # contract: sandbox fixtures, demo public objects, honest 503 refusals on
+    # every mutation. Scenario 10 (deployed health) self-skips here.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Without this every test fails in ~2ms with "Executable doesn't
+      # exist" — a failure mode easy to misread as "the app is broken" (#91).
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build (demo posture — deliberately no Supabase env)
+        run: npm run build
+
+      - name: Run E2E suite
+        run: npm run test:e2e
+
   migration-verify:
     name: Migrations against real Postgres
     runs-on: ubuntu-latest
