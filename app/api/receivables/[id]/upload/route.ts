@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
-import { validateReceiptFile } from '@/lib/speiValidator';
+import { validateReceiptFile, sniffReceiptContent, RECEIPT_CONTENT_TYPES } from '@/lib/speiValidator';
 
 /**
  * Uploads a SPEI receipt against a milestone.
@@ -60,18 +60,31 @@ export async function POST(
       );
     }
 
-    // Derive the extension from the validated file rather than trusting the
-    // caller's filename, and namespace the object by organization.
-    const fileExt = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const filePath = `${organizationId}/spei_${id}_${Date.now()}.${fileExt || 'pdf'}`;
-
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    // The magic bytes decide the content and the stored extension — the
+    // name/size/type check above reads caller-supplied claims, which is UX,
+    // not enforcement (#85 gave the public upload route the same posture).
+    const content = sniffReceiptContent(new Uint8Array(bytes));
+    if (!content) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INVALID_FILE',
+            message: 'El archivo no es una imagen PNG, JPG ni un documento PDF válido.',
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    const filePath = `${organizationId}/spei_${id}_${Date.now()}.${content}`;
 
     const { data, error } = await supabase.storage
       .from('spei-vouchers')
       .upload(filePath, buffer, {
-        contentType: file.type,
+        contentType: RECEIPT_CONTENT_TYPES[content],
         upsert: false,
       });
 

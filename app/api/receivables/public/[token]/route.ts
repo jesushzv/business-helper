@@ -9,6 +9,11 @@ import {
   type BankAccount,
 } from '@/lib/bankAccounts';
 import { publicDbWriteErrorResponse } from '@/lib/dbWriteError';
+import {
+  pickPayableMilestone,
+  isValidReceiptPath,
+  SPEI_VOUCHERS_BUCKET,
+} from '@/lib/publicReceivable';
 
 /**
  * Public SPEI payment surface, reached over a shared link with no session.
@@ -42,30 +47,9 @@ const DEMO_MILESTONE = {
   is_demo: true,
 };
 
-interface PublicMilestone {
-  id: string;
-  label?: string;
-  amount?: number;
-  due_date?: string;
-  status?: string;
-}
-
-/**
- * The payer-facing target: the earliest milestone still awaiting payment.
- *
- * GET and POST must agree on this predicate. Both used to take `[0]` of an
- * unordered embed, so on a two-milestone contract the row shown and the row
- * marked could differ — and a re-POST could rewrite a `confirmed` milestone
- * back to `marked_paid`, overwriting the confirmed record's evidence. The
- * defect was unreachable while #79 404'd every request; fixing #79 made it
- * live, so both are fixed together.
- */
-function pickPayableMilestone(milestones: PublicMilestone[]): PublicMilestone | null {
-  const payable = milestones
-    .filter((m) => m.status === 'pending' || m.status === 'requested')
-    .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')));
-  return payable[0] ?? null;
-}
+// The milestone predicate lives in lib/publicReceivable.ts since #85 gave it
+// a third caller (the receipt-upload route); GET, POST and the upload must all
+// agree on which milestone this token is paying.
 
 export async function GET(
   request: Request,
@@ -211,7 +195,7 @@ export async function POST(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: quote, error: fetchError } = await (supabase as any)
       .from('quotes')
-      .select('id, contracts!quote_id(id, milestones(id, status, due_date))')
+      .select('id, organization_id, contracts!quote_id(id, milestones(id, status, due_date))')
       .eq('public_token', token)
       .maybeSingle();
 
@@ -228,6 +212,30 @@ export async function POST(
       );
     }
 
+    // The receipt reference, if any, is a storage path the upload route issued
+    // (#85). It is accepted only when it matches the exact shape that route
+    // builds — under this quote's organization and this milestone — and is
+    // turned back into a URL server-side. A caller-supplied `receipt_url` is
+    // never stored: the page used to send `URL.createObjectURL(file)`, a
+    // blob: URL that dereferences only inside the payer's own tab, so the
+    // vendor's Cobranza held a dead "receipt" link for every payment declared
+    // here. An invalid path is refused loudly rather than silently dropped —
+    // the payer believes their receipt is attached.
+    let receiptUrl: string | null = null;
+    if (body?.receipt_path !== undefined) {
+      if (!isValidReceiptPath(body.receipt_path, quote.organization_id, target.id)) {
+        return publicApiError(
+          400,
+          'INVALID_RECEIPT_PATH',
+          'El comprobante no corresponde a este cobro. Vuelve a adjuntarlo.'
+        );
+      }
+      const { data: publicUrlData } = supabase.storage
+        .from(SPEI_VOUCHERS_BUCKET)
+        .getPublicUrl(body.receipt_path);
+      receiptUrl = publicUrlData.publicUrl;
+    }
+
     // The status filter repeats the predicate inside the write so a concurrent
     // submission — or a replay of this one — cannot move a milestone backwards
     // out of `marked_paid`/`confirmed`. Zero rows updated means someone beat
@@ -239,7 +247,7 @@ export async function POST(
         status: 'marked_paid',
         tracking_reference: trackingReference,
         transferred_amount: transferredAmount,
-        receipt_url: typeof body?.receipt_url === 'string' ? body.receipt_url : null,
+        receipt_url: receiptUrl,
       })
       .eq('id', target.id)
       .in('status', ['pending', 'requested'])

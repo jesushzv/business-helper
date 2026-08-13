@@ -130,7 +130,10 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
             </div>
           )}
 
-          {milestone.receipt_url && (
+          {/* A blob: URL dereferences only in the payer's own browser tab —
+              rendering one gives the vendor a dead "receipt" link (#85). Rows
+              written by pre-#85 clients may still carry them. */}
+          {milestone.receipt_url && !milestone.receipt_url.startsWith('blob:') && (
             <div>
               <span className="text-xs font-bold text-slate-400 uppercase mb-1 block">Comprobante Adjunto</span>
               <a
