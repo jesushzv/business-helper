@@ -131,6 +131,18 @@ describe('what the payer is shown before paying', () => {
     await screen.findByText(/Este Cobro Ya Fue Registrado/i);
   });
 
+  it('names the missing CLABE instead of an empty box with a dead copy button', async () => {
+    // clabe: null is a real state (the demo fixture ships it, and a tenant can
+    // exist before registering a bank). The page used to render the empty
+    // value inside the copy row, with a copy button whose handler silently
+    // did nothing — a control pretending the value exists (#44).
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { milestone: { ...MILESTONE, clabe: null } }));
+    render(<PublicPayPortalPage />);
+
+    await screen.findByText(/El proveedor aún no registra su CLABE/i);
+    expect(screen.queryByRole('button', { name: /Copiar CLABE/i })).toBeNull();
+  });
+
   it('shows no CLABE at all when the read fails', async () => {
     // A client-side fallback here would put an account number on screen that no
     // organization owns, in front of someone about to transfer money to it.

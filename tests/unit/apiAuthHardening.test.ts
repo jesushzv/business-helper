@@ -122,7 +122,9 @@ describe('every API route is authenticated or explicitly public', () => {
       return;
     }
 
-    const guarded = /requireOrgAccess|requireUser/.test(source);
+    // requirePlatformAdmin is the founder-only gate (lib/platformAdmin.ts):
+    // session + PLATFORM_ADMIN_USER_IDS allowlist, 404 for everyone else.
+    const guarded = /requireOrgAccess|requireUser|requirePlatformAdmin/.test(source);
     expect(guarded, `${rel} has no auth guard and is not listed as intentionally public`).toBe(true);
   });
 
