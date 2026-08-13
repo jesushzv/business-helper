@@ -3,6 +3,7 @@
 import React from 'react';
 import { TEAM_MEMBERS } from '@/lib/trustData';
 import { Building2, CheckCircle2, Mail } from 'lucide-react';
+import { CopyEmailButton } from '@/components/landing/CopyEmailButton';
 
 export function TeamSection() {
   return (
@@ -62,14 +63,15 @@ export function TeamSection() {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-800/60 flex items-center justify-start text-xs text-slate-400">
+            <div className="pt-4 border-t border-slate-800/60 flex items-center justify-between gap-3 text-xs text-slate-400">
               <a
                 href={`mailto:${member.contactEmail}?subject=${encodeURIComponent(`Contacto para ${member.name}`)}`}
-                className="flex items-center gap-1.5 text-indigo-400 font-bold hover:underline py-1"
+                className="flex items-center gap-1.5 text-indigo-400 font-bold hover:underline py-1 min-h-[48px]"
               >
                 <Mail className="w-3.5 h-3.5" />
                 <span>Contactar por Correo</span>
               </a>
+              <CopyEmailButton email={member.contactEmail} />
             </div>
           </div>
         ))}
