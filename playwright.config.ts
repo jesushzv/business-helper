@@ -7,10 +7,22 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  // generate-media.spec.ts is a screenshot/video capture job, not a test — it
-  // asserts nothing and doubled the reported count to "40 tests" (#91). Run it
-  // on demand with E2E_MEDIA=1.
-  testIgnore: process.env.E2E_MEDIA ? [] : ['**/generate-media.spec.ts'],
+  // Two files are excluded from the pull-request gate:
+  //
+  //   - generate-media.spec.ts is a screenshot/video capture job, not a test —
+  //     it asserts nothing and doubled the reported count to "40 tests" (#91).
+  //     Run it on demand with E2E_MEDIA=1.
+  //   - deployed-smoke.spec.ts contacts a live deployment (#70). The PR gate
+  //     must never depend on a deployed URL or a live provider, so that a
+  //     Supabase incident cannot block an unrelated merge (#250). It has its
+  //     own config and its own schedule: `npm run test:e2e:deployed`,
+  //     .github/workflows/deployed-smoke.yml.
+  //
+  // The second exclusion is not optional and has no env escape hatch;
+  // tests/unit/deployedSmokeBoundary.test.ts fails the build if it is removed.
+  testIgnore: process.env.E2E_MEDIA
+    ? ['**/deployed-smoke.spec.ts']
+    : ['**/generate-media.spec.ts', '**/deployed-smoke.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

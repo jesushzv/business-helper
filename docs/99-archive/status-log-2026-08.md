@@ -917,3 +917,9 @@ the current record.)*
   (columns and functions absent). #226 (copy promised PACs the form refuses) closed with the same
   PR: rendered copy names Facturapi only, pinned by `tests/unit/copyRules.test.ts` (shown red on a
   plant).
+
+### From §02 — why the hand-rolled Sentry transport was replaced (settled 2026-08-12)
+
+Coverage was the reason for moving to `@sentry/nextjs`: the hand-rolled `fetch` envelope could not
+see an unhandled Server Component, render or Edge error. The live state of error monitoring stays in
+[`../STATUS.md`](../STATUS.md).

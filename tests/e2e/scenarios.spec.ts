@@ -254,22 +254,16 @@ test.describe('Business Helper E2E User Scenarios', () => {
   });
 
   /**
-   * Only meaningful against a deployed URL with a real backend: in the local
-   * demo posture /api/health answers "degraded" BY DESIGN (no Supabase), so
-   * running this here can only fail for reasons unrelated to the code. The
-   * deployed smoke test is #70's scope; set E2E_HEALTH_URL to run it.
+   * The health check that used to sit here as scenario 10 moved to
+   * `tests/e2e/deployed-smoke.spec.ts` (#70). It is not duplicated: it was
+   * only ever meaningful against a deployed URL with a real backend — in this
+   * suite's demo posture /api/health answers "degraded" BY DESIGN — so it lived
+   * here behind a `test.skip()` and never ran.
+   *
+   * A skip is the right answer for a PR gate and the wrong one for a scheduled
+   * deployment check, where an unset variable would mean a green run that
+   * contacted nothing (#63/#118). It now runs unconditionally on its own
+   * config and schedule, and the `E2E_HEALTH_URL` override survives with it.
    */
-  test('10 Live Production API Health Check Smoke Test', async ({ request }) => {
-    const healthUrl = process.env.E2E_HEALTH_URL;
-    test.skip(!healthUrl, 'Deployed-only check: set E2E_HEALTH_URL (see #70)');
-
-    const response = await request.get(`${healthUrl!.replace(/\/$/, '')}/api/health`);
-    expect(response.status()).toBe(200);
-
-    const body = await response.json();
-    expect(body.status).toBe('healthy');
-    expect(body.services.database).toBe('connected');
-    expect(body.services.auth).toBe('active');
-  });
 
 });
