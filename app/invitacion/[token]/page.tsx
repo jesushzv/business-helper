@@ -14,7 +14,20 @@ import { Users, ArrowRight, AlertCircle, CheckCircle2, LogIn } from 'lucide-reac
  * token to `/api/organization/invitations/accept`, which writes the membership
  * row, and sends the person who is not signed in to log in first.
  */
-type PageState = 'checking' | 'needs_login' | 'ready' | 'accepting' | 'accepted' | 'error';
+type PageState =
+  | 'checking'
+  | 'needs_login'
+  | 'ready'
+  | 'accepting'
+  | 'accepted'
+  /**
+   * Joined, but the app will keep opening the organization it already resolved
+   * for this account (#269). A real outcome with its own screen: the countdown
+   * to a dashboard showing someone else's data is the one thing that must not
+   * happen here.
+   */
+  | 'accepted_shows_other'
+  | 'error';
 
 export default function InvitationPage() {
   const params = useParams<{ token: string }>();
@@ -24,6 +37,8 @@ export default function InvitationPage() {
   const [state, setState] = useState<PageState>('checking');
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** The route's Spanish explanation, rendered verbatim when it sends one. */
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +87,16 @@ export default function InvitationPage() {
       if (!res.ok) {
         setError(data?.error?.message || 'No se pudo aceptar la invitación.');
         setState('error');
+        return;
+      }
+
+      // The route says whether this changes what the account opens. Only the
+      // unchanged case gets a notice, and it replaces the redirect rather than
+      // racing it: sending them to a dashboard showing another company is
+      // exactly what the message is there to prevent.
+      if (data?.notice?.code === 'ACTIVE_ORGANIZATION_UNCHANGED' && data?.notice?.message) {
+        setNotice(String(data.notice.message));
+        setState('accepted_shows_other');
         return;
       }
 
@@ -142,6 +167,25 @@ export default function InvitationPage() {
           <div className="p-4 bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 rounded-xl text-sm font-medium flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-400" />
             Ya formas parte del equipo. Abriendo tu panel…
+          </div>
+        )}
+
+        {state === 'accepted_shows_other' && (
+          <div className="space-y-4">
+            <div
+              role="status"
+              className="p-4 bg-amber-950/70 border border-amber-500/30 text-amber-200 rounded-xl text-sm font-medium flex items-start gap-2"
+            >
+              <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <span>{notice}</span>
+            </div>
+            <Link
+              href="/dashboard"
+              className="min-h-[48px] w-full px-5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+            >
+              Ir a mi panel
+              <ArrowRight className="w-5 h-5" />
+            </Link>
           </div>
         )}
 

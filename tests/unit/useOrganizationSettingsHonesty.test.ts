@@ -5,6 +5,7 @@ import {
   toOrganizationSettings,
   normalizeRegimenCode,
 } from '@/lib/hooks/useOrganizationSettings';
+import { statusHoldsPlan, validateSubscriptionStatus } from '@/lib/stripe';
 
 /**
  * #95 — Ajustes must render the tenant's real organization and never report a
@@ -156,6 +157,33 @@ describe('save honesty', () => {
   });
 });
 
+describe('the subscription badge before the server answers (#116)', () => {
+  it('reads as unknown while the settings are still loading', () => {
+    fetchMock.mockReturnValueOnce(new Promise<Response>(() => {}));
+    const { result } = renderHook(() => useOrganizationSettings());
+
+    // `?? 'active'` here badged "Activo" for a subscription nothing had
+    // established yet — and `statusHoldsPlan` read it as held, which disables
+    // the button that would let them buy the plan.
+    expect(result.current.settings).toBeNull();
+    expect(result.current.subscriptionStatusInfo.badgeText).toBe('Estado desconocido');
+    expect(result.current.subscriptionStatusInfo.isAccessible).toBe(false);
+  });
+
+  it('reads as unknown when the read failed outright', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const { result } = renderHook(() => useOrganizationSettings());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.subscriptionStatusInfo.badgeText).toBe('Estado desconocido');
+  });
+
+  it('still reports a real status as itself', async () => {
+    const { result } = await mountLoaded();
+    expect(result.current.subscriptionStatusInfo.badgeText).toBe('Activo');
+  });
+});
+
 describe('demo deployment', () => {
   it('serves the demo tenant without touching the network, only behind the demo signal', async () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
@@ -214,8 +242,13 @@ describe('toOrganizationSettings', () => {
       toOrganizationSettings({ ...SERVER_ROW, subscription_status: 'past_due' })
         .subscription_status
     ).toBe('past_due');
-    // Absent is the one case that gets a default, and it stays the old one.
-    expect(toOrganizationSettings({ id: 'x', name: 'y' }).subscription_status).toBe('active');
+    // Absent used to get `'active'` — and this line used to assert it, which is
+    // a test holding the last of #116 in place. A row that carries no status
+    // establishes nothing, so it reads as unknown and badges as such.
+    expect(toOrganizationSettings({ id: 'x', name: 'y' }).subscription_status).toBe('');
+    expect(validateSubscriptionStatus('').badgeText).toBe('Estado desconocido');
+    expect(validateSubscriptionStatus('').isAccessible).toBe(false);
+    expect(statusHoldsPlan('')).toBe(false);
   });
 
   it('reports no tier at all when the row names no paid plan', () => {

@@ -6,6 +6,7 @@ import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
 import { hasCapability } from '@/lib/teamRBAC';
 import { Package, Search, Plus, Trash2, Tag, DollarSign, CheckCircle2 } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { normalizeIntegerInput, normalizeNumericInput, parseNumericInput } from '@/lib/numericInput';
 
 export function ProductCatalogCard() {
   const {
@@ -55,9 +56,13 @@ export function ProductCatalogCard() {
       const res = await addProduct({
         name,
         description,
-        unit_price: Number(unitPrice),
+        // Both fields hold normalized text, so the parse is the only place a
+        // number appears — `Number('0150')` reaching the catalog price is the
+        // defect #151 names, and it is gone at the source rather than here.
+        unit_price: parseNumericInput(unitPrice),
         unit,
         sat_product_code: satCode,
+        // Empty stays null: "no lo llevo en inventario" is not "tengo cero".
         stock_quantity: stockQuantity ? Number(stockQuantity) : null
       });
 
@@ -309,12 +314,12 @@ export function ProductCatalogCard() {
                     <DollarSign className="w-5 h-5 absolute left-3 top-3.5 text-slate-500" />
                     <input
                       id="productcatalogcard-precio-unitario-mxn"
-                      type="number"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
                       required
                       placeholder="0.00"
                       value={unitPrice}
-                      onChange={(e) => setUnitPrice(e.target.value)}
+                      onChange={(e) => setUnitPrice(normalizeNumericInput(e.target.value))}
                       className="w-full min-h-[48px] pl-10 pr-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-base"
                     />
                   </div>
@@ -356,11 +361,11 @@ export function ProductCatalogCard() {
                   <label htmlFor="productcatalogcard-existencias-opcional" className="block text-sm font-medium text-slate-300 mb-1">Existencias (opcional)</label>
                   <input
                     id="productcatalogcard-existencias-opcional"
-                    type="number"
-                    min={0}
+                    type="text"
+                    inputMode="numeric"
                     placeholder="Vacío para servicios"
                     value={stockQuantity}
-                    onChange={(e) => setStockQuantity(e.target.value)}
+                    onChange={(e) => setStockQuantity(normalizeIntegerInput(e.target.value))}
                     className="w-full min-h-[48px] px-4 bg-slate-950/80 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-base"
                   />
                   <p className="text-xs text-slate-400 mt-1">Solo para productos físicos con inventario</p>

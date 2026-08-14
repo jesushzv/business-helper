@@ -125,6 +125,53 @@ describe('adding a product', () => {
     });
   });
 
+  /**
+   * #151 — the catalog price is what every future quote line starts from, so a
+   * leading zero here multiplies an amount long after the typo.
+   */
+  it('keeps a half-typed price and refuses to let a leading zero multiply it', async () => {
+    await openForm();
+
+    expect(priceInput().getAttribute('type')).toBe('text');
+    expect(priceInput().getAttribute('inputMode')).toBe('decimal');
+
+    for (const typed of ['4', '42', '420', '420.', '420.5']) {
+      fireEvent.change(priceInput(), { target: { value: typed } });
+      expect(priceInput().value).toBe(typed);
+    }
+
+    fireEvent.change(priceInput(), { target: { value: '0420.50' } });
+    expect(priceInput().value).toBe('420.50');
+  });
+
+  it('stores existencias as a whole count, and empty as empty', async () => {
+    await openForm();
+    const stockInput = () => screen.getByLabelText(/Existencias/i) as HTMLInputElement;
+
+    fireEvent.change(stockInput(), { target: { value: '012' } });
+    expect(stockInput().value).toBe('12');
+    // A decimal point in a count of units is a slip, not an intent.
+    fireEvent.change(stockInput(), { target: { value: '12.5' } });
+    expect(stockInput().value).toBe('125');
+    fireEvent.change(stockInput(), { target: { value: '' } });
+    expect(stockInput().value).toBe('');
+  });
+
+  it('sends the normalized price, not the text as typed', async () => {
+    await openForm();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, { product: { id: 'prod-3', name: 'Sellador' } })
+    );
+
+    fireEvent.change(nameInput(), { target: { value: 'Sellador' } });
+    fireEvent.change(priceInput(), { target: { value: '0420.50' } });
+    fireEvent.click(saveButton());
+
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2));
+    const [, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({ unit_price: 420.5 });
+  });
+
   it('resets the clave and unidad after a save — the previous item must not pre-fill the next concept (#294)', async () => {
     await openForm();
     fetchMock.mockResolvedValueOnce(

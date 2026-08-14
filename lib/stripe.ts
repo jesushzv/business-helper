@@ -371,7 +371,13 @@ export interface SubscriptionStatusResult {
   badgeColor: string;
 }
 
-export function validateSubscriptionStatus(status: string = 'active'): SubscriptionStatusResult {
+/**
+ * The default is `''` — unknown — and not `'active'`. A caller that has no
+ * status has not learned that the subscription is healthy; it has learned
+ * nothing, and the default parameter was the last place in this module where
+ * those two were the same answer (#116).
+ */
+export function validateSubscriptionStatus(status: string = ''): SubscriptionStatusResult {
   // An unrecognised value used to fall through to the `canceled` arm and badge
   // "Cancelado" — a paying tenant told their subscription was cancelled because
   // the column held a word this function had never heard of. Unknown is its own

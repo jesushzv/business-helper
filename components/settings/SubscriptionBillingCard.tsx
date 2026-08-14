@@ -107,9 +107,11 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
               Prueba terminada
             </span>
           ) : (
-            // `subscription_status` defaults to 'active' in the database, so an
-            // organization that has never checked out would otherwise be
-            // badged "Activo" with no plan behind it.
+            // No tier column means nothing was ever bought, whatever the status
+            // column happens to say — and it has said different things over
+            // time: `subscription_status` defaulted to 'active' until
+            // 20260811150000 moved it to 'trialing'. Keying the badge on the
+            // tier is what keeps this arm right across both.
             <span className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-extrabold text-slate-300">
               Sin plan contratado
             </span>
