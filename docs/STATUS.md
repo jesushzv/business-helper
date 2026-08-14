@@ -4,7 +4,10 @@
 
 > **The single source of truth for what is and is not done.**
 >
-> *Last verified: 2026-08-11 23:59Z. Suite re-run for this pass; the P0 table re-derived from
+> *Last verified: 2026-08-14 06:30Z for the `bug` set below (re-derived from
+> `is:issue is:open label:bug`, with the `cfdi_stamp_claims` table, its grants and
+> `uq_organizations_owner_id` read back from the production catalog); 2026-08-11 23:59Z for
+> everything else. Suite re-run for this pass; the P0 table re-derived from
 > `is:issue is:open label:P0` rather than trusted — which is what caught the #64 row outliving its
 > issue; the launch-gate settlement query, the organization census and the `decision` label run
 > against the production catalog and the tracker. Method in §06.*
@@ -154,21 +157,30 @@ caller — it needs a motivo, the `01` replacement UUID, receptor refusal and an
 (#30). Tenants cancel at their PAC portal; the stamping dialog says so, and
 `tests/unit/cfdiCancelHasNoUiCaller.test.ts` fails the build if a caller appears.
 
-**Three open `bug`-tagged issues.** Two are fixed in code and await a live check; the third is new
-and unaddressed:
+**The `bug`-tagged set, re-derived from the tracker this pass.** Nine were open; three were already
+fixed in code and are now closed against live evidence, five are fixed by the stacked PRs #342 →
+#343 → #344 → #345, and one remains open on a credential:
 
-- [#116](https://github.com/jesushzv/business-helper/issues/116) — the webhook no longer writes a
-  Checkout Session's `'complete'` into `subscription_status`, a value `chk_subscription_status`
-  rejects (the write failed the CHECK *after* the event was claimed), and an unknown status is no
-  longer badged "Cancelado" to someone who has just paid.
-- [#133](https://github.com/jesushzv/business-helper/issues/133) — `requireOrgAccess` resolves the
-  tenant deterministically and logs the ambiguity instead of picking a row at random.
+- **Closed after live verification.** [#115](https://github.com/jesushzv/business-helper/issues/115)
+  (both Stripe ids written by the webhook; `organizations_stripe_customer_id_key` and
+  `…_subscription_id_key` confirmed UNIQUE in the production catalog, so a cross-tenant collision
+  surfaces as a 500 rather than being swallowed) · [#117](https://github.com/jesushzv/business-helper/issues/117)
+  (the chosen plan survives `/upgrade` → register → onboarding → Ajustes; no path writes
+  `subscription_tier`) · [#133](https://github.com/jesushzv/business-helper/issues/133) (deterministic
+  tenant, ambiguity logged; `uq_organizations_owner_id` confirmed live). #115's Billing Portal
+  residue was filed as #346 before closing, not dropped.
+- **Fixed in the stack, pending merge.** #334 (server "today" is `America/Mexico_City`, not UTC) ·
+  #151 (money inputs hold text — five sites, one more than the issue listed) · #281 (the chrome
+  follows a rename) · #269 (a second invitation says plainly that the app will keep showing the
+  other company) · #116 (an unknown subscription status reads as unknown, not "Activo").
+- **Open:** [#213](https://github.com/jesushzv/business-helper/issues/213) — the claim mechanism is
+  built *and* applied in production (see §04's Live PAC stamp row), so the race is closed; what
+  remains is the empty-`taxes` sandbox probe, which needs a real Facturapi credential.
 - [#204](https://github.com/jesushzv/business-helper/issues/204) — resolved 2026-08-12, §02.
 
-#115 (`stripe_customer_id` and `stripe_subscription_id` stored, so upgrades stop minting duplicate
-customers and a subscription can be cancelled from the app at all) is fixed alongside the first two
-and also still open. For all four: **tests, lint and build only** — no live Stripe event, no second
-organization row.
+For the five in the stack: **tests, lint and build only** — no live Stripe event, no live PAC stamp.
+The database claims above were read back from the production catalog, and the `cfdi_stamp_claims`
+primary key was proven by making it *reject* a second claim (`23505`) inside a rolled-back probe.
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without
