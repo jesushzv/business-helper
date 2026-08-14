@@ -52,7 +52,9 @@ export async function GET(request: Request) {
   const { data: rows, error } = await supabase
     .from('milestones')
     .select(
-      'id, label, amount, due_date, status, tracking_reference, cfdi_id, cfdi_xml_url, cfdi_pdf_url, receipt_url, confirmed_at, contracts(title, clients(name, rfc))'
+      'id, label, amount, transferred_amount, cfdi_total, cfdi_status, due_date, status, ' +
+        'tracking_reference, cfdi_id, cfdi_xml_url, cfdi_pdf_url, receipt_url, confirmed_at, ' +
+        'contracts(title, clients(name, rfc))'
     )
     .eq('organization_id', organizationId)
     .gte('due_date', start)

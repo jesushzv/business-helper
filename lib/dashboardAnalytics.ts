@@ -11,7 +11,11 @@
  * Cobranza and Facturación came to disagree about one cobro (#253).
  */
 
-import { collectedAmount, outstandingAmount } from './receivablesCalculator';
+import {
+  collectedAmount,
+  expectedSettlementAmount,
+  outstandingAmount,
+} from './receivablesCalculator';
 import { daysBetween, localTodayStr } from './dates';
 
 export interface MilestoneItem {
@@ -22,8 +26,19 @@ export interface MilestoneItem {
   amount: number;
   due_date: string;
   status: 'pending' | 'requested' | 'marked_paid' | 'confirmed';
-  /** What the owner confirmed actually arrived; may be less than `amount` (#253). */
-  transferred_amount?: number | null;
+  /**
+   * What the owner confirmed actually arrived; may be less than `amount` (#253).
+   *
+   * Required and nullable for the reason `MilestoneItem.transferred_amount` in
+   * `lib/receivablesCalculator` gives: a mapping that drops the key is not the
+   * same as a row whose column is NULL, and this type is what the client-side
+   * fallback mappings build (#351).
+   */
+  transferred_amount: number | string | null;
+  /** The stamped document's own total, when there is one (#341). */
+  cfdi_total?: number | string | null;
+  /** Stamping state; a cancelled document settles nothing (#341). */
+  cfdi_status?: string | null;
   confirmed_at?: string | null;
 }
 
@@ -241,7 +256,10 @@ export function calculateCashFlowForecast(
     if (m.status !== 'confirmed') {
       const diffDays = daysBetween(reference, (m.due_date || '').substring(0, 10));
 
-      const amt = Number(m.amount) || 0;
+      // What this cobro must be paid to be settled, not the contractual
+      // figure: once a CFDI is stamped the forecast should expect the document
+      // the client will actually pay against (#341, #351).
+      const amt = expectedSettlementAmount(m);
 
       if (diffDays >= 0 && diffDays <= 30) {
         days30Bucket.amount += amt;

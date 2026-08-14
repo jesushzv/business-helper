@@ -12,6 +12,7 @@
  */
 
 import type { AIOrgData } from './whatsappAI';
+import { collectedAmount, expectedSettlementAmount } from './receivablesCalculator';
 
 /** Milestone states that still represent money owed to the organization. */
 const OPEN_MILESTONE_STATUSES = ['pending', 'requested', 'marked_paid'];
@@ -20,6 +21,10 @@ interface MilestoneContextRow {
   id: string;
   label: string;
   amount: number | string;
+  /** Required, and nullable — see `MilestoneItem.transferred_amount` (#351). */
+  transferred_amount: number | string | null;
+  cfdi_total?: number | string | null;
+  cfdi_status?: string | null;
   status: string;
   due_date: string;
   contracts?: { client_id?: string | null } | Array<{ client_id?: string | null }> | null;
@@ -53,7 +58,10 @@ export async function loadAIOrgContext(
       .eq('organization_id', organizationId),
     supabase
       .from('milestones')
-      .select('id, label, amount, status, due_date, contracts(client_id)')
+      .select(
+        'id, label, amount, transferred_amount, cfdi_total, cfdi_status, ' +
+          'status, due_date, contracts(client_id)'
+      )
       .eq('organization_id', organizationId)
       .in('status', OPEN_MILESTONE_STATUSES),
     // Confirmed payments, for "¿cuánto hemos cobrado?" (#274): the context
@@ -61,7 +69,14 @@ export async function loadAIOrgContext(
     // por-cobrar total — the semantic opposite of what was asked.
     supabase
       .from('milestones')
-      .select('id, amount, confirmed_at, contracts(client_id)')
+      // What arrived, not what was billed (#351). `whatsappAI` sums this for
+      // "¿Cuánto hemos cobrado este mes?" and labels the answer `engine:
+      // 'rules'` — a computed fact. Summing `amount` made that fact an
+      // overstatement for every partially-paid cobro.
+      .select(
+        'id, amount, transferred_amount, cfdi_total, cfdi_status, ' +
+          'status, confirmed_at, contracts(client_id)'
+      )
       .eq('organization_id', organizationId)
       .eq('status', 'confirmed'),
   ]);
@@ -75,7 +90,10 @@ export async function loadAIOrgContext(
     receivables: (milestones || []).map((m: MilestoneContextRow) => ({
       id: m.id,
       clientId: contractClientId(m),
-      amount: typeof m.amount === 'string' ? Number(m.amount) : m.amount,
+      // What this cobro must be paid to be settled — the stamped total when
+      // there is a live document, else the contractual amount (#341). These
+      // rows are all open, so nothing has been collected against them yet.
+      amount: expectedSettlementAmount(m),
       status: m.status,
       label: m.label,
       // Carried through since #274: the due-today intent filters on it.
@@ -83,7 +101,8 @@ export async function loadAIOrgContext(
     })),
     collected: (confirmed || []).map((m: MilestoneContextRow & { confirmed_at?: string | null }) => ({
       clientId: contractClientId(m),
-      amount: typeof m.amount === 'string' ? Number(m.amount) : m.amount,
+      // What arrived, clamped to what was owed — not what was billed (#351).
+      amount: collectedAmount(m),
       confirmed_at: m.confirmed_at ?? null,
     })),
   };

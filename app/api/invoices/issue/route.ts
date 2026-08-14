@@ -134,7 +134,8 @@ export async function POST(request: Request) {
   const { data: milestone, error: milestoneError } = await supabase
     .from('milestones')
     .select(
-      'id, label, amount, cfdi_status, cfdi_uuid, cfdi_environment, contract_id, ' +
+      'id, label, amount, transferred_amount, cfdi_total, cfdi_status, cfdi_uuid, ' +
+        'cfdi_environment, contract_id, ' +
         'contracts(title, quote_id, clients(name, rfc, regimen_fiscal, codigo_postal, cfdi_use))'
     )
     .eq('id', milestoneId)

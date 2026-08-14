@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requirePlatformAdmin } from '@/lib/platformAdmin';
+import { collectedAmount, type CollectedBase } from '@/lib/receivablesCalculator';
 
 /**
  * GET /api/admin/metrics — the founder's cross-tenant snapshot.
@@ -66,11 +67,15 @@ export async function GET() {
     // (default 1000) with a 200 and no error, which would silently undercount
     // a money figure. The loop ends on the first short page.
     const CONFIRMED_PAGE = 1000;
-    const confirmed: Array<{ amount: unknown }> = [];
+    const confirmed: CollectedBase[] = [];
     for (let from = 0; ; from += CONFIRMED_PAGE) {
       const { data: page, error: confirmedError } = await service
         .from('milestones')
-        .select('amount')
+        // Not `amount` alone: this figure is platform revenue *collected*, and
+        // a partial wire against a larger cobro is not the larger number
+        // (#351, #253). `collectedAmount` needs the transfer and the stamped
+        // document to say what actually arrived.
+        .select('amount, transferred_amount, cfdi_total, cfdi_status, status')
         .eq('status', 'confirmed')
         .order('id', { ascending: true })
         .range(from, from + CONFIRMED_PAGE - 1);
@@ -78,11 +83,8 @@ export async function GET() {
       confirmed.push(...(page ?? []));
       if (!page || page.length < CONFIRMED_PAGE) break;
     }
-    const confirmedAmount = confirmed.reduce(
-      (sum: number, row: { amount: unknown }) =>
-        sum + (typeof row.amount === 'number' ? row.amount : Number(row.amount) || 0),
-      0
-    );
+    const confirmedAmount =
+      Math.round(confirmed.reduce((sum: number, row) => sum + collectedAmount(row), 0) * 100) / 100;
 
     // GoTrue's admin API is a separate service from Postgres; its failure must
     // not take the panel down, and an unknown count stays null — rendering it

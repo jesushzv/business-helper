@@ -272,7 +272,8 @@ export async function issuePaymentComplement(
   const { data: milestone } = await supabase
     .from('milestones')
     .select(
-      'id, label, amount, contract_id, cfdi_status, cfdi_uuid, cfdi_id, cfdi_total, ' +
+      'id, label, amount, transferred_amount, contract_id, cfdi_status, cfdi_uuid, ' +
+        'cfdi_id, cfdi_total, ' +
         'cfdi_payment_method, contracts(quote_id, clients(name, rfc, regimen_fiscal, codigo_postal, cfdi_use))'
     )
     .eq('id', milestoneId)

@@ -94,7 +94,7 @@ export async function GET(
         // the pre-tax base, so asking for `amount` while the complemento de
         // pago settles against the stamped total makes an exact payment read
         // as a one-centavo over- or under-payment.
-        'id, title, bank_account_id, contracts!quote_id(id, title, milestones(id, label, amount, cfdi_total, cfdi_status, due_date, status)), clients(name), ' +
+        'id, title, bank_account_id, contracts!quote_id(id, title, milestones(id, label, amount, transferred_amount, cfdi_total, cfdi_status, due_date, status)), clients(name), ' +
           'bank_accounts!bank_account_id(id, label, bank_name, clabe, account_holder, is_default, archived_at), ' +
           'organizations(name, bank_accounts(id, label, bank_name, clabe, account_holder, is_default, archived_at))'
       )
