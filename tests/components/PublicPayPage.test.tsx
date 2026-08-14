@@ -65,6 +65,8 @@ function fileInput(): HTMLInputElement {
 const trackingInput = () =>
   screen.getByPlaceholderText(/SPEI20260830123456/i) as HTMLInputElement;
 const submit = () => screen.getByRole('button', { name: /Enviar Comprobante SPEI/i });
+const amountInput = () =>
+  screen.getByLabelText(/Monto Transferido \(MXN\)/i) as HTMLInputElement;
 
 /** Renders with the milestone loaded, the state every submit case starts from. */
 async function renderLoaded() {
@@ -177,6 +179,41 @@ describe('declaring the transfer', () => {
     });
 
     await screen.findByText(/¡Comprobante Enviado Exitosamente!/i);
+  });
+
+  /**
+   * #151 — this field is typed on a phone, by the payer, with the money already
+   * gone. `type="number"` blanked it the moment they reached the decimal point
+   * and rejected a pasted `$1,500.50` outright.
+   */
+  it('keeps every keystroke of a partial amount, and cleans a pasted one', async () => {
+    await renderLoaded();
+
+    expect(amountInput().getAttribute('type')).toBe('text');
+    expect(amountInput().getAttribute('inputMode')).toBe('decimal');
+
+    for (const typed of ['1', '12', '122', '1225', '12250', '12250.', '12250.7']) {
+      fireEvent.change(amountInput(), { target: { value: typed } });
+      expect(amountInput().value).toBe(typed);
+    }
+
+    fireEvent.change(amountInput(), { target: { value: '$1,500.50' } });
+    expect(amountInput().value).toBe('1500.50');
+  });
+
+  it('declares a partial amount as typed, with no leading zero multiplying it', async () => {
+    await renderLoaded();
+    mockUploadOk();
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true }));
+
+    fillMinimum();
+    fireEvent.change(amountInput(), { target: { value: '012250.50' } });
+    expect(amountInput().value).toBe('12250.50');
+    fireEvent.click(submit());
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    const [, init] = fetchMock.mock.calls[2] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({ transferred_amount: 12250.5 });
   });
 
   it('names the missing piece rather than failing silently', async () => {

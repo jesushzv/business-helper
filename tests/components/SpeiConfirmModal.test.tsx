@@ -45,7 +45,11 @@ function renderModal(
   return { onClose, confirm };
 }
 
-const amountInput = () => document.querySelector('input[type="number"]') as HTMLInputElement;
+// Selected by its label, not by `input[type="number"]` — that selector was
+// pinning the very attribute #151 removes, so the fix would have read as a
+// broken test.
+const amountInput = () =>
+  screen.getByLabelText(/Monto Transferido Confirmado/i) as HTMLInputElement;
 const confirmButton = () => screen.getByRole('button', { name: /Confirmar Pago/i });
 
 beforeEach(() => {
@@ -112,10 +116,49 @@ describe('confirming a payment', () => {
       await waitFor(() => expect(confirm).toHaveBeenCalledWith('m-1', 18250.55));
     });
 
-    // The state is now the typed string rather than a number, which is also
-    // what #151 asks for — but jsdom normalizes a partial decimal ("1500.") to
-    // "" inside `input[type=number]` whatever the component does, so that half
-    // is not assertable here and is not claimed.
+  });
+
+  /**
+   * #151 — the note that used to sit here said a half-typed decimal was not
+   * assertable, because jsdom normalizes it away inside `input[type=number]`.
+   * That was true of the input, not of the component: the field is now
+   * `type="text" inputMode="decimal"`, so jsdom stops rewriting the value and
+   * the keystrokes are visible to a test.
+   */
+  describe('the field keeps what was typed into it', () => {
+    it('holds every keystroke of a decimal, including the bare point', () => {
+      renderModal(async () => ok());
+
+      for (const typed of ['1', '18', '182', '1825', '18250', '18250.', '18250.5']) {
+        fireEvent.change(amountInput(), { target: { value: typed } });
+        expect(amountInput().value).toBe(typed);
+      }
+    });
+
+    it('offers the decimal keypad rather than a spinner', () => {
+      renderModal(async () => ok());
+      expect(amountInput().getAttribute('type')).toBe('text');
+      expect(amountInput().getAttribute('inputMode')).toBe('decimal');
+    });
+
+    it('cannot be multiplied by a caret landing left of the prefill', () => {
+      // The reported shape: `24500` prefilled, caret at the start, `0` typed.
+      const { confirm } = renderModal(async () => ok());
+
+      expect(amountInput().value).toBe('24500');
+      fireEvent.change(amountInput(), { target: { value: '024500' } });
+      expect(amountInput().value).toBe('24500');
+
+      fireEvent.click(confirmButton());
+      return waitFor(() => expect(confirm).toHaveBeenCalledWith('m-1', 24500));
+    });
+
+    it('leaves a cleared field empty rather than snapping it to 0', () => {
+      renderModal(async () => ok());
+
+      fireEvent.change(amountInput(), { target: { value: '' } });
+      expect(amountInput().value).toBe('');
+    });
   });
 });
 

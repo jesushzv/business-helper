@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { MilestoneWithClient, ReceivableMutationOutcome } from '@/lib/hooks/useReceivables';
 import { CheckCircle, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { normalizeNumericInput, numericInputValue, parseNumericInput } from '@/lib/numericInput';
 
 interface SpeiConfirmModalProps {
   isOpen: boolean;
@@ -24,17 +25,21 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   // Held as the typed text, not a number, so "cleared" and "zero" stay
   // distinguishable: `Number(x) || milestone.amount` substituted the FULL
   // amount for anything falsy, and a cleared field displayed 0 while confirming
-  // the whole cobro — screen and write disagreeing about money (#284). The
-  // string state is also what #151 asks of this input (a number binding
-  // re-rendered a trailing zero over a half-typed decimal), though jsdom
-  // normalizes that away and no test here claims it.
+  // the whole cobro — screen and write disagreeing about money (#284). #151
+  // finishes the job at the input itself: `type="number"` blanked the field
+  // mid-decimal and let `0150` through, so the field is now text with a
+  // decimal keypad and every keystroke goes through `normalizeNumericInput`.
+  //
+  // The prefill stays. Confirming a SPEI means agreeing with the amount the
+  // milestone expects far more often than correcting it, and the defect here
+  // was never the default — it was the round-trip through `parseFloat`.
   const [transferredAmount, setTransferredAmount] = useState<string>(
-    String(milestone?.transferred_amount ?? milestone?.amount ?? '')
+    numericInputValue(milestone?.transferred_amount ?? milestone?.amount)
   );
 
   React.useEffect(() => {
     if (milestone) {
-      setTransferredAmount(String(milestone.transferred_amount ?? milestone.amount ?? ''));
+      setTransferredAmount(numericInputValue(milestone.transferred_amount ?? milestone.amount));
       setErrorMessage(null);
       setComplementWarning(null);
     }
@@ -46,7 +51,7 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
     // What arrived is the tenant's declaration, and it is what the complemento
     // de pago will carry to the SAT. An unreadable one is a question, not a
     // default.
-    const declared = Number(transferredAmount.trim());
+    const declared = parseNumericInput(transferredAmount);
     if (transferredAmount.trim() === '' || !Number.isFinite(declared) || declared <= 0) {
       setErrorMessage(
         'Indica el monto que recibiste, mayor a cero. Si no llegó nada, no confirmes el pago.'
@@ -172,10 +177,10 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
             </label>
             <input
               id="speiconfirmmodal-monto-transferido-confirmado-mxn"
-              type="number"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               value={transferredAmount}
-              onChange={(e) => setTransferredAmount(e.target.value)}
+              onChange={(e) => setTransferredAmount(normalizeNumericInput(e.target.value))}
               className="w-full min-h-[48px] px-4 py-3 border border-slate-800 bg-slate-950/80 rounded-xl font-bold font-mono text-lg text-white focus:border-emerald-500 outline-none"
             />
           </div>

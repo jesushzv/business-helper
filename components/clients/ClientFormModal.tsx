@@ -10,6 +10,7 @@ import { ClientWriteError } from '@/lib/clientWriteError';
 import { PhoneField } from '@/components/shared/PhoneField';
 import { regimenOptions } from '@/lib/satRegimenes';
 import { canManageCredit } from '@/lib/clientCreditAuthorization';
+import { normalizeNumericInput, numericInputValue, parseNumericInput } from '@/lib/numericInput';
 import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
 import { userFacingMessage } from '@/lib/errorCopy';
 
@@ -72,7 +73,13 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [regimenFiscal, setRegimenFiscal] = useState('');
   const [codigoPostal, setCodigoPostal] = useState('');
   const [cfdiUse, setCfdiUse] = useState('G03');
-  const [creditLimit, setCreditLimit] = useState<number | ''>('');
+  // Raw text, not `number | ''`. Bound to a number and round-tripped through
+  // `Number(e.target.value)`, an edit of a client with a stored limit put a
+  // caret to the left of the prefilled `50000` and multiplied it by ten on the
+  // next keystroke — the trailing-zero defect, on the field that decides how
+  // much credit a client is extended (#151, a fifth site the issue's list did
+  // not name).
+  const [creditLimit, setCreditLimit] = useState<string>('');
   const [creditDays, setCreditDays] = useState<number | ''>('');
   const [creditStatus, setCreditStatus] = useState<'' | 'active' | 'suspended' | 'blocked'>('');
   const [notes, setNotes] = useState('');
@@ -113,7 +120,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setRegimenFiscal(initialClient.regimen_fiscal || '');
       setCodigoPostal(initialClient.codigo_postal || '');
       setCfdiUse(initialClient.cfdi_use || 'G03');
-      setCreditLimit(initialClient.credit_limit ?? '');
+      setCreditLimit(numericInputValue(initialClient.credit_limit));
       setCreditDays(initialClient.credit_days ?? '');
       setCreditStatus(initialClient.credit_status || '');
       setNotes(initialClient.notes || '');
@@ -230,7 +237,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         ...(creditLocked
           ? {}
           : {
-              credit_limit: creditLimit === '' ? null : Number(creditLimit),
+              credit_limit: creditLimit.trim() === '' ? null : parseNumericInput(creditLimit),
               credit_days: creditDays === '' ? null : Number(creditDays),
               credit_status: creditStatus || null,
             }),
@@ -601,12 +608,11 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 <input
                   {...fieldProps('credit_limit')}
                   disabled={creditLocked}
-                  type="number"
-                  min={0}
-                  step={1000}
+                  type="text"
+                  inputMode="decimal"
                   value={creditLimit}
                   onChange={(e) => {
-                    setCreditLimit(e.target.value ? Number(e.target.value) : '');
+                    setCreditLimit(normalizeNumericInput(e.target.value));
                     clearFieldError('credit_limit');
                   }}
                   placeholder="Ej. 50000"
