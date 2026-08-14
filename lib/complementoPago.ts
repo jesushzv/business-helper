@@ -198,15 +198,43 @@ export function planPaymentComplement(
 
   return {
     required: true,
-    // The parcialidad counts payments applied to the document, so a failed
-    // attempt does not consume one — its row is excluded from `issued`.
-    installment: issued.length + 1,
+    // One past the highest parcialidad already on record — **not**
+    // `issued.length + 1` (#30).
+    //
+    // The two agree until a complement is cancelled, and then they do not: with
+    // parcialidad 2 cancelled, one issued row remains, so `issued.length + 1`
+    // says 2 — the cancelled document's own number. The decision taken on #30
+    // is that a cancelled parcialidad is spent and never reused, and the
+    // database already enforces exactly that: the partial unique index on
+    // `(milestone_id, installment) WHERE status <> 'failed'` keeps the
+    // cancelled row occupying its number, so the reissue would have collided
+    // with a 23505 at the moment of filing.
+    //
+    // A `failed` row is excluded on both sides, so a retry still lands on the
+    // number its failed attempt was aiming at — the index excludes `failed`
+    // for the same reason. The resulting gap in the sequence after a
+    // cancellation is the honest record of one.
+    installment: nextInstallment(complements),
     amount,
     lastBalance,
     remainingBalance,
     settles: remainingBalance === 0,
     overpaidAmount,
   };
+}
+
+/**
+ * The next SAT NumParcialidad for a document, given everything on record.
+ *
+ * Derived from the highest number already taken rather than from a count, so a
+ * gap left by a cancellation stays a gap (#30). Mirrors the partial unique
+ * index the database enforces.
+ */
+function nextInstallment(records: ComplementRecordState[]): number {
+  const taken = (records || [])
+    .filter((r) => (r?.status || '') !== 'failed')
+    .map((r) => Number(r?.installment) || 0);
+  return Math.max(0, ...taken) + 1;
 }
 
 export interface IssuedComplement {
