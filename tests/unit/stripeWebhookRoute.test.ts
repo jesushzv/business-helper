@@ -230,6 +230,97 @@ describe('#63 — accepted *and processed* means a row actually changed', () => 
   });
 });
 
+/**
+ * #325 — the one route grandfathered out of the #275 envelope gate.
+ *
+ * These bodies are read by Stripe's webhook log, never by a tenant UI, so the
+ * audience-facing harm #275 fixed does not apply. What does apply: whoever is
+ * reading that log at 2am wants a machine-readable `code` next to the Spanish
+ * sentence, and the repo having exactly one envelope shape is worth more than
+ * this route's exemption from it.
+ *
+ * The conversion broke no test in the suite, which is precisely why these
+ * exist — the shape was unasserted, so nothing would have noticed it drifting
+ * back.
+ */
+describe('#325 — every error body is the { code, message } envelope', () => {
+  const envelope = (json: Record<string, unknown>) => json.error as { code?: string; message?: string };
+
+  it('answers a code and a Spanish message when the endpoint has no secret', async () => {
+    vi.stubEnv('STRIPE_WEBHOOK_SECRET', '');
+    const body = subscriptionEvent('evt_no_secret_envelope');
+    const { status, json } = await postWebhook(body, signStripePayload(body, SECRET));
+
+    expect(status).toBe(503);
+    expect(envelope(json).code).toBe('WEBHOOK_NOT_CONFIGURED');
+    expect(envelope(json).message).toMatch(/no configurada/i);
+    // The whole point: not a bare string under the error key.
+    expect(typeof json.error).toBe('object');
+  });
+
+  it('distinguishes a forged signature from a malformed payload by code', async () => {
+    const forged = await postWebhook(subscriptionEvent('evt_forged_envelope'), null);
+    expect(forged.status).toBe(400);
+    expect(envelope(forged.json).code).toBe('INVALID_SIGNATURE');
+
+    const notJson = 'this is not json';
+    const malformed = await postWebhook(notJson, signStripePayload(notJson, SECRET));
+    expect(malformed.status).toBe(400);
+    expect(envelope(malformed.json).code).toBe('INVALID_PAYLOAD');
+  });
+
+  it('names the storage gap rather than the caller when the service role is missing', async () => {
+    scenario.serviceRoleConfigured = false;
+    const body = subscriptionEvent('evt_no_service_role');
+    const { status, json } = await postWebhook(body, signStripePayload(body, SECRET));
+
+    expect(status).toBe(503);
+    // The same code the eight other service-role branches answer with.
+    expect(envelope(json).code).toBe('BACKEND_NOT_CONFIGURED');
+  });
+
+  it('separates an unusable organization id from an organization that is not here', async () => {
+    const noOrg = JSON.stringify({
+      id: 'evt_no_org',
+      type: 'customer.subscription.updated',
+      data: { object: { status: 'active', items: { data: [] } } },
+    });
+    const first = await postWebhook(noOrg, signStripePayload(noOrg, SECRET));
+    expect(first.status).toBe(400);
+    expect(envelope(first.json).code).toBe('ORGANIZATION_MISSING');
+
+    scenario.updatedRows = [];
+    const ghost = subscriptionEvent('evt_ghost_envelope');
+    const second = await postWebhook(ghost, signStripePayload(ghost, SECRET));
+    expect(second.status).toBe(404);
+    expect(envelope(second.json).code).toBe('ORGANIZATION_NOT_FOUND');
+  });
+
+  it('names the failed write when the subscription change could not be applied', async () => {
+    scenario.updateError = { code: '08006' };
+    const body = subscriptionEvent('evt_update_envelope');
+    const { status, json } = await postWebhook(body, signStripePayload(body, SECRET));
+
+    expect(status).toBe(500);
+    expect(envelope(json).code).toBe('SUBSCRIPTION_UPDATE_FAILED');
+    expect(envelope(json).message).toMatch(/suscripción/i);
+  });
+
+  it('leaves the success bodies alone — Stripe branches on these', async () => {
+    const ignored = JSON.stringify({
+      id: 'evt_ignored_envelope',
+      type: 'invoice.payment_succeeded',
+      data: { object: {} },
+    });
+    const { status, json } = await postWebhook(ignored, signStripePayload(ignored, SECRET));
+
+    expect(status).toBe(200);
+    expect(json.received).toBe(true);
+    expect(json.ignored).toBe('invoice.payment_succeeded');
+    expect(json.error).toBeUndefined();
+  });
+});
+
 describe('#63 — a redelivery is not applied twice', () => {
   it('acknowledges a duplicate event id without updating anything', async () => {
     scenario.claimError = { code: '23505' };
