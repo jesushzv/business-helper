@@ -84,7 +84,7 @@ export async function countLiveAccounts(
 }
 
 /** Quote states still collectable — the ones whose payment instructions an archive strands or a CLABE edit rewrites. */
-export const LIVE_QUOTE_STATUSES = ['sent', 'accepted', 'converted'] as const;
+const LIVE_QUOTE_STATUSES = ['sent', 'accepted', 'converted'] as const;
 
 export interface AccountQuoteExposure {
   count: number;

@@ -99,7 +99,7 @@ function blankToNull(raw: unknown): string | null {
  * next to the field, so a malformed value is visible at entry rather than
  * silently blessed — it is simply not a reason to lose the client.
  */
-export function normalizeRfc(rfc: unknown): string | null {
+function normalizeRfc(rfc: unknown): string | null {
   if (rfc === undefined || rfc === null) return null;
   const cleaned = String(rfc).toUpperCase().trim();
   return cleaned || null;

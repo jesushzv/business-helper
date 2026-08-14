@@ -70,6 +70,14 @@ describe('the advertised price and the billed price are the same number (#68)', 
     }
   });
 
+  it('Plan Inicial stays the canonical $299 entry plan (decided, not derived)', () => {
+    // Absolute anchor folded in from the retired p0AuditFixes suite: the
+    // consistency checks above pass if all three files drift *together*, so
+    // the decided price needs one absolute pin.
+    expect(STRIPE_PLANS.inicial.name).toBe('Plan Inicial');
+    expect(STRIPE_PLANS.inicial.price).toBe(299);
+  });
+
   it('all three plans are priced in MXN per month', () => {
     for (const plan of Object.values(STRIPE_PLANS)) {
       expect(plan.currency).toBe('MXN');

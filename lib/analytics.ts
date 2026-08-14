@@ -36,11 +36,6 @@ export const ANALYTICS_EVENTS = [
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];
 
-/** @deprecated Use ANALYTICS_EVENTS for the full core event contract. */
-export const FUNNEL_EVENTS = ANALYTICS_EVENTS;
-/** @deprecated Use AnalyticsEvent. */
-export type FunnelEvent = AnalyticsEvent;
-
 /** Keys that must never reach an analytics property, whatever the caller sends. */
 const PII_KEYS = new Set([
   'phone',

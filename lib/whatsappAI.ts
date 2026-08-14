@@ -192,17 +192,6 @@ Respuesta calculada por el sistema: "${rules.answerText}"
 Pregunta del dueño: "${cleanQuery}"`;
 }
 
-export function verifyWebhookChallenge(
-  receivedToken: string,
-  expectedToken: string = 'business_helper_verify_token',
-  challenge: string = ''
-): { status: number; challenge?: string; error?: string } {
-  if (receivedToken && receivedToken === expectedToken) {
-    return { status: 200, challenge };
-  }
-  return { status: 403, error: 'Forbidden: Invalid verify token' };
-}
-
 const mxn = (value: number) => `$${value.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
 
 /** Per-client open balances, largest first — the fact three intents share. */

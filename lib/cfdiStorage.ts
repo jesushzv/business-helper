@@ -13,10 +13,10 @@
  * URL per request, after checking the session.
  */
 
-export const CFDI_BUCKET = 'cfdi-documents';
+const CFDI_BUCKET = 'cfdi-documents';
 
 /** How long a download link stays valid. Long enough to click, short enough not to circulate. */
-export const CFDI_SIGNED_URL_TTL_SECONDS = 300;
+const CFDI_SIGNED_URL_TTL_SECONDS = 300;
 
 export interface CFDIStoragePaths {
   xmlPath: string;
@@ -30,7 +30,7 @@ export interface CFDIStoragePaths {
  * document is idempotent and the object name matches what the accountant sees
  * in the XML.
  */
-export function cfdiStoragePaths(
+function cfdiStoragePaths(
   organizationId: string,
   milestoneId: string,
   uuid: string
