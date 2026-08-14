@@ -11,6 +11,7 @@ import {
   TIER_AI_QUOTAS,
   type AIOrgData,
 } from '@/lib/whatsappAI';
+import { productTodayStr } from '@/lib/dates';
 
 describe('AI monthly tier quotas', () => {
   it('allows a query while under the plan limit and reports what is left', () => {
@@ -170,7 +171,11 @@ describe('Client balance queries', () => {
  * named.
  */
 describe('the chips get answers to their own questions (#274)', () => {
-  const today = new Date().toISOString().split('T')[0];
+  // The product's day, not UTC's — with `toISOString()` here this fixture
+  // disagreed with the assistant for the six hours between 18:00 in Mexico and
+  // midnight UTC, so the suite went red every evening and green every morning
+  // (#334).
+  const today = productTodayStr();
   const CHIP_ORG: AIOrgData = {
     clients: [
       { id: 'c-1', name: 'Constructora del Bajío', phone: '+528112345678' },

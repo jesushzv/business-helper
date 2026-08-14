@@ -17,6 +17,8 @@
  * with no tier at all is on trial, and the trial gate owns that question.
  */
 
+import { productDayStartInstant, productMonthStr } from './dates';
+
 export const INICIAL_MONTHLY_QUOTE_LIMIT = 50;
 
 export const QUOTE_QUOTA_CODE = 'QUOTE_QUOTA_EXCEEDED';
@@ -34,9 +36,19 @@ interface QuotaGateResult {
   limit?: number;
 }
 
-/** First instant of the current calendar month, UTC — the same clock every server date uses. */
+/**
+ * First instant of the current calendar month **as Mexico City reads it**.
+ *
+ * It used to be built from `getUTCFullYear`/`getUTCMonth`, which rolls the
+ * counter over six hours early: at 18:00 on the last day of the month the
+ * tenant is still working, and their 50 cotizaciones reset — or, on the first
+ * evening of a new month, quotes written *this* month stopped being counted.
+ * The month start is the product-zone day `YYYY-MM-01` converted back to the
+ * instant it begins, because `quotes.created_at` is a `timestamptz` and the
+ * comparison happens in absolute time (#334).
+ */
 export function monthStartISO(now: Date = new Date()): string {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  return productDayStartInstant(`${productMonthStr(now)}-01`).toISOString();
 }
 
 export async function checkQuoteQuotaGate(

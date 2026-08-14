@@ -8,6 +8,7 @@
  * and automated Meta/Twilio WhatsApp webhook challenge verification.
  */
 
+import { productMonthStr, productTodayStr } from './dates';
 import { FAQ_ITEMS, searchFAQItems, FAQItem, faqCategoryLabel, getSupportWhatsAppNumber } from './helpFAQ';
 import { generateWhatsAppLink } from './whatsappLink';
 
@@ -296,16 +297,21 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData = {}
   // 3a. Collected: "¿Cuánto hemos cobrado este mes?"
   if (/\bcobrad|\bcobramos\b|hemos cobrado|llevamos cobrado/.test(cleanQuery)) {
     const collected = orgData.collected || [];
-    const now = new Date();
-    const thisMonth = collected.filter((c) => {
+    // "Este mes" is the product's month, and both sides are read through the
+    // same zone: the server's own month is UTC's, and `getMonth()` on a parsed
+    // `confirmed_at` is the server's local month again — so a payment confirmed
+    // at 19:00 on the last day of the month fell out of the total the tenant
+    // was asking about (#334).
+    const thisMonth = productMonthStr();
+    const monthly = collected.filter((c) => {
       if (!c.confirmed_at) return false;
-      const d = new Date(c.confirmed_at);
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      const at = new Date(c.confirmed_at);
+      return !Number.isNaN(at.getTime()) && productMonthStr(at) === thisMonth;
     });
-    const total = thisMonth.reduce((acc, c) => acc + (c.amount || 0), 0);
+    const total = monthly.reduce((acc, c) => acc + (c.amount || 0), 0);
     const answerText =
-      thisMonth.length > 0
-        ? `Este mes has confirmado ${thisMonth.length} ${thisMonth.length === 1 ? 'pago' : 'pagos'} por un total de ${mxn(total)}.`
+      monthly.length > 0
+        ? `Este mes has confirmado ${monthly.length} ${monthly.length === 1 ? 'pago' : 'pagos'} por un total de ${mxn(total)}.`
         : 'Este mes todavía no has confirmado ningún pago. Cuando confirmes un cobro en Cobranza, aparecerá aquí.';
     return {
       query: sanitizedQuery,
@@ -321,7 +327,7 @@ export function parseNaturalLanguageQuery(query: string, orgData: AIOrgData = {}
 
   // 3b. Due today: "¿Cuáles pagos vencen hoy?"
   if (/vencen? hoy|para hoy/.test(cleanQuery)) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = productTodayStr();
     const dueToday = receivables.filter((r) => (r.due_date || '').substring(0, 10) === today);
     const total = dueToday.reduce((acc, r) => acc + (r.amount || 0), 0);
     const names = dueToday
