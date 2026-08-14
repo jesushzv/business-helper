@@ -122,7 +122,15 @@ beforeEach(() => {
   ];
   state.orgCount = 2;
   state.headCounts = { clients: 7, quotes: 5, contracts: 3, milestones: 9 };
-  state.confirmedMilestones = [{ amount: 1500.5 }, { amount: 2000 }, { amount: null }];
+  // Server-shaped rows: the route reads these through `collectedAmount`, so
+  // the fixture has to carry the same columns PostgREST hands back (#351).
+  // The middle row is a partial wire — $800 arrived against a $2,000 cobro —
+  // which the old `sum(amount)` booked as the full $2,000 of platform revenue.
+  state.confirmedMilestones = [
+    { status: 'confirmed', amount: 1500.5, transferred_amount: null, cfdi_total: null, cfdi_status: null },
+    { status: 'confirmed', amount: 2000, transferred_amount: 800, cfdi_total: null, cfdi_status: null },
+    { status: 'confirmed', amount: null, transferred_amount: null, cfdi_total: null, cfdi_status: null },
+  ];
   state.usersTotal = 4;
 });
 
@@ -152,7 +160,9 @@ describe('GET /api/admin/metrics', () => {
     expect(body.totals.contracts).toBe(3);
     expect(body.totals.milestones).toBe(9);
     expect(body.totals.confirmed_payments).toBe(3);
-    expect(body.totals.confirmed_amount_mxn).toBeCloseTo(3500.5);
+    // 1500.5 (no figure recorded → the full amount arrived) + 800 (what the
+    // partial wire actually carried) + 0 (no amount on the row).
+    expect(body.totals.confirmed_amount_mxn).toBeCloseTo(2300.5);
 
     expect(body.subscriptions).toEqual({ trialing: 1, active: 1 });
     expect(body.tiers).toEqual({ inicial: 1, negocio: 1 });

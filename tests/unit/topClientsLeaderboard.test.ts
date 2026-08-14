@@ -31,7 +31,7 @@ describe('getTopClientsByRevenue', () => {
 
   it('excludes zero-revenue clients rather than padding the leaderboard', () => {
     const milestones: MilestoneItem[] = [
-      { id: 'm-1', client_id: 'c-3', label: 'Anticipo', amount: 20000, due_date: today, status: 'confirmed' },
+      { id: 'm-1', client_id: 'c-3', label: 'Anticipo', amount: 20000, due_date: today, status: 'confirmed', transferred_amount: null },
     ];
 
     const top = getTopClientsByRevenue(milestones, CLIENTS, 5);
@@ -43,7 +43,7 @@ describe('getTopClientsByRevenue', () => {
 
   it('carries a null score as null — never as an invented 100 (#276)', () => {
     const milestones: MilestoneItem[] = [
-      { id: 'm-1', client_id: 'c-1', label: 'Anticipo', amount: 5000, due_date: today, status: 'confirmed' },
+      { id: 'm-1', client_id: 'c-1', label: 'Anticipo', amount: 5000, due_date: today, status: 'confirmed', transferred_amount: null },
     ];
 
     const top = getTopClientsByRevenue(milestones, CLIENTS, 5);

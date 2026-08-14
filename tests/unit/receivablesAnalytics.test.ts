@@ -16,10 +16,10 @@ import {
 describe('Receivables Aging & Summary Calculator', () => {
   const today = '2026-08-30';
   const milestones: MilestoneItem[] = [
-    { id: 'm1', label: 'Anticipo 50%', amount: 5000, due_date: '2026-08-15', status: 'pending' },
-    { id: 'm2', label: 'Entrega 1', amount: 3000, due_date: '2026-08-30', status: 'requested' },
-    { id: 'm3', label: 'Finiquito', amount: 7000, due_date: '2026-09-15', status: 'pending' },
-    { id: 'm4', label: 'Fase Inicial', amount: 4000, due_date: '2026-08-01', status: 'confirmed' },
+    { id: 'm1', label: 'Anticipo 50%', amount: 5000, due_date: '2026-08-15', status: 'pending', transferred_amount: null },
+    { id: 'm2', label: 'Entrega 1', amount: 3000, due_date: '2026-08-30', status: 'requested', transferred_amount: null },
+    { id: 'm3', label: 'Finiquito', amount: 7000, due_date: '2026-09-15', status: 'pending', transferred_amount: null },
+    { id: 'm4', label: 'Fase Inicial', amount: 4000, due_date: '2026-08-01', status: 'confirmed', transferred_amount: null },
   ];
 
   it('buckets amounts into overdue, due today, upcoming and confirmed', () => {
@@ -45,9 +45,9 @@ describe('Business Dashboard Analytics Engine', () => {
   it('separates collected revenue from pending and overdue receivables', () => {
     const metrics = calculateBusinessMetrics(
       [
-        { id: 'm1', label: 'Anticipo', amount: 10000, due_date: '2026-08-10', status: 'confirmed' },
-        { id: 'm2', label: 'Entrega 1', amount: 5000, due_date: '2026-08-20', status: 'pending' },
-        { id: 'm3', label: 'Finiquito', amount: 15000, due_date: '2026-09-10', status: 'requested' },
+        { id: 'm1', label: 'Anticipo', amount: 10000, due_date: '2026-08-10', status: 'confirmed', transferred_amount: null },
+        { id: 'm2', label: 'Entrega 1', amount: 5000, due_date: '2026-08-20', status: 'pending', transferred_amount: null },
+        { id: 'm3', label: 'Finiquito', amount: 15000, due_date: '2026-09-10', status: 'requested', transferred_amount: null },
       ],
       [
         { id: 'q1', status: 'accepted', total_amount: 30000 },
@@ -69,10 +69,10 @@ describe('Business Dashboard Analytics Engine', () => {
 
   it('ranks clients by confirmed revenue and honours the limit', () => {
     const milestones: AnalyticsMilestone[] = [
-      { id: 'm1', client_id: 'c1', label: 'Hito', amount: 20000, due_date: today, status: 'confirmed' },
-      { id: 'm2', client_id: 'c1', label: 'Hito', amount: 15000, due_date: today, status: 'confirmed' },
-      { id: 'm3', client_id: 'c2', label: 'Hito', amount: 10000, due_date: today, status: 'confirmed' },
-      { id: 'm4', client_id: 'c3', label: 'Hito', amount: 50000, due_date: today, status: 'confirmed' },
+      { id: 'm1', client_id: 'c1', label: 'Hito', amount: 20000, due_date: today, status: 'confirmed', transferred_amount: null },
+      { id: 'm2', client_id: 'c1', label: 'Hito', amount: 15000, due_date: today, status: 'confirmed', transferred_amount: null },
+      { id: 'm3', client_id: 'c2', label: 'Hito', amount: 10000, due_date: today, status: 'confirmed', transferred_amount: null },
+      { id: 'm4', client_id: 'c3', label: 'Hito', amount: 50000, due_date: today, status: 'confirmed', transferred_amount: null },
     ];
     const clients = [
       { id: 'c1', name: 'Construcciones Maya' },
@@ -92,9 +92,9 @@ describe('Business Dashboard Analytics Engine', () => {
   it('buckets pending milestones into 30/60/90-day forecast windows', () => {
     const forecast = calculateCashFlowForecast(
       [
-        { id: 'm1', label: 'Hito', amount: 10000, due_date: '2026-09-10', status: 'pending' },
-        { id: 'm2', label: 'Hito', amount: 20000, due_date: '2026-10-15', status: 'requested' },
-        { id: 'm3', label: 'Hito', amount: 15000, due_date: '2026-11-20', status: 'pending' },
+        { id: 'm1', label: 'Hito', amount: 10000, due_date: '2026-09-10', status: 'pending', transferred_amount: null },
+        { id: 'm2', label: 'Hito', amount: 20000, due_date: '2026-10-15', status: 'requested', transferred_amount: null },
+        { id: 'm3', label: 'Hito', amount: 15000, due_date: '2026-11-20', status: 'pending', transferred_amount: null },
       ],
       today
     );
@@ -108,8 +108,8 @@ describe('Business Dashboard Analytics Engine', () => {
   it('excludes past-due and already-confirmed milestones from the forward forecast', () => {
     const forecast = calculateCashFlowForecast(
       [
-        { id: 'm4', label: 'Vencido', amount: 5000, due_date: '2026-08-15', status: 'pending' },
-        { id: 'm5', label: 'Cobrado', amount: 8000, due_date: '2026-09-05', status: 'confirmed' },
+        { id: 'm4', label: 'Vencido', amount: 5000, due_date: '2026-08-15', status: 'pending', transferred_amount: null },
+        { id: 'm5', label: 'Cobrado', amount: 8000, due_date: '2026-09-05', status: 'confirmed', transferred_amount: null },
       ],
       today
     );
@@ -219,8 +219,8 @@ describe('the Por Cobrar count and its amount are one derived pair', () => {
   it('counts nothing pending once every cobro is collected', () => {
     const metrics = calculateBusinessMetrics(
       [
-        { id: 'm1', label: 'A', amount: 10000, due_date: '2026-08-10', status: 'confirmed' },
-        { id: 'm2', label: 'B', amount: 5000, due_date: '2026-08-20', status: 'confirmed' },
+        { id: 'm1', label: 'A', amount: 10000, due_date: '2026-08-10', status: 'confirmed', transferred_amount: null },
+        { id: 'm2', label: 'B', amount: 5000, due_date: '2026-08-20', status: 'confirmed', transferred_amount: null },
       ],
       [],
       [],
@@ -236,7 +236,7 @@ describe('the Por Cobrar count and its amount are one derived pair', () => {
     const metrics = calculateBusinessMetrics(
       [
         { id: 'm1', label: 'A', amount: 10000, transferred_amount: 4000, due_date: '2026-08-10', status: 'confirmed' },
-        { id: 'm2', label: 'B', amount: 5000, due_date: '2026-09-20', status: 'pending' },
+        { id: 'm2', label: 'B', amount: 5000, due_date: '2026-09-20', status: 'pending', transferred_amount: null },
       ],
       [],
       [],

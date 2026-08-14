@@ -18,6 +18,7 @@ const DEMO_MILESTONES: MilestoneItem[] = [
     amount: 48720,
     due_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'pending',
+    transferred_amount: null,
     confirmed_at: null,
   },
   {
@@ -28,6 +29,7 @@ const DEMO_MILESTONES: MilestoneItem[] = [
     amount: 17636.66,
     due_date: new Date().toISOString().split('T')[0],
     status: 'marked_paid',
+    transferred_amount: null,
     confirmed_at: null,
   },
   {
@@ -38,6 +40,7 @@ const DEMO_MILESTONES: MilestoneItem[] = [
     amount: 48720,
     due_date: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'pending',
+    transferred_amount: null,
     confirmed_at: null,
   },
   {
@@ -48,6 +51,7 @@ const DEMO_MILESTONES: MilestoneItem[] = [
     amount: 30000,
     due_date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'confirmed',
+    transferred_amount: 30000,
     confirmed_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
   },
 ];
@@ -96,7 +100,15 @@ export async function GET(request: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: milestones } = await (supabase as any)
       .from('milestones')
-      .select('id, contract_id, client_id, label, amount, due_date, status, confirmed_at')
+      // `transferred_amount`, `cfdi_total` and `cfdi_status` ride along because
+      // this feeds `calculateBusinessMetrics`, which measures what arrived
+      // against what is owed. Without them every confirmed milestone read as
+      // fully collected and the KPI cards disagreed with Cobranza about the
+      // same cobro (#351) — the disagreement #253 was filed to end.
+      .select(
+        'id, contract_id, client_id, label, amount, transferred_amount, ' +
+          'cfdi_total, cfdi_status, due_date, status, confirmed_at'
+      )
       .eq('organization_id', organizationId);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

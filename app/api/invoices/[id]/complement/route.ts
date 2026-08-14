@@ -48,7 +48,10 @@ export async function GET(
 
   const { data: milestone } = await supabase
     .from('milestones')
-    .select('id, amount, cfdi_status, cfdi_uuid, cfdi_id, cfdi_total, cfdi_payment_method')
+    .select(
+      'id, amount, transferred_amount, cfdi_status, cfdi_uuid, cfdi_id, cfdi_total, ' +
+        'cfdi_payment_method'
+    )
     .eq('id', id)
     .eq('organization_id', organizationId)
     .maybeSingle();

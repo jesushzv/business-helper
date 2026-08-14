@@ -14,7 +14,20 @@ export interface MilestoneItem {
   status: 'pending' | 'requested' | 'marked_paid' | 'confirmed' | string;
   receipt_url?: string | null;
   tracking_reference?: string | null;
-  transferred_amount?: number | null;
+  /**
+   * What the owner confirmed actually arrived. **Required, and nullable** — the
+   * two states mean different things and the difference is money (#351).
+   *
+   * `null` is a real answer: a row confirmed before the column carried a figure
+   * recorded "the full amount arrived". A *missing key* is not an answer at
+   * all — it means the caller never selected the column — and
+   * {@link collectedAmount} used to read the two identically, so every
+   * confirmed milestone in a select that forgot the column booked as fully
+   * collected. Declaring it required makes tsc refuse the mapping that drops
+   * it; `tests/unit/milestoneMoneySelects.test.ts` catches the PostgREST
+   * selects tsc cannot see through their `any` casts.
+   */
+  transferred_amount: number | string | null;
   confirmed_at?: string | null;
   created_at?: string;
   /**
@@ -49,6 +62,41 @@ export interface SettlementBase {
   cfdi_total?: number | string | null;
   cfdi_status?: string | null;
 }
+
+/**
+ * What {@link collectedAmount} needs: the settlement base, plus a
+ * `transferred_amount` the caller is **required to have selected**.
+ *
+ * Stated separately from `MilestoneItem` so every caller — the UI's rows, the
+ * assistant's context rows, the admin panel's two-column projection — states
+ * the same obligation without pretending to be a full milestone (#351).
+ */
+export interface CollectedBase extends SettlementBase {
+  id?: string;
+  status?: string | null;
+  transferred_amount: number | string | null;
+}
+
+/**
+ * The columns any read of `milestones` must take before it computes money.
+ *
+ * `amount` alone answers "what was agreed", never "what is owed" or "what
+ * arrived": `expectedSettlementAmount` needs `cfdi_total`/`cfdi_status` to know
+ * which document governs, and `collectedAmount` needs `transferred_amount` to
+ * know what the wire actually carried. Two selects took `amount` without them
+ * and reported a $20,000 wire against a $48,720 cobro as fully collected —
+ * on the dashboard KPI cards and in the assistant's answer (#351, #253).
+ *
+ * `tests/unit/milestoneMoneySelects.test.ts` reads this list and fails the
+ * build on the next `.from('milestones').select(…)` that names `amount`
+ * without the rest.
+ */
+export const MILESTONE_MONEY_COLUMNS = [
+  'amount',
+  'transferred_amount',
+  'cfdi_total',
+  'cfdi_status',
+] as const;
 
 /** Reads a numeric column PostgREST may hand back as a string. */
 function toAmount(value: unknown): number {
@@ -132,24 +180,52 @@ const round = (val: number) => Math.round(val * 100) / 100;
  * *this* cobro's revenue — #81 surfaces the surplus at confirmation time so the
  * tenant applies or returns it.
  */
-export function collectedAmount(item: MilestoneItem): number {
+export function collectedAmount(item: CollectedBase): number {
   if ((item?.status || 'pending') !== 'confirmed') return 0;
 
   // The stamped total when there is one, not the milestone amount (#341) —
   // see expectedSettlementAmount for why one base has to serve all three.
   const owed = expectedSettlementAmount(item);
-  const declared = item?.transferred_amount;
-  // Absent is absent: a row confirmed before the column carried a figure means
-  // "the full amount arrived", which is what the confirmation recorded. A row
-  // that carries 0 means zero arrived, and `?? ` keeps it 0 where `||` would not.
+
+  // "The column was never selected" and "the column is NULL" are different
+  // facts, and reading them alike is what let the KPI cards book a partial
+  // wire as paid in full (#351). Only a row that *carries* the key gets the
+  // legacy reading below; a row missing it is a caller that did not ask.
+  if (!hasDeclaredTransfer(item)) {
+    // Nothing here can be right: the row simply does not say what arrived.
+    // Keeping the historical reading avoids swapping one wrong figure for
+    // another mid-incident, but it must never be reached quietly — the type
+    // and the select gate exist so it cannot be, and this says so out loud if
+    // one of them is ever bypassed.
+    console.error(
+      '[receivables] collectedAmount read a milestone with no transferred_amount key — ' +
+        'the query omitted the column, so this figure overstates what arrived (#351). ' +
+        `milestone=${item?.id ?? 'desconocido'}`
+    );
+    return owed;
+  }
+
+  const declared = item.transferred_amount;
+  // A row confirmed before the column carried a figure recorded "the full
+  // amount arrived", which is what the confirmation meant. A row that carries
+  // 0 means zero arrived, and `??` keeps it 0 where `||` would not.
   const transferred = declared === null || declared === undefined ? owed : Number(declared);
 
   if (!Number.isFinite(transferred) || transferred < 0) return owed;
   return round(Math.min(transferred, owed));
 }
 
+/** Did this row's query actually select `transferred_amount`? (#351) */
+function hasDeclaredTransfer(item: CollectedBase | null | undefined): boolean {
+  return (
+    item != null &&
+    typeof item === 'object' &&
+    Object.prototype.hasOwnProperty.call(item, 'transferred_amount')
+  );
+}
+
 /** What this cobro still owes. */
-export function outstandingAmount(item: MilestoneItem): number {
+export function outstandingAmount(item: CollectedBase): number {
   const owed = expectedSettlementAmount(item);
   return round(Math.max(owed - collectedAmount(item), 0));
 }

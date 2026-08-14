@@ -81,6 +81,13 @@ export function useDashboardAnalytics() {
       amount: r.amount,
       due_date: r.due_date,
       status: r.status as MilestoneItem['status'],
+      // The three columns that decide what is owed and what arrived travel
+      // with every mapping here. Dropping them field by field gave the
+      // client-side fallback the same overstatement the server select had:
+      // a partial wire booked as revenue in full (#351).
+      transferred_amount: r.transferred_amount ?? null,
+      cfdi_total: r.cfdi_total ?? null,
+      cfdi_status: r.cfdi_status ?? null,
       confirmed_at: r.confirmed_at,
     }));
 
@@ -112,6 +119,13 @@ export function useDashboardAnalytics() {
       amount: r.amount,
       due_date: r.due_date,
       status: r.status as MilestoneItem['status'],
+      // The three columns that decide what is owed and what arrived travel
+      // with every mapping here. Dropping them field by field gave the
+      // client-side fallback the same overstatement the server select had:
+      // a partial wire booked as revenue in full (#351).
+      transferred_amount: r.transferred_amount ?? null,
+      cfdi_total: r.cfdi_total ?? null,
+      cfdi_status: r.cfdi_status ?? null,
       confirmed_at: r.confirmed_at,
     }));
 
@@ -135,6 +149,13 @@ export function useDashboardAnalytics() {
       amount: r.amount,
       due_date: r.due_date,
       status: r.status as MilestoneItem['status'],
+      // The three columns that decide what is owed and what arrived travel
+      // with every mapping here. Dropping them field by field gave the
+      // client-side fallback the same overstatement the server select had:
+      // a partial wire booked as revenue in full (#351).
+      transferred_amount: r.transferred_amount ?? null,
+      cfdi_total: r.cfdi_total ?? null,
+      cfdi_status: r.cfdi_status ?? null,
       confirmed_at: r.confirmed_at,
     }));
 
