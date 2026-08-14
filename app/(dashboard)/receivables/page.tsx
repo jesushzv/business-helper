@@ -9,6 +9,7 @@ import { ReceivableCard } from '@/components/receivables/ReceivableCard';
 import { SpeiConfirmModal } from '@/components/receivables/SpeiConfirmModal';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 import { useSettlementAccount } from '@/lib/hooks/useSettlementAccount';
+import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { Search, Wallet, FileText } from 'lucide-react';
 
 export default function ReceivablesPage() {
@@ -23,6 +24,7 @@ export default function ReceivablesPage() {
     searchQuery,
     setSearchQuery,
     confirmPayment,
+    uploadReceipt,
   } = useReceivables();
 
   const { ready: settlementReady } = useSettlementAccount();
@@ -185,6 +187,14 @@ export default function ReceivablesPage() {
           setIsConfirmModalOpen(false);
           setSelectedMilestone(null);
         }}
+        // The client sends the comprobante over WhatsApp; the owner files it
+        // from here on their behalf (#339). The outcome is reported inside the
+        // modal — a failed upload must never read as a filed receipt.
+        //
+        // Withheld in the sandbox, so no control renders there at all: the
+        // demo has no storage, so every pick could only ever be refused, and
+        // a control that can only fail is worse than no control.
+        onUploadReceipt={isClientDemoMode() ? undefined : uploadReceipt}
         onConfirm={async (milestoneId, transferredAmount) => {
           const outcome = await confirmPayment(milestoneId, transferredAmount);
           // Announce only the clean case, from the server's own outcome. A

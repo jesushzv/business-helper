@@ -214,11 +214,18 @@ describe('the declaration write never stores a caller-supplied URL (#85)', () =>
     return POST(declarationRequest(body), routeParams);
   }
 
-  it('ignores a legacy receipt_url — blob: or otherwise — and stores null', async () => {
+  it('ignores a legacy receipt_url — blob: or otherwise — and stores nothing', async () => {
     const res = await post({ receipt_url: 'blob:https://businesshelper.app/dead-beef' });
 
     expect(res.status).toBe(200);
-    expect(state.lastUpdate?.values?.receipt_url).toBeNull();
+    // The caller's URL never reaches the column — the property #85 protects.
+    // It used to be written as an explicit `null`; #339 stopped writing the
+    // key at all, which is strictly stronger here and is also what keeps a
+    // receipt-less declaration from erasing the comprobante the owner filed
+    // from Cobranza. Asserting `toBeNull()` pinned the mechanism rather than
+    // the property, so it failed on a change that tightened it.
+    expect(state.lastUpdate?.values).not.toHaveProperty('receipt_url');
+    expect(JSON.stringify(state.lastUpdate?.values)).not.toContain('dead-beef');
   });
 
   it('turns a valid receipt_path into the storage URL server-side', async () => {

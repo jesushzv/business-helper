@@ -370,3 +370,156 @@ describe('fetchReceivables honesty', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * #339 — filing the comprobante the client sent over WhatsApp.
+ *
+ * The authenticated upload route (`/api/receivables/[id]/upload`) had no
+ * caller, and the reason it needed hardening in the first place is the reason
+ * every case here exists: it used to answer a *failed* storage upload with
+ * `{success: true, url: 'https://storage.businesshelper.mx/…'}` — a host that
+ * serves nothing — so payment evidence a user believed they had filed did not
+ * exist (#85, the #58/#86 shape).
+ *
+ * The hook writes what the route returned, or it reports a failure. There is
+ * no third outcome, and no locally constructed URL anywhere.
+ */
+describe('uploadReceipt honesty (#339)', () => {
+  const file = () => new File(['%PDF-1.4 fake'], 'comprobante.pdf', { type: 'application/pdf' });
+
+  it('files the URL the server returned, never one built here', async () => {
+    const { result } = await mountHook();
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          success: true,
+          url: 'https://project.supabase.co/storage/v1/object/public/spei-vouchers/org-1/spei_m-1_123.pdf',
+          filePath: 'org-1/spei_m-1_123.pdf',
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse(200, { id: 'm-1' }));
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.uploadReceipt('m-1', file());
+    });
+
+    expect(outcome).toMatchObject({ success: true });
+    expect(result.current.receivables[0].receipt_url).toBe(
+      'https://project.supabase.co/storage/v1/object/public/spei-vouchers/org-1/spei_m-1_123.pdf'
+    );
+    // Nothing derived from the file name ever reaches the row.
+    expect(result.current.receivables[0].receipt_url).not.toContain('comprobante.pdf');
+    // Filing evidence is not the same claim as "this was paid".
+    expect(result.current.receivables[0].status).toBe('marked_paid');
+    expect(result.current.receivables[0].confirmed_at).toBeNull();
+  });
+
+  it('posts the file under the field name the route reads', async () => {
+    const { result } = await mountHook();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { success: true, url: 'https://cdn/x.pdf' }))
+      .mockResolvedValueOnce(jsonResponse(200, {}));
+
+    await act(async () => {
+      await result.current.uploadReceipt('m-1', file());
+    });
+
+    // A key-name mismatch here ships as a swallowed failure reported as
+    // success (#95/#96), and only the route knows the answer: `formData.get('file')`.
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(url).toBe('/api/receivables/m-1/upload');
+    expect((init as RequestInit).method).toBe('POST');
+    const body = (init as RequestInit).body as FormData;
+    expect(body).toBeInstanceOf(FormData);
+    expect((body.get('file') as File).name).toBe('comprobante.pdf');
+  });
+
+  it('reports a rejected upload as a failure and files nothing', async () => {
+    const { result } = await mountHook();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, {
+        error: {
+          code: 'INVALID_FILE',
+          message: 'El archivo no es una imagen PNG, JPG ni un documento PDF válido.',
+        },
+      })
+    );
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.uploadReceipt('m-1', file());
+    });
+
+    expect(outcome).toMatchObject({
+      success: false,
+      error: 'El archivo no es una imagen PNG, JPG ni un documento PDF válido.',
+    });
+    expect(result.current.receivables[0].receipt_url).toBeNull();
+    // The row was never touched, so no PUT was attempted either.
+    expect(fetchMock.mock.calls).toHaveLength(2);
+  });
+
+  it('treats a 200 with no URL as a failure', async () => {
+    // The absence of the thing being uploaded is not a successful upload.
+    const { result } = await mountHook();
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true }));
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.uploadReceipt('m-1', file());
+    });
+
+    expect(outcome).toMatchObject({ success: false });
+    expect(result.current.receivables[0].receipt_url).toBeNull();
+  });
+
+  it('says so when the file stored but the cobro could not be updated', async () => {
+    // Two different failures with two different next steps: retrying is right
+    // here, and "el archivo no sirve" would be wrong.
+    const { result } = await mountHook();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { success: true, url: 'https://cdn/x.pdf' }))
+      .mockResolvedValueOnce(jsonResponse(500, { error: { code: 'SERVER_ERROR', message: 'Error' } }));
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.uploadReceipt('m-1', file());
+    });
+
+    expect(outcome).toMatchObject({ success: false });
+    expect((outcome as unknown as { error: string }).error).toMatch(/se subió/i);
+    expect(result.current.receivables[0].receipt_url).toBeNull();
+  });
+
+  it('reports a dropped connection as a failure, not a filed receipt', async () => {
+    const { result } = await mountHook();
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.uploadReceipt('m-1', file());
+    });
+
+    expect(outcome).toMatchObject({ success: false, error: 'Sin conexión. El comprobante no se subió.' });
+    expect(result.current.receivables[0].receipt_url).toBeNull();
+  });
+
+  it('refuses in the sandbox instead of inventing a stored file', async () => {
+    // The demo has no storage, so the only "success" it could report is a URL
+    // pointing at nothing — and the branch short-circuits *before* the fetch,
+    // never as a fallback on a real request's result (#287).
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    const { result } = await mountHook();
+    const callsBefore = fetchMock.mock.calls.length;
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.uploadReceipt('m-1', file());
+    });
+
+    expect(outcome).toMatchObject({ success: false });
+    expect((outcome as unknown as { error: string }).error).toMatch(/demostración/i);
+    expect(fetchMock.mock.calls).toHaveLength(callsBefore);
+  });
+});
