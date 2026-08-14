@@ -116,7 +116,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
 
           {/* View Details Link */}
           <a
-            href={`/q/${quote.public_token}`}
+            href={publicUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="min-h-[48px] px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap shrink-0"

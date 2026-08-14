@@ -60,8 +60,10 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton
         style={{ top: 'var(--bh-sticky-offset, 0px)' }}
         className="sticky z-30 flex h-16 w-full items-center justify-between border-b border-slate-800/80 bg-slate-900/90 px-4 shadow-lg backdrop-blur-xl md:px-6"
       >
-        {/* Left Branding / View Title */}
-        <div className="flex items-center gap-3">
+        {/* Left Branding / View Title. min-w-0 lets the title truncate: without
+            it, "Cotizaciones y Propuestas" + the right-side actions pushed a
+            375px viewport to 380px and the whole page wobbled (#291). */}
+        <div className="flex min-w-0 items-center gap-3">
           <Link href="/dashboard" className="flex items-center gap-2 transition-transform active:scale-95">
             {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG logo; next/image does not optimize SVGs */}
             <img src={getAssetUrl('/logo-icon.svg')} alt="Business Helper" className="h-9 w-9 object-contain" />
@@ -73,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton
           {title && (
             <>
               <span className="hidden text-slate-700 sm:inline-block">/</span>
-              <h1 className="text-lg font-bold text-slate-100 md:text-xl">{title}</h1>
+              <h1 className="min-w-0 truncate text-lg font-bold text-slate-100 md:text-xl">{title}</h1>
             </>
           )}
 
@@ -117,7 +119,10 @@ export const Header: React.FC<HeaderProps> = ({ onNewClient, title, actionButton
               onClick={() => setIsProfileOpen((open) => !open)}
               aria-label="Mi cuenta"
               aria-expanded={isProfileOpen}
-              className="flex h-10 items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-2.5 py-1 transition-colors hover:bg-slate-800"
+              // min-h-[48px], not h-10: on a phone this is the only path to
+              // "Cerrar sesión", and 40px sat under the touch floor while the
+              // a11y scan (keyed on min-h-[...]) could not see it (#291).
+              className="flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-2.5 py-1 transition-colors hover:bg-slate-800"
             >
               {orgLoading ? (
                 <div className="h-7 w-7 animate-pulse rounded-lg bg-slate-800" />

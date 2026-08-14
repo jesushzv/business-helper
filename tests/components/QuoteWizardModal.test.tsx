@@ -182,3 +182,34 @@ describe('an incomplete concepto says so', () => {
     expect(screen.getByText(/Resumen y Confirmación/i)).toBeTruthy();
   });
 });
+
+/**
+ * #256 — a fresh open is a fresh quote.
+ *
+ * The modal is mounted permanently and only toggled with isOpen, so every
+ * field survived a close: reopening after creating quote A landed on step 3
+ * with A's title and conceptos, one tap from a byte-identical duplicate with
+ * its own public token.
+ */
+describe('reopening starts clean (#256)', () => {
+  it('resets to step 1 with empty fields after a close and reopen', async () => {
+    const onSubmit = vi.fn<SubmitFn>(async () => {});
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <QuoteWizardModal isOpen onClose={onClose} clients={clients} onSubmit={onSubmit} />
+    );
+
+    // Type a title and advance to step 2, leaving typed state everywhere.
+    goToLineItems('Obra del cliente A');
+    expect(screen.getByText(/Step 2 de 3/i)).toBeTruthy();
+    fillFirstItem('1500');
+
+    // Close (hide), then reopen — the old shape kept step, title and drafts.
+    rerender(<QuoteWizardModal isOpen={false} onClose={onClose} clients={clients} onSubmit={onSubmit} />);
+    rerender(<QuoteWizardModal isOpen onClose={onClose} clients={clients} onSubmit={onSubmit} />);
+
+    await waitFor(() => expect(screen.getByText(/Step 1 de 3/i)).toBeTruthy());
+    const title = screen.getByPlaceholderText(/Suministro de Cemento/i) as HTMLInputElement;
+    expect(title.value).toBe('');
+  });
+});

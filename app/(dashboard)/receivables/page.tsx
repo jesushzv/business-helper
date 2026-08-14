@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { useReceivables, MilestoneWithClient } from '@/lib/hooks/useReceivables';
@@ -26,6 +26,25 @@ export default function ReceivablesPage() {
   } = useReceivables();
 
   const { ready: settlementReady } = useSettlementAccount();
+
+  // `/receivables?filter=overdue` arrives from the dashboard's "Cobrar hoy"
+  // card; the param was produced and consumed by nothing, so the owner landed
+  // on the unfiltered list (#279). Same one-shot window.location pattern as
+  // `/quotes?nueva=1` — `useSearchParams()` would opt the route out of static
+  // prerendering unless wrapped in its own Suspense boundary.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const filter = new URLSearchParams(window.location.search).get('filter');
+    if (
+      filter === 'overdue' ||
+      filter === 'due_today' ||
+      filter === 'upcoming' ||
+      filter === 'marked_paid' ||
+      filter === 'confirmed'
+    ) {
+      setStatusFilter(filter);
+    }
+  }, [setStatusFilter]);
 
   // "Nothing matches your filter" and "you have nothing yet" are different
   // facts, and only the second one warrants a route onward (#104).

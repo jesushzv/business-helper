@@ -85,12 +85,21 @@ describe('No literal origins in outbound link builders', () => {
     });
   }
 
+  // robots.ts and sitemap.ts sat outside this scan and both carried the
+  // literal — the four-times-shipped class with no gate (#299).
+  const APP_METADATA_FILES = ['app/robots.ts', 'app/sitemap.ts'];
+
   it('no lib module hardcodes an app origin for a /pay/ or /q/ link', () => {
     const offenders: string[] = [];
 
-    for (const rel of libFiles(LIB_DIR)) {
+    const scanTargets = [
+      ...libFiles(LIB_DIR).map((rel) => ({ rel, path: join(LIB_DIR, rel) })),
+      ...APP_METADATA_FILES.map((rel) => ({ rel, path: join(process.cwd(), rel) })),
+    ];
+
+    for (const { rel, path } of scanTargets) {
       if (ALLOWED.has(rel)) continue;
-      const source = readFileSync(join(LIB_DIR, rel), 'utf8');
+      const source = readFileSync(path, 'utf8');
 
       for (const line of source.split('\n')) {
         // Comments explain the old literals on purpose; only code counts.

@@ -56,6 +56,28 @@ describe('touch targets (#89)', () => {
         'this issue existed because nothing enforced.'
     ).toEqual([]);
   });
+
+  it('layout buttons declare no raw sub-48px height the min-h scan cannot see (#291)', () => {
+    // The profile/sign-out button was `h-10` (40px) — the only path to
+    // "Cerrar sesión" on a phone — and the scan above, keyed on `min-h-[...]`,
+    // could not see it: an assertion of absence matching nothing for that
+    // syntax. Scoped to components/layout/, where every control is chrome the
+    // whole app inherits. h-0 through h-11 are all under 48px.
+    const offenders: string[] = [];
+    for (const [file, src] of sources) {
+      if (!file.includes(join('components', 'layout'))) continue;
+      // Both className forms, so a template-literal class on the button itself
+      // is matched instead of skipping into a child's quoted one (the first
+      // run of this scan flagged a decorative h-1 span exactly that way).
+      for (const tag of src.matchAll(/<button[\s\S]*?className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
+        const classes = tag[1] ?? tag[2] ?? '';
+        if (/(^|\s)h-(?:[0-9]|1[01])(\s|$)/.test(classes) && !classes.includes('min-h-[48px]')) {
+          offenders.push(`${file}: ${classes}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });
 
 describe('accessibility baseline (#101)', () => {

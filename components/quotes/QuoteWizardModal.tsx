@@ -113,23 +113,38 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   const { receivables, loading: receivablesLoading, error: receivablesError } = useReceivables();
 
   /**
-   * Clears the per-quote account each time the wizard opens (#164).
+   * A fresh open is a fresh quote (#256, extending #164's account reset).
    *
    * The modal is mounted permanently by `app/(dashboard)/quotes/page.tsx` and
    * only toggled with `isOpen`, and the early return below unmounts nothing —
-   * so state survives a close. Without this, a quote pinned to "Santander
-   * nómina" leaves the picker on Santander, and the *next* client, a different
-   * business entirely, is silently pinned to the same account unless the tenant
-   * re-reads step 3. The money still reaches the tenant, but into a branch or
-   * partner account nobody chose for that client — and no surface shows which
-   * account a quote named after it is created.
+   * so EVERY field survived a close. Reproduced live: after creating quote A,
+   * "Nueva Cotización" reopened on step 3 with A's title, conceptos and an
+   * enabled "Generar y Compartir" — one tap from a byte-identical duplicate
+   * with a second public token, and the still-dirty close guard warned about
+   * discarding work that was already saved.
    *
-   * Deliberately only this field: the title, line items and tax toggles are
-   * cleared by their own flow, and wiping a half-typed quote on a stray reopen
-   * would cost the tenant real work.
+   * Resetting on open loses nothing the tenant typed: leaving typed work
+   * requires answering the isDirty guard's "Descartar esta cotización", so
+   * anything wiped here was explicitly discarded or already submitted.
    */
   React.useEffect(() => {
-    if (isOpen) setBankAccountId(null);
+    if (!isOpen) return;
+    setStep(1);
+    setClientId(clients[0]?.id || '');
+    setTitle('');
+    setCurrency('MXN');
+    setValidUntil(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    setNotes('');
+    setDrafts([createLineItemDraft(DEFAULT_SAT_CODE)]);
+    setItemsError(null);
+    setApplyIva(true);
+    setApplyRetencionIsr(false);
+    setApplyRetencionIva(false);
+    setSubmitError(null);
+    setBankAccountId(null);
+    // `clients` is deliberately not a dependency: a directory refresh while
+    // the wizard is open must not wipe typed work — only opening resets.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   if (!isOpen) return null;

@@ -65,5 +65,9 @@ describe('QuoteCard WhatsApp link integrity (#36)', () => {
     expect(source).not.toMatch(/https?:\/\/businesshelper\./);
     expect(source).not.toContain('8115551234');
     expect(source).toContain('getQuotePublicUrl');
+    // One mention was not enough (#292): "Ver Portal" hand-built /q/${token}
+    // on line 107 while line 48 used the builder, and the old assertion was
+    // satisfied by either. No hand-built /q/ link may exist in this file.
+    expect(source).not.toMatch(/\/q\/\$\{/);
   });
 });

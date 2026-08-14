@@ -208,10 +208,13 @@ describe('the picker', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0].bank_account_id).toBe('acct-2');
 
-    // Closed and reopened for the next client.
+    // Closed and reopened for the next client. Since #256 a reopen starts the
+    // whole wizard fresh on step 1 (not just this field), so the next quote
+    // walks the steps again — and its picker must still start unpinned.
     rerender(<QuoteWizardModal isOpen={false} onClose={() => {}} clients={CLIENTS} onSubmit={onSubmit} />);
     rerender(<QuoteWizardModal isOpen onClose={() => {}} clients={CLIENTS} onSubmit={onSubmit} />);
 
+    await reachConfirmStep();
     await waitFor(() =>
       expect(screen.getByLabelText(/En qué cuenta te paga/i)).toHaveValue('')
     );
