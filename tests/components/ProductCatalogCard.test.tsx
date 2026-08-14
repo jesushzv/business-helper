@@ -125,6 +125,27 @@ describe('adding a product', () => {
     });
   });
 
+  it('resets the clave and unidad after a save — the previous item must not pre-fill the next concept (#294)', async () => {
+    await openForm();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, { product: { id: 'prod-2', name: 'Cemento Tolteca' } })
+    );
+
+    const unitSelect = () => screen.getByLabelText(/Unidad SAT/i) as HTMLSelectElement;
+    fireEvent.change(nameInput(), { target: { value: 'Cemento Tolteca' } });
+    fireEvent.change(priceInput(), { target: { value: '235' } });
+    fireEvent.change(satInput(), { target: { value: '30111601' } });
+    fireEvent.change(unitSelect(), { target: { value: 'H87' } });
+    fireEvent.click(saveButton());
+
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2));
+    // The success branch used to reset name/price but keep clave and unidad,
+    // so the cement pair sat pre-filled — already "filled", nothing prompting a
+    // change — and rode into the next concept's CFDI at stamping.
+    await waitFor(() => expect(satInput().value).toBe('84111506'));
+    expect(unitSelect().value).toBe('E48');
+  });
+
   it('does not report a save the server refused', async () => {
     await openForm();
     fetchMock.mockResolvedValueOnce(

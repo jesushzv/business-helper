@@ -269,6 +269,55 @@ describe('convertToContract honesty (configured deployment)', () => {
     expect(localStorage.getItem('business_helper_quotes_v1')).toBeNull();
   });
 
+  it('reports the partial success — contract created, only the status flip failed — instead of throwing (#283)', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    const serverContract = { id: 'srv-contract-1', title: 'Cotización real', total_amount: 1160 };
+    const serverMilestones = [{ id: 'ms-1', amount: 1160, label: 'Pago único' }];
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(500, {
+        error: {
+          code: 'QUOTE_STATUS_NOT_UPDATED',
+          message: 'Se creó el contrato pero no se pudo actualizar el estado de la cotización',
+        },
+        contract: serverContract,
+        milestones: serverMilestones,
+      })
+    );
+
+    let conversion;
+    await act(async () => {
+      conversion = await result.current.convertToContract('srv-quote-1');
+    });
+
+    // The contract and its payment schedule exist in Cobranza; "No se pudo
+    // convertir" over them told the tenant nothing happened.
+    expect(conversion!.contract).toEqual(serverContract);
+    expect(conversion!.milestones).toEqual(serverMilestones);
+    expect(conversion!.warning).toMatch(/no se pudo actualizar el estado/);
+    // The server still holds the old status — flipping locally would assert a
+    // status the database rejected; the next convert tap resumes and heals it.
+    expect(result.current.quotes[0].status).toBe('sent');
+  });
+
+  it('mirrors converted_contract_id from the server contract on success (#283)', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, {
+        contract: { id: 'srv-contract-1', title: 'Cotización real', total_amount: 1160 },
+        milestones: [{ id: 'ms-1', amount: 1160, label: 'Pago único' }],
+      })
+    );
+
+    await act(async () => {
+      await result.current.convertToContract('srv-quote-1');
+    });
+
+    // Status alone left the id stale, so "ver contrato" affordances keyed on
+    // converted_contract_id saw a converted quote with no contract.
+    expect(result.current.quotes[0].status).toBe('converted');
+    expect(result.current.quotes[0].converted_contract_id).toBe('srv-contract-1');
+  });
+
   it('makes exactly one request and returns the server contract and milestones', async () => {
     const { result } = await mountHook([SERVER_QUOTE]);
     const serverContract = { id: 'srv-contract-1', title: 'Cotización real', total_amount: 1160 };
