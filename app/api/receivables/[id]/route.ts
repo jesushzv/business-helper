@@ -11,6 +11,16 @@ import { dbWriteErrorResponse } from '@/lib/dbWriteError';
  * both returned `{success: true}` when the write failed or matched no rows.
  */
 
+/**
+ * Contract states whose payment schedule is still the tenant's to change.
+ *
+ * An allowlist, not a denylist of signed states: `completed` and `cancelled`
+ * are excluded too, and a status this vocabulary has not heard of refuses
+ * rather than falls through — the #95 rule about mapping an unrecognised value
+ * to the nearest listed one instead of to nothing.
+ */
+const DELETABLE_CONTRACT_STATUSES = new Set(['draft', 'sent']);
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -111,13 +121,64 @@ export async function DELETE(
   try {
     const { id } = await params;
 
+    // Whether a signed contract's schedule may be edited at all was #329; the
+    // answer taken there is **no** (#335). A schedule carrying the client's
+    // OTP evidence is immutable, exactly as #327 treats signed quotes:
+    // deleting a pending milestone of a `client_signed`/`accepted` contract
+    // makes sum(milestones) ≠ contracts.total_amount and silently changes what
+    // the payer sees on a /pay/[token] link that may already be in their hands.
+    //
+    // Read separately rather than inside the DELETE's filter chain, because
+    // PostgREST cannot filter a DELETE on an embedded resource — the milestone
+    // preconditions ride in the statement below precisely because they *can*.
+    // Residual race: a signature landing between this read and the DELETE is
+    // not caught here. It is bounded — the contract must be `draft`/`sent`
+    // right now, and the client's signature is seconds of wall clock away from
+    // an owner's delete tap — and closing it properly wants the invariant at
+    // the database layer (#336's restrictive FOR DELETE policies), not a
+    // second app-level read.
+    const { data: parent } = await supabase
+      .from('milestones')
+      .select('id, contracts(status)')
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (!parent) {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
+        { status: 404 }
+      );
+    }
+
+    // `contract_id` is NOT NULL, so an unresolvable contract is a broken row,
+    // not a permissive one — and "we could not establish the status" must not
+    // collapse into "go ahead and destroy it" (#64's tri-state rule, applied
+    // to a destructive write).
+    const contract = Array.isArray(parent.contracts) ? parent.contracts[0] : parent.contracts;
+    const contractStatus = (contract as { status?: string } | null)?.status;
+
+    if (!contractStatus || !DELETABLE_CONTRACT_STATUSES.has(contractStatus)) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'CONTRACT_SIGNED',
+            message:
+              'Tu cliente ya firmó el contrato de este cobro, así que el plan de pagos ' +
+              'quedó en firme y no se puede eliminar. Si el plan cambió, haz una ' +
+              'cotización nueva.',
+          },
+        },
+        { status: 409 }
+      );
+    }
+
     // A stamp claim means an invoice run is (or was) in flight for this
     // milestone: between the claim insert and the cfdi_status flip the row
     // still reads pending/none, and deleting it would CASCADE the claim away
     // (cfdi_stamp_claims.milestone_id) — leaving a possible live SAT document
     // with no milestone and no reconciliation anchor. The remaining
-    // insert-after-this-read race is the FK decision in #328; whether a
-    // signed contract's schedule may be edited at all is #329.
+    // insert-after-this-read race is the FK decision in #328.
     const { data: stampClaim } = await supabase
       .from('cfdi_stamp_claims')
       .select('milestone_id')
