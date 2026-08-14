@@ -119,8 +119,22 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
+  // The modal closing was the only success signal, which on a phone is
+  // indistinguishable from the tap not registering — the #146 gap the create
+  // path already closed (#298). Same shape as clients/page.tsx: the success
+  // text is built from the row the server returned, and the throw is re-raised
+  // so ClientFormModal keeps pinning per-field messages under their inputs.
   const handleUpdate = async (data: Partial<Client>) => {
-    await updateClient(id, data);
+    try {
+      const saved = await updateClient(id, data);
+      result.succeed({
+        title: 'Cambios guardados',
+        message: `Los datos de ${saved.name} se actualizaron en tu directorio.`,
+      });
+    } catch (error) {
+      result.fail(error, { title: 'No se guardaron los cambios' });
+      throw error;
+    }
   };
 
   const handleDelete = () => {

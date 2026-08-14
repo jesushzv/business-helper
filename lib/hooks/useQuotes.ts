@@ -8,6 +8,7 @@ import { convertQuoteToContract, ContractResult } from '../quoteToContract';
 import { track } from '@/lib/analytics';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { readClientWriteError } from '@/lib/clientWriteError';
+import { foldSearchText } from '@/lib/search';
 
 const INITIAL_DEMO_QUOTES: Quote[] = [
   {
@@ -395,12 +396,14 @@ export function useQuotes() {
   };
 
   const filteredQuotes = useMemo(() => {
-    return quotes.filter((q) => {
-      const matchesStatus = statusFilter === 'all' || q.status === statusFilter;
+    // Folded, not lowercased: "instalacion" must find "Instalación" (#278).
+    const q = foldSearchText(searchQuery).trim();
+    return quotes.filter((quote) => {
+      const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
       const matchesQuery =
-        !searchQuery.trim() ||
-        q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        q.notes?.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        foldSearchText(quote.title).includes(q) ||
+        foldSearchText(quote.notes).includes(q);
       return matchesStatus && matchesQuery;
     });
   }, [quotes, statusFilter, searchQuery]);
