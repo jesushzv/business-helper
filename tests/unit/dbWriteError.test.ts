@@ -71,6 +71,82 @@ describe('describeDbWriteError', () => {
     expect(failure.message).not.toMatch(/RLS|row-level|policy/i);
   });
 
+  it('answers a delete blocked by ON DELETE RESTRICT with 409 and the route\'s wording', () => {
+    // Postgres' real phrasing for the RESTRICT direction. The old handler
+    // answered it with "el registro relacionado ya no existe, recarga la
+    // página" — the message for the *opposite* case — so a tenant deleting a
+    // client with history was sent in a circle.
+    const failure = describeDbWriteError(
+      {
+        code: '23503',
+        message:
+          'update or delete on table "clients" violates foreign key constraint "quotes_client_id_fkey" on table "quotes"',
+        details: 'Key (id)=(abc) is still referenced from table "quotes".',
+      },
+      'el cliente',
+      'DELETE /api/clients/[id]',
+      {
+        verb: 'eliminar',
+        restrictMessage: 'Este cliente tiene cotizaciones o contratos registrados.',
+      }
+    );
+
+    expect(failure.status).toBe(409);
+    expect(failure.code).toBe('HAS_REFERENCES');
+    expect(failure.message).toContain('cotizaciones o contratos');
+    // The wrong-direction advice must be gone.
+    expect(failure.message).not.toMatch(/recarga la página|ya no existe/i);
+  });
+
+  it('still tells an insert about the vanished parent, and a restrict without wording gets the generic 409', () => {
+    const missingParent = describeDbWriteError(
+      {
+        code: '23503',
+        message: 'insert or update on table "quotes" violates foreign key constraint "quotes_client_id_fkey"',
+        details: 'Key (client_id)=(abc) is not present in table "clients".',
+      },
+      'la cotización',
+      'POST /api/quotes'
+    );
+    expect(missingParent.status).toBe(400);
+    expect(missingParent.code).toBe('INVALID_INPUT');
+    expect(missingParent.message).toMatch(/ya no existe/i);
+
+    const bareRestrict = describeDbWriteError(
+      {
+        code: '23503',
+        message: 'update or delete on table "clients" violates foreign key constraint "quotes_client_id_fkey" on table "quotes"',
+        details: 'Key (id)=(abc) is still referenced from table "quotes".',
+      },
+      'el cliente',
+      'DELETE /api/clients/[id]',
+      { verb: 'eliminar' }
+    );
+    expect(bareRestrict.status).toBe(409);
+    expect(bareRestrict.message).toContain('registros relacionados');
+  });
+
+  it('classifies a delete\'s 23503 by the verb, not by the server\'s English wording', () => {
+    // Deleting a row can only violate FKs pointing *at* it, so on `eliminar`
+    // a 23503 is always the RESTRICT direction. A server with non-English
+    // lc_messages would defeat the wording check and route the refusal into
+    // the wrong-direction "recarga la página" message.
+    const failure = describeDbWriteError(
+      {
+        code: '23503',
+        message:
+          'update o delete en «clients» viola la llave foránea «quotes_client_id_fkey» en la tabla «quotes»',
+        details: 'La llave (id)=(abc) todavía es referenciada desde la tabla «quotes».',
+      },
+      'el cliente',
+      'DELETE /api/clients/[id]',
+      { verb: 'eliminar' }
+    );
+
+    expect(failure.status).toBe(409);
+    expect(failure.code).toBe('HAS_REFERENCES');
+  });
+
   it('falls back to a 500 it does not pretend to understand', () => {
     const failure = describeDbWriteError(
       { code: '08006', message: 'connection failure' },
@@ -87,43 +163,6 @@ describe('describeDbWriteError', () => {
     // recorded anywhere, so "no puedo crear un cliente" had no trail at all.
     describeDbWriteError({ code: '08006', message: 'connection failure' }, 'el cliente', 'r');
     expect(console.error).toHaveBeenCalled();
-  });
-
-  it('names the real cause when a delete is refused by rows that still reference it (#262)', () => {
-    // ON DELETE RESTRICT on quotes/contracts → 23503 from the *referencing*
-    // side. The old single arm answered "Recarga la página e inténtalo de
-    // nuevo" — advice that can never resolve it.
-    const failure = describeDbWriteError(
-      {
-        code: '23503',
-        message:
-          'update or delete on table "clients" violates foreign key constraint "quotes_client_id_fkey" on table "quotes"',
-        details: 'Key (id)=(c1) is still referenced from table "quotes".',
-      },
-      'el cliente',
-      'DELETE /api/clients/[id]',
-      { verb: 'eliminar' }
-    );
-
-    expect(failure.status).toBe(409);
-    expect(failure.code).toBe('HAS_LINKED_RECORDS');
-    expect(failure.message).toMatch(/se conservan como tu evidencia/);
-    expect(failure.message).not.toMatch(/Recarga la página/);
-  });
-
-  it('keeps the reload advice for the insert side of 23503 — the referenced row is missing', () => {
-    const failure = describeDbWriteError(
-      {
-        code: '23503',
-        message: 'insert or update on table "quotes" violates foreign key constraint',
-        details: 'Key (client_id)=(x) is not present in table "clients".',
-      },
-      'la cotización',
-      'POST /api/quotes'
-    );
-
-    expect(failure.code).toBe('INVALID_INPUT');
-    expect(failure.message).toMatch(/Recarga la página/);
   });
 
   it('never leaks jargon or English into a tenant-facing message (hard rule 8)', () => {

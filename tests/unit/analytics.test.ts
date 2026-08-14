@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  FUNNEL_EVENTS,
+  ANALYTICS_EVENTS,
   capture,
   isAnalyticsConfigured,
   sanitizeEventProperties,
@@ -203,7 +203,7 @@ describe('funnel coverage — every event has a live call site', () => {
     .map((f) => readFileSync(f, 'utf8'))
     .join('\n');
 
-  it.each([...FUNNEL_EVENTS])("'%s' is captured somewhere in app/, components/ or lib/", (event) => {
+  it.each([...ANALYTICS_EVENTS])("'%s' is captured somewhere in app/, components/ or lib/", (event) => {
     expect(sources).toContain(`'${event}'`);
   });
 });

@@ -274,13 +274,14 @@ describe('deleting a client the schema will not release (#262)', () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.startsWith('/api/clients') && init?.method === 'DELETE') {
-        // The referencing-side 23503, as dbWriteError now describes it.
+        // The referencing-side 23503, in the shape #327's dbWriteError arm
+        // produces for a DELETE (the route supplies the restrictMessage).
         return jsonResponse(409, {
           error: {
-            code: 'HAS_LINKED_RECORDS',
+            code: 'HAS_REFERENCES',
             message:
-              'No se puede eliminar: el cliente tiene cotizaciones, contratos o cobros ligados, ' +
-              'y esos documentos se conservan como tu evidencia.',
+              'Este cliente tiene cotizaciones o contratos registrados, así que no se puede ' +
+              'eliminar sin perder ese historial. Solo puedes eliminar clientes sin documentos emitidos.',
           },
         });
       }
@@ -303,14 +304,18 @@ describe('deleting a client the schema will not release (#262)', () => {
     // The consequence names what the schema actually does — the old copy
     // promised the delete would coexist with the quotes, which RESTRICT
     // forbids for every client who has ever been quoted.
-    expect(await screen.findByText(/no se puede eliminar/i)).toBeTruthy();
+    expect(await screen.findByText(/no se podrá eliminar/i)).toBeTruthy();
     expect(screen.queryByText(/no se borran/i)).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sí, eliminar cliente' }));
 
-    // The refusal renders in the dialog — the old shape was an unhandled
-    // rejection: spinner, then nothing, forever.
-    expect(await screen.findByText(/se conservan como tu evidencia/)).toBeTruthy();
+    // The refusal reaches a surface — the old shape was an unhandled
+    // rejection: spinner, then nothing, forever. (#327 catches it in the page
+    // and routes it to ActionResultDialog; ConfirmDialog's own catch from
+    // this PR remains the safety net for callers that don't.)
+    expect(
+      await screen.findByText(/Solo puedes eliminar clientes sin documentos emitidos/)
+    ).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalled();
   });
 });

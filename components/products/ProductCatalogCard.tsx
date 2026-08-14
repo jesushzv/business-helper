@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useProducts } from '@/lib/hooks/useProducts';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
+import { hasCapability } from '@/lib/teamRBAC';
 import { Package, Search, Plus, Trash2, Tag, DollarSign, CheckCircle2 } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 
@@ -17,6 +19,13 @@ export function ProductCatalogCard() {
     legacyLocalProducts,
     importLegacyProducts,
   } = useProducts();
+  const { role } = useCurrentOrg();
+  // Same tri-state as the clients and quotes pages (#64): a known role
+  // without delete_records gets no delete control — the route now refuses it
+  // with 403, and offering the two-tap confirm anyway sends the user into a
+  // write they lack. Unknown (loading/failed read) keeps it; the server
+  // enforces regardless.
+  const canDelete = role === null || hasCapability(role, 'delete_records');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [formSuccess, setFormSuccess] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -25,12 +34,15 @@ export function ProductCatalogCard() {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState<boolean>(false);
 
-  // New product form state
+  // New product form state. The unit/clave defaults are the deliberately
+  // permitted convenience pair (pinned in placeholderIdentifiers.test.ts).
+  const DEFAULT_UNIT = 'E48';
+  const DEFAULT_SAT_CODE = '84111506';
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [unitPrice, setUnitPrice] = useState('');
-  const [unit, setUnit] = useState('E48');
-  const [satCode, setSatCode] = useState('84111506');
+  const [unit, setUnit] = useState(DEFAULT_UNIT);
+  const [satCode, setSatCode] = useState(DEFAULT_SAT_CODE);
   const [stockQuantity, setStockQuantity] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,6 +67,11 @@ export function ProductCatalogCard() {
         setDescription('');
         setUnitPrice('');
         setStockQuantity('');
+        // The clave and unidad reset with the rest: left standing, the cement
+        // clave pre-filled the next concept — already "filled", so nothing
+        // prompted a change — and rode into that CFDI at stamping (#294).
+        setUnit(DEFAULT_UNIT);
+        setSatCode(DEFAULT_SAT_CODE);
         setTimeout(() => {
           setShowAddModal(false);
           setFormSuccess(false);
@@ -177,6 +194,7 @@ export function ProductCatalogCard() {
                 )}
               </div>
             </div>
+            {canDelete && (
             <div className="mt-4 pt-3 border-t border-slate-800 flex justify-end gap-2">
               {confirmingDeleteId === product.id && (
                 <button
@@ -199,6 +217,7 @@ export function ProductCatalogCard() {
                 {confirmingDeleteId === product.id ? '¿Eliminar definitivamente?' : 'Eliminar'}
               </button>
             </div>
+            )}
           </div>
         ))}
       </div>

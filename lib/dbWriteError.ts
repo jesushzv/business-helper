@@ -44,6 +44,14 @@ export interface DescribeOptions {
   audience?: 'tenant' | 'client';
   /** Verb for the prose that names the operation: `guardar` (default), `eliminar`, `actualizar`. */
   verb?: string;
+  /**
+   * What to tell the tenant when a delete is refused because other rows still
+   * reference this one (`ON DELETE RESTRICT`). The route knows which children
+   * exist — "tiene cotizaciones o contratos registrados" — and that is the
+   * only wording a tenant can act on; the generic fallback below only knows
+   * "registros relacionados".
+   */
+  restrictMessage?: string;
 }
 
 interface PostgrestLikeError {
@@ -274,22 +282,25 @@ export function describeDbWriteError(
   }
 
   if (code === '23503') {
-    // One code, two opposite situations. On an INSERT/UPDATE the referenced
-    // row is missing — reloading genuinely helps. On a DELETE the row being
-    // removed is still referenced (ON DELETE RESTRICT), and "recarga la
-    // página" is a misdiagnosis that can never resolve it (#262): Postgres
-    // names that side "still referenced" in the detail.
-    const stillReferenced = /still referenced/i.test(`${e.details || ''} ${e.message || ''}`);
-    if (stillReferenced) {
-      // The named documents reflect today's only RESTRICT edges (clients ←
-      // quotes/contracts). A future RESTRICT FK on another deletable entity
-      // makes this prose partially wrong — revisit it with that migration.
+    // 23503 covers two opposite situations, and the message for one is
+    // nonsense for the other. On INSERT/UPDATE the *referenced* row is gone
+    // ("is not present in table …"): reloading genuinely helps. On DELETE the
+    // row is refused because children still point at it ("is still referenced
+    // from table …", per ON DELETE RESTRICT): nothing vanished, and telling
+    // the tenant to reload sends them in a circle. Postgres wording tells the
+    // two apart; the fixture in dbWriteError.test.ts pins both phrasings.
+    // The verb is the deterministic signal: deleting a row can only violate
+    // FKs pointing *at* it, so on `eliminar` a 23503 is always this direction
+    // — the wording check alone would route a localized (non-English) server's
+    // refusal into the wrong-direction message below.
+    const haystack = `${e.message || ''} ${e.details || ''}`;
+    if (verb === 'eliminar' || /still referenced/i.test(haystack)) {
       return describe({
         status: 409,
-        code: 'HAS_LINKED_RECORDS',
+        code: 'HAS_REFERENCES',
         message:
-          `No se puede eliminar: ${entity} tiene cotizaciones, contratos o cobros ligados, ` +
-          'y esos documentos se conservan como tu evidencia.',
+          options.restrictMessage ||
+          `No se puede ${verb} ${entity} porque tiene registros relacionados.`,
       });
     }
     return describe({

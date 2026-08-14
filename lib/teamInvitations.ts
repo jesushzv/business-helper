@@ -16,9 +16,9 @@ import { getAppBaseUrl } from './url';
 import type { UserRole } from './teamRBAC';
 
 /** Roles an invitation may grant. Ownership is not transferable by invite. */
-export const INVITABLE_ROLES: readonly UserRole[] = ['manager', 'member', 'accountant'] as const;
+const INVITABLE_ROLES: readonly UserRole[] = ['manager', 'member', 'accountant'] as const;
 
-export const INVITATION_TTL_DAYS = 7;
+const INVITATION_TTL_DAYS = 7;
 
 export interface InvitationToken {
   /** Sent to the invitee; never stored. */

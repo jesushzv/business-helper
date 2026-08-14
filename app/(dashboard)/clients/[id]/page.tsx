@@ -31,6 +31,7 @@ import { Client } from '@/types';
 import { findRegimen } from '@/lib/satRegimenes';
 import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
+import { hasCapability } from '@/lib/teamRBAC';
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -50,10 +51,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     loading: receivablesLoading,
     error: receivablesError,
   } = useReceivables();
-  const { org } = useCurrentOrg();
+  const { org, role } = useCurrentOrg();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const confirmAction = useConfirm();
   const result = useActionResult();
+
+  // Three states (#64): a known role without delete_records hides the button —
+  // never send someone into a write they lack (#64 corollary) — while an
+  // unknown role (still loading, or the read failed) keeps it visible, because
+  // the route enforces the capability either way and hiding on a network blip
+  // would tell an owner they cannot delete.
+  const canDelete = role === null || hasCapability(role, 'delete_records');
 
   const client = getClientById(id);
 
@@ -132,17 +140,25 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const handleDelete = () => {
     confirmAction.ask({
       title: `Eliminar a ${client.name}`,
-      // What actually happens (#262): quotes and contracts reference the
-      // client with ON DELETE RESTRICT, so a client who has ever been quoted
-      // cannot be deleted at all. The old copy promised the delete would
-      // coexist with those documents — the exact outcome the schema forbids.
+      // The old wording promised the deletion would succeed and leave the
+      // documents behind. The database enforces the opposite: quotes and
+      // contracts reference the client with ON DELETE RESTRICT, so a client
+      // with history cannot be deleted at all. Say what will actually happen.
       consequence:
-        'Se quitará de tu directorio. Si este cliente ya tiene cotizaciones, contratos o cobros, ' +
-        'no se puede eliminar: esos documentos se conservan como tu evidencia, y te lo diremos aquí.',
+        'Se eliminará de tu directorio de forma permanente. Si este cliente ya tiene ' +
+        'cotizaciones o contratos registrados, no se podrá eliminar, para conservar tu historial.',
       confirmLabel: 'Sí, eliminar cliente',
       onConfirm: async () => {
-        await deleteClient(id);
-        router.push('/clients');
+        // Caught here rather than left to throw: ConfirmDialog would keep the
+        // dialog open with no message anywhere, so a refused deletion (the
+        // 409 for a client with history, or a 403) looked like the tap not
+        // registering.
+        try {
+          await deleteClient(id);
+          router.push('/clients');
+        } catch (err) {
+          result.fail(err, { title: 'No se pudo eliminar' });
+        }
       },
     });
   };
@@ -195,13 +211,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <Edit className="h-4 w-4" />
               <span>Editar</span>
             </button>
-            <button
-              onClick={handleDelete}
-              className="flex min-h-[48px] items-center gap-2 rounded-xl border border-rose-900/50 bg-rose-950/40 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-900/60 active:scale-95 cursor-pointer"
-            >
-              <Trash2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Eliminar</span>
-            </button>
+            {canDelete && (
+              <button
+                onClick={handleDelete}
+                className="flex min-h-[48px] items-center gap-2 rounded-xl border border-rose-900/50 bg-rose-950/40 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-900/60 active:scale-95 cursor-pointer"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Eliminar</span>
+              </button>
+            )}
           </div>
         </div>
 
