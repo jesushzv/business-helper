@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 
@@ -51,6 +51,11 @@ interface ConfirmDialogProps {
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ request, onClose }) => {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // A fresh confirmation starts clean — the previous action's failure must not
+  // greet an unrelated question.
+  useEffect(() => setError(null), [request]);
 
   if (!request) return null;
 
@@ -59,9 +64,20 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ request, onClose }
   const handleConfirm = async () => {
     if (busy) return;
     setBusy(true);
+    setError(null);
     try {
       await request.onConfirm();
       onClose();
+    } catch (err) {
+      // A rejected onConfirm used to escape as an unhandled rejection: the
+      // dialog sat re-enabled, the Spanish message the API produced reached no
+      // surface, and "Sí, eliminar" did nothing forever (#262). The failure
+      // renders here, in the dialog that asked for the action.
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : 'No se pudo completar la acción. Intenta de nuevo.'
+      );
     } finally {
       // The dialog may already be unmounted by onClose; setting state on an
       // unmounted component is a no-op in React 19, and leaving `busy` true
@@ -95,6 +111,15 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ request, onClose }
 
       <h3 className="mt-4 text-lg font-extrabold text-white">{request.title}</h3>
       <p className="mt-1.5 text-sm text-slate-300">{request.consequence}</p>
+
+      {error && (
+        <p
+          role="alert"
+          className="mt-3 rounded-xl border border-rose-500/30 bg-rose-950/60 p-3 text-xs font-semibold text-rose-300"
+        >
+          {error}
+        </p>
+      )}
 
       <div className="mt-6 flex flex-col gap-2">
         <button
