@@ -291,15 +291,15 @@ describe('the trial gate covers exactly the decided surface', () => {
   const read = (f: string) => readFileSync(f, 'utf8');
 
   it('gates creating new commercial work', () => {
-    // The founder's decision was "no new quotes, contracts or CFDI", plus
-    // outbound reminders. Recorded as a list so adding a write route forces the
-    // question rather than defaulting to ungated.
+    // The founder's decision was "no new quotes, contracts or CFDI". Recorded
+    // as a list so adding a write route forces the question rather than
+    // defaulting to ungated. (The outbound-reminder broadcast route was also
+    // gated until it was removed as unreachable — nothing ever called it.)
     for (const file of [
       'app/api/quotes/route.ts',
       'app/api/quotes/[id]/convert/route.ts',
       'app/api/invoices/issue/route.ts',
       'app/api/invoices/[id]/complement/route.ts',
-      'app/api/whatsapp/broadcast/route.ts',
     ]) {
       // Both the call and its result being acted on. Asserting the import
       // alone passes for a gate that is wired up and never consulted — the

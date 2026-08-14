@@ -23,7 +23,7 @@ import {
 /** Shared so the route, the hook and the tests cannot disagree on the wording. */
 export const SETTLEMENT_ACCOUNT_MISSING_CODE = 'ORG_BANK_DETAILS_MISSING';
 
-export const SETTLEMENT_ACCOUNT_MISSING_MESSAGE =
+const SETTLEMENT_ACCOUNT_MISSING_MESSAGE =
   'Agrega tu cuenta de cobro (CLABE de 18 dígitos) antes de compartir enlaces de pago con tus clientes.';
 
 /**
@@ -38,7 +38,7 @@ export function hasSettlementAccount(accounts: BankAccount[] | null | undefined)
 }
 
 /** 409, in the `{ error: { code, message } }` shape every authenticated route uses. */
-export function settlementAccountMissingResponse(): NextResponse {
+function settlementAccountMissingResponse(): NextResponse {
   return NextResponse.json(
     {
       error: {

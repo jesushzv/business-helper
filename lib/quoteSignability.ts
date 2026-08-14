@@ -29,7 +29,7 @@ export type QuoteSignableState =
   | 'not_yet_sent';
 
 /** The statuses the signing and OTP routes accept. */
-export const SIGNABLE_QUOTE_STATUSES = ['sent', 'accepted'] as const;
+const SIGNABLE_QUOTE_STATUSES = ['sent', 'accepted'] as const;
 
 export interface SignabilityInput {
   status?: string | null;

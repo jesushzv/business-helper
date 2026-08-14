@@ -20,6 +20,15 @@ describe('Multi-User Team Roles & RBAC Engine', () => {
     expect(hasCapability('accountant', 'create_quote')).toBe(false);
   });
 
+  it('reserves record deletion for owner and manager', () => {
+    // Deletes were the only writes with no gate: a member could destroy a
+    // client while confirming a payment required manager rank.
+    expect(hasCapability('owner', 'delete_records')).toBe(true);
+    expect(hasCapability('manager', 'delete_records')).toBe(true);
+    expect(hasCapability('member', 'delete_records')).toBe(false);
+    expect(hasCapability('accountant', 'delete_records')).toBe(false);
+  });
+
   it('denies every capability to an unknown or empty role', () => {
     expect(hasCapability('', 'create_quote')).toBe(false);
     expect(hasCapability('superadmin', 'create_quote')).toBe(false);
@@ -29,5 +38,17 @@ describe('Multi-User Team Roles & RBAC Engine', () => {
     expect(validateInviteInput('not-an-email', 'member').isValid).toBe(false);
     expect(validateInviteInput('socio@negocio.mx', 'superadmin').isValid).toBe(false);
     expect(validateInviteInput('socio@negocio.mx', 'member').isValid).toBe(true);
+  });
+
+  it('requires an address shape, not just an @ — "%@%" used to pass and ride into a wildcard match (#289)', () => {
+    // The old check was includes('@'): every string below passed it.
+    expect(validateInviteInput('%@%', 'member').isValid).toBe(false);
+    expect(validateInviteInput('@', 'member').isValid).toBe(false);
+    expect(validateInviteInput('a@b', 'member').isValid).toBe(false);
+    expect(validateInviteInput('socio nuevo@negocio.mx', 'member').isValid).toBe(false);
+    // Real addresses keep working — including LIKE-wildcard characters, which
+    // the .eq revocation match renders inert rather than this gate rejecting.
+    expect(validateInviteInput('jose_luis+obras@negocio.com.mx', 'member').isValid).toBe(true);
+    expect(validateInviteInput('  Socio@Negocio.mx  ', 'member').isValid).toBe(true);
   });
 });

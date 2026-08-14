@@ -134,7 +134,7 @@ export async function POST(request: Request) {
   const { data: milestone, error: milestoneError } = await supabase
     .from('milestones')
     .select(
-      'id, label, amount, cfdi_status, cfdi_uuid, contract_id, ' +
+      'id, label, amount, cfdi_status, cfdi_uuid, cfdi_environment, contract_id, ' +
         'contracts(title, quote_id, clients(name, rfc, regimen_fiscal, codigo_postal, cfdi_use))'
     )
     .eq('id', milestoneId)
@@ -149,12 +149,22 @@ export async function POST(request: Request) {
   }
 
   if (milestone.cfdi_status === 'issued' && milestone.cfdi_uuid) {
+    // `uuid`/`environment` ride beside the envelope on every ALREADY_ISSUED:
+    // the client reports the existing document, and a sandbox one must keep
+    // its "sin validez fiscal" caveat in that report (#264 review). "Cancel it
+    // at the SAT" is only real advice for a live document.
     return NextResponse.json(
       {
         error: {
           code: 'ALREADY_ISSUED',
-          message: `Este cobro ya tiene una factura timbrada (${milestone.cfdi_uuid}). Cancélala ante el SAT antes de emitir otra.`,
+          message: `Este cobro ya tiene una factura timbrada (${milestone.cfdi_uuid}). ${
+            milestone.cfdi_environment === 'sandbox'
+              ? 'Es un documento de prueba sin validez fiscal.'
+              : 'Cancélala ante el SAT antes de emitir otra.'
+          }`,
         },
+        uuid: milestone.cfdi_uuid,
+        environment: milestone.cfdi_environment ?? null,
       },
       { status: 409 }
     );
@@ -315,6 +325,7 @@ export async function POST(request: Request) {
             message: `Un intento anterior sí timbró la factura (folio fiscal ${found.uuid}). Ya quedó registrada en este cobro; no se emitió una nueva.`,
           },
           uuid: found.uuid,
+          environment: credentials.environment,
         },
         { status: 409 }
       );
@@ -355,7 +366,7 @@ export async function POST(request: Request) {
   // in between must never be repeated (check-then-act closed on both sides).
   const { data: recheck } = await supabase
     .from('milestones')
-    .select('cfdi_status, cfdi_uuid')
+    .select('cfdi_status, cfdi_uuid, cfdi_environment')
     .eq('id', milestoneId)
     .eq('organization_id', organizationId)
     .maybeSingle();
@@ -366,8 +377,14 @@ export async function POST(request: Request) {
       {
         error: {
           code: 'ALREADY_ISSUED',
-          message: `Este cobro ya tiene una factura timbrada (${recheck.cfdi_uuid}). Cancélala ante el SAT antes de emitir otra.`,
+          message: `Este cobro ya tiene una factura timbrada (${recheck.cfdi_uuid}). ${
+            recheck.cfdi_environment === 'sandbox'
+              ? 'Es un documento de prueba sin validez fiscal.'
+              : 'Cancélala ante el SAT antes de emitir otra.'
+          }`,
         },
+        uuid: recheck.cfdi_uuid,
+        environment: recheck.cfdi_environment ?? null,
       },
       { status: 409 }
     );

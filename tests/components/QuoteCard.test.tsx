@@ -1,6 +1,6 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
@@ -55,6 +55,30 @@ describe('QuoteCard WhatsApp link integrity (#36)', () => {
     render(<QuoteCard quote={quote} />);
     expect(screen.queryByRole('link', { name: /Enviar por WhatsApp/i })).toBeNull();
     expect(screen.getByRole('button', { name: /Agrega un teléfono/i })).toBeDisabled();
+  });
+
+  it('offers deletion through the parent\'s confirm flow for a still-open quote', () => {
+    const onDelete = vi.fn();
+    render(<QuoteCard quote={quote} client={clientWithPhone} onDelete={onDelete} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Eliminar Cotización/i }));
+    expect(onDelete).toHaveBeenCalledWith('q-12345678-abcd');
+  });
+
+  it.each(['accepted', 'converted'] as const)(
+    'never renders a delete control on an %s quote — it carries a signature or a live /pay/ link',
+    (status) => {
+      const onDelete = vi.fn();
+      render(
+        <QuoteCard quote={{ ...quote, status } as unknown as Quote} client={clientWithPhone} onDelete={onDelete} />
+      );
+      expect(screen.queryByRole('button', { name: /Eliminar Cotización/i })).toBeNull();
+    }
+  );
+
+  it('renders no delete control at all when the surface offers none (a role without delete_records)', () => {
+    render(<QuoteCard quote={quote} client={clientWithPhone} />);
+    expect(screen.queryByRole('button', { name: /Eliminar Cotización/i })).toBeNull();
   });
 
   it('source carries no hardcoded origin or phone, so a future fallback fails here rather than in a customer chat', () => {

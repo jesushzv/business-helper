@@ -18,6 +18,23 @@ import { ProductCatalogCard } from '@/components/products/ProductCatalogCard';
  * catalog is only as good as the row behind it.
  */
 
+/**
+ * The card reads the caller's role to decide whether to render the delete
+ * control at all. Mocked so the card's own fetch expectations below stay
+ * about the catalog — and so the role each case needs is explicit.
+ */
+const orgState = { role: 'owner' as string | null };
+vi.mock('@/lib/hooks/useCurrentOrg', () => ({
+  useCurrentOrg: () => ({
+    org: null,
+    role: orgState.role,
+    user: null,
+    denied: null,
+    loading: false,
+    signOut: vi.fn(),
+  }),
+}));
+
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -58,6 +75,7 @@ async function openForm() {
 }
 
 beforeEach(() => {
+  orgState.role = 'owner';
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
@@ -105,6 +123,27 @@ describe('adding a product', () => {
       sat_product_code: '30161600',
       unit: 'E48',
     });
+  });
+
+  it('resets the clave and unidad after a save — the previous item must not pre-fill the next concept (#294)', async () => {
+    await openForm();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, { product: { id: 'prod-2', name: 'Cemento Tolteca' } })
+    );
+
+    const unitSelect = () => screen.getByLabelText(/Unidad SAT/i) as HTMLSelectElement;
+    fireEvent.change(nameInput(), { target: { value: 'Cemento Tolteca' } });
+    fireEvent.change(priceInput(), { target: { value: '235' } });
+    fireEvent.change(satInput(), { target: { value: '30111601' } });
+    fireEvent.change(unitSelect(), { target: { value: 'H87' } });
+    fireEvent.click(saveButton());
+
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2));
+    // The success branch used to reset name/price but keep clave and unidad,
+    // so the cement pair sat pre-filled — already "filled", nothing prompting a
+    // change — and rode into the next concept's CFDI at stamping.
+    await waitFor(() => expect(satInput().value).toBe('84111506'));
+    expect(unitSelect().value).toBe('E48');
   });
 
   it('does not report a save the server refused', async () => {
@@ -164,5 +203,20 @@ describe('deleting a product', () => {
     // #98's defect was the opposite: the row vanished locally and came back on
     // reload. A failed delete must leave it visible.
     expect(screen.getByText('Impermeabilizante acrílico 19L')).toBeTruthy();
+  });
+
+  it.each(['member', 'accountant'])(
+    'renders no delete control for a %s — the route refuses them with 403 now',
+    async (role) => {
+      orgState.role = role;
+      await renderLoaded();
+      expect(screen.queryByRole('button', { name: /^Eliminar$/i })).toBeNull();
+    }
+  );
+
+  it('keeps the control while the role is still unknown — the route enforces it regardless', async () => {
+    orgState.role = null;
+    await renderLoaded();
+    expect(screen.getByRole('button', { name: /^Eliminar$/i })).toBeTruthy();
   });
 });

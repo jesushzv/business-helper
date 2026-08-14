@@ -30,8 +30,9 @@
 
 * **Feature Name**: Demo & Trust Assets (Device-Framed Phone Mockups, Live Demo Scheduler Modal, Side-by-Side Comparison Matrix, Customer Health Score Explainer)
 * **Target Area**:
-  - **Device-Framed Phone Mockup (`components/landing/PhoneFrameMockup.tsx`)**:
-    - Build a CSS/SVG mobile device wrapper (iPhone 15 Pro dark slate bezel, island notch, status bar, glass reflection) to enclose app preview UI cards.
+  - **Device-Framed Mockup (superseded)**: the phone-frame wrapper (`PhoneFrameMockup.tsx`) was
+    dropped in favor of `components/landing/BrowserFrameMockup.tsx`, which is what `app/page.tsx`
+    ships ("ONLY BrowserFrameMockup"). The unused phone-frame component was removed.
   - **Live Demo Scheduler Modal (`components/landing/DemoSchedulerModal.tsx`)**:
     - Interactive 1-on-1 demo scheduling modal triggered by "Ver Demostración en Vivo" CTAs across header and hero sections.
     - Slot selector (time/date), business name input, WhatsApp phone input, and confirmation feedback.
@@ -49,12 +50,12 @@
 ## 02 Acceptance Criteria (P0 / P1 / P2)
 
 ### Must-Have (P0 / P1)
-- [ ] **AC-F1 (P0)**: Interactive step-by-step video demo player (`DemoVideoPlayer.tsx`) is rendered inside a realistic mobile device frame (`PhoneFrameMockup.tsx`).
+- [ ] ~~**AC-F1 (P0)**: Interactive step-by-step video demo player (`DemoVideoPlayer.tsx`) is rendered inside a realistic mobile device frame (`PhoneFrameMockup.tsx`).~~ Superseded: mockups ship inside `BrowserFrameMockup`; the phone frame was dropped.
 - [ ] **AC-F2 (P0)**: Clicking "Ver Demostración en Vivo" CTAs opens `DemoSchedulerModal` offering 1-on-1 demo scheduling or instant walkthrough viewing.
 - [ ] **AC-F3 (P0)**: Landing page includes side-by-side comparison section (`ComparisonSection.tsx`) contrasting Business Helper vs Excel vs Traditional ERPs across speed, WhatsApp, SPEI, and CFDI 4.0.
 - [ ] **AC-F4 (P0)**: Landing page includes Customer Health Score explainer (`HealthScoreExplainer.tsx`) detailing the 0–100 score ranges, color indicators, and business recommendations.
-- [ ] **AC-F5 (P0)**: Hero visual mockup right column is enclosed inside `<PhoneFrameMockup />`.
-- [ ] **AC-F6 (P0)**: Vitest component and unit tests created and passing for `PhoneFrameMockup`, `DemoSchedulerModal`, `ComparisonSection`, and `HealthScoreExplainer`.
+- [ ] ~~**AC-F5 (P0)**: Hero visual mockup right column is enclosed inside `<PhoneFrameMockup />`.~~ Superseded: the hero column uses `BrowserFrameMockup`.
+- [ ] **AC-F6 (P0)**: Vitest component and unit tests created and passing for `DemoSchedulerModal`, `ComparisonSection`, and `HealthScoreExplainer`.
 
 ---
 
@@ -71,12 +72,11 @@
 ### Exact Files to Modify / Create
 
 #### Components & Pages (`components/landing/` & `app/`)
-* `components/landing/PhoneFrameMockup.tsx` — [NEW] Mobile phone bezel wrapper with notch, status bar, and glass reflection.
 * `components/landing/DemoSchedulerModal.tsx` — [NEW] 1-on-1 live demo booking modal.
 * `components/landing/ComparisonSection.tsx` — [NEW] Side-by-side comparison table (Business Helper vs Excel vs CONTPAQi/Aspel).
 * `components/landing/HealthScoreExplainer.tsx` — [NEW] Customer Health Score 0–100 algorithm and risk tier explainer.
-* `components/landing/DemoVideoPlayer.tsx` — [MODIFY] Wrap interactive walkthrough screen in `<PhoneFrameMockup />`.
-* `app/page.tsx` — [MODIFY] Connect demo modal state, embed comparison and health score sections, wrap hero mockup in phone frame.
+* `components/landing/DemoVideoPlayer.tsx` — [MODIFY] Wrap interactive walkthrough screen in `<BrowserFrameMockup />`.
+* `app/page.tsx` — [MODIFY] Connect demo modal state, embed comparison and health score sections.
 
 #### Automated Test Suite (`tests/`)
 * `tests/components/DemoSchedulerModal.test.tsx` — [NEW] Component test suite for demo booking modal.

@@ -203,6 +203,14 @@ export interface StampOutcome {
   error?: string;
   /** True for a PPD document: every payment against it owes a complemento de pago. */
   complementRequired?: boolean;
+  /**
+   * The request stamped nothing because a document already exists at the SAT
+   * (a previous attempt succeeded and was adopted, or a competing request won).
+   * That outcome is a success about the invoice, not a stamp failure (#264).
+   */
+  alreadyIssued?: boolean;
+  /** The route's own Spanish for the alreadyIssued outcome. */
+  message?: string;
 }
 
 export interface ComplementOutcome {
@@ -278,7 +286,33 @@ export function useInvoices() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
+        const code = data?.error?.code;
         const message = data?.error?.message || 'No se pudo timbrar la factura';
+
+        // Not every refusal is a stamp failure. ALREADY_ISSUED means a real
+        // CFDI exists at the SAT and the row records it; STAMP_NOT_RECORDED
+        // means one exists that the row could NOT record; STAMP_IN_PROGRESS
+        // means a competing request is mid-stamp. Painting these 'failed'
+        // showed "Timbrado fallido" over an invoice already filed with the SAT
+        // and offered "Reintentar timbrado" — the exact affordance the #213
+        // race guard exists to remove (#264). The server row is the truth for
+        // all three: reload it instead of asserting a failure locally.
+        if (code === 'ALREADY_ISSUED' || code === 'STAMP_NOT_RECORDED' || code === 'STAMP_IN_PROGRESS') {
+          await loadInvoices();
+          if (code === 'ALREADY_ISSUED') {
+            // `environment` travels too: a sandbox document keeps its "sin
+            // validez fiscal" caveat in the banner, same as a fresh stamp.
+            return {
+              success: true,
+              alreadyIssued: true,
+              uuid: data?.uuid,
+              environment: data?.environment ?? undefined,
+              message,
+            };
+          }
+          return { success: false, error: message };
+        }
+
         setInvoices((prev) =>
           prev.map((inv) =>
             inv.milestoneId === milestoneId
@@ -318,7 +352,7 @@ export function useInvoices() {
     } finally {
       setStampingId(null);
     }
-  }, []);
+  }, [loadInvoices]);
 
   /**
    * Files a complemento de pago against a PPD invoice.

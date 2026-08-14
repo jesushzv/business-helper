@@ -7,6 +7,9 @@ import { useClients } from '@/lib/hooks/useClients';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { QuoteWizardModal } from '@/components/quotes/QuoteWizardModal';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
+import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
+import { hasCapability } from '@/lib/teamRBAC';
 import { Plus, Search, FileText, CheckCircle2, Clock, Send } from 'lucide-react';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
 import { getQuotePublicUrl } from '@/lib/url';
@@ -24,7 +27,17 @@ export default function QuotesPage() {
     setSearchQuery,
     createQuote,
     convertToContract,
+    deleteQuote,
   } = useQuotes();
+  const confirmAction = useConfirm();
+  const { role } = useCurrentOrg();
+
+  // Tri-state on purpose (#64): a known role without delete_records gets no
+  // delete control — never send someone into a write they lack — while an
+  // unknown role (loading, or the read failed) keeps it, because the route
+  // enforces the capability regardless and hiding on a network blip would tell
+  // an owner they cannot delete.
+  const canDelete = role === null || hasCapability(role, 'delete_records');
 
   // The clients read has its own failure mode (#260): when /api/clients fails
   // while /api/quotes succeeds, `clients` is [] and every card would read
@@ -231,6 +244,39 @@ export default function QuotesPage() {
                 key={q.id}
                 quote={q}
                 client={client}
+                onDelete={
+                  canDelete
+                    ? (id) => {
+                        const target = quotes.find((quote) => quote.id === id);
+                        if (!target) return;
+                        confirmAction.ask({
+                          title: 'Eliminar cotización',
+                          // Any non-draft quote's /q/ link may already be in
+                          // the client's hands (rejected/expired were sent
+                          // once, and the loaded status can be stale); name
+                          // the retired link for all of them rather than
+                          // branching on a state another session may have
+                          // outrun (#99).
+                          consequence:
+                            target.status === 'draft'
+                              ? `«${target.title}» se eliminará de forma permanente.`
+                              : `«${target.title}» se eliminará de forma permanente y el enlace para firmar que compartiste con tu cliente dejará de funcionar.`,
+                          confirmLabel: 'Sí, eliminar cotización',
+                          onConfirm: async () => {
+                            // Caught here: a throw would leave ConfirmDialog
+                            // open with no message anywhere. The dialog shows
+                            // the server's reason — a signed quote's 409, a
+                            // role's 403 — instead.
+                            try {
+                              await deleteQuote(id);
+                            } catch (err) {
+                              result.fail(err, { title: 'No se pudo eliminar' });
+                            }
+                          },
+                        });
+                      }
+                    : undefined
+                }
                 onConvert={async (id) => {
                   // Announce what the server actually created, and only after
                   // it confirms. The count was hardcoded at 2 and the message
@@ -239,13 +285,24 @@ export default function QuotesPage() {
                   // and its Spanish copy rules (#99), so the outcome goes
                   // through the same dialog every other action uses.
                   try {
-                    const { milestones } = await convertToContract(id);
+                    const { milestones, warning } = await convertToContract(id);
                     const count = milestones.length;
+                    // `warning` is the partial-success case (#283): the
+                    // contract and cobros exist, only the quote's status flip
+                    // failed — reporting that as "No se pudo convertir" hid a
+                    // live payment schedule from the tenant. The route's own
+                    // Spanish names what happened; retrying heals the status.
                     result.succeed({
                       title: 'Contrato creado',
-                      message: `La cotización ya es un contrato con ${count} ${
-                        count === 1 ? 'cobro programado' : 'cobros programados'
-                      }.`,
+                      message: warning
+                        ? `${warning}. ${
+                            count === 1
+                              ? 'Tu cobro programado ya está'
+                              : `Tus ${count} cobros programados ya están`
+                          } en Cobranza; vuelve a convertirla para corregir el estado.`
+                        : `La cotización ya es un contrato con ${count} ${
+                            count === 1 ? 'cobro programado' : 'cobros programados'
+                          }.`,
                     });
                   } catch (err) {
                     result.fail(err, { title: 'No se pudo convertir' });
@@ -303,6 +360,7 @@ export default function QuotesPage() {
         }}
       />
 
+      <ConfirmDialog request={confirmAction.request} onClose={confirmAction.dismiss} />
       <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
     </>
