@@ -38,14 +38,52 @@ afterEach(() => {
   vi.resetModules();
 });
 
+/**
+ * A PostgREST double that **honours the select string**.
+ *
+ * The first cut of these tests returned the full fixture row whatever the
+ * query asked for, so both dashboard cases stayed green with the defective
+ * select restored — a test double that answers a question the route did not
+ * ask cannot see a defect that lives in the asking. Projecting to the named
+ * columns is what makes the route's own query part of what is under test
+ * (the #146 lesson: ask the tenant's question, not the function's).
+ */
+function projected(rows: Record<string, unknown>[], columns: string) {
+  if (columns.includes('*')) return rows;
+  const wanted = columns
+    .replace(/\([^)]*\)/g, '')
+    .split(',')
+    .map((c) => c.trim().split('!')[0])
+    .filter(Boolean);
+  return rows.map((row) => {
+    const out: Record<string, unknown> = {};
+    for (const key of wanted) {
+      if (Object.prototype.hasOwnProperty.call(row, key)) out[key] = row[key];
+    }
+    // Embedded relations are handed back whole; the projection above only
+    // models the flat column list, which is where #351 lived.
+    for (const [key, value] of Object.entries(row)) {
+      if (value !== null && typeof value === 'object' && columns.includes(`${key}(`)) out[key] = value;
+    }
+    return out;
+  });
+}
+
 describe('the dashboard KPI cards report what arrived (#351)', () => {
   it('books a short wire as collected-in-part, not collected-in-full', async () => {
     vi.resetModules();
     vi.doMock('@/lib/supabase/server', () => ({ isSupabaseConfigured: () => true }));
     vi.doMock('@/lib/apiAuth', async (importOriginal) => {
       const actual = await importOriginal<typeof import('@/lib/apiAuth')>();
-      const table = (rows: unknown[]) => {
-        const builder = { select: () => builder, eq: async () => ({ data: rows, error: null }) };
+      const table = (rows: Record<string, unknown>[]) => {
+        let visible = rows;
+        const builder = {
+          select: (columns: string) => {
+            visible = projected(rows, columns);
+            return builder;
+          },
+          eq: async () => ({ data: visible, error: null }),
+        };
         return builder;
       };
       return {
@@ -87,8 +125,15 @@ describe('the dashboard KPI cards report what arrived (#351)', () => {
     vi.doMock('@/lib/supabase/server', () => ({ isSupabaseConfigured: () => true }));
     vi.doMock('@/lib/apiAuth', async (importOriginal) => {
       const actual = await importOriginal<typeof import('@/lib/apiAuth')>();
-      const table = (rows: unknown[]) => {
-        const builder = { select: () => builder, eq: async () => ({ data: rows, error: null }) };
+      const table = (rows: Record<string, unknown>[]) => {
+        let visible = rows;
+        const builder = {
+          select: (columns: string) => {
+            visible = projected(rows, columns);
+            return builder;
+          },
+          eq: async () => ({ data: visible, error: null }),
+        };
         return builder;
       };
       return {
@@ -125,12 +170,17 @@ describe('the assistant answers "¿cuánto hemos cobrado?" with what arrived (#3
   it('sums the transfers, not the invoiced amounts', async () => {
     const { loadAIOrgContext } = await import('@/lib/aiOrgContext');
 
-    const table = (rows: unknown[]) => {
+    const table = (rows: Record<string, unknown>[]) => {
+      let visible = rows;
       const builder = {
-        select: () => builder,
+        select: (columns: string) => {
+          visible = projected(rows, columns);
+          return builder;
+        },
         eq: () => builder,
         in: () => builder,
-        then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: rows, error: null }).then(resolve),
+        then: (resolve: (v: unknown) => unknown) =>
+          Promise.resolve({ data: visible, error: null }).then(resolve),
       };
       return builder;
     };
