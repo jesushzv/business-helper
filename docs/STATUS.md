@@ -81,7 +81,7 @@ migrations — is in the archive with its reasoning.*
 
 | Item | State | Blocks launch? |
 |:---|:---|:---|
-| **Live PAC stamp** | The direct sandbox half is done: the integration was exercised live, found entirely broken (`/v1` = 410 since 2023, four payload defects — mocked-`fetch` coverage had kept it all green), fixed, and re-verified end to end against the live sandbox — real SAT UUIDs, documents, cancellation (02/03), correct totals with and without retenciones. Forensics in the archive. **Re-scoped by the BYOK decision (§05): the platform does not stamp on behalf of tenants**, so the remaining criterion is a **tenant-connected live PAC**: an `sk_live_` key with CSDs connected in Ajustes, one stamp through `POST /api/invoices/issue`, the UUID verifying at the SAT portal. A sandbox key cannot meet it — sandbox documents have no fiscal validity, and the route refuses them in production by design (`PAC_SANDBOX_KEY`). The `cfdi_stamp_claims` guard (#213, PR #241) is **applied to production and refused a duplicate claim `23505` live**; the guard's own live exercise (a deliberate double-submit) rides with this row's stamp. | **Yes** — CFDI ships at launch |
+| **Live PAC stamp** | The direct sandbox half is done: the integration was exercised live, found entirely broken (`/v1` = 410 since 2023, four payload defects — mocked-`fetch` coverage had kept it all green), fixed, and re-verified end to end against the live sandbox — real SAT UUIDs, documents, cancellation (02/03), correct totals with and without retenciones. Forensics in the archive. **Re-scoped by the BYOK decision (§05): the platform does not stamp on behalf of tenants**, so the remaining criterion is a **tenant-connected live PAC**: an `sk_live_` key with CSDs connected in Ajustes, one stamp through `POST /api/invoices/issue`, the UUID verifying at the SAT portal. A sandbox key cannot meet it — sandbox documents have no fiscal validity, and the route refuses them in production by design (`PAC_SANDBOX_KEY`). The `cfdi_stamp_claims` guard (#213, PR #241) is **applied to production and refused a duplicate claim `23505` live**; the guard's own live exercise (a deliberate double-submit) rides with this row's stamp, as do #347's two payload probes (exempt-quote `taxes: []`, non-null `cfdi_total`). | **Yes** — CFDI ships at launch |
 
 **Verification done before the live-provider passes began was against mocked providers.** The items
 in §03 that need a real handset, card, PAC stamp or deployed database are untouched by any of it.
@@ -153,30 +153,12 @@ caller — it needs a motivo, the `01` replacement UUID, receptor refusal and an
 (#30). Tenants cancel at their PAC portal; the stamping dialog says so, and
 `tests/unit/cfdiCancelHasNoUiCaller.test.ts` fails the build if a caller appears.
 
-**The `bug`-tagged set, re-derived from the tracker this pass.** Nine were open; three were already
-fixed in code and are now closed against live evidence, five are fixed by the stacked PRs #342 →
-#343 → #344 → #345, and one remains open on a credential:
-
-- **Closed after live verification.** [#115](https://github.com/jesushzv/business-helper/issues/115)
-  (both Stripe ids written by the webhook; `organizations_stripe_customer_id_key` and
-  `…_subscription_id_key` confirmed UNIQUE in the production catalog, so a cross-tenant collision
-  surfaces as a 500 rather than being swallowed) · [#117](https://github.com/jesushzv/business-helper/issues/117)
-  (the chosen plan survives `/upgrade` → register → onboarding → Ajustes; no path writes
-  `subscription_tier`) · [#133](https://github.com/jesushzv/business-helper/issues/133) (deterministic
-  tenant, ambiguity logged; `uq_organizations_owner_id` confirmed live). #115's Billing Portal
-  residue was filed as #346 before closing, not dropped.
-- **Fixed in the stack, pending merge.** #334 (server "today" is `America/Mexico_City`, not UTC) ·
-  #151 (money inputs hold text — five sites, one more than the issue listed) · #281 (the chrome
-  follows a rename) · #269 (a second invitation says plainly that the app will keep showing the
-  other company) · #116 (an unknown subscription status reads as unknown, not "Activo").
-- **Open:** [#213](https://github.com/jesushzv/business-helper/issues/213) — the claim mechanism is
-  built *and* applied in production (see §04's Live PAC stamp row), so the race is closed; what
-  remains is the empty-`taxes` sandbox probe, which needs a real Facturapi credential.
-- [#204](https://github.com/jesushzv/business-helper/issues/204) — resolved 2026-08-12, §02.
-
-For the five in the stack: **tests, lint and build only** — no live Stripe event, no live PAC stamp.
-The database claims above were read back from the production catalog, and the `cfdi_stamp_claims`
-primary key was proven by making it *reject* a second claim (`23505`) inside a rolled-back probe.
+**The `bug`-tagged set is empty** — `is:issue is:open label:bug` returns zero, re-derived rather
+than trusted. The nine that were open all closed in the 2026-08-14 pass; the narrative is in
+[`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Two leftovers were filed
+rather than left to die with their issues: **#346** (Billing Portal — nothing can cancel a plan
+from the app) and **#347** (does PAC v2 read an empty `taxes: []` as *absent* and stamp 16% IVA
+onto an exempt quote; does `cfdi_total` land non-null). Both need a credential, not code.
 
 > [!IMPORTANT]
 > **The scope principle these items serve.** The founder's stated constraint is to launch fast without
