@@ -48,14 +48,14 @@ export function Footer() {
             <h4 className="text-xs font-bold uppercase tracking-wider text-white">Producto</h4>
             <ul className="space-y-2 text-slate-400">
               <li>
-                <a href="#caracteristicas" className="hover:text-emerald-400 transition-colors">
+                <Link href="/#caracteristicas" className="hover:text-emerald-400 transition-colors">
                   Características
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#precios" className="hover:text-emerald-400 transition-colors">
+                <Link href="/#precios" className="hover:text-emerald-400 transition-colors">
                   Precios & Planes
-                </a>
+                </Link>
               </li>
               <li>
                 <Link href="/dashboard?demo=true" className="hover:text-emerald-400 transition-colors flex items-center gap-1">
@@ -64,14 +64,14 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <a href="#testimonios" className="hover:text-emerald-400 transition-colors">
+                <Link href="/#testimonios" className="hover:text-emerald-400 transition-colors">
                   Casos por Industria
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#garantia" className="hover:text-emerald-400 transition-colors">
+                <Link href="/#garantia" className="hover:text-emerald-400 transition-colors">
                   Seguridad & SAT
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

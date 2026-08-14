@@ -1,7 +1,9 @@
 import { MetadataRoute } from 'next';
+import { getAppBaseUrl } from '@/lib/url';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://businesshelper.app';
+  // Through the builder, never a literal origin (#36/#47/#73's class, #299).
+  const baseUrl = getAppBaseUrl();
 
   return [
     {
