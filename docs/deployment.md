@@ -18,7 +18,7 @@ graph TD
     NextApp --> Supabase[(Supabase PostgreSQL + RLS)]
     NextApp --> Facturapi[Facturapi PAC SAT CFDI 4.0]
     NextApp --> Stripe[Stripe Billing Engine]
-    NextApp --> Twilio[Twilio WhatsApp Business API]
+    NextApp --> Resend[Resend Email OTP Delivery]
     NextApp --> Gemini[Gemini AI Assistant]
 ```
 
@@ -92,12 +92,9 @@ graph TD
      - `STRIPE_PRICE_EMPRESA`: Exact Stripe Price ID for Empresa tier
      - **Verify before charging anyone**: `npm run verify:stripe` with the same variables exported locally. It reads the account and every price back from Stripe and fails if the account cannot take charges, a price id does not exist in that mode, or a tier bills an amount the pricing page does not advertise. Every request it makes is a GET, so it is safe against the live account. A tier with no Price ID cannot be sold at all — checkout answers `503 STRIPE_PRICE_NOT_CONFIGURED`.
    - **OTP Delivery (Required for e-signature)**:
-     - `OTP_DELIVERY_CHANNEL`: `email` (launch channel), or the deprecated `sms` / `whatsapp`. Unset fails closed in production — the signing flow returns 502.
+     - `OTP_DELIVERY_CHANNEL`: `email` (the only channel; the deprecated `sms` / `whatsapp` Twilio/Meta channels were removed). Unset — or still set to a removed channel — fails closed in production: the signing flow returns 502.
      - For `email`: `RESEND_API_KEY`, `OTP_EMAIL_FROM` (the from-domain must be verified in Resend — DNS records on `businesshelper.app`). The code goes to `clients.email`; a client without one gets a 422 naming the missing field.
-     - For `sms` (deprecated): `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER`
-     - For `whatsapp` (deprecated) via Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`; via Meta: `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID`
-     - **Verify before trusting the channel**: `npm run verify:otp` with the same variables exported locally. It names any variable the selected provider is missing and authenticates against Resend/Twilio/Meta without sending. Add `OTP_TEST_EMAIL=you@…` (or `OTP_TEST_PHONE=+52…` on the deprecated channels) to send one sample message to an inbox or handset you control — **without it the run exits non-zero and prints `INCOMPLETE`**, because stages 1-2 authenticate but cannot show a message leaving (#118). Half-configured credentials return the same 502 as no configuration at all, so the first person to notice would otherwise be a signer.
-     - Clients need the channel's contact populated — `clients.email` on the email channel, `clients.phone` on the deprecated ones; the issue endpoint answers 422 naming the missing field.
+     - **Verify before trusting the channel**: `npm run verify:otp` with the same variables exported locally. It names any variable the provider is missing and authenticates against Resend without sending. Add `OTP_TEST_EMAIL=you@…` to send one sample message to an inbox you control — **without it the run exits non-zero and prints `INCOMPLETE`**, because stages 1-2 authenticate but cannot show a message leaving (#118). Half-configured credentials return the same 502 as no configuration at all, so the first person to notice would otherwise be a signer.
    - **CFDI 4.0 Invoicing**:
      - `PAC_ENCRYPTION_KEY`: 32 bytes (base64 or hex) sealing the PAC API keys tenants connect. Required before anyone can connect a PAC; without it `/api/organization/pac` answers 503 rather than storing a credential in plaintext.
      - There is no platform PAC key: `FACTURAPI_SECRET_KEY` was removed by the BYOK decision (docs/STATUS.md §05, #221) and nothing reads it — do not set it. Each organization connects its own key in Ajustes; a `sk_test_` key is refused in production because it produces documents with no fiscal validity.
@@ -376,10 +373,9 @@ is not logged in and the quote token is the whole credential. Until the
 remediation of issue #17 its only bound was a 30s cooldown on
 `quotes.client_otp_sent_at`, which is per quote: a client with several open
 quotes has several valid tokens resolving to one client contact, so cycling
-between them issued a code on every request. On the deprecated sms/whatsapp
-channels every send is a billable Twilio/Meta message — on SMS the pattern
-carriers flag as pumping; on email an unmetered loop is how a sending domain
-lands on a blocklist.
+between them issued a code on every request. On email an unmetered loop is how
+a sending domain lands on a blocklist (on the since-removed sms/whatsapp
+channels it was also a billable message per send).
 
 **Migrations required.** `20260807000000_otp_send_rate_limit.sql` creates
 `otp_send_log`, the persisted counter the limit reads,
@@ -407,8 +403,8 @@ but the gap widens with each send, so a batch signer barely notices while a
 drip hits a widening wall. A delivery failure keeps its hourly and daily slots
 (a broken provider stays throttled) but releases the lifetime one, so an
 outage cannot make a quote permanently unsignable. The daily figure is
-convention (Twilio suggests 10–20/day), not a standard — revisit against real
-traffic once a provider is live.
+convention (provider guidance suggests 10–20/day), not a standard — revisit
+against real traffic once a provider is live.
 
 Over-cap requests answer `429` in the shape the cooldown already used —
 `{ "error": …, "retry_after_seconds": N }` — with `retry_after_seconds` omitted

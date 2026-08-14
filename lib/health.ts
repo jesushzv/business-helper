@@ -55,7 +55,7 @@ export function auditEnvironmentSecrets(env: EnvRecord = process.env): Environme
 
   const optionalThirdParty = [
     'STRIPE_SECRET_KEY',
-    'TWILIO_ACCOUNT_SID',
+    'RESEND_API_KEY',
     'GEMINI_API_KEY',
     'SENTRY_DSN',
     'NEXT_PUBLIC_SENTRY_DSN',

@@ -36,7 +36,7 @@ project; agents author most PRs and the issue tracker doubles as the engineering
 - **Third-party integrations are raw REST — Sentry is the only provider SDK installed:**
   - Stripe → `lib/stripeClient.ts`, `lib/stripeWebhook.ts`
   - Facturapi PAC (CFDI) → `lib/pacClient.ts`, `lib/facturapi.ts`
-  - Resend (email OTP, launch channel) → `lib/otpDelivery.ts`; Twilio / Meta WhatsApp (OTP deprecated) → `lib/otpDelivery.ts`, `lib/whatsappOutbound.ts`
+  - Resend (email OTP, the only channel) → `lib/otpDelivery.ts`; the Twilio/Meta OTP channels were removed — stale configs fail closed
   - Gemini → `lib/geminiClient.ts` (prose only — `lib/whatsappAI.ts` rules compute every
     figure; answers label their `engine`)
 - **Error monitoring runs on `@sentry/nextjs`** (the exception above): three root configs nothing
