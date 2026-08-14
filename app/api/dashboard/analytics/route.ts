@@ -70,7 +70,16 @@ function getDemoAnalytics() {
   return { metrics, topClients, cashFlowForecast, demo: true };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Whose "today"? The VIEWER's (#263 money-path review): this server runs in
+  // UTC, so from 18:00 in Mexico its own date is tomorrow and a cobro due
+  // today classified as Deuda Vencida — while the (client-computed) Cobranza
+  // page said "Vence Hoy" about the same cobro. The client sends its local
+  // day as ?today=; anything malformed falls back to the server clock, which
+  // is no worse than before. Classification input only — it scopes no query.
+  const todayParam = new URL(request.url).searchParams.get('today');
+  const viewerToday = todayParam && /^\d{4}-\d{2}-\d{2}$/.test(todayParam) ? todayParam : undefined;
+
   // With no backend there is no tenant data, so demo analytics are honest.
   if (!isSupabaseConfigured()) {
     return NextResponse.json(getDemoAnalytics());
@@ -106,9 +115,9 @@ export async function GET() {
     const quoteList = quotes || [];
     const clientList = clients || [];
 
-    const metrics = calculateBusinessMetrics(milestoneList, quoteList, clientList);
+    const metrics = calculateBusinessMetrics(milestoneList, quoteList, clientList, viewerToday);
     const topClients = getTopClientsByRevenue(milestoneList, clientList, 5);
-    const cashFlowForecast = calculateCashFlowForecast(milestoneList);
+    const cashFlowForecast = calculateCashFlowForecast(milestoneList, viewerToday);
 
     return NextResponse.json({
       metrics,

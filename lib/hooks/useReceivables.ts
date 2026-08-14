@@ -124,7 +124,7 @@ const INITIAL_DEMO_RECEIVABLES: MilestoneWithClient[] = [
     organization_id: 'org-demo-1',
     label: 'Anticipo 50% — Suministro Cemento',
     amount: 48720,
-    due_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Overdue
+    due_date: localTodayStr(new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)), // Overdue
     status: 'pending',
     receipt_url: null,
     tracking_reference: null,
@@ -146,7 +146,7 @@ const INITIAL_DEMO_RECEIVABLES: MilestoneWithClient[] = [
     organization_id: 'org-demo-1',
     label: 'Pago Inicial Estudio Geotécnico',
     amount: 17636.66,
-    due_date: new Date().toISOString().split('T')[0], // Due Today
+    due_date: localTodayStr(), // Due Today
     status: 'marked_paid',
     receipt_url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
     tracking_reference: 'SPEI20260830998877',
@@ -168,7 +168,7 @@ const INITIAL_DEMO_RECEIVABLES: MilestoneWithClient[] = [
     organization_id: 'org-demo-1',
     label: 'Entrega Final 50% — Cemento',
     amount: 48720,
-    due_date: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Upcoming
+    due_date: localTodayStr(new Date(Date.now() + 12 * 24 * 60 * 60 * 1000)), // Upcoming
     status: 'pending',
     receipt_url: null,
     tracking_reference: null,
@@ -190,7 +190,7 @@ const INITIAL_DEMO_RECEIVABLES: MilestoneWithClient[] = [
     organization_id: 'org-demo-1',
     label: 'Anticipo Proyecto Remodelación',
     amount: 30000,
-    due_date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    due_date: localTodayStr(new Date(Date.now() - 15 * 24 * 60 * 60 * 1000)),
     status: 'confirmed',
     receipt_url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
     tracking_reference: 'SPEI20260815112233',
