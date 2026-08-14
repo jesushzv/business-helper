@@ -35,6 +35,15 @@ export function isStripeConfigured(): boolean {
   return key.startsWith('sk_test_') || key.startsWith('sk_live_');
 }
 
+export interface StripePortalSession {
+  id: string;
+  url: string;
+}
+
+export type StripePortalResult =
+  | { ok: true; session: StripePortalSession }
+  | { ok: false; code: 'NOT_CONFIGURED' | 'STRIPE_ERROR' | 'TIMEOUT'; message: string };
+
 /**
  * Flattens a nested payload into Stripe's bracketed form encoding, e.g.
  * `line_items[0][price]=price_x` and `metadata[organization_id]=org_y`.
@@ -171,6 +180,100 @@ export async function createCheckoutSession(
       ok: false,
       code: aborted ? 'TIMEOUT' : 'STRIPE_ERROR',
       message: 'No se pudo iniciar el pago con Stripe.',
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Opens a Stripe Billing Portal session for a customer Stripe already knows.
+ *
+ * The portal is where a subscription is cancelled, a card is replaced and past
+ * invoices are downloaded. Until now none of that existed in the product: the
+ * only routes to it were a support message to the founder and a manual action
+ * in the Stripe dashboard, for a product whose pitch is that the owner runs
+ * their business from their phone (#346).
+ *
+ * `customer` is required and never invented. An organization with no stored
+ * `stripe_customer_id` has never completed a checkout, and creating a customer
+ * just to open a portal would manufacture a billing relationship that does not
+ * exist — hard rule #1 in its quietest costume. The caller answers that case
+ * before reaching here.
+ *
+ * No idempotency key, unlike `createCheckoutSession`: a portal session creates
+ * nothing billable and expires on its own, so a double-tap costs a redundant
+ * URL rather than a duplicate purchase.
+ *
+ * The portal's *configuration* — which of cancel / update card / invoice
+ * history it offers — lives in the Stripe dashboard, not here. Stripe answers
+ * an unconfigured portal with an error, which surfaces as STRIPE_ERROR rather
+ * than as an empty page.
+ */
+export async function createBillingPortalSession(
+  customerId: string,
+  returnUrl: string
+): Promise<StripePortalResult> {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+
+  if (!secretKey || !isStripeConfigured()) {
+    return {
+      ok: false,
+      code: 'NOT_CONFIGURED',
+      message: 'La administración de tu suscripción aún no está disponible.',
+    };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${STRIPE_API_BASE}/billing_portal/sessions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Stripe-Version': STRIPE_API_VERSION,
+      },
+      body: encodeStripeForm({ customer: customerId, return_url: returnUrl }).toString(),
+      signal: controller.signal,
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      // Logged, not returned — the same posture as checkout. Stripe's message
+      // names account state ("No configuration provided…", an unknown customer)
+      // that the caller has no business reading, and the two most likely
+      // causes here are both founder-side dashboard setup.
+      const detail = data?.error?.message || `HTTP ${response.status}`;
+      console.error('[stripe] billing portal session rejected:', detail);
+      return {
+        ok: false,
+        code: 'STRIPE_ERROR',
+        message: 'No se pudo abrir la administración de tu suscripción.',
+      };
+    }
+
+    if (!data?.id || !data?.url) {
+      // A 200 without a URL is not a portal. Reporting one would hand the
+      // owner a dead link and call it success.
+      console.error('[stripe] billing portal session response missing id/url');
+      return {
+        ok: false,
+        code: 'STRIPE_ERROR',
+        message: 'No se pudo abrir la administración de tu suscripción.',
+      };
+    }
+
+    return { ok: true, session: { id: data.id, url: data.url } };
+  } catch (error) {
+    const aborted = error instanceof Error && error.name === 'AbortError';
+    console.error('[stripe] billing portal session failed:', aborted ? 'timeout' : error);
+    return {
+      ok: false,
+      code: aborted ? 'TIMEOUT' : 'STRIPE_ERROR',
+      message: 'No se pudo abrir la administración de tu suscripción.',
     };
   } finally {
     clearTimeout(timeout);

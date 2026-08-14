@@ -32,6 +32,13 @@ export const ANALYTICS_EVENTS = [
   'payment_confirmed',
   'cfdi_issued',
   'subscription_checkout_started',
+  /**
+   * The owner opened the Stripe Billing Portal (#346). Fires on the URL Stripe
+   * issued, not on the click — a failed portal open is not an open. What they
+   * then *do* over there (cancel, change card) arrives as a webhook, so this
+   * event measures intent to manage billing, never the outcome.
+   */
+  'billing_portal_opened',
 ] as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];

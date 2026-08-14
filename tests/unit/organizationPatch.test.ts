@@ -172,11 +172,24 @@ describe('PATCH /api/organization — profile payload (#95)', () => {
 });
 
 describe('GET /api/organization — the browser gets the columns it needs and no others', () => {
-  const ROW = { id: 'org-1', name: 'Ferretería La Central' };
+  // The sensitive columns are *present on the row* so that "absent from the
+  // response" is a fact about the route rather than about the fixture. An
+  // assertion of absence over a row that never carried the value would pass
+  // with the stripping removed.
+  const ROW = {
+    id: 'org-1',
+    name: 'Ferretería La Central',
+    owner_id: 'user-1',
+    stripe_customer_id: 'cus_SecretCustomer123',
+    stripe_subscription_id: 'sub_SecretSubscription123',
+    facturapi_organization_id: 'facturapi_SecretOrg123',
+  };
   let selectedColumns = '';
+  let row: Record<string, unknown> = ROW;
 
   beforeEach(() => {
     selectedColumns = '';
+    row = ROW;
     vi.mocked(requireOrgAccess).mockResolvedValue({
       ok: true,
       ctx: {
@@ -187,7 +200,15 @@ describe('GET /api/organization — the browser gets the columns it needs and no
           from: () => ({
             select: (columns: string) => {
               selectedColumns = columns;
-              return { eq: () => ({ maybeSingle: async () => ({ data: ROW, error: null }) }) };
+              // Projects the row the way PostgREST does — a column the route
+              // did not ask for does not come back. Returning the whole row
+              // regardless would let a select-only fix look like a leak fix,
+              // and would hide a genuine leak of a column that *is* selected.
+              const requested = columns.split(/\s*,\s*/);
+              const projected = Object.fromEntries(
+                Object.entries(row).filter(([key]) => requested.includes(key))
+              );
+              return { eq: () => ({ maybeSingle: async () => ({ data: projected, error: null }) }) };
             },
           }),
         },
@@ -220,16 +241,49 @@ describe('GET /api/organization — the browser gets the columns it needs and no
     }
   });
 
-  it('does not ship billing- or PAC-linkage columns no client reads', async () => {
+  it('does not select billing- or PAC-linkage columns nothing here reads', async () => {
     await GET();
-    for (const column of [
-      'owner_id',
-      'stripe_customer_id',
-      'stripe_subscription_id',
-      'facturapi_organization_id',
-    ]) {
+    // `stripe_customer_id` is deliberately absent from this list: #346 reads it
+    // server-side to answer `hasBillingAccount` and strips it before
+    // responding. The test below is what holds that line — grading the select
+    // string alone would have called that change a leak while missing an
+    // actual one that arrived through some other column.
+    for (const column of ['owner_id', 'stripe_subscription_id', 'facturapi_organization_id']) {
       expect(selectedColumns).not.toContain(column);
     }
+  });
+
+  it('ships no Stripe or PAC identifier to the browser, whatever it selects', async () => {
+    const body = await (await GET()).json();
+
+    expect(body.organization).not.toHaveProperty('stripe_customer_id');
+    expect(body.organization).not.toHaveProperty('stripe_subscription_id');
+    expect(body.organization).not.toHaveProperty('facturapi_organization_id');
+    expect(body.organization).not.toHaveProperty('owner_id');
+
+    // Stronger than a key check: the value must not appear anywhere in the
+    // payload, under any name a future refactor might give it.
+    const serialized = JSON.stringify(body);
+    expect(serialized).not.toContain('cus_SecretCustomer123');
+    expect(serialized).not.toContain('sub_SecretSubscription123');
+    expect(serialized).not.toContain('facturapi_SecretOrg123');
+  });
+
+  /**
+   * The billing card offers "Administrar mi suscripción" only where the portal
+   * route will not 409, so it needs the *fact* without the id (#346).
+   */
+  describe('hasBillingAccount (#346)', () => {
+    it('is true when Stripe knows this organization', async () => {
+      const body = await (await GET()).json();
+      expect(body.hasBillingAccount).toBe(true);
+    });
+
+    it('is false when the organization has never checked out', async () => {
+      row = { id: 'org-1', name: 'Ferretería La Central', stripe_customer_id: null };
+      const body = await (await GET()).json();
+      expect(body.hasBillingAccount).toBe(false);
+    });
   });
 });
 

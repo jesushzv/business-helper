@@ -49,9 +49,12 @@ export async function GET() {
       // review. Every field below has a caller: onboarding resume, the settings
       // profile and branding cards, the bank card, the settlement-account gate
       // and the app-shell identity.
+      // `stripe_customer_id` is selected but deliberately NOT returned — see
+      // `hasBillingAccount` below.
       .select(
         'id, name, rfc, regimen_fiscal, codigo_postal, phone, logo_url, industry, ' +
-          'subscription_tier, subscription_status, bank_name, bank_clabe, bank_account_holder'
+          'subscription_tier, subscription_status, bank_name, bank_clabe, bank_account_holder, ' +
+          'stripe_customer_id'
       )
       .eq('id', organizationId)
       .maybeSingle();
@@ -63,11 +66,23 @@ export async function GET() {
       );
     }
 
+    // The billing card needs to know *whether* there is a Stripe customer, so
+    // it can offer "Administrar mi suscripción" only to tenants for whom the
+    // portal route will not 409 (#346). It does not need the id, and the
+    // comment above is explicit that this row's Stripe columns have no
+    // business in the browser — so the fact travels as a boolean and the id
+    // stays server-side.
+    const { stripe_customer_id: stripeCustomerId, ...safeOrganization } = organization;
+
     // The caller's role travels with the organization so the settlement-account
     // banner can address the right person (#64): only an owner can PATCH this
     // row — the update is scoped by `owner_id` — so pointing a member at the
     // bank form would send them somewhere they cannot save.
-    return NextResponse.json({ organization, role });
+    return NextResponse.json({
+      organization: safeOrganization,
+      role,
+      hasBillingAccount: Boolean(stripeCustomerId),
+    });
   } catch {
     return NextResponse.json(
       { error: { code: 'SERVER_ERROR', message: 'Error al obtener la organización' } },
