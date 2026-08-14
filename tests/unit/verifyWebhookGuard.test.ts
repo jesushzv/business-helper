@@ -109,7 +109,14 @@ const HANDLED = new Set([
   'customer.subscription.deleted',
 ]);
 
-/** Minimal stand-in for app/api/stripe/webhook/route.ts, plus broken variants. */
+/**
+ * Minimal stand-in for app/api/stripe/webhook/route.ts, plus broken variants.
+ *
+ * The error bodies mirror the route's `{ error: { code, message } }` envelope
+ * (#325). Not decoration: the script interpolates the error into its own
+ * failure output, so a stub still answering bare strings would hide the
+ * `[object Object]` regression the conversion could have caused.
+ */
 function startStub(mode: StubMode): Promise<{ url: string; server: Server }> {
   const ledger = new Set<string>();
 
@@ -122,31 +129,41 @@ function startStub(mode: StubMode): Promise<{ url: string; server: Server }> {
         res.end(JSON.stringify(body));
       };
 
-      if (mode === 'always400') return send(400, { error: 'Firma de webhook inválida' });
-      if (mode === 'always503') return send(503, { error: 'Verificación de webhook no configurada' });
+      if (mode === 'always400') return send(400, { error: { code: 'INVALID_SIGNATURE', message: 'Firma de webhook inválida' } });
+      if (mode === 'always503') return send(503, {
+          error: {
+            code: 'WEBHOOK_NOT_CONFIGURED',
+            message: 'Verificación de webhook no configurada',
+          },
+        });
 
       const rawBody = Buffer.concat(chunks).toString('utf8');
       const header = req.headers['stripe-signature'];
 
-      if (typeof header !== 'string') return send(400, { error: 'Firma de webhook inválida' });
+      if (typeof header !== 'string') return send(400, { error: { code: 'INVALID_SIGNATURE', message: 'Firma de webhook inválida' } });
 
       const timestamp = /(?:^|,)t=([^,]+)/.exec(header)?.[1];
       const signature = /(?:^|,)v1=([^,]+)/.exec(header)?.[1];
-      if (!timestamp || !signature) return send(400, { error: 'Firma de webhook inválida' });
+      if (!timestamp || !signature) return send(400, { error: { code: 'INVALID_SIGNATURE', message: 'Firma de webhook inválida' } });
 
       if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) {
-        return send(400, { error: 'Firma de webhook inválida' });
+        return send(400, { error: { code: 'INVALID_SIGNATURE', message: 'Firma de webhook inválida' } });
       }
 
       const expected = createHmac('sha256', SECRET).update(`${timestamp}.${rawBody}`, 'utf8').digest('hex');
-      if (expected !== signature) return send(400, { error: 'Firma de webhook inválida' });
+      if (expected !== signature) return send(400, { error: { code: 'INVALID_SIGNATURE', message: 'Firma de webhook inválida' } });
 
       const event = JSON.parse(rawBody);
       if (!HANDLED.has(event.type)) return send(200, { received: true, ignored: event.type });
 
       const organizationId = event?.data?.object?.metadata?.organization_id;
       if (organizationId !== ORG) {
-        return send(400, { error: 'El evento no identifica una organización válida' });
+        return send(400, {
+          error: {
+            code: 'ORGANIZATION_MISSING',
+            message: 'El evento no identifica una organización válida',
+          },
+        });
       }
 
       if (ledger.has(event.id) && mode !== 'noDedupe') {
@@ -188,6 +205,19 @@ describe('verify:webhook cannot report a pass it did not earn (#63)', () => {
     expect(code).not.toBe(0);
     expect(stderr).toContain('positive control failed');
     expect(stdout).not.toMatch(/All \d+ checks passed/);
+  });
+
+  it('prints the code and message of a refusal, not [object Object] (#325)', async () => {
+    // The envelope conversion turned `json.error` from a string into an
+    // object, and this script interpolated it straight into a template — so
+    // the diagnosis would have degraded to "[object Object]" at exactly the
+    // moment a check fails and someone needs to read it. No check reads the
+    // body to decide pass/fail; this one line did read it to explain itself.
+    const { stdout } = await runAgainstStub('always400');
+
+    expect(stdout).not.toContain('[object Object]');
+    expect(stdout).toContain('INVALID_SIGNATURE');
+    expect(stdout).toContain('Firma de webhook inválida');
   });
 
   it('names the missing secret when the target answers 503', async () => {

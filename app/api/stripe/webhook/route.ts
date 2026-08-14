@@ -48,20 +48,31 @@ export async function POST(request: Request) {
       // 503 also matches the service-role branch below and hard rule 3.
       if (verification.code === 'NOT_CONFIGURED') {
         return NextResponse.json(
-          { error: 'Verificación de webhook no configurada' },
+          {
+            error: {
+              code: 'WEBHOOK_NOT_CONFIGURED',
+              message: 'Verificación de webhook no configurada',
+            },
+          },
           { status: 503 }
         );
       }
 
       // 400 with no detail about which of the request-side checks failed.
-      return NextResponse.json({ error: 'Firma de webhook inválida' }, { status: 400 });
+      return NextResponse.json(
+        { error: { code: 'INVALID_SIGNATURE', message: 'Firma de webhook inválida' } },
+        { status: 400 }
+      );
     }
 
     let event;
     try {
       event = JSON.parse(rawBody);
     } catch {
-      return NextResponse.json({ error: 'Payload JSON no válido' }, { status: 400 });
+      return NextResponse.json(
+        { error: { code: 'INVALID_PAYLOAD', message: 'Payload JSON no válido' } },
+        { status: 400 }
+      );
     }
 
     const handled = handleStripeWebhookEvent(event);
@@ -74,7 +85,12 @@ export async function POST(request: Request) {
     // the change, so refuse rather than 200-ing on a no-op.
     if (!isServiceRoleConfigured()) {
       return NextResponse.json(
-        { error: 'Almacenamiento no configurado para procesar webhooks' },
+        {
+          error: {
+            code: 'BACKEND_NOT_CONFIGURED',
+            message: 'Almacenamiento no configurado para procesar webhooks',
+          },
+        },
         { status: 503 }
       );
     }
@@ -85,7 +101,12 @@ export async function POST(request: Request) {
     const organizationId = handled.organizationId;
     if (!organizationId || !UUID_PATTERN.test(organizationId)) {
       return NextResponse.json(
-        { error: 'El evento no identifica una organización válida' },
+        {
+          error: {
+            code: 'ORGANIZATION_MISSING',
+            message: 'El evento no identifica una organización válida',
+          },
+        },
         { status: 400 }
       );
     }
@@ -94,7 +115,10 @@ export async function POST(request: Request) {
     const eventId = typeof event?.id === 'string' ? event.id : null;
 
     if (!eventId) {
-      return NextResponse.json({ error: 'Evento sin identificador' }, { status: 400 });
+      return NextResponse.json(
+        { error: { code: 'EVENT_ID_MISSING', message: 'Evento sin identificador' } },
+        { status: 400 }
+      );
     }
 
     // Claim the event first. The primary key on id makes a concurrent or
@@ -113,7 +137,10 @@ export async function POST(request: Request) {
       if (claimError.code === '23505') {
         return NextResponse.json({ received: true, duplicate: true });
       }
-      return NextResponse.json({ error: 'No se pudo registrar el evento' }, { status: 500 });
+      return NextResponse.json(
+        { error: { code: 'EVENT_CLAIM_FAILED', message: 'No se pudo registrar el evento' } },
+        { status: 500 }
+      );
     }
 
     // Neither field is guaranteed. An event carrying neither `metadata.tier_id`
@@ -222,7 +249,12 @@ export async function POST(request: Request) {
       // visible, and a green delivery for an unapplied tier change is the
       // failure we are trying to make impossible.
       return NextResponse.json(
-        { error: 'La organización del evento no existe en esta base de datos' },
+        {
+          error: {
+            code: 'ORGANIZATION_NOT_FOUND',
+            message: 'La organización del evento no existe en esta base de datos',
+          },
+        },
         { status: 404 }
       );
     }
@@ -245,13 +277,26 @@ export async function POST(request: Request) {
         extra: { message: updateError?.message, organization_id: organizationId },
       });
       return NextResponse.json(
-        { error: 'No se pudo aplicar el cambio de suscripción' },
+        {
+          error: {
+            code: 'SUBSCRIPTION_UPDATE_FAILED',
+            message: 'No se pudo aplicar el cambio de suscripción',
+          },
+        },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ received: true, processed: handled });
   } catch {
-    return NextResponse.json({ error: 'Error procesando el webhook de Stripe' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: {
+          code: 'WEBHOOK_ERROR',
+          message: 'Error procesando el webhook de Stripe',
+        },
+      },
+      { status: 500 }
+    );
   }
 }

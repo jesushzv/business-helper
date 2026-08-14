@@ -145,7 +145,26 @@ function record(name, passed, detail) {
 
 function describe(response) {
   if (response.networkError) return `unreachable: ${response.networkError}`;
-  return `HTTP ${response.status}${response.json?.error ? ` "${response.json.error}"` : ''}`;
+  return `HTTP ${response.status}${errorDetail(response.json)}`;
+}
+
+/**
+ * The route's error, rendered for a human reading a failed check.
+ *
+ * No check here reads the body to decide pass/fail — every verdict is a status
+ * code plus one of `ignored`/`processed`/`duplicate`, all unchanged by #325.
+ * This line is different: it interpolated `json.error` straight into a
+ * template, so the envelope conversion would have printed
+ * `HTTP 400 "[object Object]"` — losing the diagnosis at exactly the moment a
+ * check fails and someone needs it. Both shapes are read so the script stays
+ * useful against a deployment running either version of the route.
+ */
+function errorDetail(json) {
+  const error = json?.error;
+  if (!error) return '';
+  if (typeof error === 'string') return ` "${error}"`;
+  const code = error.code ? `${error.code}: ` : '';
+  return ` "${code}${error.message ?? JSON.stringify(error)}"`;
 }
 
 console.log(`\nVerifying ${url}\n`);

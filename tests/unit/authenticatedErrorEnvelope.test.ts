@@ -24,8 +24,9 @@ const API_ROOT = join(process.cwd(), 'app', 'api');
  * positive-control test below fails otherwise, so the list is self-cleaning.
  */
 const GRANDFATHERED: Record<string, string> = {
-  'app/api/stripe/webhook/route.ts':
-    '#325 — Stripe-facing bodies (read by the Stripe dashboard, never a tenant); money-path, converted separately',
+  // Empty, and meant to stay that way. The Stripe webhook route was the last
+  // entry; #325 converted its ten bodies. The self-cleaning check below is
+  // what forced the removal to happen in the same PR as the conversion.
 };
 
 function routeFiles(dir: string): string[] {
