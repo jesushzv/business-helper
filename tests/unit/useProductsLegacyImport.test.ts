@@ -114,6 +114,36 @@ describe('a partial import failure (#280)', () => {
     expect(JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]')).toHaveLength(1);
   });
 
+  it('id-less legacy rows are removed one at a time, never all at once (DB review of #280)', async () => {
+    // Rows saved by the oldest hook versions may lack ids; matching them with
+    // `p.id === item.id` was `undefined === undefined` — true for every
+    // id-less row, so the FIRST upload deleted ALL their local copies.
+    const idless = (n: number) => ({ ...legacyRow(n), id: undefined });
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([idless(1), idless(2)]));
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { products: [] }));
+
+    const { result } = renderHook(() => useProducts());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Row 1 uploads; row 2's POST fails.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(201, { product: { ...legacyRow(1), id: 'p-srv-1', organization_id: 'org-1' } })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(500, { error: { code: 'SERVER_ERROR', message: 'No se pudo guardar el producto.' } })
+    );
+
+    await act(async () => {
+      await result.current.importLegacyProducts();
+    });
+
+    // The unsent row survives on disk and stays offered.
+    const remaining = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].name).toBe('Producto legado 2');
+    expect(result.current.legacyLocalProducts).toHaveLength(1);
+  });
+
   it('a fully successful import clears the local copy and the offer', async () => {
     localStorage.setItem(LOCAL_KEY, JSON.stringify([legacyRow(1), legacyRow(2)]));
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { products: [] }));

@@ -281,6 +281,9 @@ export function describeDbWriteError(
     // names that side "still referenced" in the detail.
     const stillReferenced = /still referenced/i.test(`${e.details || ''} ${e.message || ''}`);
     if (stillReferenced) {
+      // The named documents reflect today's only RESTRICT edges (clients ←
+      // quotes/contracts). A future RESTRICT FK on another deletable entity
+      // makes this prose partially wrong — revisit it with that migration.
       return describe({
         status: 409,
         code: 'HAS_LINKED_RECORDS',

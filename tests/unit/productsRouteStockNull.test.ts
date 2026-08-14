@@ -98,4 +98,18 @@ describe('POST /api/products stock coercion (#261)', () => {
     expect(body.error.message).toMatch(/existencias/i);
     expect(insertedRows).toHaveLength(0);
   });
+
+  it('stores NULL for a whitespace-only string — Number(" ") is 0, another phantom stock', async () => {
+    const res = await post({ ...SERVICE, stock_quantity: '  ' });
+    expect(res.status).toBe(201);
+    expect(insertedRows[0].stock_quantity).toBeNull();
+  });
+
+  it('refuses a fractional value with its own message instead of a raw int4 22P02', async () => {
+    const res = await post({ ...SERVICE, stock_quantity: 2.5 });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.message).toMatch(/entero/);
+    expect(insertedRows).toHaveLength(0);
+  });
 });

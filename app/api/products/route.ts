@@ -52,16 +52,22 @@ export async function POST(request: Request) {
     // a critical-stock badge (#261). Absent stays absent; a present value must
     // be a real number.
     const normalizedStock =
-      stock_quantity === undefined || stock_quantity === null || stock_quantity === ''
+      stock_quantity === undefined ||
+      stock_quantity === null ||
+      String(stock_quantity).trim() === ''
         ? null
         : Number(stock_quantity);
 
-    if (normalizedStock !== null && !Number.isFinite(normalizedStock)) {
+    // Integer, because the column is int4: a 2.5 reaching PostgREST answers a
+    // raw 22P02 misdescribed as "fuera del rango". NaN and ±Infinity fail the
+    // same check.
+    if (normalizedStock !== null && !Number.isInteger(normalizedStock)) {
       return NextResponse.json(
         {
           error: {
             code: 'INVALID_PRODUCT',
-            message: 'Las existencias deben ser un número, o dejarse vacías para un servicio.',
+            message:
+              'Las existencias deben ser un número entero, o dejarse vacías para un servicio.',
           },
         },
         { status: 400 }

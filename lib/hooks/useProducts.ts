@@ -266,14 +266,32 @@ export function useProducts() {
         return { success: false, error: msg };
       }
       uploaded += 1;
-      // This row is on the server now; only then does its local copy go.
+      // This row is on the server now; only then does its local copy go —
+      // and exactly one copy: matching a missing id with `p.id === item.id`
+      // would match every other id-less row (`undefined === undefined`) and
+      // delete rows whose uploads haven't happened yet. Id-less rows fall
+      // back to the name, and only the first match is removed.
       try {
         const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
         const parsed = stored ? JSON.parse(stored) : null;
         if (Array.isArray(parsed)) {
+          const matchesUploaded = (p: unknown): boolean => {
+            if (!p || typeof p !== 'object') return false;
+            const row = p as { id?: unknown; name?: unknown };
+            return item.id != null
+              ? row.id === item.id
+              : row.id == null && row.name === item.name;
+          };
+          let removed = false;
           localStorage.setItem(
             LOCAL_STORAGE_KEY,
-            JSON.stringify(parsed.filter((p) => !(p && typeof p === 'object' && p.id === item.id)))
+            JSON.stringify(
+              parsed.filter((p) => {
+                if (removed || !matchesUploaded(p)) return true;
+                removed = true;
+                return false;
+              })
+            )
           );
         }
       } catch {
