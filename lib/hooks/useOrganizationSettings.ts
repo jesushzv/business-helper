@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { validateSubscriptionStatus, SubscriptionStatusResult } from '../stripe';
 import { isClientDemoMode } from '../clientDemoMode';
+import { applyCurrentOrgRow } from './useCurrentOrg';
 
 export interface OrganizationSettings {
   id: string;
@@ -181,6 +182,15 @@ export function useOrganizationSettings() {
 
         // The server row is the truth; local state only ever mirrors it.
         setSettings(toOrganizationSettings(data.organization));
+
+        // …and so does the chrome. `useCurrentOrg` caches the organization at
+        // module scope and only `signOut` used to clear it, so a rename saved
+        // here left the header, the sidebar badge and the greeting on every
+        // outbound WhatsApp message showing the old name for the rest of the
+        // session (#281). The same server row is written through, not the patch
+        // that was submitted — the route normalizes, and the screen must show
+        // what the database holds.
+        applyCurrentOrgRow(data.organization);
         return { ok: true, message: null };
       } catch {
         const message = 'No se pudieron guardar los datos de tu negocio.';
