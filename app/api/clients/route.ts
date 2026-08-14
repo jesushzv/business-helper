@@ -48,22 +48,40 @@ export async function GET(request: Request) {
   const { supabase, organizationId } = auth.ctx;
 
   try {
-    // The archived view is opt-in and exclusive: `?archived=1` returns *only*
-    // archived clients, everything else returns only active ones (#337). Two
-    // disjoint lists rather than a superset, so "Ver archivados" is a place the
-    // tenant goes rather than a filter they have to read carefully — and so no
-    // caller can accidentally show archived clients by forgetting a flag.
-    const archivedOnly = new URL(request.url).searchParams.get('archived') === '1';
+    // Three scopes, and the default is the narrow one (#337):
+    //
+    //   (absent) / anything else → only active clients
+    //   `archived=1`             → only archived clients
+    //   `archived=all`           → both
+    //
+    // The first two are disjoint on purpose: "Ver archivados" is a place the
+    // tenant goes rather than a filter they have to read carefully, and no
+    // *picker* can show an archived client by forgetting a flag.
+    //
+    // `all` exists because that rule is right for pickers and wrong for
+    // **labels**. The quotes list resolves each card's client name and phone
+    // out of this list, so an active-only read turned every quote belonging to
+    // a newly archived client into "Cliente sin asignar" with the WhatsApp
+    // action disabled — for a client whose phone is on file, and whose /q/
+    // link this feature promises keeps working. That is #260's shape,
+    // triggered deliberately.
+    const scope = new URL(request.url).searchParams.get('archived');
 
     const query = supabase
       .from('clients')
       .select('*')
       .eq('organization_id', organizationId);
 
-    const { data: clients, error } = await (archivedOnly
-      ? query.not('archived_at', 'is', null)
-      : query.is('archived_at', null)
-    ).order('created_at', { ascending: false });
+    const scoped =
+      scope === 'all'
+        ? query
+        : scope === '1'
+        ? query.not('archived_at', 'is', null)
+        : query.is('archived_at', null);
+
+    const { data: clients, error } = await scoped.order('created_at', {
+      ascending: false,
+    });
 
     if (error) {
       return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus clientes.' } }, { status: 500 });

@@ -79,7 +79,25 @@ const INITIAL_DEMO_CLIENTS: Client[] = [
 
 const LOCAL_STORAGE_KEY = 'business_helper_clients_v1';
 
-export function useClients() {
+export interface UseClientsOptions {
+  /**
+   * Read active *and* archived clients, for surfaces that only need to put a
+   * name and a phone next to a record that already exists (#337).
+   *
+   * The quotes list is the case: it resolves each card's client out of this
+   * hook, so an active-only read turned every quote belonging to a newly
+   * archived client into "Cliente sin asignar" with the WhatsApp action
+   * disabled — for a client whose phone is on file. The disjoint-lists rule is
+   * right for *pickers* (never offer an archived client for new work) and
+   * wrong for *labels*.
+   *
+   * Callers that pass this must not use the list as a picker.
+   */
+  includeArchived?: boolean;
+}
+
+export function useClients(options: UseClientsOptions = {}) {
+  const includeArchived = options.includeArchived === true;
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +129,8 @@ export function useClients() {
         // resolves a fetch URL to its route file and stops at `?`, so a
         // template expression before the `?` leaves it unable to check this
         // call site at all — dodging the gate rather than passing it.
-        const res = await fetch(`/api/clients?archived=${showArchived ? '1' : '0'}`);
+        const scope = includeArchived ? 'all' : showArchived ? '1' : '0';
+        const res = await fetch(`/api/clients?archived=${scope}`);
         const data = await res.json().catch(() => null);
         if (res.ok && Array.isArray(data?.clients)) {
           setClients(data.clients);
@@ -126,7 +145,18 @@ export function useClients() {
       return;
     }
 
-    // Demo deployment: localStorage keeps the sandbox interactive.
+    // Demo deployment: localStorage keeps the sandbox interactive. It holds a
+    // single list and no `archived_at`, so the archived view is empty there
+    // rather than showing the active clients back (#337). Returning them would
+    // have been worse than cosmetic: each would carry a *Restaurar* button
+    // whose handler filters the row out of the only list the sandbox has, so
+    // "restoring" a demo client deleted it, under a green confirmation.
+    if (showArchived) {
+      setClients([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       const parsed = saved ? JSON.parse(saved) : null;
@@ -141,7 +171,7 @@ export function useClients() {
     } finally {
       setLoading(false);
     }
-  }, [showArchived]);
+  }, [showArchived, includeArchived]);
 
   useEffect(() => {
     fetchClients();

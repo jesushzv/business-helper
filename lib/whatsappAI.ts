@@ -13,7 +13,13 @@ import { FAQ_ITEMS, searchFAQItems, FAQItem, faqCategoryLabel, getSupportWhatsAp
 import { generateWhatsAppLink } from './whatsappLink';
 
 export interface AIOrgData {
-  clients?: Array<{ id: string; name: string; phone?: string | null }>;
+  clients?: Array<{
+    id: string;
+    name: string;
+    phone?: string | null;
+    /** Set once the owner took them out of the directory (#337). */
+    archived_at?: string | null;
+  }>;
   receivables?: Array<{ id?: string; clientId?: string; clientName?: string; amount: number; status: string; label?: string; due_date?: string | null }>;
   /** Confirmed payments, for the "¿cuánto hemos cobrado?" intent (#274). */
   collected?: Array<{ clientId?: string; amount: number; confirmed_at?: string | null }>;
@@ -168,12 +174,24 @@ export function buildGroundedAssistantPrompt(query: string, rules: RulesAnswer, 
   const clients = orgData.clients || [];
   const receivables = orgData.receivables || [];
 
-  const perClient = clients.map((client) => {
-    const total = receivables
-      .filter((r) => r.clientId === client.id)
-      .reduce((acc, r) => acc + (r.amount || 0), 0);
-    return `- ${client.name}: $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN pendientes`;
-  });
+  // Every client with a balance, plus every active one. An **archived** client
+  // who owes nothing is dropped: they stay in `orgData.clients` so a direct
+  // "¿cuánto me debe X?" still resolves by name, but pinning them into the
+  // verified-data block as "$0.00 MXN pendientes" invites the model to name
+  // them when the owner asks who to chase — which is the one thing archiving
+  // is supposed to stop (#337).
+  const perClient = clients
+    .map((client) => ({
+      client,
+      total: receivables
+        .filter((r) => r.clientId === client.id)
+        .reduce((acc, r) => acc + (r.amount || 0), 0),
+    }))
+    .filter(({ client, total }) => !client.archived_at || total > 0)
+    .map(
+      ({ client, total }) =>
+        `- ${client.name}: $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN pendientes`
+    );
   const totalPending = receivables.reduce((acc, r) => acc + (r.amount || 0), 0);
 
   return `Eres el Asistente de Operaciones y Cobranza de Business Helper para un negocio en México.

@@ -7,6 +7,8 @@ import { ClientFormModal } from '@/components/clients/ClientFormModal';
 import { useClients } from '@/lib/hooks/useClients';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 import { Search, Users, Plus, ShieldCheck, Archive } from 'lucide-react';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
+import { hasCapability } from '@/lib/teamRBAC';
 import { Client } from '@/types';
 
 export default function ClientsPage() {
@@ -23,6 +25,14 @@ export default function ClientsPage() {
   } = useClients();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const result = useActionResult();
+  const { role } = useCurrentOrg();
+
+  // `POST /api/clients/[id]/archive` requires `delete_records`, which only
+  // owner and manager hold — so a member tapping Restaurar met a 403. Never
+  // send someone into a write they lack (CLAUDE.md's #64 corollary). Tri-state:
+  // an unknown role keeps the control, because the route enforces it either way
+  // and hiding on a network blip would tell an owner they cannot restore.
+  const canArchive = role === null || hasCapability(role, 'delete_records');
 
   /**
    * The modal closing was the only signal a save had worked, which on a phone
@@ -166,7 +176,7 @@ export default function ClientsPage() {
                 // confirms: the row leaves the list because the write landed,
                 // not because the button was tapped.
                 onRestore={
-                  showArchived
+                  showArchived && canArchive
                     ? async (c) => {
                         try {
                           await archiveClient(c.id, false);

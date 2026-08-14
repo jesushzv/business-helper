@@ -113,6 +113,17 @@ describe('GET /api/clients — the two lists are disjoint (#337)', () => {
     expect(recorded.is).toHaveLength(0);
   });
 
+  it('returns both lists for archived=all, for label resolution', async () => {
+    // The quotes list puts a name and a phone on cards for quotes that already
+    // exist. Reading active-only turned every quote of a newly archived client
+    // into "Cliente sin asignar" with the WhatsApp action disabled — for a
+    // client whose phone is on file, and whose /q/ link still works.
+    await get('https://businesshelper.app/api/clients?archived=all');
+
+    expect(recorded.is).toHaveLength(0);
+    expect(recorded.not).toHaveLength(0);
+  });
+
   it('treats anything other than archived=1 as the active directory', async () => {
     // The hook sends `archived=0` for the default view; a stray or hostile
     // value must not open the archived list either.
@@ -285,5 +296,54 @@ describe('useClients.archiveClient honesty (#337)', () => {
 
     // Still there — a refused archive must not look like an archived client.
     expect(result.current.clients).toHaveLength(1);
+  });
+});
+
+/**
+ * The surfaces around archiving, which is where its first review found the
+ * defects rather than in the column itself (#337).
+ */
+describe('what archiving must not break (#337)', () => {
+  it('does not count archived clients as active, on either path', async () => {
+    const { calculateBusinessMetrics } = await import('@/lib/dashboardAnalytics');
+
+    const clients = [
+      { id: 'a', name: 'Activa' },
+      { id: 'b', name: 'Archivada', archived_at: '2026-08-14T08:00:00Z' },
+    ];
+
+    // The analytics route sends the unfiltered list — an archived client's
+    // revenue still happened, so they stay in the top-clients ranking — but
+    // the *count* is of the directory. The route and the client-side fallback
+    // read the same predicate, or one tile shows two numbers.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const summary = calculateBusinessMetrics([], [], clients as any);
+
+    expect(summary.activeClientsCount).toBe(1);
+  });
+
+  it('keeps an archived client out of the assistant’s follow-up roster, but not out of its ledger', async () => {
+    const { buildGroundedAssistantPrompt } = await import('@/lib/whatsappAI');
+
+    const prompt = buildGroundedAssistantPrompt(
+      '¿A quién le tengo que cobrar?',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { intent: 'unknown', answer: '', engine: 'rules' } as any,
+      {
+        clients: [
+          { id: 'a', name: 'Activa Sin Deuda' },
+          { id: 'b', name: 'Archivada Sin Deuda', archived_at: '2026-08-14T08:00:00Z' },
+          { id: 'c', name: 'Archivada Que Debe', archived_at: '2026-08-14T08:00:00Z' },
+        ],
+        receivables: [{ clientId: 'c', amount: 5000, status: 'pending' }],
+      }
+    );
+
+    // Archived and settled: nothing to chase, so it is not offered as someone
+    // to chase.
+    expect(prompt).not.toContain('Archivada Sin Deuda');
+    // Archived but still owing: archiving is visibility, not a soft delete.
+    expect(prompt).toContain('Archivada Que Debe');
+    expect(prompt).toContain('Activa Sin Deuda');
   });
 });

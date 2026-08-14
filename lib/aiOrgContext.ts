@@ -45,7 +45,11 @@ export async function loadAIOrgContext(
   const [{ data: clients }, { data: milestones }, { data: confirmed }] = await Promise.all([
     supabase
       .from('clients')
-      .select('id, name, phone')
+      // Archived clients are kept, with the flag (#337). "¿Cuánto me debe X?"
+      // must still answer for a client who left the directory but not the
+      // ledger — archiving is visibility, not a soft delete — while the
+      // assistant's roster of people to follow up with must not list them.
+      .select('id, name, phone, archived_at')
       .eq('organization_id', organizationId),
     supabase
       .from('milestones')

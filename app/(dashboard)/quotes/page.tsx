@@ -43,7 +43,21 @@ export default function QuotesPage() {
   // while /api/quotes succeeds, `clients` is [] and every card would read
   // "Cliente sin asignar" — plus "Agrega un teléfono" for clients whose phone
   // is on file, and a wizard whose required client select is silently empty.
-  const { clients, error: clientsError } = useClients();
+  //
+  // `includeArchived`: this list is used to *label* quote cards, never as a
+  // picker. Archiving a client must not turn their open quotes into "Cliente
+  // sin asignar" with the WhatsApp action disabled — the /q/ link keeps
+  // working, so the owner has to be able to resend it (#337).
+  const { clients, error: clientsError } = useClients({ includeArchived: true });
+
+  // …and the picker gets only the active ones. The union above is for putting
+  // a name and a phone on an existing quote; offering an archived client for
+  // *new* work is exactly what archiving is supposed to stop, so the two uses
+  // are separated here rather than sharing one list by accident (#337).
+  const selectableClients = React.useMemo(
+    () => clients.filter((c) => !c.archived_at),
+    [clients]
+  );
 
   // "Nothing matches your filter" and "you have nothing yet" are different
   // facts, and only the second one warrants a create CTA (#104).
@@ -326,7 +340,7 @@ export default function QuotesPage() {
       <QuoteWizardModal
         isOpen={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
-        clients={clients}
+        clients={selectableClients}
         onSubmit={async (data) => {
           // `saved` is the row the server returned — the folio-bearing quote
           // that actually exists, not the wizard's draft. Announcing the draft

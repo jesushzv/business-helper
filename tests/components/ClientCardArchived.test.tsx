@@ -66,3 +66,27 @@ describe('ClientCard in the archived view (#337)', () => {
     );
   });
 });
+
+/**
+ * Who may restore (#337).
+ *
+ * `POST /api/clients/[id]/archive` requires `delete_records`, which only owner
+ * and manager hold. The detail page gated both its buttons on that from the
+ * start; the archived card did not, so a member could tap Restaurar and meet a
+ * 403 — CLAUDE.md's corollary: never send a user to fix something they lack
+ * the write for.
+ */
+describe('the restore control follows the capability (#337)', () => {
+  it('is absent when the caller cannot archive', () => {
+    // What the page passes for a known role without delete_records.
+    render(<ClientCard client={CLIENT} onRestore={undefined} />);
+
+    expect(screen.queryByRole('button', { name: /Restaurar/i })).toBeNull();
+  });
+
+  it('is present when they can', () => {
+    render(<ClientCard client={CLIENT} onRestore={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: /Restaurar/i })).toBeTruthy();
+  });
+});
