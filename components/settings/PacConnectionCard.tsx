@@ -25,8 +25,30 @@ interface PacConnection {
   connectedAt?: string;
 }
 
-export const PacConnectionCard: React.FC = () => {
-  const [connection, setConnection] = useState<PacConnection | null>(null);
+interface PacConnectionCardProps {
+  /**
+   * Whether this viewer may manage the PAC credential.
+   *
+   * Both GET and PUT on `/api/organization/pac` require `billing_management`,
+   * which only the owner holds — and this was the one settings card taking no
+   * role prop at all (#265). Defaults to `true` so an unresolved role never
+   * hides the form from the owner; the 403 below is the backstop.
+   */
+  canEdit?: boolean;
+}
+
+export const PacConnectionCard: React.FC<PacConnectionCardProps> = ({ canEdit = true }) => {
+  /**
+   * Three states, not two (#64): a `PacConnection` is a key on file, `null` is
+   * a read that came back empty, and `undefined` is *unknown* — still loading,
+   * refused, or failed.
+   *
+   * Collapsing unknown into "none" is what put an amber "Todavía no puedes
+   * emitir facturas CFDI" in front of a manager whose organization had a live
+   * Facturapi key: a 403 says "we won't tell you", not "there is none".
+   */
+  const [connection, setConnection] = useState<PacConnection | null | undefined>(undefined);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,8 +62,12 @@ export const PacConnectionCard: React.FC = () => {
 
       if (!res.ok) {
         // A 403 here just means the viewer is not the owner; that is not an
-        // error worth shouting about on a settings page.
-        if (res.status !== 403) {
+        // error worth shouting about on a settings page. It is recorded rather
+        // than swallowed, so the card can say who *can* do this instead of
+        // offering a form the route will refuse.
+        if (res.status === 403) {
+          setAccessDenied(true);
+        } else {
           setError(data?.error?.message || 'No se pudo consultar tu conexión con el PAC');
         }
         return;
@@ -61,6 +87,10 @@ export const PacConnectionCard: React.FC = () => {
 
   const result = useActionResult();
   const confirmAction = useConfirm();
+
+  // The prop is what the page knows; the 403 is what the route answered. Either
+  // one is enough to stop offering the write.
+  const canManage = canEdit && !accessDenied;
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,7 +198,16 @@ export const PacConnectionCard: React.FC = () => {
             </div>
           )}
 
-          {connection ? (
+          {/* The viewer may not manage this credential — by role or by the
+              route's own 403. Say whose job it is; do not invent a fact about
+              the connection, and do not offer a form that always refuses
+              (#64's corollary, #265). */}
+          {!canManage ? (
+            <div className="rounded-2xl border border-slate-700 bg-slate-950/80 p-4 text-xs font-semibold text-slate-300">
+              Solo el dueño de la cuenta puede conectar o cambiar la llave de Facturapi. Si necesitas
+              timbrar facturas, pídeselo a quien administra el negocio.
+            </div>
+          ) : connection ? (
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
@@ -203,12 +242,16 @@ export const PacConnectionCard: React.FC = () => {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : connection === null ? (
+            // Only when the server actually said "none". `undefined` — a read
+            // that failed — renders nothing rather than telling a tenant with a
+            // live key that they cannot invoice.
             <div className="rounded-2xl border border-amber-500/30 bg-amber-950/60 p-4 text-xs font-bold text-amber-300">
               Todavía no puedes emitir facturas CFDI: conecta tu llave de Facturapi para timbrar.
             </div>
-          )}
+          ) : null}
 
+          {canManage && (
           <form onSubmit={handleConnect} className="space-y-3">
             <div>
               <label
@@ -244,6 +287,7 @@ export const PacConnectionCard: React.FC = () => {
               <span>{saving ? 'Verificando con tu PAC...' : connection ? 'Actualizar llave' : 'Conectar mi PAC'}</span>
             </button>
           </form>
+          )}
         </div>
       )}
       <ActionResultDialog result={result.value} onClose={result.dismiss} />

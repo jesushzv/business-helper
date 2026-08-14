@@ -3,6 +3,7 @@ import {
   SUBSCRIPTION_STATUSES,
   normalizeSubscriptionStatus,
   validateSubscriptionStatus,
+  statusHoldsPlan,
   handleStripeWebhookEvent,
   readStripeId,
 } from '@/lib/stripe';
@@ -251,5 +252,54 @@ describe('the webhook route stores the ids the event carried (#115)', () => {
 
   it('clears the subscription id on a deletion instead of leaving a dead one', () => {
     expect(route).toMatch(/if \(handled\.clearsSubscriptionId\) \{[\s\S]*?update\.stripe_subscription_id = null;/);
+  });
+});
+
+/**
+ * #267 — "which plan do they hold" is not "which plan does the tier column
+ * name".
+ *
+ * The webhook writes `subscription_tier` on every attributable event,
+ * `customer.subscription.deleted` included, so the column outlives the
+ * subscription. The settings card read it alone and told a cancelled customer
+ * "Tu Plan Actual" over a disabled "Plan Activo" button.
+ */
+describe('statusHoldsPlan', () => {
+  it('holds the plan while the subscription is live', () => {
+    // `past_due` included: Stripe is still retrying, the subscription exists,
+    // and re-buying it would create a second one.
+    for (const status of ['active', 'trialing', 'past_due']) {
+      expect(statusHoldsPlan(status)).toBe(true);
+    }
+  });
+
+  it('does not hold the plan once it lapsed, so it can be bought again', () => {
+    for (const status of ['canceled', 'unpaid', 'incomplete', 'incomplete_expired']) {
+      expect(statusHoldsPlan(status)).toBe(false);
+    }
+  });
+
+  it('treats an unknown or missing status as not held', () => {
+    // Never guess a live subscription from a word we do not model (#116).
+    for (const status of ['paused', 'complete', '', null, undefined]) {
+      expect(statusHoldsPlan(status)).toBe(false);
+    }
+  });
+});
+
+describe('unpaid is not a cancellation', () => {
+  it('names the lapsed payment instead of calling the subscription cancelled', () => {
+    // In Stripe, `unpaid` means the subscription still exists and every retry
+    // failed — the customer fixes it with their card. "Cancelado" hid that,
+    // the same way it once hid `incomplete` (#267).
+    const result = validateSubscriptionStatus('unpaid');
+
+    expect(result.badgeText).toBe('Pago vencido');
+    expect(result.badgeText).not.toBe('Cancelado');
+    expect(result.isAccessible).toBe(false);
+  });
+
+  it('leaves a real cancellation reading as one', () => {
+    expect(validateSubscriptionStatus('canceled').badgeText).toBe('Cancelado');
   });
 });

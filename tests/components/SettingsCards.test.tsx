@@ -1,6 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { OrgProfileCard } from '@/components/settings/OrgProfileCard';
 import { BrandingSettingsCard } from '@/components/settings/BrandingSettingsCard';
 import { SubscriptionBillingCard } from '@/components/settings/SubscriptionBillingCard';
@@ -150,6 +150,183 @@ describe('SubscriptionBillingCard — a plan is only "current" when the row says
       (screen.getByRole('button', { name: /Seleccionar Plan Inicial/i }) as HTMLButtonElement)
         .disabled
     ).toBe(false);
+  });
+});
+
+/**
+ * #267 — the tier column outlives the subscription.
+ *
+ * The webhook writes `subscription_tier` on every attributable event,
+ * `customer.subscription.deleted` included, so a cancelled customer kept the
+ * tier that named their plan. Reading that column alone, the card showed them
+ * "Tu Plan Actual" over a greyed-out "Plan Activo" — while the header badge
+ * said "Cancelado" — and the only way left to pay was to buy a *different*
+ * tier. Both tests above pass `'active'`, which is why nothing caught it.
+ */
+describe('a plan that was cancelled can be bought again', () => {
+  const negocioAt = (status: string) => (
+    <SubscriptionBillingCard
+      settings={{ ...SERVER_ROW, subscription_tier: 'negocio', subscription_status: status }}
+      statusInfo={validateSubscriptionStatus(status)}
+      onSelectTier={vi.fn()}
+    />
+  );
+
+  it.each([
+    ['canceled', 'Cancelado'],
+    ['unpaid', 'Pago vencido'],
+  ])('offers %s customers their own plan back', (status, badge) => {
+    render(negocioAt(status));
+
+    expect(screen.getByText(badge)).toBeTruthy();
+    expect(screen.queryByText('Tu Plan Actual')).toBeNull();
+    expect(screen.queryByText('Plan Activo')).toBeNull();
+
+    // Named as the plan they had, and purchasable.
+    expect(screen.getByText('Tu plan anterior')).toBeTruthy();
+    const reactivate = screen.getByRole('button', {
+      name: /Reactivar Plan Negocio/i,
+    }) as HTMLButtonElement;
+    expect(reactivate.disabled).toBe(false);
+  });
+
+  it.each(['active', 'trialing', 'past_due'])(
+    'still treats %s as the plan they hold — re-buying would double it',
+    (status) => {
+      render(negocioAt(status));
+
+      expect(screen.getAllByText('Tu Plan Actual')).toHaveLength(1);
+      expect(screen.queryByText('Tu plan anterior')).toBeNull();
+      expect(screen.queryByRole('button', { name: /Reactivar/i })).toBeNull();
+    }
+  );
+});
+
+/**
+ * #266 — the card had no role prop while `POST /api/stripe/checkout` requires
+ * `billing_management` (owner-only), and `/upgrade` deliberately routes a
+ * member here with `?plan=`. The member read "Continúa para pagarlo", waited
+ * through "Procesando…", and was refused.
+ */
+describe('a viewer who cannot buy is told so before they tap', () => {
+  // The card scrolls a highlighted plan into view; jsdom has no such method.
+  beforeAll(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  const asMember = (highlightTier?: 'negocio') => (
+    <SubscriptionBillingCard
+      settings={SERVER_ROW}
+      statusInfo={validateSubscriptionStatus('active')}
+      onSelectTier={vi.fn()}
+      canManageBilling={false}
+      highlightTier={highlightTier ?? null}
+    />
+  );
+
+  it('disables every plan button and says whose decision it is', () => {
+    render(asMember());
+
+    expect(screen.getByText(/Solo el dueño de la cuenta puede contratar o cambiar el plan/i)).toBeTruthy();
+
+    // One per plan, none of them offering to start a payment.
+    const buttons = screen.getAllByRole('button', { name: /Solo el dueño puede contratar/i });
+    expect(buttons).toHaveLength(3);
+    for (const button of buttons) {
+      expect((button as HTMLButtonElement).disabled).toBe(true);
+    }
+    expect(screen.queryByRole('button', { name: /^Seleccionar/i })).toBeNull();
+  });
+
+  it('never fires checkout for a member', () => {
+    const onSelectTier = vi.fn();
+    render(
+      <SubscriptionBillingCard
+        settings={SERVER_ROW}
+        statusInfo={validateSubscriptionStatus('active')}
+        onSelectTier={onSelectTier}
+        canManageBilling={false}
+      />
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Solo el dueño puede contratar/i })[0]);
+
+    expect(onSelectTier).not.toHaveBeenCalled();
+  });
+
+  it('does not tell a member to continue to payment on the plan they picked', () => {
+    render(asMember('negocio'));
+
+    expect(screen.queryByText(/Continúa para pagarlo/i)).toBeNull();
+    expect(screen.getByText(/Pídele al dueño de la cuenta que lo contrate/i)).toBeTruthy();
+  });
+
+  it('leaves the owner able to buy', () => {
+    render(
+      <SubscriptionBillingCard
+        settings={SERVER_ROW}
+        statusInfo={validateSubscriptionStatus('active')}
+        onSelectTier={vi.fn()}
+        canManageBilling
+      />
+    );
+
+    expect(screen.queryByText(/Solo el dueño de la cuenta puede contratar/i)).toBeNull();
+    expect(
+      (screen.getByRole('button', { name: /Seleccionar Plan Negocio/i }) as HTMLButtonElement)
+        .disabled
+    ).toBe(false);
+  });
+});
+
+/**
+ * #288 — the currency toggle was live, `handleSaveBranding` sent only
+ * `logo_url`, and the page then reported "Tu logotipo y marca se guardaron
+ * correctamente". The owner switched to USD, was congratulated, reloaded, and
+ * was back on MXN.
+ */
+describe('branding offers no control it cannot keep', () => {
+  it('disables the currency toggle like its already-disabled neighbours', () => {
+    render(
+      <BrandingSettingsCard settings={SERVER_ROW} onSave={vi.fn()} saving={false} canEdit />
+    );
+
+    const mxn = screen.getByRole('button', { name: /Peso Mexicano/i }) as HTMLButtonElement;
+    const usd = screen.getByRole('button', { name: /Dólar Americano/i }) as HTMLButtonElement;
+
+    expect(mxn.disabled).toBe(true);
+    expect(usd.disabled).toBe(true);
+  });
+
+  it('marks the currency as pending, the way the colour already is', () => {
+    render(
+      <BrandingSettingsCard settings={SERVER_ROW} onSave={vi.fn()} saving={false} canEdit />
+    );
+
+    // Scoped to the divisa label: a bare count over the whole card passes on
+    // the colour group's marker alone and says nothing about this one.
+    const label = document.getElementById('branding-currency-label') as HTMLElement;
+    expect(within(label).getByText(/Muy pronto/i)).toBeTruthy();
+  });
+
+  it('submits only the field that has somewhere to persist', async () => {
+    // Typed, so `tsc` can see the argument this case reads back.
+    const onSave = vi.fn(async (_patch: Partial<OrganizationSettings>) => true);
+    render(
+      <BrandingSettingsCard
+        settings={{ ...SERVER_ROW, logo_url: 'https://cdn.example.com/a.png' }}
+        onSave={onSave}
+        saving={false}
+        canEdit
+      />
+    );
+
+    fireEvent.submit(screen.getByPlaceholderText('https://ejemplo.com/logo.png').closest('form')!);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    // Exactly one key: a payload carrying a currency the server drops is the
+    // fabrication this issue is about.
+    expect(Object.keys(onSave.mock.calls[0][0])).toEqual(['logo_url']);
   });
 });
 

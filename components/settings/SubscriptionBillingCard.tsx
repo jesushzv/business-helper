@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { CreditCard, Check, Zap, ExternalLink, ShieldCheck } from 'lucide-react';
-import { STRIPE_PLANS, StripeTierConfig, SubscriptionStatusResult } from '@/lib/stripe';
+import { STRIPE_PLANS, statusHoldsPlan, StripeTierConfig, SubscriptionStatusResult } from '@/lib/stripe';
 import { OrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 import { useTrialState } from '@/lib/hooks/useTrialState';
 
@@ -17,6 +17,21 @@ interface SubscriptionBillingCardProps {
    * pressed Back on Stripe in a redirect loop.
    */
   highlightTier?: 'inicial' | 'negocio' | 'empresa' | null;
+  /**
+   * Whether this viewer may actually buy a plan.
+   *
+   * `POST /api/stripe/checkout` requires `billing_management`, which only the
+   * owner holds — and this card took no role at all, so a member sent here by
+   * `/upgrade?plan=…` (which routes members to this page deliberately) read
+   * "Continúa para pagarlo", tapped through "Procesando…" and was refused
+   * (#266). The page already knows the answer: `/api/organization` returns
+   * `role`. Its siblings — org profile, bank accounts, branding — all take
+   * `canEdit` for exactly this reason.
+   *
+   * Defaults to `true` so an unknown role never *hides* billing from the owner;
+   * the server is the enforcement either way.
+   */
+  canManageBilling?: boolean;
 }
 
 export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = ({
@@ -24,6 +39,7 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
   statusInfo,
   onSelectTier,
   highlightTier = null,
+  canManageBilling = true,
 }) => {
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
   const { trial } = useTrialState();
@@ -113,9 +129,24 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
         </p>
       )}
 
+      {!canManageBilling && (
+        <p className="mt-5 rounded-2xl border border-slate-700 bg-slate-950/80 p-4 text-xs font-semibold text-slate-300">
+          Solo el dueño de la cuenta puede contratar o cambiar el plan. Aquí puedes ver lo que
+          incluye cada uno; pídele al dueño que haga el cambio.
+        </p>
+      )}
+
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {plansList.map((plan) => {
-          const isCurrentPlan = settings.subscription_tier === plan.id;
+          // Two facts, not one: the tier column says which plan was bought, and
+          // the status says whether it is still held. The webhook keeps writing
+          // the tier even on `customer.subscription.deleted`, so reading the
+          // tier alone showed a cancelled customer a disabled "Plan Activo" and
+          // left them able to buy only some *other* tier (#267).
+          const isNamedPlan = settings.subscription_tier === plan.id;
+          const isCurrentPlan = isNamedPlan && statusHoldsPlan(statusInfo.status);
+          // The plan they had and lost: purchasable again, and named as such.
+          const isReactivatable = isNamedPlan && !isCurrentPlan;
           const isLoadingThis = loadingTier === plan.id;
           const isRequested = highlightTier === plan.id && !isCurrentPlan;
 
@@ -133,7 +164,9 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
             >
               {isRequested && (
                 <p className="mb-3 rounded-xl border border-emerald-500/30 bg-emerald-950/60 px-3 py-2 text-[11px] font-bold text-emerald-300">
-                  Este es el plan que elegiste. Continúa para pagarlo.
+                  {canManageBilling
+                    ? 'Este es el plan que elegiste. Continúa para pagarlo.'
+                    : 'Este es el plan que elegiste. Pídele al dueño de la cuenta que lo contrate.'}
                 </p>
               )}
               {plan.popular && (
@@ -148,6 +181,11 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
                   {isCurrentPlan && (
                     <span className="rounded-full bg-emerald-950/80 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-400 border border-emerald-500/30">
                       Tu Plan Actual
+                    </span>
+                  )}
+                  {isReactivatable && (
+                    <span className="rounded-full bg-amber-950/80 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-400 border border-amber-500/30">
+                      Tu plan anterior
                     </span>
                   )}
                 </div>
@@ -177,9 +215,15 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
               <div className="mt-8 pt-4 border-t border-slate-800">
                 <button
                   onClick={() => handleUpgrade(plan.id)}
-                  disabled={isCurrentPlan || isLoadingThis}
+                  // A member's tap reaches a route that always refuses (#266),
+                  // so the refusal is stated up front instead of after
+                  // "Procesando…".
+                  disabled={isCurrentPlan || isLoadingThis || !canManageBilling}
+                  title={
+                    canManageBilling ? undefined : 'Solo el dueño de la cuenta puede cambiar el plan'
+                  }
                   className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-xs font-extrabold transition-all shadow-md active:scale-95 ${
-                    isCurrentPlan
+                    isCurrentPlan || !canManageBilling
                       ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-default'
                       : plan.popular
                       ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
@@ -192,6 +236,16 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
                     <>
                       <ShieldCheck className="h-4 w-4" />
                       <span>Plan Activo</span>
+                    </>
+                  ) : !canManageBilling ? (
+                    <>
+                      <ShieldCheck className="h-4 w-4" />
+                      <span>Solo el dueño puede contratar</span>
+                    </>
+                  ) : isReactivatable ? (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      <span>Reactivar {plan.name}</span>
                     </>
                   ) : (
                     <>

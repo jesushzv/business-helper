@@ -409,8 +409,18 @@ export function validateSubscriptionStatus(status: string = 'active'): Subscript
         badgeText: 'Pago sin completar',
         badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
       };
-    case 'canceled':
     case 'unpaid':
+      // Stripe's `unpaid` is not a cancellation: the subscription still exists
+      // and every retry of the invoice failed. Badging it "Cancelado" hid the
+      // one thing the customer can act on — their card — which is the same
+      // reasoning the `incomplete` arm above already applies (#267).
+      return {
+        status,
+        isAccessible: false,
+        badgeText: 'Pago vencido',
+        badgeColor: 'bg-red-100 text-red-800 border-red-200',
+      };
+    case 'canceled':
     default:
       return {
         status,
@@ -419,6 +429,24 @@ export function validateSubscriptionStatus(status: string = 'active'): Subscript
         badgeColor: 'bg-red-100 text-red-800 border-red-200',
       };
   }
+}
+
+/**
+ * Does this status mean the organization currently *holds* the plan its
+ * `subscription_tier` names?
+ *
+ * The webhook writes `subscription_tier` on every attributable event, including
+ * `customer.subscription.deleted`, so the tier column outlives the
+ * subscription. A settings card reading the tier alone therefore showed a
+ * cancelled customer "Tu Plan Actual" with a greyed-out "Plan Activo" button —
+ * and the only way left to pay was to buy a *different* tier (#267).
+ *
+ * `past_due` counts as held: Stripe is still retrying and the subscription is
+ * live, so re-buying it would create a second one.
+ */
+export function statusHoldsPlan(status: string | null | undefined): boolean {
+  const normalized = normalizeSubscriptionStatus(status || '');
+  return normalized === 'active' || normalized === 'trialing' || normalized === 'past_due';
 }
 
 /**

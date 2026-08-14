@@ -14,7 +14,21 @@ import { Modal } from '@/components/shared/Modal';
  * and says plainly that the inviter has to deliver it.
  */
 export function TeamMembersCard() {
-  const { members, invitations, loading, inviting, error, inviteMember, updateRole } = useTeamMembers();
+  const { members, invitations, loading, inviting, error, canManageTeam, inviteMember, updateRole } =
+    useTeamMembers();
+
+  /**
+   * Both writes on this screen — POST and PATCH `/api/organization/members` —
+   * require `invite_members`, which `member` and `accountant` lack. The
+   * controls were rendered for everyone, so an accountant changed a colleague's
+   * dropdown, watched the row change, and watched it snap back with "Tu rol no
+   * permite cambiar permisos" (#268).
+   *
+   * `null` is unknown and stays permissive: the server is the enforcement, and
+   * hiding the controls from an owner whose role has not resolved yet would be
+   * the worse error (#64).
+   */
+  const canManage = canManageTeam !== false;
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [role, setRole] = useState<UserRole>('member');
@@ -69,13 +83,19 @@ export function TeamMembersCard() {
             Asigna permisos para Dueño, Gerente, Miembro o Contador Externo.
           </p>
         </div>
-        <button
-          onClick={() => setShowInviteModal(true)}
-          className="min-h-[48px] px-5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-base shadow-md shadow-emerald-950/50"
-        >
-          <UserPlus className="w-5 h-5" />
-          Invitar Colaborador
-        </button>
+        {canManage ? (
+          <button
+            onClick={() => setShowInviteModal(true)}
+            className="min-h-[48px] px-5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-base shadow-md shadow-emerald-950/50"
+          >
+            <UserPlus className="w-5 h-5" />
+            Invitar Colaborador
+          </button>
+        ) : (
+          <p className="rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-xs font-semibold text-slate-300 sm:max-w-xs">
+            Solo el dueño y los gerentes pueden invitar colaboradores o cambiar permisos.
+          </p>
+        )}
       </div>
 
       {error && (
@@ -129,9 +149,13 @@ export function TeamMembersCard() {
                   {badge.label}
                 </span>
 
-                {mem.role !== 'owner' && (
+                {/* The badge above already names the role. Without the write,
+                    the dropdown is a control whose every use is refused, so
+                    non-privileged viewers read the row instead (#268). */}
+                {mem.role !== 'owner' && canManage && (
                   <select
                     value={mem.role}
+                    aria-label={`Cambiar el rol de ${mem.name}`}
                     onChange={(e) => updateRole(mem.id, e.target.value as UserRole)}
                     className="min-h-[48px] px-3 bg-slate-950/80 border border-slate-800 rounded-lg text-sm text-white font-medium focus:outline-none focus:border-emerald-500"
                   >

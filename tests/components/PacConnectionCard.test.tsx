@@ -59,6 +59,66 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/**
+ * #265 — a 403 is "we won't tell you", not "there is none".
+ *
+ * Both verbs on `/api/organization/pac` require `billing_management`, which
+ * only the owner holds. This card swallowed the 403 and left `connection` null,
+ * which the render read as *no PAC connected* — so a manager or accountant
+ * looking at an organization with a live Facturapi key was told, in an amber
+ * alert, that the business cannot invoice, and was handed a key form that
+ * always refuses. It was the only settings card taking no role prop.
+ */
+describe('a viewer who may not manage the PAC credential', () => {
+  it('is not told the organization has no PAC when the read was refused', async () => {
+    loadWith({ error: { code: 'FORBIDDEN', message: 'Tu rol no permite esta acción' } }, 403);
+    render(<PacConnectionCard />);
+
+    await screen.findByText(/Solo el dueño de la cuenta puede conectar/i);
+    // The fabricated fact: absent knowledge rendered as a known absence.
+    expect(screen.queryByText(/Todavía no puedes emitir facturas CFDI/i)).toBeNull();
+  });
+
+  it('is not offered a key form the route will always refuse', async () => {
+    loadWith({ error: { code: 'FORBIDDEN', message: 'Tu rol no permite esta acción' } }, 403);
+    render(<PacConnectionCard />);
+
+    await screen.findByText(/Solo el dueño de la cuenta puede conectar/i);
+    expect(document.getElementById('pac_api_key')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Conectar mi PAC/i })).toBeNull();
+  });
+
+  it('withholds the form from a known non-owner before the route even answers', async () => {
+    // The page knows the role already; it should not take a round trip and a
+    // 403 to find out (the sibling cards all take `canEdit`).
+    loadWith({ connection: null });
+    render(<PacConnectionCard canEdit={false} />);
+
+    await screen.findByText(/Solo el dueño de la cuenta puede conectar/i);
+    expect(document.getElementById('pac_api_key')).toBeNull();
+  });
+
+  it('still shows the owner the form and the warning', async () => {
+    loadWith({ connection: null });
+    render(<PacConnectionCard canEdit />);
+
+    await screen.findByText(/Todavía no puedes emitir facturas CFDI/i);
+    expect(document.getElementById('pac_api_key')).toBeTruthy();
+  });
+});
+
+describe('a read that failed is not a read that found nothing', () => {
+  it('says nothing about the connection when the request errored', async () => {
+    // Unknown is its own state (#64): warning a tenant with a live key that
+    // they cannot invoice is as wrong as hiding that they cannot.
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    render(<PacConnectionCard canEdit />);
+
+    await screen.findByRole('alert');
+    expect(screen.queryByText(/Todavía no puedes emitir facturas CFDI/i)).toBeNull();
+  });
+});
+
 describe('before a PAC is connected', () => {
   it('says plainly that no invoice can be issued yet', async () => {
     loadWith({ connection: null });
