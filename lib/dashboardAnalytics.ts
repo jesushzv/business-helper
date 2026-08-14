@@ -12,6 +12,7 @@
  */
 
 import { collectedAmount, outstandingAmount } from './receivablesCalculator';
+import { daysBetween, localTodayStr } from './dates';
 
 export interface MilestoneItem {
   id: string;
@@ -96,8 +97,12 @@ export function calculateBusinessMetrics(
   clients: ClientItem[] = [],
   todayStr?: string
 ): BusinessMetrics {
-  const today = todayStr ? new Date(todayStr) : new Date();
-  today.setHours(0, 0, 0, 0);
+  // Date-only strings compared as strings (#263): `new Date('2026-08-14')`
+  // parses as UTC midnight while `setHours(0,0,0,0)` builds LOCAL midnight,
+  // so anywhere west of UTC every due date collapsed a day back — a milestone
+  // due today counted as "Deuda Vencida" at any hour, and dueTodayAmount was
+  // structurally unreachable in the browser.
+  const today = (todayStr || localTodayStr()).substring(0, 10);
 
   let collectedRevenue = 0;
   let pendingReceivables = 0;
@@ -119,12 +124,11 @@ export function calculateBusinessMetrics(
     pendingReceivables += outstanding;
     pendingMilestonesCount += 1;
 
-    const dueDate = new Date(m.due_date);
-    dueDate.setHours(0, 0, 0, 0);
+    const dueDate = (m.due_date || '').substring(0, 10);
 
     if (dueDate < today) {
       overdueDebt += outstanding;
-    } else if (dueDate.getTime() === today.getTime()) {
+    } else if (dueDate === today) {
       dueTodayAmount += outstanding;
     } else {
       upcomingAmount += outstanding;
@@ -200,8 +204,9 @@ export function calculateCashFlowForecast(
   milestones: MilestoneItem[] = [],
   referenceDateStr?: string
 ): CashFlowForecast {
-  const refDate = referenceDateStr ? new Date(referenceDateStr) : new Date();
-  refDate.setHours(0, 0, 0, 0);
+  // Same rule as calculateBusinessMetrics: date-only strings, differenced
+  // through daysBetween — never round-tripped through Date's UTC parsing (#263).
+  const reference = (referenceDateStr || localTodayStr()).substring(0, 10);
 
   const days30Bucket: CashFlowForecastBucket = {
     periodLabel: 'Próximos 30 Días',
@@ -224,16 +229,10 @@ export function calculateCashFlowForecast(
     count: 0,
   };
 
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
   milestones.forEach((m) => {
     // Only pending/requested/marked_paid milestones are relevant for cash flow forecast
     if (m.status !== 'confirmed') {
-      const dueDate = new Date(m.due_date);
-      dueDate.setHours(0, 0, 0, 0);
-
-      const diffMs = dueDate.getTime() - refDate.getTime();
-      const diffDays = Math.floor(diffMs / ONE_DAY_MS);
+      const diffDays = daysBetween(reference, (m.due_date || '').substring(0, 10));
 
       const amt = Number(m.amount) || 0;
 
@@ -257,7 +256,7 @@ export function calculateCashFlowForecast(
   const totalForecast = Math.round((days30Bucket.amount + days60Bucket.amount + days90Bucket.amount) * 100) / 100;
 
   return {
-    referenceDate: refDate.toISOString().split('T')[0],
+    referenceDate: reference,
     days30: days30Bucket,
     days60: days60Bucket,
     days90: days90Bucket,

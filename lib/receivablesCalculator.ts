@@ -2,6 +2,8 @@
  * Business Helper — Receivables Aging & Summary Calculator
  */
 
+import { localTodayStr } from './dates';
+
 export interface MilestoneItem {
   id: string;
   contract_id?: string;
@@ -104,7 +106,9 @@ export function calculateReceivablesSummary(
   milestones: MilestoneItem[],
   todayStr?: string
 ): ReceivablesSummary {
-  const today = todayStr || new Date().toISOString().split('T')[0];
+  // Local today, never UTC's: from 18:00 in Mexico the UTC date is
+  // tomorrow, and every cobro due today read Atrasado all evening (#263).
+  const today = todayStr || localTodayStr();
 
   let totalOverdue = 0;
   let totalDueToday = 0;

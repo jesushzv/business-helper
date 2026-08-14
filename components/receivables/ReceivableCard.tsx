@@ -4,6 +4,7 @@ import React from 'react';
 import { MilestoneWithClient } from '@/lib/hooks/useReceivables';
 import { generatePaymentReminderLink } from '@/lib/whatsappReminder';
 import { MessageSquare, CheckCircle, ExternalLink, FileCheck, Clock, AlertCircle } from 'lucide-react';
+import { formatDateOnlyEs, localTodayStr } from '@/lib/dates';
 
 interface ReceivableCardProps {
   milestone: MilestoneWithClient;
@@ -22,7 +23,8 @@ interface ReceivableCardProps {
 
 export const ReceivableCard: React.FC<ReceivableCardProps> = ({
   milestone,
-  todayStr = new Date().toISOString().split('T')[0],
+  // Local today, never UTC's (#263) — see lib/dates.ts.
+  todayStr = localTodayStr(),
   onOpenConfirmModal,
   canShare = true,
 }) => {
@@ -123,7 +125,7 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
         <div className="text-sm text-slate-300 mb-4 space-y-1">
           <p className="font-semibold text-slate-200">{milestone.client_name || 'Cliente no asignado'}</p>
           <p className="text-xs text-slate-400">
-            Fecha de vencimiento: <span className="font-semibold text-slate-200">{milestone.due_date}</span>
+            Fecha de vencimiento: <span className="font-semibold text-slate-200">{formatDateOnlyEs(milestone.due_date)}</span>
           </p>
           {milestone.tracking_reference && (
             <p className="text-xs font-mono text-indigo-300 bg-indigo-950/80 p-1.5 rounded-lg inline-block border border-indigo-500/30">

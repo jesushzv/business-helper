@@ -12,6 +12,7 @@ import {
   QuoteItem,
   ClientItem,
 } from '../dashboardAnalytics';
+import { localTodayStr } from '@/lib/dates';
 import { useClients } from './useClients';
 import { useQuotes } from './useQuotes';
 import { useReceivables } from './useReceivables';
@@ -49,7 +50,10 @@ export function useDashboardAnalytics() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/dashboard/analytics');
+      // The viewer's local day rides along (#263): the server runs in UTC, so
+      // without it a cobro due today classified as Deuda Vencida from 18:00
+      // local — disagreeing with the client-computed Cobranza page.
+      const res = await fetch(`/api/dashboard/analytics?today=${localTodayStr()}`);
       const data = await res.json().catch(() => null);
       if (res.ok && data?.metrics && data?.topClients && data?.cashFlowForecast) {
         setApiAnalytics(data);

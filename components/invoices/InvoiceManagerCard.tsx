@@ -11,6 +11,7 @@ import { useSettlementAccount } from '@/lib/hooks/useSettlementAccount';
 import { generateNotaDeVentaPayload, generateReceiptWhatsAppLink } from '@/lib/receiptGenerator';
 import { FileText, Download, Send, CheckCircle, Clock, FileCode, AlertCircle, MessageSquare, Ban, Receipt } from 'lucide-react';
 import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
+import { formatDateOnlyEs } from '@/lib/dates';
 
 const currency = (value: number) =>
   `$${value.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`;
@@ -471,7 +472,7 @@ export function InvoiceManagerCard() {
                         {inv.clientRfc || 'Sin RFC'}
                       </code>
                     </span>
-                    <span>Vence: {inv.dueDate}</span>
+                    <span>Vence: {formatDateOnlyEs(inv.dueDate)}</span>
                   </div>
 
                   {inv.cfdiUuid && (
