@@ -28,9 +28,11 @@ reason this file exists is that five documents once claimed completion for work 
 simulated, and nothing checked them. A convention nobody executes is how that happened
 (the same lesson as #46 and #38).
 
-That test also holds this file to **32 KB**, and the budget is what forces the archive step: when it
-trips, move settled history to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md)
-rather than raising the number. **State a number once.** A count restated in a second section drifts
+That test also holds this file to **32 KB** and — since the budget kept being discovered at 95%+
+full — to a **30-day TTL on dates** (rule 5): a `YYYY-MM-DD` older than that fails the build,
+because a date that old anchors settled history. Either way the fix is the same: move the narrative
+to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) and keep the still-true
+fact here, stated date-free — never raise the number. **State a number once.** A count restated in a second section drifts
 from the first — this file carried `1576 tests / 165 files` in §02 and `722 tests / 87 files` in §04
 simultaneously, and #138 tracks the conflict-on-every-parallel-PR problem that grows it.
 
@@ -43,7 +45,7 @@ An HTML rendering is published at
 
 ## 01 Why This Document Exists
 
-A security review on 2026-08-06 found that features the roadmap marked **Completed** were
+A security review in early August 2026 found that features the roadmap marked **Completed** were
 *simulated*: the UI and data model existed, but the third-party call underneath was faked. The worst
 case fabricated an invoice id and two storage URLs and wrote `cfdi_status: 'issued'` — a business
 owner could read their own dashboard, believe they had invoiced a client, and file accordingly.
@@ -76,25 +78,24 @@ migrations — is in the archive with its reasoning.*
 
 | Item | State | Blocks launch? |
 |:---|:---|:---|
-| **Live PAC stamp** | **Half fell on 2026-08-12.** The founder supplied a sandbox key and the integration was exercised live from a session — which found it **entirely broken**: every call targeted `/v1`, which answers 410 for everything since April 2023, and v2 refuses the payload on four fields. Mocked-`fetch` coverage had kept all of it green. Fixed and re-verified against the live sandbox end to end: real SAT UUIDs, documents, cancellation (02/03), totals landing on the milestone amount with and without retenciones. **Re-scoped by the BYOK decision (§05, 2026-08-12): the platform does not stamp on behalf of tenants**, so the sandbox `FACTURAPI_SECRET_KEY` briefly set on Vercel comes back out, and the remaining criterion is a **tenant-connected live PAC**: an `sk_live_` key with CSDs connected in Ajustes, one stamp through `POST /api/invoices/issue`, the UUID verifying at the SAT portal. A sandbox key cannot meet it — sandbox documents have no fiscal validity, and the route refuses them in production by design (`PAC_SANDBOX_KEY`). Also live-observed: `external_id` deduplicates nothing (#213) — **the DB-side claim guard landed 2026-08-13 (PR #241)**: `cfdi_stamp_claims` applied to production, duplicate claim refused `23505` live; the guard's own live exercise (a deliberate double-submit) rides with this row's stamp. | **Yes** — CFDI ships at launch |
+| **Live PAC stamp** | The direct sandbox half is done: the integration was exercised live, found entirely broken (`/v1` = 410 since 2023, four payload defects — mocked-`fetch` coverage had kept it all green), fixed, and re-verified end to end against the live sandbox — real SAT UUIDs, documents, cancellation (02/03), correct totals with and without retenciones. Forensics in the archive. **Re-scoped by the BYOK decision (§05): the platform does not stamp on behalf of tenants**, so the remaining criterion is a **tenant-connected live PAC**: an `sk_live_` key with CSDs connected in Ajustes, one stamp through `POST /api/invoices/issue`, the UUID verifying at the SAT portal. A sandbox key cannot meet it — sandbox documents have no fiscal validity, and the route refuses them in production by design (`PAC_SANDBOX_KEY`). The `cfdi_stamp_claims` guard (#213, PR #241) is **applied to production and refused a duplicate claim `23505` live**; the guard's own live exercise (a deliberate double-submit) rides with this row's stamp. | **Yes** — CFDI ships at launch |
 
-**Everything verified before 2026-08-09 was verified against mocked providers.** The items in §03
-that need a real handset, card, PAC stamp or deployed database are untouched by any of it.
+**Verification done before the live-provider passes began was against mocked providers.** The items
+in §03 that need a real handset, card, PAC stamp or deployed database are untouched by any of it.
 
 ### Schema state
 
-**One organization per owner is a schema invariant, applied to production 2026-08-11**
+**One organization per owner is a schema invariant, applied to production**
 (`uq_organizations_owner_id`, `20260811150000`). Verified live: the index reads back
 `indisunique`/`indisvalid`, and a probe INSERT of a second organization for an existing owner was
-**refused** with `23505`. Two blocking rows were found first — one owner held two `— BORRAR` test
-organizations, so #168's "0 duplicates" was stale — and the older was deleted with its client and
-quote. The decision behind it is recorded; [#109](https://github.com/jesushzv/business-helper/issues/109)
-is still open on the tracker.
+**refused** with `23505`. Two stale test rows had to be cleared first (detail in the archive); the
+decision behind the invariant is recorded, and
+[#109](https://github.com/jesushzv/business-helper/issues/109) is still open on the tracker.
 
-**Schema/catalog divergence (#204) resolved 2026-08-12** — every index on `organizations` matches a
+**Schema/catalog divergence (#204) is resolved** — every index on `organizations` matches a
 migration, verified against `pg_indexes`; the full account is in the archive.
 
-### Founder admin surface (2026-08-13)
+### Founder admin surface
 
 `/admin` + `/api/admin/*` (metrics, trial extension with audit row) exist behind the
 `PLATFORM_ADMIN_USER_IDS` allowlist — fail closed: unset, every caller gets 404, so the surface is
@@ -113,21 +114,16 @@ live pass yet.
 > **One P0, one open issue.** Every row below maps to exactly one open issue and every open P0 issue
 > appears below. **Re-derive from `is:issue is:open label:P0` before trusting this table** — rows
 > drop off as issues close, and the list is ordered by dependency, not severity.
-> **Re-derived 2026-08-11 23:59Z: 2 open P0s against the 2 rows below** — #62, #26. The tally's
-> history is in the archive.
->
-> That instruction has earned itself repeatedly, and most sharply on 2026-08-11, when **three
-> sessions edited this table within two hours and each wrote a number that was already stale**. One
-> dropped #64's row and kept #63; another dropped #63's and kept #64 — each right about the issue it
-> had just closed, both writing "3 open P0s", and a textual merge would have kept one number and
-> lost the other's row. The lesson is not "run the query" — every one of them did — but *run it at
-> the moment you write the number*, and re-run it when you merge.
+> **Re-derived 2026-08-11 23:59Z: 2 open P0s against the 2 rows below** — #62, #26. Run the query
+> *at the moment you write the number*, and re-run it when you merge: three concurrent sessions
+> once each wrote an already-stale tally into this table within two hours (the incident, and the
+> tally's history, are in the archive).
 >
 > #14 is the parent of the P0s split out of it and holds only the staging-checklist residue.
 
 | # | Item | Tracked |
 |:--|:---|:---|
-| 1 | **Schema is applied — one live request per route is what remains.** On 2026-08-08 the production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path. **The OTP route got its real request on 2026-08-11** (the email-channel verification); the invoice and complemento paths remain. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
+| 1 | **Schema is applied — one live request per route is what remains.** The production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path. **The OTP route got its real request on 2026-08-11** (the email-channel verification); the invoice and complemento paths remain. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
 | 2 | **Issue one CFDI through the app, end to end.** The *direct* sandbox half was done 2026-08-12 — real SAT UUIDs, XML/PDF, cancellations, totals, evidence in §02 and on the issue — and it found the integration dead (`/v1` = 410) plus three payload defects, all fixed in this PR. What remains, re-scoped by the BYOK decision (§05): **an organization's own `sk_live_` PAC connected in Ajustes and one stamp through `POST /api/invoices/issue`**, the UUID verifying at the SAT portal. Needs the founder's live Facturapi account + CSD certificates; no test key can meet it. Closes #62's invoice-path criterion too. | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 
 **The UX audit is closed** (#87/#88/#89/#90/#93/#95/#96/#99/#100/#101/#103/#104/#114/#124/#127), the
@@ -182,22 +178,11 @@ organization row.
 ### P1 — Makes launch week survivable
 
 - **Wire real error monitoring** ([#52](https://github.com/jesushzv/business-helper/issues/52)).
-  **The code half landed 2026-08-11** as a raw-`fetch` envelope client, and **moved to
-  `@sentry/nextjs` on 2026-08-12** following Sentry's official setup skill. The reason for the
-  swap is coverage, not style: a hand-written transport only sees errors someone handed it, and
-  never an unhandled Server Component error, a React render error or an Edge middleware throw —
-  most of what a production 500 is. `instrumentation.ts`'s `onRequestError` sees all of them.
-  Configured across browser, Node and Edge with tracing, session replay (all text, inputs and
-  media masked), logs and profiling; `sendDefaultPii` is off, and email/RFC/CLABE/phone are
-  scrubbed in `beforeSend` — now also out of stack-frame locals, breadcrumbs, headers and cookies
-  — while `organization_id` and `route` survive. Call sites did not change: `lib/sentry.ts` keeps
-  its signature as an adapter, so `app/global-error.tsx` and `app/(dashboard)/error.tsx` report as
-  before.
-  **The DSN was configured on Vercel by the founder on 2026-08-12, and #52 closed on that basis.**
-  What no session has observed is the criterion's second half: that an alert *arrives* carrying
-  `organization_id` and route with no personal data in it. An agent container has no outbound
-  network access, so every result in this repo is against a mocked transport — the code is correct,
-  which is not the same as the integration working. Worth one glance at any event in the Sentry
+  **On `@sentry/nextjs`** across browser, Node and Edge (state and scrub posture: the §02 row; why
+  it replaced the hand-rolled transport: archive). **The DSN is configured on Vercel and #52
+  closed on that basis.** What no session has observed is the criterion's second half: that an
+  alert *arrives* carrying `organization_id` and route with no personal data in it — every result
+  in this repo is against a mocked transport. Worth one glance at any event in the Sentry
   dashboard; reopen #52 if it disagrees. `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` remain
   optional, for readable stack traces.
 - **Point the domain at Vercel.** `businesshelper.app` is the domain; `.mx` was never registered. Docs and
@@ -210,11 +195,9 @@ organization row.
   "signed in" on `data.session` (#246); login maps errors via `authErrorMessage` (#247); the
   middleware guards the app shell (#248); OAuth carries `?next=` (#249). Mock-verified only —
   **a live recovery pass closes #245.**
-  CI was silently absent on PR #28 for ten hours across four pushes while Vercel and GitGuardian reported
-  green, so the PR looked checked. The cause is still unexplained — which is the argument for a rule that
-  fails closed rather than one that depends on understanding it. It has since missed again, three times
-  on one PR ([#132](https://github.com/jesushzv/business-helper/issues/132)): compare a run's head SHA
-  to the PR's, because absence looks identical to passing.
+  CI has been silently absent on green-looking PRs, repeatedly and still unexplained
+  ([#132](https://github.com/jesushzv/business-helper/issues/132); narrative in the archive):
+  compare a run's head SHA to the PR's, because absence looks identical to passing.
 - **One real production smoke test** ([#70](https://github.com/jesushzv/business-helper/issues/70)):
   register → quote → WhatsApp send → OTP sign → SPEI upload → confirm. Two legs are now covered
   independently — a client registered through the UI (#146, with a US phone number, so #94's
@@ -231,37 +214,27 @@ organization row.
   the accountant export omits complementos ([#31](https://github.com/jesushzv/business-helper/issues/31)),
   and one stamped in error cannot be cancelled ([#30](https://github.com/jesushzv/business-helper/issues/30)).
   *(Filing on PPD confirmation itself landed in #29.)*
-- ~~Migrations never execute against a real Postgres in CI (#35).~~ **Merged 2026-08-09:** CI's
+- ~~Migrations never execute against a real Postgres in CI (#35).~~ **Merged:** CI's
   `migration-verify` job applies the full set twice to Postgres 16 under a faithful Supabase shim
-  (including the default-privilege auto-grants — the #76 trap), seeds a tenant, and asserts anon
-  isolation, service_role access, the OTP phone CHECK, SECURITY DEFINER grants via `aclexplode`, and
-  RLS-on-every-table. Shown red against a planted anon leak; making double-apply pass surfaced 16
-  non-idempotent statements, all fixed. **It builds from the migration files, so #204's divergence is
-  invisible to it.** Requiring the check in branch protection remains #38.
-- ~~`parseNaturalLanguageQuery` is keyword matching rather than a model.~~ **Gemini wired 2026-08-12**
+  and asserts tenant isolation plus the #76 grant posture (what it checks and how it was shown red:
+  archive). **It builds from the migration files, so a #204-style divergence is invisible to it.**
+  Requiring the check in branch protection remains #38.
+- ~~`parseNaturalLanguageQuery` is keyword matching rather than a model.~~ **Gemini is wired**
   (`lib/geminiClient.ts`, raw REST): with `GEMINI_API_KEY` set — the founder configured it on Vercel —
   the assistant routes have the model write the answer prose around figures the rules engine computed
   from the tenant's rows; each answer is labeled `engine: 'gemini' | 'rules'` for whichever wrote it,
-  and any Gemini failure degrades to the labeled rules answer (reported to Sentry). **Verified against
-  a mocked `fetch` only — no session has held the key, so no live call has run** (the #26 lesson says
-  to exercise it once). `npm run verify:gemini` is that check, runnable wherever the key exists;
-  until it passes, treat the model half as wired but unproven. Does not gate launch.
-  **2026-08-13, "assistant not working" — root cause confirmed live:** Sentry event 7669023728
-  shows `Gemini respondió 404` on `models/gemini-2.5-flash` — Google retired that id for new API
-  keys in July 2026, so every call from the founder's (new) key 404s and answers degrade to the
-  labeled rules engine. Supabase edge logs prove the rest of the chain works (key set,
-  service-role budget reads 200, tier `inicial` allowed). Fix: client and `verify:gemini` default
-  to the rolling `gemini-flash-latest` alias (`GEMINI_MODEL` pins), with a per-generation
-  thinking cap — `thinkingBudget: 0` for 2.5-era flash (the MAX_TOKENS defect, real but
-  secondary), `thinkingLevel: 'low'` for Gemini 3+/aliases — and both AI routes `console.warn` a
-  Gemini failure into Vercel logs beside the Sentry capture. **The new model id has never been
-  called live — `npm run verify:gemini` where the key exists is what closes this.**
-  **The model allowance became server-derived on 2026-08-12** (#228): tier from
-  `organizations.subscription_tier`, usage in `ai_usage_monthly` (migration `20260812210000`,
-  **applied to production and read back** — RLS deny-all held against `anon`/`authenticated` probes,
-  and the atomic increment returned 1 then 2 live). The body's self-reported `tierKey`/`currentUsage`
-  are ignored; only model-written answers count, and an exhausted or unknown budget answers from the
-  rules engine, labeled.
+  and any Gemini failure degrades to the labeled rules answer (reported to Sentry and `console.warn`ed
+  into Vercel logs). The founder's "assistant not working" report was **root-caused live**: Google
+  retired the pinned `gemini-2.5-flash` id for new API keys, so every call 404'd and answers silently
+  degraded to rules (forensics in the archive). The client and `verify:gemini` now default to the
+  rolling `gemini-flash-latest` alias (`GEMINI_MODEL` pins), with a per-generation thinking cap.
+  **The new model id has never been called live — `npm run verify:gemini` where the key exists is
+  what closes this.** Does not gate launch.
+  **The model allowance is server-derived** (#228): tier from `organizations.subscription_tier`,
+  usage in `ai_usage_monthly` (migration `20260812210000`, **applied to production and read back** —
+  RLS deny-all held, the atomic increment returned 1 then 2 live). The body's self-reported
+  `tierKey`/`currentUsage` are ignored; only model-written answers count, and an exhausted or
+  unknown budget answers from the rules engine, labeled.
 - Animated demo video — storyboarded in [`demo_video_storyboard.md`](03-product-specs/demo_video_storyboard.md), not produced.
 
 ---
@@ -286,7 +259,7 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 - [x] Outbound WhatsApp reminders actually send (#13)
 
 ### Operational floor
-- [x] Production Supabase migrations applied — all three from #20, #23 and #29, plus `20260808030000_folio_rpc_grants.sql`; confirmed by inspecting the live schema on 2026-08-08. One live request per affected route still owed ([#62](https://github.com/jesushzv/business-helper/issues/62))
+- [x] Production Supabase migrations applied — all three from #20, #23 and #29, plus `20260808030000_folio_rpc_grants.sql`; confirmed by inspecting the live schema, not by an exit code. One live request per affected route still owed ([#62](https://github.com/jesushzv/business-helper/issues/62))
 - [x] `supabase/migrations/` and the live catalog agree ([#204](https://github.com/jesushzv/business-helper/issues/204)) — `20260812060000` applied 2026-08-12 and `pg_indexes` read back: every index on `organizations` matches a migration
 - [ ] Error monitoring transmits and alerts reach the founder within minutes ([#52](https://github.com/jesushzv/business-helper/issues/52), closed 2026-08-12) — on `@sentry/nextjs` and the DSN is configured on Vercel. Unticked deliberately: no session has seen an alert arrive, so the transmit half is founder-confirmed setup rather than observed behaviour
 - [x] The funnel is instrumented, so a weak result can be diagnosed (#37, PR #56) — wired, not yet read against real traffic
@@ -338,7 +311,7 @@ carry no label: #196, #197 (settlement-account blast radius) and #94 (foreign ph
 
 > [!IMPORTANT]
 > **The schedule has no relief valve left.** CFDI ships *and* the September date holds — both
-> halves of the trade were taken (resolved 2026-08-07), so every P0 row in §03 must land and the
+> halves of the trade were taken (the resolution is recorded in the archive), so every P0 row in §03 must land and the
 > only remaining variable is hours, decision 3 above. If the list slips, the next lever is not
 > scope or date but pilot count: fewer pilots, longer and more closely watched.
 
