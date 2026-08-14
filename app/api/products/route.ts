@@ -46,13 +46,41 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, description, unit_price, unit, sat_product_code, stock_quantity } = body;
 
+    // NULL means "servicio / sin inventario" everywhere (lib/inventory.ts).
+    // The client sends an explicit null for a blank Existencias field, and
+    // `Number(null) === 0` turned every service into "Stock: 0 unidades" with
+    // a critical-stock badge (#261). Absent stays absent; a present value must
+    // be a real number.
+    const normalizedStock =
+      stock_quantity === undefined ||
+      stock_quantity === null ||
+      String(stock_quantity).trim() === ''
+        ? null
+        : Number(stock_quantity);
+
+    // Integer, because the column is int4: a 2.5 reaching PostgREST answers a
+    // raw 22P02 misdescribed as "fuera del rango". NaN and ±Infinity fail the
+    // same check.
+    if (normalizedStock !== null && !Number.isInteger(normalizedStock)) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INVALID_PRODUCT',
+            message:
+              'Las existencias deben ser un número entero, o dejarse vacías para un servicio.',
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     const validation = validateProductCatalogItem({
       name,
       description,
       unit_price: Number(unit_price),
       unit,
       sat_product_code,
-      stock_quantity: stock_quantity ?? null
+      stock_quantity: normalizedStock
     });
 
     if (!validation.isValid) {
@@ -73,7 +101,7 @@ export async function POST(request: Request) {
           unit_price: Number(unit_price),
           unit: validation.unit,
           sat_product_code: validation.sat_product_code,
-          stock_quantity: stock_quantity !== undefined ? Number(stock_quantity) : null
+          stock_quantity: normalizedStock
         })
         .select()
         .single();
