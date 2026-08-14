@@ -286,15 +286,26 @@ export async function POST(
     // submission — or a replay of this one — cannot move a milestone backwards
     // out of `marked_paid`/`confirmed`. Zero rows updated means someone beat
     // this request; that is a duplicate, not a success.
+    // `receipt_url` is written only when this declaration actually carries one
+    // (#339). The payer's own upload is allowed to fail without blocking the
+    // declaration (#85), which made `receipt_url: null` an unconditional write
+    // — harmless while nothing else could set the column, and destructive the
+    // moment the owner could: the comprobante they filed from Cobranza on the
+    // client's behalf would be erased by that client submitting a receipt-less
+    // declaration afterwards, silently, on a milestone still `pending`.
+    const milestoneUpdate: Record<string, unknown> = {
+      status: 'marked_paid',
+      tracking_reference: trackingReference,
+      transferred_amount: transferredAmount,
+    };
+    if (receiptUrl !== null) {
+      milestoneUpdate.receipt_url = receiptUrl;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: updated, error: updateError } = await (supabase as any)
       .from('milestones')
-      .update({
-        status: 'marked_paid',
-        tracking_reference: trackingReference,
-        transferred_amount: transferredAmount,
-        receipt_url: receiptUrl,
-      })
+      .update(milestoneUpdate)
       .eq('id', target.id)
       .in('status', ['pending', 'requested'])
       .select('id');

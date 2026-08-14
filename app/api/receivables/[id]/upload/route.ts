@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
+import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { validateReceiptFile, sniffReceiptContent, RECEIPT_CONTENT_TYPES } from '@/lib/speiValidator';
+import { SPEI_VOUCHERS_BUCKET } from '@/lib/publicReceivable';
 
 /**
  * Uploads a SPEI receipt against a milestone.
@@ -10,6 +12,20 @@ import { validateReceiptFile, sniffReceiptContent, RECEIPT_CONTENT_TYPES } from 
  * `{success: true, url: 'https://storage.businesshelper.mx/...'}`. That host
  * serves nothing, so the payment evidence a user believed they had filed did
  * not exist. Upload failures are now reported as failures.
+ *
+ * **The storage write goes through the service-role client, like the public
+ * twin does** (#339). It used to use the request-scoped `authenticated`
+ * client, which cannot write here at all: RLS is enabled on `storage.objects`
+ * and the project has **zero** policies on it — checked live on 2026-08-14 —
+ * so every upload would have come back 502 UPLOAD_FAILED. That failed closed
+ * and honestly, but the feature would never once have worked, which is why
+ * this was found by running the check rather than by reading the code.
+ *
+ * The tenant scoping does not weaken by moving off RLS: `requireOrgAccess`
+ * authenticates, the milestone is confirmed to belong to the caller's
+ * organization below through the *request-scoped* client, and the storage path
+ * is built from the server-derived `organizationId` — never from anything the
+ * caller sent.
  */
 export async function POST(
   request: Request,
@@ -18,6 +34,20 @@ export async function POST(
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
   const { supabase, organizationId } = auth.ctx;
+
+  // Fails closed rather than reporting a storage failure the tenant cannot
+  // act on: with no service role there is nowhere to put the file (rule #3).
+  if (!isServiceRoleConfigured()) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'BACKEND_NOT_CONFIGURED',
+          message: 'La subida de comprobantes no está disponible en este momento.',
+        },
+      },
+      { status: 503 }
+    );
+  }
 
   try {
     const { id } = await params;
@@ -79,10 +109,17 @@ export async function POST(
       );
     }
 
-    const filePath = `${organizationId}/spei_${id}_${Date.now()}.${content}`;
+    // `owner_` rather than the payer path's `spei_` prefix. The public upload
+    // counts objects matching `spei_${milestoneId}_` against its 10-per-cobro
+    // cap, so sharing the prefix would let the owner's own filings exhaust the
+    // payer's quota and answer a real client with "contacta directamente al
+    // negocio" for a limit they never consumed (#339 review).
+    const filePath = `${organizationId}/owner_${id}_${Date.now()}.${content}`;
 
-    const { data, error } = await supabase.storage
-      .from('spei-vouchers')
+    const storage = createServiceClient();
+
+    const { data, error } = await storage.storage
+      .from(SPEI_VOUCHERS_BUCKET)
       .upload(filePath, buffer, {
         contentType: RECEIPT_CONTENT_TYPES[content],
         upsert: false,
@@ -95,8 +132,8 @@ export async function POST(
       );
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from('spei-vouchers')
+    const { data: publicUrlData } = storage.storage
+      .from(SPEI_VOUCHERS_BUCKET)
       .getPublicUrl(filePath);
 
     return NextResponse.json({

@@ -42,6 +42,7 @@ vi.mock('@/lib/supabase/service', () => ({
               maybeSingle: async () => ({
                 data: {
                   id: 'quote-1',
+                  organization_id: 'org-1',
                   title: 'Suministro',
                   contracts: { id: 'contract-1', title: 'Suministro', milestones: state.milestones },
                   clients: { name: 'Cliente' },
@@ -67,6 +68,18 @@ vi.mock('@/lib/supabase/service', () => ({
         }),
       };
     },
+    storage: {
+      from: () => ({
+        // Shape is not existence: the route proves the object is really in the
+        // bucket before minting a URL for it (#85).
+        list: async () => ({ data: [{ name: 'spei_m-1_1234.png' }], error: null }),
+        getPublicUrl: (path: string) => ({
+          data: {
+            publicUrl: `https://project.supabase.co/storage/v1/object/public/spei-vouchers/${path}`,
+          },
+        }),
+      }),
+    },
   }),
 }));
 
@@ -74,11 +87,11 @@ async function getRoute() {
   return import('@/app/api/receivables/public/[token]/route');
 }
 
-function postRequest(): Request {
+function postRequest(body: Record<string, unknown> = {}): Request {
   return new Request('https://businesshelper.app/api/receivables/public/tok-1', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tracking_reference: 'SPEI123', transferred_amount: 1000 }),
+    body: JSON.stringify({ tracking_reference: 'SPEI123', transferred_amount: 1000, ...body }),
   });
 }
 
@@ -149,5 +162,53 @@ describe('POST — which milestone gets marked, and when it refuses', () => {
     const body = await res.json();
     expect(res.status).toBe(409);
     expect(body.error.code).toBe('PAYMENT_ALREADY_RECORDED');
+  });
+});
+
+/**
+ * A receipt-less declaration must not erase a receipt somebody else filed (#339).
+ *
+ * The payer's own upload is allowed to fail without blocking the declaration
+ * (#85's decision), so `receipt_url` was written unconditionally — as `null`
+ * whenever the body carried no `receipt_path`. That was harmless only while
+ * nothing else could set the column. Wiring the owner-side upload made it
+ * destructive: the owner files the comprobante their client sent over
+ * WhatsApp, the milestone stays `pending` (filing evidence is not confirming a
+ * payment), so it remains the target of the public POST — and the same client
+ * submitting a receipt-less declaration afterwards wipes the evidence out of
+ * Cobranza and out of the accountant export, silently.
+ */
+describe('POST — a declaration without a receipt does not erase one (#339)', () => {
+  it('omits receipt_url entirely when the body carries no receipt_path', async () => {
+    state.milestones = [{ id: 'm-1', due_date: '2026-09-01', status: 'pending' }];
+    state.updatedRows = [{ id: 'm-1' }];
+    const { POST } = await getRoute();
+
+    const res = await POST(postRequest(), params);
+
+    expect(res.status).toBe(200);
+    // Not "is null" — the key must be absent, so the column keeps its value.
+    expect(state.lastUpdate?.values).not.toHaveProperty('receipt_url');
+    // The rest of the declaration still lands.
+    expect(state.lastUpdate?.values).toMatchObject({
+      status: 'marked_paid',
+      tracking_reference: 'SPEI123',
+      transferred_amount: 1000,
+    });
+  });
+
+  it('still writes the receipt when the payer did attach one', async () => {
+    state.milestones = [{ id: 'm-1', due_date: '2026-09-01', status: 'pending' }];
+    state.updatedRows = [{ id: 'm-1' }];
+    const { POST } = await getRoute();
+
+    const res = await POST(
+      postRequest({ receipt_path: 'org-1/spei_m-1_1234.png' }),
+      params
+    );
+
+    expect(res.status).toBe(200);
+    expect(state.lastUpdate?.values).toHaveProperty('receipt_url');
+    expect(String(state.lastUpdate?.values?.receipt_url)).toContain('spei_m-1_1234.png');
   });
 });

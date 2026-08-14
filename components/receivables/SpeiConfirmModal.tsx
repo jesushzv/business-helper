@@ -7,6 +7,9 @@ import { Modal } from '@/components/shared/Modal';
 import { normalizeNumericInput, numericInputValue, parseNumericInput } from '@/lib/numericInput';
 import { expectedSettlementAmount } from '@/lib/receivablesCalculator';
 
+/** Mirrors the bucket's own 5 MB limit and `lib/speiValidator.ts`. */
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
+
 interface SpeiConfirmModalProps {
   isOpen: boolean;
   milestone: MilestoneWithClient | null;
@@ -86,6 +89,19 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   const handleUpload = async (file: File) => {
     if (!onUploadReceipt || !milestone) return;
     setUploadError(null);
+
+    // Said here rather than left to the server. A phone photo over the limit
+    // exceeds Vercel's request-body cap before the route's own check runs, so
+    // the answer comes back as a non-JSON error and reduces to a generic "no
+    // se pudo subir" that never mentions size. The payer-facing page states
+    // the limit up front for the same reason.
+    if (file.size > MAX_RECEIPT_BYTES) {
+      setUploadError(
+        'El archivo pesa más de 5 MB. Toma la foto en menor calidad o sube el PDF del banco.'
+      );
+      return;
+    }
+
     setUploading(true);
     try {
       const outcome = await onUploadReceipt(milestone.id, file);
@@ -236,9 +252,12 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
               caller: only the payer could ever attach evidence, so a receipt
               that arrived as a WhatsApp image had nowhere to go.
 
-              `capture="environment"` so the phone offers the camera as well as
-              the gallery — the owner is doing this from the chat thread the
-              image arrived in. */}
+              Deliberately **no** `capture` attribute. It reads like "offer the
+              camera too", but it tells the UA to *use* the capture device —
+              Chrome on Android and iOS Safari open the camera straight away and
+              skip the photo library and the Files picker. The receipt is
+              already in the gallery, having arrived over WhatsApp, and a PDF
+              would be unreachable entirely. */}
           {onUploadReceipt && (
             <div>
               <label
@@ -251,7 +270,6 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
                 id="speiconfirmmodal-comprobante"
                 type="file"
                 accept="image/png,image/jpeg,application/pdf"
-                capture="environment"
                 disabled={uploading}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -327,16 +345,21 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
             </button>
           </div>
         ) : (
+          /* Both are held while an upload is in flight. Closing the modal
+             mid-upload left the request running with nowhere to report to: a
+             green "Pago confirmado" appeared and the owner was never told the
+             comprobante had not been filed (#339 review). */
           <div className="flex gap-3 pt-2">
             <button
               onClick={onClose}
-              className="flex-1 min-h-[48px] px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-sm transition-colors"
+              disabled={uploading}
+              className="flex-1 min-h-[48px] px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-sm transition-colors disabled:opacity-60"
             >
               Cancelar
             </button>
             <button
               onClick={handleConfirm}
-              disabled={loading}
+              disabled={loading || uploading}
               className="flex-1 min-h-[48px] px-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-md"
             >
               {loading ? (

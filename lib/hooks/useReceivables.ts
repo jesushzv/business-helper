@@ -523,7 +523,16 @@ export function useReceivables() {
     // The status is deliberately untouched. Filing evidence is not the same
     // claim as "this was paid" — confirming is its own deliberate act, with
     // its own capability gate and its own complemento de pago behind it.
-    const updated = applyRowUpdate(id, { receipt_url: uploaded.url });
+    //
+    // The row the PUT returned wins over the URL the upload reported: the
+    // route re-selects after writing, so that is what is actually stored, and
+    // preferring the local value would be applying a patch next to the server
+    // row it was meant to reflect (#33/#50/#59).
+    const stored =
+      typeof (saved as { receipt_url?: unknown } | null)?.receipt_url === 'string'
+        ? (saved as { receipt_url: string }).receipt_url
+        : uploaded.url;
+    const updated = applyRowUpdate(id, { receipt_url: stored });
     if (!updated) return { success: false, error: 'Cobro no encontrado' };
     return { success: true, milestone: updated };
   };

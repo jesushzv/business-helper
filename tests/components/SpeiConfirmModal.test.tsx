@@ -402,14 +402,58 @@ describe('filing the comprobante from Cobranza (#339)', () => {
 
   const fileInput = () => screen.getByLabelText(/comprobante/i) as HTMLInputElement;
 
-  it('accepts a photo or a PDF and offers the camera on a phone', () => {
+  it('accepts a photo or a PDF and does not force the camera', () => {
     renderWithUpload(async () => ok());
 
-    // Don Roberto is filing an image that arrived in a WhatsApp thread.
     expect(fileInput().getAttribute('accept')).toContain('image/');
     expect(fileInput().getAttribute('accept')).toContain('application/pdf');
-    expect(fileInput().getAttribute('capture')).toBe('environment');
+    // `capture` does not "also offer" the camera — it tells the UA to *use*
+    // the capture device, and Chrome on Android and iOS Safari then open it
+    // directly, skipping the photo library and the Files picker. The receipt
+    // already exists in the gallery, having arrived over WhatsApp, and a PDF
+    // would be unreachable entirely. This assertion once pinned the opposite.
+    expect(fileInput().getAttribute('capture')).toBeNull();
     expect(fileInput().className).toContain('min-h-[48px]');
+  });
+
+  it('refuses a file over the bucket limit before sending it', async () => {
+    // A 6 MB phone photo exceeds Vercel's request-body cap before the route's
+    // own 5 MB check runs, so the answer comes back as a non-JSON error and
+    // reduces to a message that never mentions size.
+    const onUploadReceipt = vi.fn(
+      async (_id: string, _file: File): Promise<ReceivableMutationOutcome> => ok()
+    );
+    renderWithUpload(onUploadReceipt);
+
+    const big = new File([new Uint8Array(6 * 1024 * 1024)], 'grande.jpg', { type: 'image/jpeg' });
+    fireEvent.change(fileInput(), { target: { files: [big] } });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/5 MB/i);
+    expect(onUploadReceipt).not.toHaveBeenCalled();
+  });
+
+  it('holds Cancelar and Confirmar while an upload is in flight', async () => {
+    // Closing mid-upload left the request running with nowhere to report to:
+    // a green "Pago confirmado" appeared and the owner was never told the
+    // comprobante had not been filed.
+    let release: (v: ReceivableMutationOutcome) => void = () => {};
+    renderWithUpload(
+      () => new Promise<ReceivableMutationOutcome>((resolve) => { release = resolve; })
+    );
+
+    fireEvent.change(fileInput(), { target: { files: [file()] } });
+
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: /Cancelar/i }) as HTMLButtonElement).disabled).toBe(true)
+    );
+    expect((screen.getByRole('button', { name: /Confirmar Pago/i }) as HTMLButtonElement).disabled).toBe(true);
+
+    release(ok());
+
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: /Cancelar/i }) as HTMLButtonElement).disabled).toBe(false)
+    );
   });
 
   it('renders the stored receipt the server returned, and only after it returned it', async () => {
