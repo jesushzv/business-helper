@@ -253,13 +253,14 @@ export function useQuotes() {
   };
 
   /** Applies a status locally. Only legitimate once the server has confirmed it
-   *  (or in demo mode, where local state is the only state). */
-  const applyStatusLocally = (id: string, status: string): Quote | undefined => {
+   *  (or in demo mode, where local state is the only state). `extra` carries
+   *  sibling fields the same confirmation established (converted_contract_id). */
+  const applyStatusLocally = (id: string, status: string, extra?: Partial<Quote>): Quote | undefined => {
     let updated: Quote | undefined;
     setQuotes((prev) => {
       const next = prev.map((q) => {
         if (q.id === id) {
-          updated = { ...q, status: status as Quote['status'], updated_at: new Date().toISOString() };
+          updated = { ...q, ...extra, status: status as Quote['status'], updated_at: new Date().toISOString() };
           return updated;
         }
         return q;
@@ -305,7 +306,9 @@ export function useQuotes() {
     return saved;
   };
 
-  const convertToContract = async (quoteId: string): Promise<ContractResult> => {
+  const convertToContract = async (
+    quoteId: string
+  ): Promise<ContractResult & { warning?: string }> => {
     const targetQuote = quotes.find((q) => q.id === quoteId);
     if (!targetQuote) throw new Error('Cotización no encontrada');
 
@@ -339,6 +342,19 @@ export function useQuotes() {
 
     const saved = await res.json().catch(() => null);
 
+    // Partial success: the contract and its schedule exist; only the quote's
+    // own status flip failed. Thrown as "No se pudo convertir", the tenant was
+    // told nothing happened while a payment schedule sat live in Cobranza
+    // (#283). The quote deliberately stays un-flipped locally — the server
+    // still holds the old status, and the next convert tap resumes and heals.
+    if (saved?.error?.code === 'QUOTE_STATUS_NOT_UPDATED' && saved?.contract) {
+      return {
+        contract: saved.contract,
+        milestones: saved.milestones || [],
+        warning: saved.error.message as string,
+      };
+    }
+
     if (!res.ok || !saved?.contract) {
       throw new Error(
         (typeof saved?.error === 'string' && saved.error) ||
@@ -347,7 +363,11 @@ export function useQuotes() {
       );
     }
 
-    applyStatusLocally(quoteId, 'converted');
+    // The server flipped the quote; mirror the row it now holds — status alone
+    // left converted_contract_id stale in local state (#283).
+    applyStatusLocally(quoteId, 'converted', {
+      converted_contract_id: saved.contract?.id ?? null,
+    });
     return { contract: saved.contract, milestones: saved.milestones || [] };
   };
 

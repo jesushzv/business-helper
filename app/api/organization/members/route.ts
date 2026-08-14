@@ -198,13 +198,17 @@ export async function POST(request: Request) {
     const invitedRole = role.toLowerCase() as UserRole;
 
     // Re-inviting the same address replaces the previous pending link rather
-    // than leaving two redeemable tokens outstanding.
+    // than leaving two redeemable tokens outstanding. `.eq`, never `ilike`:
+    // `%`/`_` are LIKE wildcards, and one stray `%` in the typed address used
+    // to revoke every pending invitation in the organization (#289). Rows are
+    // stored normalized, so equality on the normalized address is the
+    // case-insensitive match the ilike was there for.
     await supabase
       .from('organization_invitations')
       .update({ status: 'revoked' })
       .eq('organization_id', organizationId)
       .eq('status', 'pending')
-      .ilike('email', normalizedEmail);
+      .eq('email', normalizedEmail);
 
     const { token, tokenHash } = generateInvitationToken();
 

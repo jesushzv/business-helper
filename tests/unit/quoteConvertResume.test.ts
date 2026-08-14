@@ -37,6 +37,8 @@ let existingMilestones: Array<Record<string, unknown>> = [];
 /** Set per test: the error the contract / milestone insert answers with. */
 let contractInsertError: { code: string; message: string } | null = null;
 let milestoneInsertError: { code: string; message: string } | null = null;
+/** Set per test: the error the quote status flip answers with (#283). */
+let quoteUpdateError: { code: string; message: string } | null = null;
 
 const QUOTE = {
   id: 'quote-1',
@@ -68,7 +70,7 @@ function quotesTable() {
         : { data: null, error: null },
     update: (values: Record<string, unknown>) => {
       quoteUpdates.push(values);
-      return { eq: () => ({ eq: async () => ({ error: null }) }) };
+      return { eq: () => ({ eq: async () => ({ error: quoteUpdateError }) }) };
     },
   };
   return builder;
@@ -214,6 +216,7 @@ beforeEach(() => {
   existingMilestones = [];
   contractInsertError = null;
   milestoneInsertError = null;
+  quoteUpdateError = null;
   contractLookups = 0;
 });
 
@@ -228,6 +231,23 @@ describe('POST /api/quotes/[id]/convert — fresh conversion', () => {
     // The positions are what the #222 unique index collides on.
     expect(milestoneInserts[0].map((m) => m.conversion_position)).toEqual([1, 2]);
     expect(quoteUpdates[0]).toMatchObject({ status: 'converted' });
+  });
+});
+
+describe('POST /api/quotes/[id]/convert — status flip fails (#283)', () => {
+  it('answers QUOTE_STATUS_NOT_UPDATED carrying the contract and schedule it created', async () => {
+    quoteUpdateError = { code: '57014', message: 'canceling statement due to statement timeout' };
+
+    const res = await convert();
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error.code).toBe('QUOTE_STATUS_NOT_UPDATED');
+    // The partial success travels with the refusal: the contract and its
+    // milestones exist, and without them in the body the client could only
+    // report "No se pudo convertir" over a live payment schedule.
+    expect(body.contract).toMatchObject({ id: 'contract-new' });
+    expect(body.milestones).toHaveLength(2);
   });
 });
 

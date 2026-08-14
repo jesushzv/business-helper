@@ -70,8 +70,17 @@ export function hasCapability(role: UserRole | string, capability: Capability): 
   return capabilities.has(capability);
 }
 
+/**
+ * An address shape, not just "contains @": `%@%` passed the old check and rode
+ * into an unescaped `ilike` that revoked every pending invitation in the
+ * organization (#289). One local part, one domain with a dot, no whitespace.
+ * The revocation itself now matches with `.eq`, so LIKE wildcards in a real
+ * address (`_` is common) stay inert rather than being rejected here.
+ */
+const INVITE_EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function validateInviteInput(email: string, role: string): { isValid: boolean; error?: string } {
-  if (!email || typeof email !== 'string' || !email.includes('@')) {
+  if (!email || typeof email !== 'string' || !INVITE_EMAIL_SHAPE.test(email.trim())) {
     return { isValid: false, error: 'Correo electrónico inválido' };
   }
 

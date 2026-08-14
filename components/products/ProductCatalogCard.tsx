@@ -25,12 +25,15 @@ export function ProductCatalogCard() {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState<boolean>(false);
 
-  // New product form state
+  // New product form state. The unit/clave defaults are the deliberately
+  // permitted convenience pair (pinned in placeholderIdentifiers.test.ts).
+  const DEFAULT_UNIT = 'E48';
+  const DEFAULT_SAT_CODE = '84111506';
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [unitPrice, setUnitPrice] = useState('');
-  const [unit, setUnit] = useState('E48');
-  const [satCode, setSatCode] = useState('84111506');
+  const [unit, setUnit] = useState(DEFAULT_UNIT);
+  const [satCode, setSatCode] = useState(DEFAULT_SAT_CODE);
   const [stockQuantity, setStockQuantity] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,6 +58,11 @@ export function ProductCatalogCard() {
         setDescription('');
         setUnitPrice('');
         setStockQuantity('');
+        // The clave and unidad reset with the rest: left standing, the cement
+        // clave pre-filled the next concept — already "filled", so nothing
+        // prompted a change — and rode into that CFDI at stamping (#294).
+        setUnit(DEFAULT_UNIT);
+        setSatCode(DEFAULT_SAT_CODE);
         setTimeout(() => {
           setShowAddModal(false);
           setFormSuccess(false);

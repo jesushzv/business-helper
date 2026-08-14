@@ -239,13 +239,22 @@ export default function QuotesPage() {
                   // and its Spanish copy rules (#99), so the outcome goes
                   // through the same dialog every other action uses.
                   try {
-                    const { milestones } = await convertToContract(id);
+                    const { milestones, warning } = await convertToContract(id);
                     const count = milestones.length;
+                    // `warning` is the partial-success case (#283): the
+                    // contract and cobros exist, only the quote's status flip
+                    // failed — reporting that as "No se pudo convertir" hid a
+                    // live payment schedule from the tenant. The route's own
+                    // Spanish names what happened; retrying heals the status.
                     result.succeed({
                       title: 'Contrato creado',
-                      message: `La cotización ya es un contrato con ${count} ${
-                        count === 1 ? 'cobro programado' : 'cobros programados'
-                      }.`,
+                      message: warning
+                        ? `${warning}. Tus ${count} ${
+                            count === 1 ? 'cobro programado ya está' : 'cobros programados ya están'
+                          } en Cobranza; vuelve a convertirla para corregir el estado.`
+                        : `La cotización ya es un contrato con ${count} ${
+                            count === 1 ? 'cobro programado' : 'cobros programados'
+                          }.`,
                     });
                   } catch (err) {
                     result.fail(err, { title: 'No se pudo convertir' });

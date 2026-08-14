@@ -222,6 +222,16 @@ export function InvoiceManagerCard() {
       return;
     }
 
+    if (res.alreadyIssued) {
+      // A document already exists at the SAT — a fact about the invoice, not a
+      // stamp failure, so it renders in the green banner with the route's own
+      // words, beside the row the reload just flipped to "CFDI Emitido" (#264).
+      setStampedMessage(
+        res.message || `Un intento anterior ya había timbrado esta factura. Folio fiscal ${res.uuid}.`
+      );
+      return;
+    }
+
     const validity =
       res.environment === 'sandbox'
         ? ' Se emitió contra el entorno de pruebas de tu PAC: no tiene validez fiscal.'
