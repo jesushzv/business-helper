@@ -168,3 +168,40 @@ describe('the blocked-client notice (#340)', () => {
     expect(notice()).toBeNull();
   });
 });
+
+/**
+ * Sharing is what marks a quote sent (#61).
+ *
+ * The card's WhatsApp button is the moment the client actually receives the
+ * quote — `quote_sent` has fired here since #37/#56, with no state behind it.
+ */
+describe('the share action records that it was sent (#61)', () => {
+  const draft = { ...quote, status: 'draft' } as unknown as Quote;
+
+  it('reports the share, and still opens WhatsApp', () => {
+    const onShare = vi.fn();
+    render(<QuoteCard quote={draft} client={clientWithPhone} onShare={onShare} />);
+
+    const share = screen.getByRole('link', { name: /Enviar por WhatsApp/i });
+    fireEvent.click(share);
+
+    expect(onShare).toHaveBeenCalledWith(draft.id);
+    // The message is never held behind the status write.
+    expect(share).toHaveAttribute('href', expect.stringContaining('wa.me'));
+  });
+
+  it('shows Borrador until that has happened', () => {
+    render(<QuoteCard quote={draft} client={clientWithPhone} />);
+
+    expect(screen.getByText('Borrador')).toBeTruthy();
+    expect(screen.queryByText('Enviada')).toBeNull();
+  });
+
+  it('does not break a card given no share handler', () => {
+    render(<QuoteCard quote={draft} client={clientWithPhone} />);
+
+    fireEvent.click(screen.getByRole('link', { name: /Enviar por WhatsApp/i }));
+
+    expect(screen.getByText('Borrador')).toBeTruthy();
+  });
+});

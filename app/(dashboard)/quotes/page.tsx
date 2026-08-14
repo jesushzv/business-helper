@@ -28,6 +28,7 @@ export default function QuotesPage() {
     createQuote,
     convertToContract,
     deleteQuote,
+    promoteQuoteToSent,
   } = useQuotes();
   const confirmAction = useConfirm();
   const { role } = useCurrentOrg();
@@ -265,6 +266,11 @@ export default function QuotesPage() {
                 creditBlocked={
                   clientsError || !client ? null : client.credit_status === 'blocked'
                 }
+                // A quote becomes "Enviada" when it is shared, not when it is
+                // written (#61). Errors are deliberately swallowed here: the
+                // message has gone either way, and the badge staying on
+                // Borrador is the under-claim.
+                onShare={(id) => promoteQuoteToSent(id).catch(() => {})}
                 onDelete={
                   canDelete
                     ? (id) => {

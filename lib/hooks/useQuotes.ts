@@ -185,7 +185,17 @@ export function useQuotes() {
       retencion_iva_amount: totals.retencionIvaAmount,
       total_amount: totals.totalAmount,
       currency: (data.currency as 'MXN' | 'USD') || 'MXN',
-      status: 'sent' as const,
+      // `status` is deliberately absent, so `quotes.status` applies its own
+      // default of 'draft' (#61). Hardcoding 'sent' made every quote claim
+      // the client had received it at the moment it was written — but the
+      // wizard's button generates the quote and the WhatsApp message is a
+      // *separate* tap on QuoteCard afterwards, so a vendor who created one
+      // and closed the app had a quote marked "Enviada" that nobody had seen.
+      // Sharing is what makes it sent; `promoteQuoteToSent` below does that,
+      // through the server.
+      //
+      // Omitted rather than set to 'draft' explicitly: the column already
+      // carries the answer, and one fewer place to disagree with it.
       valid_until: data.valid_until || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       notes: data.notes || '',
       // Null, not omitted: "no account named" is a meaning this column carries
@@ -201,6 +211,9 @@ export function useQuotes() {
     if (isClientDemoMode()) {
       const localQuote: Quote = {
         ...payload,
+        // The sandbox has no column to default from, so it states what the
+        // database would have chosen (#61).
+        status: 'draft',
         id: `quote-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         organization_id: 'org-demo-1',
         created_by: 'user-demo-1',
@@ -271,6 +284,32 @@ export function useQuotes() {
       return next;
     });
     return updated;
+  };
+
+  /**
+   * Marks a quote as sent, at the moment it is actually shared (#61).
+   *
+   * "Sent" is a claim about the client, and until now it was made at
+   * creation: `createQuote` hardcoded `status: 'sent'` while the WhatsApp
+   * message is a separate tap afterwards. The two funnel events #37/#56 wired
+   * — `quote_created` on the write, `quote_sent` on the share — had no state
+   * behind them, so the one drop-off worth measuring (quotes made but never
+   * sent) was invisible, and `draft` was a dead option on the status filter.
+   *
+   * Only a `draft` is promoted. A quote already `accepted` or `converted`
+   * must not be walked backwards by re-sharing its link, and re-sharing a
+   * `sent` one is not new information.
+   *
+   * The share itself is never blocked on this: the WhatsApp message opens
+   * regardless, and a failed promotion leaves the quote reading `Borrador`.
+   * That is the honest direction to fail — the client may have received a
+   * message the product did not record, and under-claiming beats asserting a
+   * delivery that nothing confirmed.
+   */
+  const promoteQuoteToSent = async (id: string): Promise<void> => {
+    const quote = quotes.find((q) => q.id === id);
+    if (!quote || quote.status !== 'draft') return;
+    await updateQuoteStatus(id, 'sent');
   };
 
   // The old version flipped status first and discarded the response, so a
@@ -429,6 +468,7 @@ export function useQuotes() {
     fetchQuotes,
     createQuote,
     updateQuoteStatus,
+    promoteQuoteToSent,
     convertToContract,
     deleteQuote,
     resetDemoQuotes,

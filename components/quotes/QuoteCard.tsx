@@ -47,6 +47,16 @@ interface QuoteCardProps {
    * would be the UI inventing a refusal the server does not make.
    */
   creditBlocked?: boolean | null;
+  /**
+   * Records that the quote has actually been shared with the client (#61).
+   *
+   * The WhatsApp link opens regardless of what this does — the owner's message
+   * is not held behind a status write. A failure leaves the quote reading
+   * `Borrador`, which is the honest direction to fail: the client may have
+   * received a message the product did not record, and under-claiming beats
+   * asserting a delivery nothing confirmed.
+   */
+  onShare?: (quoteId: string) => void | Promise<void>;
 }
 
 export const QuoteCard: React.FC<QuoteCardProps> = ({
@@ -55,6 +65,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({
   onConvert,
   onDelete,
   creditBlocked = null,
+  onShare,
 }) => {
   const [converting, setConverting] = useState(false);
 
@@ -145,7 +156,13 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => track('quote_sent', { organization_id: quote.organization_id, quote_id: quote.id })}
+              onClick={() => {
+                track('quote_sent', { organization_id: quote.organization_id, quote_id: quote.id });
+                // Fire-and-forget on purpose: `target="_blank"` means this tab
+                // survives, so the write completes, and awaiting it would put
+                // a network round-trip between the tap and WhatsApp opening.
+                void onShare?.(quote.id);
+              }}
               className="flex-1 min-h-[48px] px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-950/40 text-xs sm:text-sm whitespace-nowrap"
             >
               <MessageSquare className="w-4 h-4 shrink-0" />
