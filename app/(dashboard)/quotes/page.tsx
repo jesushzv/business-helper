@@ -251,13 +251,16 @@ export default function QuotesPage() {
                         if (!target) return;
                         confirmAction.ask({
                           title: 'Eliminar cotización',
-                          // A 'sent' quote's /q/ link is already in the
-                          // client's hands; deleting it retires that link.
-                          // Name the cost before the tap (#99).
+                          // Any non-draft quote's /q/ link may already be in
+                          // the client's hands (rejected/expired were sent
+                          // once, and the loaded status can be stale); name
+                          // the retired link for all of them rather than
+                          // branching on a state another session may have
+                          // outrun (#99).
                           consequence:
-                            target.status === 'sent'
-                              ? `«${target.title}» se eliminará de forma permanente y el enlace para firmar que compartiste con tu cliente dejará de funcionar.`
-                              : `«${target.title}» se eliminará de forma permanente.`,
+                            target.status === 'draft'
+                              ? `«${target.title}» se eliminará de forma permanente.`
+                              : `«${target.title}» se eliminará de forma permanente y el enlace para firmar que compartiste con tu cliente dejará de funcionar.`,
                           confirmLabel: 'Sí, eliminar cotización',
                           onConfirm: async () => {
                             // Caught here: a throw would leave ConfirmDialog

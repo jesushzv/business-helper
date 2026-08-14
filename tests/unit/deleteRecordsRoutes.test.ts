@@ -13,10 +13,12 @@ import { join } from 'path';
  * defect manufactured on purpose) and a milestone with payments or a CFDI
  * (whose complementos CASCADE away with it).
  *
- * These pin three properties per route: the delete_records gate holds, the
- * guard travels inside the DELETE statement itself (not a read-then-delete),
- * and a refused deletion answers with a Spanish 409 naming why — never a 404
- * that reads as "already gone".
+ * These pin the properties per route: the delete_records gate holds; the
+ * status guards travel inside the DELETE statement itself; the cross-table
+ * facts a status cannot carry (a #218 partially-converted quote's live
+ * contract, an in-flight stamp claim) are checked before the destruction; and
+ * a refused deletion answers with a Spanish 409 naming why — never a 404 that
+ * reads as "already gone".
  */
 
 const authState = {
@@ -24,23 +26,28 @@ const authState = {
 };
 
 /**
- * Every `.maybeSingle()` shifts the next answer off this queue, in call
- * order — first the DELETE's returning row, then (when the route classifies a
- * zero-row delete) the follow-up SELECT.
+ * Per-table answer queues: every `.maybeSingle()` shifts the next answer off
+ * the queue for the table its chain was created with, defaulting to no-row.
+ * The routes consult more than one table now (quotes → contracts first,
+ * milestones → cfdi_stamp_claims first), so a single flat queue would couple
+ * the tests to call order.
  */
 const dbState = {
-  results: [] as Array<{ data: unknown; error: unknown }>,
-  chains: [] as Array<Record<string, ReturnType<typeof vi.fn>>>,
+  tables: {} as Record<string, Array<{ data: unknown; error: unknown }>>,
+  chains: [] as Array<{ table: string } & Record<string, ReturnType<typeof vi.fn>>>,
 };
+
+const ROW_OK = { data: { id: 'row-1' }, error: null };
+const NO_ROW = { data: null, error: null };
 
 function makeSupabaseMock() {
   return {
-    from: vi.fn(() => {
-      const chain: Record<string, ReturnType<typeof vi.fn>> = {};
+    from: vi.fn((table: string) => {
+      const chain = { table } as { table: string } & Record<string, ReturnType<typeof vi.fn>>;
       for (const method of ['delete', 'select', 'eq', 'in']) {
         chain[method] = vi.fn().mockReturnValue(chain);
       }
-      chain.maybeSingle = vi.fn(async () => dbState.results.shift() ?? { data: null, error: null });
+      chain.maybeSingle = vi.fn(async () => dbState.tables[table]?.shift() ?? NO_ROW);
       dbState.chains.push(chain);
       return chain;
     }),
@@ -78,21 +85,25 @@ const RESTRICT_ERROR = {
   details: 'Key (id)=(row-1) is still referenced from table "quotes".',
 };
 
+function chainsFor(table: string) {
+  return dbState.chains.filter((c) => c.table === table);
+}
+
 beforeEach(() => {
   authState.role = 'owner';
-  dbState.results = [];
+  dbState.tables = {};
   dbState.chains = [];
 });
 
 describe('the delete_records gate holds on every data-delete route', () => {
   const routes = [
-    ['clients', () => import('@/app/api/clients/[id]/route')],
-    ['quotes', () => import('@/app/api/quotes/[id]/route')],
-    ['products', () => import('@/app/api/products/[id]/route')],
-    ['receivables', () => import('@/app/api/receivables/[id]/route')],
+    ['clients', 'clients', () => import('@/app/api/clients/[id]/route')],
+    ['quotes', 'quotes', () => import('@/app/api/quotes/[id]/route')],
+    ['products', 'products', () => import('@/app/api/products/[id]/route')],
+    ['receivables', 'milestones', () => import('@/app/api/receivables/[id]/route')],
   ] as const;
 
-  it.each(routes)('rejects a member deleting a %s row with 403, before touching the database', async (_name, load) => {
+  it.each(routes)('rejects a member deleting a %s row with 403, before touching the database', async (_name, _table, load) => {
     authState.role = 'member';
     const { DELETE } = await load();
     const res = await DELETE(req(), { params });
@@ -102,16 +113,16 @@ describe('the delete_records gate holds on every data-delete route', () => {
     expect(dbState.chains).toHaveLength(0);
   });
 
-  it.each(routes)('rejects an accountant deleting a %s row', async (_name, load) => {
+  it.each(routes)('rejects an accountant deleting a %s row', async (_name, _table, load) => {
     authState.role = 'accountant';
     const { DELETE } = await load();
     const res = await DELETE(req(), { params });
     expect(res.status).toBe(403);
   });
 
-  it.each(routes)('lets a manager delete a %s row', async (_name, load) => {
+  it.each(routes)('lets a manager delete a %s row', async (_name, table, load) => {
     authState.role = 'manager';
-    dbState.results = [{ data: { id: 'row-1' }, error: null }];
+    dbState.tables = { [table]: [ROW_OK] };
     const { DELETE } = await load();
     const res = await DELETE(req(), { params });
     expect(res.status).toBe(200);
@@ -120,7 +131,7 @@ describe('the delete_records gate holds on every data-delete route', () => {
 
 describe('DELETE /api/clients/[id] — a client with history is refused honestly', () => {
   it('maps the RESTRICT 23503 to a 409 naming cotizaciones y contratos', async () => {
-    dbState.results = [{ data: null, error: RESTRICT_ERROR }];
+    dbState.tables = { clients: [{ data: null, error: RESTRICT_ERROR }] };
     const { DELETE } = await import('@/app/api/clients/[id]/route');
     const res = await DELETE(req(), { params });
 
@@ -133,23 +144,23 @@ describe('DELETE /api/clients/[id] — a client with history is refused honestly
   });
 
   it('deletes a history-free client and scopes by organization', async () => {
-    dbState.results = [{ data: { id: 'row-1' }, error: null }];
+    dbState.tables = { clients: [ROW_OK] };
     const { DELETE } = await import('@/app/api/clients/[id]/route');
     const res = await DELETE(req(), { params });
 
     expect(res.status).toBe(200);
-    const chain = dbState.chains[0];
+    const chain = chainsFor('clients')[0];
     expect(chain.eq).toHaveBeenCalledWith('organization_id', 'org-1');
   });
 });
 
 describe('DELETE /api/quotes/[id] — signed and converted quotes are not deletable', () => {
   it('carries the status precondition inside the DELETE itself', async () => {
-    dbState.results = [{ data: { id: 'row-1' }, error: null }];
+    dbState.tables = { quotes: [ROW_OK] };
     const { DELETE } = await import('@/app/api/quotes/[id]/route');
     await DELETE(req(), { params });
 
-    const chain = dbState.chains[0];
+    const chain = chainsFor('quotes')[0];
     const inCall = chain.in.mock.calls.find(([column]) => column === 'status');
     expect(inCall).toBeDefined();
     const statuses = inCall![1] as string[];
@@ -160,11 +171,33 @@ describe('DELETE /api/quotes/[id] — signed and converted quotes are not deleta
     expect(statuses).not.toContain('converted');
   });
 
+  it('refuses a quote whose contract exists even while its status is still deletable (#218)', async () => {
+    // The partial-conversion state: contract + milestones inserted, the final
+    // status flip failed, quote still 'sent'. Status alone would delete it,
+    // SET-NULL the contract's quote_id, and kill the /pay/ link plus the #218
+    // resume path.
+    dbState.tables = { contracts: [{ data: { id: 'contract-1' }, error: null }] };
+    const { DELETE } = await import('@/app/api/quotes/[id]/route');
+    const res = await DELETE(req(), { params });
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.code).toBe('QUOTE_PROTECTED');
+    expect(body.error.message).toMatch(/contrato/i);
+    // The quote itself must not have been touched.
+    expect(chainsFor('quotes')).toHaveLength(0);
+    // And the contract lookup is org-scoped like every other read.
+    const contractChain = chainsFor('contracts')[0];
+    expect(contractChain.eq).toHaveBeenCalledWith('organization_id', 'org-1');
+  });
+
   it('answers 409 QUOTE_PROTECTED — not 404 — when the quote exists in a protected status', async () => {
-    dbState.results = [
-      { data: null, error: null }, // the guarded DELETE matches no row
-      { data: { status: 'converted' }, error: null }, // the classifying read finds it
-    ];
+    dbState.tables = {
+      quotes: [
+        NO_ROW, // the guarded DELETE matches no row
+        { data: { status: 'converted' }, error: null }, // the classifying read finds it
+      ],
+    };
     const { DELETE } = await import('@/app/api/quotes/[id]/route');
     const res = await DELETE(req(), { params });
 
@@ -175,10 +208,7 @@ describe('DELETE /api/quotes/[id] — signed and converted quotes are not deleta
   });
 
   it('still answers 404 when the quote does not exist in this organization', async () => {
-    dbState.results = [
-      { data: null, error: null },
-      { data: null, error: null },
-    ];
+    dbState.tables = { quotes: [NO_ROW, NO_ROW] };
     const { DELETE } = await import('@/app/api/quotes/[id]/route');
     const res = await DELETE(req(), { params });
     expect(res.status).toBe(404);
@@ -188,22 +218,34 @@ describe('DELETE /api/quotes/[id] — signed and converted quotes are not deleta
 
 describe('DELETE /api/receivables/[id] — a cobro with movement is a money record', () => {
   it('deletes only a pending milestone with no CFDI, enforced inside the DELETE', async () => {
-    dbState.results = [{ data: { id: 'row-1' }, error: null }];
+    dbState.tables = { milestones: [ROW_OK] };
     const { DELETE } = await import('@/app/api/receivables/[id]/route');
     const res = await DELETE(req(), { params });
 
     expect(res.status).toBe(200);
-    const chain = dbState.chains[0];
+    const chain = chainsFor('milestones')[0];
     expect(chain.eq).toHaveBeenCalledWith('status', 'pending');
     expect(chain.eq).toHaveBeenCalledWith('cfdi_status', 'none');
     expect(chain.eq).toHaveBeenCalledWith('organization_id', 'org-1');
   });
 
+  it('refuses a milestone with an in-flight stamp claim before touching the row', async () => {
+    // Between the claim insert and the cfdi_status flip, the milestone still
+    // reads pending/none; deleting it would CASCADE the claim away and leave
+    // a possible live SAT document with no reconciliation anchor.
+    dbState.tables = { cfdi_stamp_claims: [{ data: { milestone_id: 'row-1' }, error: null }] };
+    const { DELETE } = await import('@/app/api/receivables/[id]/route');
+    const res = await DELETE(req(), { params });
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.code).toBe('MILESTONE_PROTECTED');
+    expect(body.error.message).toMatch(/timbrado/i);
+    expect(chainsFor('milestones')).toHaveLength(0);
+  });
+
   it('answers 409 MILESTONE_PROTECTED for a milestone the guard excluded', async () => {
-    dbState.results = [
-      { data: null, error: null },
-      { data: { id: 'row-1' }, error: null },
-    ];
+    dbState.tables = { milestones: [NO_ROW, ROW_OK] };
     const { DELETE } = await import('@/app/api/receivables/[id]/route');
     const res = await DELETE(req(), { params });
 
@@ -214,10 +256,7 @@ describe('DELETE /api/receivables/[id] — a cobro with movement is a money reco
   });
 
   it('answers the conventional Spanish envelope on not-found, not a bare English string', async () => {
-    dbState.results = [
-      { data: null, error: null },
-      { data: null, error: null },
-    ];
+    dbState.tables = { milestones: [NO_ROW, NO_ROW] };
     const { DELETE } = await import('@/app/api/receivables/[id]/route');
     const res = await DELETE(req(), { params });
     expect(res.status).toBe(404);

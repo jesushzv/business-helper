@@ -18,6 +18,23 @@ import { ProductCatalogCard } from '@/components/products/ProductCatalogCard';
  * catalog is only as good as the row behind it.
  */
 
+/**
+ * The card reads the caller's role to decide whether to render the delete
+ * control at all. Mocked so the card's own fetch expectations below stay
+ * about the catalog — and so the role each case needs is explicit.
+ */
+const orgState = { role: 'owner' as string | null };
+vi.mock('@/lib/hooks/useCurrentOrg', () => ({
+  useCurrentOrg: () => ({
+    org: null,
+    role: orgState.role,
+    user: null,
+    denied: null,
+    loading: false,
+    signOut: vi.fn(),
+  }),
+}));
+
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -58,6 +75,7 @@ async function openForm() {
 }
 
 beforeEach(() => {
+  orgState.role = 'owner';
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
@@ -164,5 +182,20 @@ describe('deleting a product', () => {
     // #98's defect was the opposite: the row vanished locally and came back on
     // reload. A failed delete must leave it visible.
     expect(screen.getByText('Impermeabilizante acrílico 19L')).toBeTruthy();
+  });
+
+  it.each(['member', 'accountant'])(
+    'renders no delete control for a %s — the route refuses them with 403 now',
+    async (role) => {
+      orgState.role = role;
+      await renderLoaded();
+      expect(screen.queryByRole('button', { name: /^Eliminar$/i })).toBeNull();
+    }
+  );
+
+  it('keeps the control while the role is still unknown — the route enforces it regardless', async () => {
+    orgState.role = null;
+    await renderLoaded();
+    expect(screen.getByRole('button', { name: /^Eliminar$/i })).toBeTruthy();
   });
 });

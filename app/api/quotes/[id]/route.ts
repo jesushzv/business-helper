@@ -165,6 +165,37 @@ export async function DELETE(
   try {
     const { id } = await params;
 
+    // A quote's status only says "no contract hangs off this" after the
+    // conversion's *last* step. The convert route is non-transactional and
+    // does not require 'accepted' (#218): a sent/draft quote can hold a live
+    // contract and milestones while its status flip failed — still deletable
+    // by the status guard below, and `contracts.quote_id` is ON DELETE SET
+    // NULL, so the delete would orphan the contract and destroy the
+    // /pay/[token] walk and the #218 resume path with it. Contract existence
+    // lives in another table, so no in-DELETE filter can express it; this
+    // read closes the persistent partial state, and the FK decision that
+    // would close the remaining race atomically is #328.
+    const { data: attachedContract } = await supabase
+      .from('contracts')
+      .select('id')
+      .eq('quote_id', id)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (attachedContract) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'QUOTE_PROTECTED',
+            message:
+              'Esta cotización ya generó un contrato con cobros programados, ' +
+              'así que forma parte de tu historial y no se puede eliminar.',
+          },
+        },
+        { status: 409 }
+      );
+    }
+
     // The status precondition rides inside the DELETE itself (the #286
     // pattern): a separate read-then-delete would let the quote get signed
     // between the check and the destruction.

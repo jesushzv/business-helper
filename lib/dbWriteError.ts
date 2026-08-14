@@ -289,8 +289,12 @@ export function describeDbWriteError(
     // from table …", per ON DELETE RESTRICT): nothing vanished, and telling
     // the tenant to reload sends them in a circle. Postgres wording tells the
     // two apart; the fixture in dbWriteError.test.ts pins both phrasings.
+    // The verb is the deterministic signal: deleting a row can only violate
+    // FKs pointing *at* it, so on `eliminar` a 23503 is always this direction
+    // — the wording check alone would route a localized (non-English) server's
+    // refusal into the wrong-direction message below.
     const haystack = `${e.message || ''} ${e.details || ''}`;
-    if (/still referenced/i.test(haystack)) {
+    if (verb === 'eliminar' || /still referenced/i.test(haystack)) {
       return describe({
         status: 409,
         code: 'HAS_REFERENCES',

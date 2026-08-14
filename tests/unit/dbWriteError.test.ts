@@ -126,6 +126,27 @@ describe('describeDbWriteError', () => {
     expect(bareRestrict.message).toContain('registros relacionados');
   });
 
+  it('classifies a delete\'s 23503 by the verb, not by the server\'s English wording', () => {
+    // Deleting a row can only violate FKs pointing *at* it, so on `eliminar`
+    // a 23503 is always the RESTRICT direction. A server with non-English
+    // lc_messages would defeat the wording check and route the refusal into
+    // the wrong-direction "recarga la página" message.
+    const failure = describeDbWriteError(
+      {
+        code: '23503',
+        message:
+          'update o delete en «clients» viola la llave foránea «quotes_client_id_fkey» en la tabla «quotes»',
+        details: 'La llave (id)=(abc) todavía es referenciada desde la tabla «quotes».',
+      },
+      'el cliente',
+      'DELETE /api/clients/[id]',
+      { verb: 'eliminar' }
+    );
+
+    expect(failure.status).toBe(409);
+    expect(failure.code).toBe('HAS_REFERENCES');
+  });
+
   it('falls back to a 500 it does not pretend to understand', () => {
     const failure = describeDbWriteError(
       { code: '08006', message: 'connection failure' },

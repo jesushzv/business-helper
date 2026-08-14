@@ -111,6 +111,34 @@ export async function DELETE(
   try {
     const { id } = await params;
 
+    // A stamp claim means an invoice run is (or was) in flight for this
+    // milestone: between the claim insert and the cfdi_status flip the row
+    // still reads pending/none, and deleting it would CASCADE the claim away
+    // (cfdi_stamp_claims.milestone_id) — leaving a possible live SAT document
+    // with no milestone and no reconciliation anchor. The remaining
+    // insert-after-this-read race is the FK decision in #328; whether a
+    // signed contract's schedule may be edited at all is #329.
+    const { data: stampClaim } = await supabase
+      .from('cfdi_stamp_claims')
+      .select('milestone_id')
+      .eq('milestone_id', id)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (stampClaim) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'MILESTONE_PROTECTED',
+            message:
+              'Este cobro tiene una factura en proceso de timbrado, ' +
+              'así que no se puede eliminar.',
+          },
+        },
+        { status: 409 }
+      );
+    }
+
     // Only a milestone nothing has happened to yet may be deleted. Once the
     // payment loop starts (`requested`/`marked_paid`/`confirmed`) or a CFDI
     // exists for it, the row is a money/fiscal record — and deleting it would
