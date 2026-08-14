@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { createServiceClient, isDemoDeployment, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { QUOTE_REFUSAL, quoteSignableState } from '@/lib/quoteSignability';
 import { verifyStoredOTP, generateDigitalSeal, OTP_MAX_ATTEMPTS } from '@/lib/otpSeal';
 import { publicApiError } from '@/lib/publicApiError';
 import { publicDbWriteErrorResponse } from '@/lib/dbWriteError';
@@ -34,6 +35,12 @@ const PUBLIC_QUOTE_COLUMNS = [
 
 function demoQuote(token: string) {
   return {
+    // Only ever served by the marketing sandbox (isDemoDeployment) — never as
+    // a fallback for a missing service key. A deployment can be fully live for
+    // tenants while the service key is absent, and this fixture in front of a
+    // real tenant's client is a $97,440 quote about nothing they asked for,
+    // with a live sign button under it (#259).
+    is_demo: true,
     id: 'quote-public-1',
     title: 'Propuesta Comercial — Suministro de Materiales de Obra',
     line_items: [
@@ -64,8 +71,20 @@ export async function GET(
 ) {
   const { token } = await params;
 
-  if (!isServiceRoleConfigured()) {
+  // Two different absences (#259). The marketing sandbox has no database and
+  // serves its labeled fixture. A configured deployment whose *service key* is
+  // missing is broken, not demo: it fails closed rather than showing a real
+  // tenant's client an invented quote.
+  if (isDemoDeployment()) {
     return NextResponse.json(demoQuote(token));
+  }
+
+  if (!isServiceRoleConfigured()) {
+    return publicApiError(
+      503,
+      'BACKEND_NOT_CONFIGURED',
+      'No se pudo cargar la cotización. Intente de nuevo más tarde.'
+    );
   }
 
   try {
@@ -110,10 +129,14 @@ export async function POST(
   const { token } = await params;
 
   if (!isServiceRoleConfigured()) {
+    // Covers the sandbox and the broken deployment alike: neither may sign.
+    // The copy no longer claims "modo demo" — a live deployment missing its
+    // service key is not a demo, and telling a real signer it is misleads
+    // them about whose problem this is (#259).
     return publicApiError(
       503,
       'BACKEND_NOT_CONFIGURED',
-      'La firma digital no está disponible en modo demo'
+      'La firma digital no está disponible en este momento. Intente de nuevo más tarde.'
     );
   }
 
@@ -129,7 +152,7 @@ export async function POST(
     const { data: quote, error: fetchError } = await (supabase as any)
       .from('quotes')
       .select(
-        'id, status, organization_id, total_amount, client_otp_hash, client_otp_expires_at, client_otp_attempts, client_otp_verified, contract_hash, accepted_at, clients(name)'
+        'id, status, valid_until, organization_id, total_amount, client_otp_hash, client_otp_expires_at, client_otp_attempts, client_otp_verified, contract_hash, accepted_at, clients(name)'
       )
       .eq('public_token', token)
       .maybeSingle();
@@ -138,22 +161,31 @@ export async function POST(
       return publicApiError(404, 'QUOTE_NOT_FOUND', 'Cotización no encontrada');
     }
 
-    // Already signed: return the existing seal instead of re-signing, so a
-    // replayed request cannot mint a second signature over the same quote.
-    if (quote.client_otp_verified) {
-      return NextResponse.json({
-        success: true,
-        status: 'accepted',
-        contract_hash: quote.contract_hash,
-        accepted_at: quote.accepted_at,
-      });
-    }
-
-    if (!['sent', 'accepted'].includes(quote.status)) {
+    // One predicate decides signability for this route, the OTP route and the
+    // page (lib/quoteSignability):
+    //
+    // - Already signed answers 409, never `success: true` (#293). It used to
+    //   return the success shape *before* any OTP verification, so anyone
+    //   holding the shared link could POST `{"otpCode":"000000"}` and watch
+    //   "¡Firma Aceptada con Éxito!" for a signature they did not perform —
+    //   and the modal could not tell "you just signed" from "someone already
+    //   did". The DB was never mutated; the fabrication was the report. The
+    //   sibling OTP route already answered this state with 409.
+    // - Expiry is enforced (#258): nothing compared `valid_until` to today, so
+    //   an expired quote could still mint "evidencia legal certificada" at
+    //   stale prices.
+    const state = quoteSignableState(quote);
+    if (state !== 'signable') {
+      const refusal = QUOTE_REFUSAL[state];
       return publicApiError(
         409,
-        'QUOTE_NOT_SIGNABLE',
-        'Esta cotización no está disponible para firma'
+        refusal.code,
+        refusal.message,
+        // The already-signed case carries the existing seal so the modal can
+        // hand the page its sealed view — data, not a claimed success.
+        state === 'already_signed'
+          ? { contract_hash: quote.contract_hash, accepted_at: quote.accepted_at }
+          : undefined
       );
     }
 

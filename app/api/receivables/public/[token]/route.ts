@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { createServiceClient, isDemoDeployment, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { publicApiError } from '@/lib/publicApiError';
 import {
   resolveQuoteAccount,
@@ -57,8 +57,19 @@ export async function GET(
 ) {
   const { token } = await params;
 
-  if (!isServiceRoleConfigured()) {
+  // Same split as the quote sibling (#259): the sandbox serves its labeled
+  // fixture; a configured deployment missing only the service key is broken
+  // and fails closed instead of rendering demo bank details to a real payer.
+  if (isDemoDeployment()) {
     return NextResponse.json({ milestone: DEMO_MILESTONE });
+  }
+
+  if (!isServiceRoleConfigured()) {
+    return publicApiError(
+      503,
+      'BACKEND_NOT_CONFIGURED',
+      'No se pudo cargar el cobro. Intente de nuevo más tarde.'
+    );
   }
 
   try {
@@ -163,7 +174,9 @@ export async function POST(
     return publicApiError(
       503,
       'BACKEND_NOT_CONFIGURED',
-      'El registro de pagos no está disponible en modo demo'
+      // Covers the sandbox and a broken deployment alike; "modo demo" would
+      // mislead a real payer about whose problem this is (#259).
+      'El registro de pagos no está disponible en este momento. Intente de nuevo más tarde.'
     );
   }
 

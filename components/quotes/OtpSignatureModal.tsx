@@ -23,6 +23,14 @@ interface OtpSignatureModalProps {
   publicToken: string;
   clientName: string;
   onSuccess: (cryptoseal: string) => void;
+  /**
+   * The server answered 409 QUOTE_ALREADY_SIGNED: someone signed this quote
+   * before this attempt. Not `onSuccess` — the caller did not sign anything
+   * (#293) — but the page behind the modal should swap to its sealed view.
+   * `seal` is the existing signature's hash, `null` on legacy rows that were
+   * verified before the hash column carried one.
+   */
+  onAlreadySigned?: (seal: string | null) => void;
 }
 
 const MAX_ATTEMPTS = 3;
@@ -41,6 +49,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
   publicToken,
   clientName,
   onSuccess,
+  onAlreadySigned,
 }) => {
   const [otpCode, setOtpCode] = useState<string>('');
   const [remaining, setRemaining] = useState<number>(MAX_ATTEMPTS);
@@ -108,12 +117,25 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
       const data = await res.json();
 
       if (!res.ok || !data?.success) {
+        // Already signed is a refusal, not this caller's success (#293): the
+        // route used to answer `success: true` here before any OTP check, so
+        // anyone holding the link could POST a junk code and read "¡Firma
+        // Aceptada con Éxito!" for a signature they never performed. The
+        // message names the fact; the page behind swaps to its sealed view.
+        if (data?.error?.code === 'QUOTE_ALREADY_SIGNED') {
+          setError(data?.error?.message || 'Esta cotización ya fue firmada.');
+          onAlreadySigned?.(typeof data?.contract_hash === 'string' ? data.contract_hash : null);
+          return;
+        }
         setError(data?.error?.message || 'Código OTP incorrecto');
         if (typeof data?.remaining === 'number') setRemaining(data.remaining);
         if (data?.expired) setSent(false);
         return;
       }
 
+      // Only a response that actually verified this caller's OTP reaches here
+      // (#293's edge: a legacy verified row with no hash now answers 409 above,
+      // so `success: true` always carries the seal it just minted).
       setSuccessSeal(data.contract_hash);
       setTimeout(() => {
         onSuccess(data.contract_hash);

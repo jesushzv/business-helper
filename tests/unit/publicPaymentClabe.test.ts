@@ -15,6 +15,10 @@ const quoteState: { account: Record<string, unknown> | null } = { account: null 
 
 vi.mock('@/lib/supabase/service', () => ({
   isServiceRoleConfigured: () => true,
+  // Vitest leaves NEXT_PUBLIC_SUPABASE_URL unset, which the real function
+  // reads as the sandbox — and the sandbox serves its fixture instead of the
+  // logic under test (#259's gate).
+  isDemoDeployment: () => false,
   createServiceClient: () => ({
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),

@@ -27,7 +27,9 @@ const REAL_QUOTE = {
   total_amount: 41760,
   currency: 'MXN',
   status: 'sent',
-  valid_until: '2026-09-15',
+  // Dynamic: the page now enforces expiry (#258), so a hardcoded date would
+  // have every case below start failing the day it passes.
+  valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   notes: 'Garantía de 5 años.',
   public_token: 'real-token-123',
   contract_hash: null,
@@ -140,5 +142,77 @@ describe('PublicQuotePage (/q/[token])', () => {
     );
     expect(screen.getByText('sealed-hash-abc')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Aceptar y Firmar/i })).toBeNull();
+  });
+});
+
+/**
+ * #282 — the page's only branch was "sealed or sign button", so a converted,
+ * rejected or draft quote showed a live "Aceptar y Firmar" whose OTP request
+ * the server always refuses: a wall mid-flow, on a link the tenant sent. And
+ * with expiry now enforced server-side (#258), an expired quote needs the same
+ * treatment — the button would dead-end identically.
+ */
+describe('a quote that cannot be signed does not offer to be', () => {
+  it.each([
+    ['converted', /ya se convirtió en contrato/i],
+    ['rejected', /fue rechazada/i],
+    ['draft', /todavía no está lista para firma/i],
+  ])('renders the %s state plainly, with no sign button', async (status, copy) => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ...REAL_QUOTE, status }));
+
+    render(<PublicQuotePage />);
+
+    await waitFor(() => expect(screen.getByText(copy)).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /Aceptar y Firmar/i })).toBeNull();
+  });
+
+  it('renders the expired state for a quote past its valid_until (#258)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { ...REAL_QUOTE, valid_until: '2026-08-01' })
+    );
+
+    render(<PublicQuotePage />);
+
+    await waitFor(() => expect(screen.getByText(/ya venció/i)).toBeInTheDocument());
+    // Names the date and the way forward. Scoped: the header's "Válida hasta"
+    // line also carries the date.
+    expect(screen.getByText(/Era válida hasta el 2026-08-01/i)).toBeInTheDocument();
+    expect(screen.getByText(/cotización actualizada/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Aceptar y Firmar/i })).toBeNull();
+  });
+
+  it('still offers WhatsApp contact on a non-signable quote when the org has a phone', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        ...REAL_QUOTE,
+        valid_until: '2026-08-01',
+        organizations: { ...REAL_QUOTE.organizations, phone: '+528112345678' },
+      })
+    );
+
+    render(<PublicQuotePage />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /Contactar al negocio/i })).toBeInTheDocument()
+    );
+  });
+
+  it('shows a signed quote as signed even after its window closed', async () => {
+    // The signature already happened; "venció" would be false news.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        ...REAL_QUOTE,
+        status: 'accepted',
+        valid_until: '2026-08-01',
+        contract_hash: 'sealed-hash-abc',
+      })
+    );
+
+    render(<PublicQuotePage />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/Propuesta Aceptada y Firmada/i)).toBeInTheDocument()
+    );
+    expect(screen.queryByText(/ya venció/i)).toBeNull();
   });
 });

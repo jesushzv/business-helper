@@ -104,7 +104,11 @@ describe('what the payer is shown before paying', () => {
   it('shows the amount, the CLABE and the beneficiary the API returned', async () => {
     await renderLoaded();
 
-    expect(screen.getByText('012180001234567897')).toBeTruthy();
+    // Grouped for the payer transcribing into a banking app (#285) — this
+    // assertion used to pin the 18 unbroken digits, holding the defect in
+    // place (hard rule #7).
+    expect(screen.getByText('0121 8000 1234 5678 97')).toBeTruthy();
+    expect(screen.queryByText('012180001234567897')).toBeNull();
     expect(screen.getByText('Impermeabilizantes Cavazos SA de CV')).toBeTruthy();
     expect(screen.getByText(/\$24,500\.00/)).toBeTruthy();
     expect(screen.getByText('BBVA')).toBeTruthy();
@@ -368,5 +372,65 @@ describe('the marketing demo, and only it, may simulate the write', () => {
     // The read happened; the write never did — and that is the *only* branch
     // allowed to short-circuit it, before the fetch rather than in a catch.
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * #285 — the copy button claimed a clipboard write it never verified.
+ *
+ * `navigator.clipboard.writeText()` was neither awaited nor caught, and the ✓
+ * "CLABE copiada" state was set unconditionally — so a rejected write (denied
+ * permission, insecure context) still showed the payer a confirmation, on the
+ * number they are about to wire money to, plus an unhandled rejection.
+ */
+describe('the CLABE copy button claims only a write that happened', () => {
+  it('shows the copied state after the clipboard accepts', async () => {
+    const writeText = vi.fn(async () => undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    await renderLoaded();
+
+    fireEvent.click(screen.getByRole('button', { name: /Copiar CLABE/i }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /CLABE copiada/i })).toBeTruthy());
+    // The raw 18 digits, not the display grouping.
+    expect(writeText).toHaveBeenCalledWith('012180001234567897');
+  });
+
+  it('does not claim "copiada" when the clipboard refuses', async () => {
+    const writeText = vi.fn(async () => {
+      throw new DOMException('Write permission denied', 'NotAllowedError');
+    });
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    await renderLoaded();
+
+    fireEvent.click(screen.getByRole('button', { name: /Copiar CLABE/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: /CLABE copiada/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /Copiar CLABE/i })).toBeTruthy();
+  });
+});
+
+/**
+ * #259 — the route labels its sandbox fixture `is_demo: true`, and the page
+ * read the flag nowhere: sample bank details rendered indistinguishably from
+ * real ones.
+ */
+describe('demo data announces itself', () => {
+  it('banners the sample-data warning when the milestone is the demo fixture', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { milestone: { ...MILESTONE, is_demo: true, clabe: null } })
+    );
+    render(<PublicPayPortalPage />);
+    await screen.findByText('Anticipo 50%');
+
+    expect(screen.getByText(/datos de ejemplo/i)).toBeTruthy();
+    expect(screen.getByText(/no transfieras dinero/i)).toBeTruthy();
+  });
+
+  it('shows no such banner on a real cobro', async () => {
+    await renderLoaded();
+
+    expect(screen.queryByText(/datos de ejemplo/i)).toBeNull();
   });
 });

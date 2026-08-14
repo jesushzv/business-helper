@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { validateTrackingReference, validateReceiptFile } from '@/lib/speiValidator';
+import { formatClabe } from '@/lib/clabe';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { getOrganizationBranding, generateThemeCssVariables } from '@/lib/branding';
 import { Building2, Upload, CheckCircle2, ShieldCheck, Copy, Check, FileText } from 'lucide-react';
@@ -17,11 +18,21 @@ interface PublicMilestone {
   client_name?: string;
   org_name?: string;
   bank_name?: string;
-  /** Always present when the API returns a milestone; it 409s when the org has no account. */
-  clabe: string;
+  /**
+   * Present when the API returns a real milestone; it 409s when the org has no
+   * account. `null` on the sandbox fixture — the old `string` type is how an
+   * empty CLABE box rendered next to a copy button that silently no-oped (#259).
+   */
+  clabe: string | null;
   beneficiary?: string;
   tracking_reference?: string;
   receipt_url?: string;
+  /**
+   * Set by the route's sandbox fixture and read nowhere until #259: the page
+   * rendered demo bank details indistinguishably from real ones, with the
+   * declaration form fully enabled in front of a POST that always 503s.
+   */
+  is_demo?: boolean;
 }
 
 export default function PublicPayPortalPage() {
@@ -94,11 +105,18 @@ export default function PublicPayPortalPage() {
   const branding = getOrganizationBranding({ companyName: milestone?.org_name || undefined });
   const cssVars = generateThemeCssVariables(branding);
 
-  const handleCopyClabe = () => {
-    if (milestone?.clabe) {
-      navigator.clipboard.writeText(milestone.clabe);
+  const handleCopyClabe = async () => {
+    if (!milestone?.clabe) return;
+    // Awaited and caught (#285): `writeText` rejects on denied permission or an
+    // insecure context, and the unawaited call showed ✓ "CLABE copiada" for a
+    // clipboard that still held whatever was there before — on the number the
+    // payer is about to wire money to. No claim without the write.
+    try {
+      await navigator.clipboard.writeText(milestone.clabe);
       setCopiedClabe(true);
       setTimeout(() => setCopiedClabe(false), 2500);
+    } catch {
+      setCopiedClabe(false);
     }
   };
 
@@ -331,6 +349,21 @@ export default function PublicPayPortalPage() {
           </div>
         </div>
 
+        {/* The route labels its sandbox fixture and this page now reads it
+            (#259 — `is_demo` was referenced nowhere): a visitor exploring the
+            demo must never mistake sample bank details for an account that
+            expects their money. Defense in depth — the route also refuses to
+            serve the fixture to a configured deployment. */}
+        {milestone.is_demo && (
+          <div
+            role="status"
+            className="rounded-2xl border border-amber-500/30 bg-amber-950/60 p-4 text-xs font-bold text-amber-300"
+          >
+            Estás viendo una demostración con datos de ejemplo. Aquí no hay ningún cobro real: no
+            transfieras dinero.
+          </div>
+        )}
+
         {/* SPEI Bank Transfer Details Card */}
         <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 rounded-3xl p-6 shadow-2xl border border-indigo-500/30 text-white space-y-4">
           <div className="flex items-center justify-between">
@@ -352,7 +385,11 @@ export default function PublicPayPortalPage() {
               <span className="text-xs text-slate-400 block font-medium">CLABE Interbancaria (18 dígitos)</span>
               {milestone.clabe ? (
                 <div className="flex items-center justify-between mt-1 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
-                  <span className="min-w-0 break-all font-mono text-lg font-bold tracking-wider text-white">{milestone.clabe}</span>
+                  {/* Grouped like every internal surface (#285): the payer
+                      transcribing into a banking app is the one place 18
+                      unbroken digits hurts most. The copy button still copies
+                      the raw digits. */}
+                  <span className="min-w-0 break-all font-mono text-lg font-bold tracking-wider text-white">{formatClabe(milestone.clabe)}</span>
                   <button
                     type="button"
                     onClick={handleCopyClabe}

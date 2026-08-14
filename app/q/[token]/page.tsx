@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { OtpSignatureModal } from '@/components/quotes/OtpSignatureModal';
 import { getOrganizationBranding, generateThemeCssVariables } from '@/lib/branding';
-import { ShieldCheck, CheckCircle, Calendar, Building, Sparkles, MessageSquare } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Calendar, Building, Sparkles, MessageSquare, Clock } from 'lucide-react';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
+import { quoteSignableState } from '@/lib/quoteSignability';
 
 /**
  * Public quote portal — what the client opens from the WhatsApp link.
@@ -47,6 +48,10 @@ export default function PublicQuotePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isOtpOpen, setIsOtpOpen] = useState<boolean>(false);
   const [signedSeal, setSignedSeal] = useState<string | null>(null);
+  // Signed, but this session holds no hash to show: the modal learned mid-flow
+  // that someone signed first (#293), or a legacy row verified before the hash
+  // column carried one. Signed with no printable folio, never "sign again".
+  const [signedWithoutSeal, setSignedWithoutSeal] = useState<boolean>(false);
 
   useEffect(() => {
     if (!token) {
@@ -124,6 +129,34 @@ export default function PublicQuotePage() {
   const lineItems = quote.line_items || [];
   const clientDisplayName = quote.clients?.name || 'Cliente';
   const signerName = quote.clients?.contact_name || quote.clients?.name || 'Cliente';
+
+  // The same predicate the OTP and signing routes apply (#282, #258). The only
+  // branch here used to be "sealed or sign button", so a converted, rejected,
+  // draft or expired quote showed a live "Aceptar y Firmar" whose OTP request
+  // the server refuses — a wall mid-flow, on a link the tenant sent.
+  const signState =
+    signedSeal || signedWithoutSeal ? 'already_signed' : quoteSignableState(quote);
+
+  const unavailableCopy: Record<string, { title: string; detail: string }> = {
+    expired: {
+      title: 'Esta cotización ya venció',
+      detail: quote.valid_until
+        ? `Era válida hasta el ${quote.valid_until}. Pídele al negocio una cotización actualizada para poder firmarla.`
+        : 'Pídele al negocio una cotización actualizada para poder firmarla.',
+    },
+    converted: {
+      title: 'Esta propuesta ya se convirtió en contrato',
+      detail: 'No hace falta firmarla de nuevo. Si tienes dudas, contacta directamente al negocio.',
+    },
+    rejected: {
+      title: 'Esta cotización fue rechazada',
+      detail: 'Si quieres continuar, pídele al negocio una nueva propuesta.',
+    },
+    not_yet_sent: {
+      title: 'Esta cotización todavía no está lista para firma',
+      detail: 'Pídele al negocio que te la envíe cuando esté lista.',
+    },
+  };
 
   return (
     <div style={cssVars as React.CSSProperties} className="min-h-screen bg-slate-950 py-6 px-4 sm:px-6 text-white">
@@ -232,14 +265,43 @@ export default function PublicQuotePage() {
           )}
 
           {/* Signature State or Action Buttons */}
-          {signedSeal ? (
+          {signState === 'already_signed' ? (
             <div className="bg-emerald-950/80 border border-emerald-500/30 rounded-2xl p-5 text-center space-y-2">
               <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
               <h4 className="text-base font-extrabold text-white">Propuesta Aceptada y Firmada</h4>
               <p className="text-xs text-emerald-300">Firma registrada con evidencia legal certificada.</p>
-              <p className="text-[10px] font-mono text-emerald-400 break-all bg-slate-950/80 p-2 rounded-xl border border-emerald-500/30">
-                {signedSeal}
+              {signedSeal && (
+                <p className="text-[10px] font-mono text-emerald-400 break-all bg-slate-950/80 p-2 rounded-xl border border-emerald-500/30">
+                  {signedSeal}
+                </p>
+              )}
+            </div>
+          ) : signState !== 'signable' ? (
+            <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-5 text-center space-y-2">
+              <Clock className="w-10 h-10 text-amber-400 mx-auto" />
+              <h4 className="text-base font-extrabold text-white">
+                {unavailableCopy[signState]?.title || 'Esta cotización no está disponible para firma'}
+              </h4>
+              <p className="text-xs text-slate-300">
+                {unavailableCopy[signState]?.detail ||
+                  'Si tienes dudas, contacta directamente al negocio.'}
               </p>
+              {/* Change requests still make sense here — more than ever for an
+                  expired quote. */}
+              {quote.organizations?.phone && (
+                <a
+                  href={generateWhatsAppLink(
+                    quote.organizations.phone,
+                    `Hola, sobre la cotización "${quote.title}": quisiera una versión actualizada.`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 w-full min-h-[48px] px-6 py-3.5 border border-slate-700 bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-slate-200 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  <MessageSquare className="w-5 h-5 text-emerald-400" />
+                  <span>Contactar al negocio por WhatsApp</span>
+                </a>
+              )}
             </div>
           ) : (
             <div className="space-y-3 pt-2">
@@ -289,6 +351,13 @@ export default function PublicQuotePage() {
         clientName={signerName}
         onSuccess={(seal) => {
           setSignedSeal(seal);
+        }}
+        onAlreadySigned={(seal) => {
+          // Someone signed before this attempt (#293): the page swaps to the
+          // sealed view; the modal keeps its "ya fue firmada" message up until
+          // the visitor closes it.
+          if (seal) setSignedSeal(seal);
+          else setSignedWithoutSeal(true);
         }}
       />
     </div>

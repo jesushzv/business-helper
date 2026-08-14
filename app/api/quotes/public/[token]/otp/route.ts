@@ -12,6 +12,7 @@ import {
   type OtpLedgerClient,
 } from '@/lib/otpRateLimit';
 import { publicApiError } from '@/lib/publicApiError';
+import { QUOTE_REFUSAL, quoteSignableState } from '@/lib/quoteSignability';
 
 /**
  * Issues an OTP for a quote signature.
@@ -54,7 +55,7 @@ export async function POST(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: quote, error: fetchError } = await (supabase as any)
       .from('quotes')
-      .select('id, status, client_otp_sent_at, client_otp_verified, clients(phone, email)')
+      .select('id, status, valid_until, client_otp_sent_at, client_otp_verified, contract_hash, clients(phone, email)')
       .eq('public_token', token)
       .maybeSingle();
 
@@ -62,16 +63,13 @@ export async function POST(
       return publicApiError(404, 'QUOTE_NOT_FOUND', 'Cotización no encontrada');
     }
 
-    if (quote.client_otp_verified) {
-      return publicApiError(409, 'QUOTE_ALREADY_SIGNED', 'Esta cotización ya fue firmada');
-    }
-
-    if (!['sent', 'accepted'].includes(quote.status)) {
-      return publicApiError(
-        409,
-        'QUOTE_NOT_SIGNABLE',
-        'Esta cotización no está disponible para firma'
-      );
+    // Shared with the signing route and the page (lib/quoteSignability). The
+    // new refusal here is expiry (#258): issuing a code for a quote past
+    // `valid_until` is the first step of minting a seal at stale prices.
+    const state = quoteSignableState(quote);
+    if (state !== 'signable') {
+      const refusal = QUOTE_REFUSAL[state];
+      return publicApiError(409, refusal.code, refusal.message);
     }
 
     const channel = getDeliveryChannel();

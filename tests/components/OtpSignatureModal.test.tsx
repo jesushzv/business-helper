@@ -143,3 +143,102 @@ describe('a signer can complete the OTP flow', () => {
     expect(screen.getByText(/Intentos restantes: 2/i)).toBeTruthy();
   });
 });
+
+/**
+ * #293 — a signature someone else performed is not this caller's success.
+ *
+ * The route used to answer `{ success: true, contract_hash, … }` for an
+ * already-verified quote *before* checking the submitted code, and the modal
+ * read any `success: true` as "¡Firma Aceptada con Éxito!" — so a junk code
+ * POSTed against a signed quote showed a success screen for a signature the
+ * caller did not perform. The route now answers 409 QUOTE_ALREADY_SIGNED with
+ * the existing seal as data.
+ */
+describe('a quote someone already signed', () => {
+  function renderWithAlreadySigned() {
+    const onSuccess = vi.fn();
+    const onAlreadySigned = vi.fn();
+    render(
+      <OtpSignatureModal
+        isOpen
+        onClose={vi.fn()}
+        publicToken="tok-123"
+        clientName="Don Roberto"
+        onSuccess={onSuccess}
+        onAlreadySigned={onAlreadySigned}
+      />
+    );
+    return { onSuccess, onAlreadySigned };
+  }
+
+  async function reachVerifyAndSubmit(code = '000000') {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, channel: 'email' }));
+    fireEvent.click(sendButton());
+    await waitFor(() => expect(codeInput()).toBeTruthy());
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: { code: 'QUOTE_ALREADY_SIGNED', message: 'Esta cotización ya fue firmada.' },
+          contract_hash: 'sha256:someone-elses-seal',
+          accepted_at: '2026-08-01T10:00:00Z',
+        },
+        false,
+        409
+      )
+    );
+    fireEvent.change(codeInput(), { target: { value: code } });
+    fireEvent.click(signButton());
+  }
+
+  it('never shows the success screen for a signature this caller did not perform', async () => {
+    const { onSuccess } = renderWithAlreadySigned();
+    await reachVerifyAndSubmit();
+
+    await screen.findByText(/ya fue firmada/i);
+    expect(screen.queryByText(/¡Firma Aceptada con Éxito!/i)).toBeNull();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('hands the existing seal to the page so it can swap to its sealed view', async () => {
+    const { onAlreadySigned } = renderWithAlreadySigned();
+    await reachVerifyAndSubmit();
+
+    await waitFor(() =>
+      expect(onAlreadySigned).toHaveBeenCalledWith('sha256:someone-elses-seal')
+    );
+  });
+
+  it('passes null for a legacy row whose seal was never stored', async () => {
+    // The old edge: `success: true` with `contract_hash: null` rendered no
+    // success block, no error, and left the page on the unsigned view.
+    const onAlreadySigned = vi.fn();
+    render(
+      <OtpSignatureModal
+        isOpen
+        onClose={vi.fn()}
+        publicToken="tok-123"
+        clientName="Don Roberto"
+        onSuccess={vi.fn()}
+        onAlreadySigned={onAlreadySigned}
+      />
+    );
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, channel: 'email' }));
+    fireEvent.click(sendButton());
+    await waitFor(() => expect(codeInput()).toBeTruthy());
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        { error: { code: 'QUOTE_ALREADY_SIGNED', message: 'Esta cotización ya fue firmada.' } },
+        false,
+        409
+      )
+    );
+    fireEvent.change(codeInput(), { target: { value: '000000' } });
+    fireEvent.click(signButton());
+
+    await screen.findByText(/ya fue firmada/i);
+    expect(onAlreadySigned).toHaveBeenCalledWith(null);
+  });
+});
