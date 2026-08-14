@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /**
- * Email is the OTP launch channel (2026-08-11): the issue route resolves the
- * signer's recipient from the channel — `clients.email` on email, the phone on
- * the deprecated sms/whatsapp channels — and both the rate-limit key and the
- * delivery target are that same normalized value. These tests pin the
- * resolution, including the 422s that name the missing field instead of
- * charging a budget or calling a provider.
+ * Email is the OTP launch channel (2026-08-11; the deprecated sms/whatsapp
+ * channels were later removed): the issue route resolves the signer's
+ * recipient from the channel — `clients.email` on email, the phone on the dev
+ * console fallback — and both the rate-limit key and the delivery target are
+ * that same normalized value. These tests pin the resolution, including the
+ * 422s that name the missing field instead of charging a budget or calling a
+ * provider.
  */
 
 const deliverOtp = vi.fn();
@@ -124,28 +125,10 @@ describe('POST /api/quotes/public/[token]/otp — recipient resolution by channe
     expect(reserveOtpSend).not.toHaveBeenCalled();
   });
 
-  it('the deprecated sms channel still resolves the phone', async () => {
-    channel = 'sms';
-    deliverOtp.mockResolvedValue({ delivered: true, channel: 'sms', devCode: null });
+  it('console with no email and no phone answers 422 CLIENT_PHONE_MISSING', async () => {
+    channel = 'console';
     maybeSingle.mockResolvedValue({
-      data: quoteRow({ phone: '+528112223344', email: 'cliente@empresa.mx' }),
-      error: null,
-    });
-
-    const res = await POST(...issueRequest());
-
-    expect(res.status).toBe(200);
-    expect(deliverOtp).toHaveBeenCalledWith('+528112223344', expect.any(String));
-    expect(reserveOtpSend.mock.calls[0][1]).toMatchObject({
-      recipient: '+528112223344',
-      channel: 'sms',
-    });
-  });
-
-  it('sms with no phone still answers 422 CLIENT_PHONE_MISSING', async () => {
-    channel = 'sms';
-    maybeSingle.mockResolvedValue({
-      data: quoteRow({ phone: null, email: 'cliente@empresa.mx' }),
+      data: quoteRow({ phone: null, email: null }),
       error: null,
     });
 
