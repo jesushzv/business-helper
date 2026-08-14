@@ -1,4 +1,4 @@
-import { Header } from '@/components/layout/Header';
+import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { InvoiceManagerCard } from '@/components/invoices/InvoiceManagerCard';
 
 export const metadata = {
@@ -8,20 +8,12 @@ export const metadata = {
 
 export default function InvoicesPage() {
   return (
-    <>
-      <Header title="Facturación SAT CFDI 4.0" />
-      <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Facturación SAT & Exportación Contador
-          </h1>
-          <p className="text-sm sm:text-base text-slate-400 mt-1">
-            Timbra facturas CFDI 4.0 con el PAC que conectes y descarga el paquete mensual completo para tu contador.
-          </p>
-        </div>
-
-        <InvoiceManagerCard />
-      </div>
-    </>
+    <DashboardPageShell
+      headerTitle="Facturación SAT CFDI 4.0"
+      title="Facturación SAT & Exportación Contador"
+      subtitle="Timbra facturas CFDI 4.0 con el PAC que conectes y descarga el paquete mensual completo para tu contador."
+    >
+      <InvoiceManagerCard />
+    </DashboardPageShell>
   );
 }

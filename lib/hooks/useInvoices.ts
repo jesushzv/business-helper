@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { cfdiDocumentPath } from '@/lib/cfdiStorage';
 
 /**
  * Invoicing state for the facturación screen.
@@ -155,12 +156,8 @@ function toInvoiceItem(row: ReceivableRow): InvoiceItem {
       error: c.error || null,
       // Paths, not URLs, are what the row stores; the download route signs a
       // short-lived link per request.
-      xmlUrl: c.cfdi_xml_path
-        ? `/api/invoices/${milestoneId}/document?type=xml&complement=${c.id}`
-        : null,
-      pdfUrl: c.cfdi_pdf_path
-        ? `/api/invoices/${milestoneId}/document?type=pdf&complement=${c.id}`
-        : null,
+      xmlUrl: c.cfdi_xml_path ? cfdiDocumentPath(milestoneId, 'xml', c.id) : null,
+      pdfUrl: c.cfdi_pdf_path ? cfdiDocumentPath(milestoneId, 'pdf', c.id) : null,
     }));
 
   const total = toNumber(row.cfdi_total) > 0 ? toNumber(row.cfdi_total) : toNumber(row.amount);

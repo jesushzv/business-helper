@@ -104,11 +104,13 @@ describe('destructive-by-mistake and dead ends (#104)', () => {
   });
 
   it('loads the same way everywhere', () => {
-    // Skeletons on clients and the dashboard, bare centred text on these two.
+    // Skeletons everywhere: the list pages load through ListState, which owns
+    // the shared skeleton — no page may fall back to bare centred text.
     for (const file of ['app/(dashboard)/quotes/page.tsx', 'app/(dashboard)/receivables/page.tsx']) {
-      expect(read(file), `${file} should use the skeleton`).toContain('animate-pulse rounded-2xl');
+      expect(read(file), `${file} should use the shared scaffold`).toContain('<ListState');
       expect(read(file)).not.toContain('text-center text-slate-400 font-medium">Cargando');
     }
+    expect(read('components/shared/ListState.tsx')).toContain('animate-pulse rounded-2xl');
   });
 
   it('cools down the OTP resend instead of letting a double tap spend a send', () => {
@@ -119,8 +121,10 @@ describe('destructive-by-mistake and dead ends (#104)', () => {
   });
 
   it('stops the catálogo page printing its own title twice', () => {
+    // Through DashboardPageShell now: no headerTitle means the Header bar
+    // carries no title, so the page's name appears once.
     const products = read('app/(dashboard)/products/page.tsx');
-    expect(products).toContain('<Header />');
+    expect(products).not.toContain('headerTitle');
     // The <h1> stays — it is the page's heading for assistive tech.
     expect(products).toContain('Catálogo de Productos y Servicios');
   });

@@ -6,6 +6,7 @@ import { Award, MessageSquare, ArrowUpRight } from 'lucide-react';
 import { TopClientRevenue } from '@/lib/dashboardAnalytics';
 import { generateWhatsAppLink, buildClientGreeting } from '@/lib/whatsappLink';
 import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
+import { formatMXN } from '@/lib/currencyFormat';
 
 interface TopClientsCardProps {
   topClients: TopClientRevenue[];
@@ -20,13 +21,6 @@ interface TopClientsCardProps {
 
 export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients, hasClients = true }) => {
   const { org } = useCurrentOrg();
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-    }).format(val);
-  };
-
   // `null` = no score on record (#276): named as such, never scored as 100.
   const getHealthBadge = (score: number | null) => {
     if (score === null)
@@ -104,7 +98,7 @@ export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients, hasC
                   <div className="text-left sm:text-right">
                     <p className="text-[11px] text-slate-400">Total Cobrado</p>
                     <p className="font-mono text-base font-black text-emerald-400">
-                      {formatCurrency(client.totalRevenue)}
+                      {formatMXN(client.totalRevenue)}
                     </p>
                   </div>
 

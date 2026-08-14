@@ -163,7 +163,10 @@ vi.mock('@/lib/pacClient', () => ({
   }),
 }));
 
-vi.mock('@/lib/cfdiStorage', () => ({
+vi.mock('@/lib/cfdiStorage', async (importOriginal) => ({
+  // Real cfdiDocumentPath: the URL builder is pure and part of what the
+  // response carries; only the storage write is doubled.
+  ...(await importOriginal<typeof import('@/lib/cfdiStorage')>()),
   storeCFDIDocuments: async () => ({
     ok: true,
     paths: { xmlPath: 'org-1/x.xml', pdfPath: 'org-1/x.pdf' },

@@ -7,6 +7,7 @@ import { useClients } from '@/lib/hooks/useClients';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { QuoteWizardModal } from '@/components/quotes/QuoteWizardModal';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
+import { ListState } from '@/components/shared/ListState';
 import { Plus, Search, FileText, CheckCircle2, Clock, Send } from 'lucide-react';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
 import { getQuotePublicUrl } from '@/lib/url';
@@ -169,50 +170,40 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* Quotes Grid. Three states, not two (#97): a failed fetch must not
-          greet a tenant who has quotes with the create-your-first-quote CTA. */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-48 animate-pulse rounded-2xl bg-slate-800/80" />
-          ))}
-        </div>
-      ) : error ? (
-        <div role="alert" className="bg-rose-950/60 rounded-3xl border border-rose-500/30 p-12 text-center space-y-3">
-          <Clock className="w-12 h-12 text-rose-400 mx-auto" />
-          <h3 className="text-lg font-bold text-white">No pudimos cargar tus cotizaciones</h3>
-          <p className="text-sm text-rose-200 max-w-sm mx-auto">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="min-h-[48px] px-6 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-sm font-bold text-white transition-all active:scale-95"
-          >
-            Reintentar
-          </button>
-        </div>
-      ) : filteredQuotes.length === 0 ? (
-        <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-12 text-center space-y-3 text-white">
-          <Clock className="w-12 h-12 text-slate-600 mx-auto" />
-          <h3 className="text-lg font-bold text-white">
-            {isFiltering ? 'Ninguna cotización coincide' : 'Todavía no tienes cotizaciones'}
-          </h3>
-          <p className="text-sm text-slate-400 max-w-sm mx-auto">
-            {isFiltering
-              ? 'Prueba con otra búsqueda o quita el filtro para ver todas.'
-              : 'Comienza creando tu primera propuesta comercial en 3 pasos con cálculo de impuestos SAT.'}
-          </p>
-          {/* Offering "crear la primera" to someone whose filter is simply
-              hiding rows is the search-vs-empty conflation (#104). */}
-          {!isFiltering && (
-            <button
-              onClick={() => setIsWizardOpen(true)}
-              className="inline-flex min-h-[48px] px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl items-center gap-2 text-sm mt-2 shadow-md"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Nueva Cotización</span>
-            </button>
-          )}
-        </div>
-      ) : (
+      {/* Quotes Grid — ListState enforces three states, not two (#97): a
+          failed fetch must not greet a tenant who has quotes with the
+          create-your-first-quote CTA. */}
+      <ListState
+        loading={loading}
+        error={error}
+        isEmpty={filteredQuotes.length === 0}
+        icon={Clock}
+        errorTitle="No pudimos cargar tus cotizaciones"
+        empty={
+          <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-12 text-center space-y-3 text-white">
+            <Clock className="w-12 h-12 text-slate-600 mx-auto" />
+            <h3 className="text-lg font-bold text-white">
+              {isFiltering ? 'Ninguna cotización coincide' : 'Todavía no tienes cotizaciones'}
+            </h3>
+            <p className="text-sm text-slate-400 max-w-sm mx-auto">
+              {isFiltering
+                ? 'Prueba con otra búsqueda o quita el filtro para ver todas.'
+                : 'Comienza creando tu primera propuesta comercial en 3 pasos con cálculo de impuestos SAT.'}
+            </p>
+            {/* Offering "crear la primera" to someone whose filter is simply
+                hiding rows is the search-vs-empty conflation (#104). */}
+            {!isFiltering && (
+              <button
+                onClick={() => setIsWizardOpen(true)}
+                className="inline-flex min-h-[48px] px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-2xl items-center gap-2 text-sm mt-2 shadow-md"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Nueva Cotización</span>
+              </button>
+            )}
+          </div>
+        }
+      >
         <>
         {clientsError && (
           // The quotes are real; the client names are the failed half (#260).
@@ -256,7 +247,7 @@ export default function QuotesPage() {
           })}
         </div>
         </>
-      )}
+      </ListState>
 
       {/* Wizard Modal */}
       <QuoteWizardModal
