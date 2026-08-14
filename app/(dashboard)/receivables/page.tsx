@@ -23,6 +23,7 @@ export default function ReceivablesPage() {
     searchQuery,
     setSearchQuery,
     confirmPayment,
+    uploadReceipt,
   } = useReceivables();
 
   const { ready: settlementReady } = useSettlementAccount();
@@ -185,6 +186,10 @@ export default function ReceivablesPage() {
           setIsConfirmModalOpen(false);
           setSelectedMilestone(null);
         }}
+        // The client sends the comprobante over WhatsApp; the owner files it
+        // from here on their behalf (#339). The outcome is reported inside the
+        // modal — a failed upload must never read as a filed receipt.
+        onUploadReceipt={uploadReceipt}
         onConfirm={async (milestoneId, transferredAmount) => {
           const outcome = await confirmPayment(milestoneId, transferredAmount);
           // Announce only the clean case, from the server's own outcome. A

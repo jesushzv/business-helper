@@ -370,3 +370,102 @@ describe('the proposed amount follows the stamped invoice (#341)', () => {
     expect(amountInput().value).toBe('10000');
   });
 });
+
+/**
+ * Filing the comprobante from the owner's side (#339).
+ *
+ * `/api/receivables/[id]/upload` carried auth and org scoping and had no
+ * caller: only `/pay/[token]` could ever attach evidence, so a receipt that
+ * arrived as a WhatsApp image had nowhere to go. What the modal must never do
+ * is the reason that route needed hardening — report a receipt filed when it
+ * was not (#85/#58/#86).
+ */
+describe('filing the comprobante from Cobranza (#339)', () => {
+  const STORED = 'https://project.supabase.co/storage/v1/object/public/spei-vouchers/org-1/a.pdf';
+
+  const file = () => new File(['%PDF-1.4'], 'comprobante.pdf', { type: 'application/pdf' });
+
+  const renderWithUpload = (
+    onUploadReceipt: (id: string, file: File) => Promise<ReceivableMutationOutcome>,
+    milestone: MilestoneWithClient = MILESTONE
+  ) => {
+    render(
+      <SpeiConfirmModal
+        isOpen
+        milestone={milestone}
+        onClose={vi.fn()}
+        onConfirm={vi.fn(async () => ok())}
+        onUploadReceipt={vi.fn(onUploadReceipt)}
+      />
+    );
+  };
+
+  const fileInput = () => screen.getByLabelText(/comprobante/i) as HTMLInputElement;
+
+  it('accepts a photo or a PDF and offers the camera on a phone', () => {
+    renderWithUpload(async () => ok());
+
+    // Don Roberto is filing an image that arrived in a WhatsApp thread.
+    expect(fileInput().getAttribute('accept')).toContain('image/');
+    expect(fileInput().getAttribute('accept')).toContain('application/pdf');
+    expect(fileInput().getAttribute('capture')).toBe('environment');
+    expect(fileInput().className).toContain('min-h-[48px]');
+  });
+
+  it('renders the stored receipt the server returned, and only after it returned it', async () => {
+    renderWithUpload(async () => ({ success: true, milestone: { ...MILESTONE, receipt_url: STORED } }));
+
+    expect(screen.queryByRole('link', { name: /Ver Comprobante/i })).toBeNull();
+
+    fireEvent.change(fileInput(), { target: { files: [file()] } });
+
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /Ver Comprobante/i })).toHaveAttribute('href', STORED)
+    );
+  });
+
+  it('shows the failure and files nothing when the upload is rejected', async () => {
+    renderWithUpload(async () => ({
+      success: false,
+      error: 'El archivo no es una imagen PNG, JPG ni un documento PDF válido.',
+    }));
+
+    fireEvent.change(fileInput(), { target: { files: [file()] } });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/no es una imagen PNG/i);
+    // No link, because there is no stored receipt.
+    expect(screen.queryByRole('link', { name: /Ver Comprobante/i })).toBeNull();
+  });
+
+  it('passes the chosen file through to the handler', async () => {
+    const onUploadReceipt = vi.fn(
+      async (_id: string, _file: File): Promise<ReceivableMutationOutcome> => ok()
+    );
+    renderWithUpload(onUploadReceipt);
+
+    fireEvent.change(fileInput(), { target: { files: [file()] } });
+
+    await waitFor(() => expect(onUploadReceipt).toHaveBeenCalledTimes(1));
+    expect(onUploadReceipt.mock.calls[0][0]).toBe('m-1');
+    expect(onUploadReceipt.mock.calls[0][1].name).toBe('comprobante.pdf');
+  });
+
+  it('offers no upload control at all when no handler was given', () => {
+    // Better than a control that cannot work.
+    render(
+      <SpeiConfirmModal isOpen milestone={MILESTONE} onClose={vi.fn()} onConfirm={vi.fn(async () => ok())} />
+    );
+
+    expect(screen.queryByLabelText(/comprobante/i)).toBeNull();
+  });
+
+  it('never renders a blob: URL as a receipt link', () => {
+    // Dereferences only in the payer's own tab, so it is a dead link for the
+    // vendor. Rows written by pre-#85 clients still carry them (#85).
+    const withBlob = { ...MILESTONE, receipt_url: 'blob:http://localhost/abc' } as MilestoneWithClient;
+    renderWithUpload(async () => ok(), withBlob);
+
+    expect(screen.queryByRole('link', { name: /Ver Comprobante/i })).toBeNull();
+  });
+});

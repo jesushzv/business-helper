@@ -436,6 +436,98 @@ export function useReceivables() {
     return { success: false, error: errorMessage(body, 'No se pudo registrar el comprobante') };
   };
 
+  /**
+   * Files the comprobante the client sent over WhatsApp, on their behalf (#339).
+   *
+   * `/api/receivables/[id]/upload` is the authenticated twin of the public
+   * upload and had no caller at all: only `/pay/[token]` uploaded, so a client
+   * who sent their transfer receipt as a WhatsApp image gave the owner
+   * something the product had nowhere to put.
+   *
+   * Two steps, and the order matters. The file goes to storage first, and
+   * **only the URL the route returns** is written to the row — never one built
+   * here from the file name, and never an optimistic "Comprobante subido". The
+   * pre-#85 version of the sibling route answered a *failed* storage upload
+   * with `{success: true, url: 'https://storage.businesshelper.mx/…'}`, a host
+   * that serves nothing, so payment evidence users believed they had filed did
+   * not exist.
+   *
+   * A 200 without a URL is treated as a failure for the same reason: the
+   * absence of the thing being uploaded is not a successful upload.
+   */
+  const uploadReceipt = async (id: string, file: File): Promise<ReceivableMutationOutcome> => {
+    // Short-circuited *before* the fetch, per LESSONS — a demo branch is never
+    // a fallback on a real request's result. And it refuses rather than
+    // simulates: the sandbox has no storage, so the only "success" it could
+    // report here would be a URL pointing at nothing (#58/#86/#85).
+    if (isClientDemoMode()) {
+      return {
+        success: false,
+        error: 'En la demostración no se guardan archivos. Crea tu cuenta para subir comprobantes.',
+      };
+    }
+
+    const formData = new FormData();
+    // The field name the route reads (`formData.get('file')`) — a mismatch here
+    // is the #96 shape and ships as a swallowed failure reported as success.
+    formData.append('file', file);
+
+    let uploadRes: Response;
+    try {
+      uploadRes = await fetch(`/api/receivables/${id}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+    } catch {
+      return { success: false, error: 'Sin conexión. El comprobante no se subió.' };
+    }
+
+    const uploaded = await uploadRes.json().catch(() => null);
+
+    if (!uploadRes.ok || !uploaded?.url) {
+      return { success: false, error: errorMessage(uploaded, 'No se pudo subir el comprobante') };
+    }
+
+    // Stored, but not yet *filed*: the row still has to point at it, or the
+    // evidence exists in the bucket and nowhere the tenant can see.
+    let saveRes: Response;
+    try {
+      saveRes = await fetch(`/api/receivables/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receipt_url: uploaded.url }),
+      });
+    } catch {
+      return {
+        success: false,
+        error: 'El archivo se subió pero no se pudo guardar en el cobro. Intenta de nuevo.',
+      };
+    }
+
+    const saved = await saveRes.json().catch(() => null);
+
+    if (!saveRes.ok) {
+      // Leads with "se subió" rather than deferring to the server's message,
+      // which is generic here and would lose the one fact that decides what
+      // the owner does next: the file *is* stored, so this is a retry, not a
+      // "your file is no good".
+      const reason = errorMessage(saved, '');
+      return {
+        success: false,
+        error: `El comprobante se subió pero no se pudo guardar en el cobro.${
+          reason ? ` ${reason}` : ''
+        } Intenta de nuevo.`,
+      };
+    }
+
+    // The status is deliberately untouched. Filing evidence is not the same
+    // claim as "this was paid" — confirming is its own deliberate act, with
+    // its own capability gate and its own complemento de pago behind it.
+    const updated = applyRowUpdate(id, { receipt_url: uploaded.url });
+    if (!updated) return { success: false, error: 'Cobro no encontrado' };
+    return { success: true, milestone: updated };
+  };
+
   // Local today, never UTC's (#263): from 18:00 in Mexico the UTC date is
   // tomorrow, so every cobro due today filtered as Atrasado all evening.
   const todayStr = useMemo(() => localTodayStr(), []);
@@ -495,6 +587,7 @@ export function useReceivables() {
     fetchReceivables,
     confirmPayment,
     uploadSpeiProof,
+    uploadReceipt,
     resetDemoReceivables,
   };
 }

@@ -12,6 +12,13 @@ interface SpeiConfirmModalProps {
   milestone: MilestoneWithClient | null;
   onClose: () => void;
   onConfirm: (milestoneId: string, transferredAmount?: number) => Promise<ReceivableMutationOutcome>;
+  /**
+   * Files the comprobante the client sent over WhatsApp, on their behalf (#339).
+   *
+   * Optional: without it the modal shows no upload control at all, rather than
+   * one that cannot work.
+   */
+  onUploadReceipt?: (milestoneId: string, file: File) => Promise<ReceivableMutationOutcome>;
 }
 
 export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
@@ -19,8 +26,22 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   milestone,
   onClose,
   onConfirm,
+  onUploadReceipt,
 }) => {
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  /**
+   * The stored receipt, as the server last reported it.
+   *
+   * Held here rather than read straight off the prop because the page owns
+   * `selectedMilestone` in its own state: after a successful upload the hook's
+   * list has the new URL but this prop does not, so the modal would keep
+   * showing "no hay comprobante" for a file that is filed. Seeded from the
+   * prop and only ever replaced by the row a mutation returned — never by a
+   * URL built here (#85).
+   */
+  const [receiptUrl, setReceiptUrl] = useState<string | null | undefined>(milestone?.receipt_url);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [complementWarning, setComplementWarning] = useState<string | null>(null);
   // Held as the typed text, not a number, so "cleared" and "zero" stay
@@ -57,8 +78,29 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
       );
       setErrorMessage(null);
       setComplementWarning(null);
+      setUploadError(null);
+      setReceiptUrl(milestone.receipt_url);
     }
   }, [milestone]);
+
+  const handleUpload = async (file: File) => {
+    if (!onUploadReceipt || !milestone) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const outcome = await onUploadReceipt(milestone.id, file);
+      if (!outcome.success) {
+        // A failed upload is reported as a failure, full stop. The defect this
+        // route was hardened against (#85) was exactly the opposite.
+        setUploadError(outcome.error || 'No se pudo subir el comprobante');
+        return;
+      }
+      // The server row, never a locally built URL.
+      setReceiptUrl(outcome.milestone?.receipt_url ?? null);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (!isOpen || !milestone) return null;
 
@@ -174,11 +216,11 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
           {/* A blob: URL dereferences only in the payer's own browser tab —
               rendering one gives the vendor a dead "receipt" link (#85). Rows
               written by pre-#85 clients may still carry them. */}
-          {milestone.receipt_url && !milestone.receipt_url.startsWith('blob:') && (
+          {receiptUrl && !receiptUrl.startsWith('blob:') && (
             <div>
               <span className="text-xs font-bold text-slate-400 uppercase mb-1 block">Comprobante Adjunto</span>
               <a
-                href={milestone.receipt_url}
+                href={receiptUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl font-medium text-sm transition-colors min-h-[48px] w-full justify-center"
@@ -186,6 +228,59 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
                 <ExternalLink className="w-4 h-4 text-slate-400" />
                 <span>Ver Comprobante de Transferencia</span>
               </a>
+            </div>
+          )}
+
+          {/* Filing the comprobante the client sent over WhatsApp, on their
+              behalf (#339). The authenticated upload route existed with no
+              caller: only the payer could ever attach evidence, so a receipt
+              that arrived as a WhatsApp image had nowhere to go.
+
+              `capture="environment"` so the phone offers the camera as well as
+              the gallery — the owner is doing this from the chat thread the
+              image arrived in. */}
+          {onUploadReceipt && (
+            <div>
+              <label
+                htmlFor="speiconfirmmodal-comprobante"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1"
+              >
+                {receiptUrl ? 'Reemplazar comprobante' : 'Subir comprobante'}
+              </label>
+              <input
+                id="speiconfirmmodal-comprobante"
+                type="file"
+                accept="image/png,image/jpeg,application/pdf"
+                capture="environment"
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  // The input is cleared so picking the same file twice after a
+                  // failure still fires a change event.
+                  e.target.value = '';
+                  if (file) void handleUpload(file);
+                }}
+                // The `file:` button is the actual tap target — the label
+                // beside it is not clickable on iOS — so it carries the 48px
+                // floor itself, and the wrapper grows to hold it rather than
+                // the button being squeezed to fit a 48px wrapper.
+                className="flex w-full min-h-[64px] items-center rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm font-medium text-slate-300 file:mr-3 file:min-h-[48px] file:cursor-pointer file:rounded-lg file:border-0 file:bg-slate-800 file:px-4 file:text-xs file:font-bold file:text-white hover:file:bg-slate-700 disabled:opacity-60"
+              />
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                Foto o PDF del comprobante que te mandó tu cliente.
+              </p>
+              {uploading && (
+                <p className="mt-1 text-xs font-bold text-indigo-300">Subiendo comprobante...</p>
+              )}
+              {uploadError && (
+                <p
+                  role="alert"
+                  className="mt-2 flex items-start gap-2 rounded-xl border border-red-500/40 bg-red-950/60 p-3 text-xs font-medium text-red-200"
+                >
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                  <span>{uploadError}</span>
+                </p>
+              )}
             </div>
           )}
 
