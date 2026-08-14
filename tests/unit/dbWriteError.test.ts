@@ -89,6 +89,43 @@ describe('describeDbWriteError', () => {
     expect(console.error).toHaveBeenCalled();
   });
 
+  it('names the real cause when a delete is refused by rows that still reference it (#262)', () => {
+    // ON DELETE RESTRICT on quotes/contracts → 23503 from the *referencing*
+    // side. The old single arm answered "Recarga la página e inténtalo de
+    // nuevo" — advice that can never resolve it.
+    const failure = describeDbWriteError(
+      {
+        code: '23503',
+        message:
+          'update or delete on table "clients" violates foreign key constraint "quotes_client_id_fkey" on table "quotes"',
+        details: 'Key (id)=(c1) is still referenced from table "quotes".',
+      },
+      'el cliente',
+      'DELETE /api/clients/[id]',
+      { verb: 'eliminar' }
+    );
+
+    expect(failure.status).toBe(409);
+    expect(failure.code).toBe('HAS_LINKED_RECORDS');
+    expect(failure.message).toMatch(/se conservan como tu evidencia/);
+    expect(failure.message).not.toMatch(/Recarga la página/);
+  });
+
+  it('keeps the reload advice for the insert side of 23503 — the referenced row is missing', () => {
+    const failure = describeDbWriteError(
+      {
+        code: '23503',
+        message: 'insert or update on table "quotes" violates foreign key constraint',
+        details: 'Key (client_id)=(x) is not present in table "clients".',
+      },
+      'la cotización',
+      'POST /api/quotes'
+    );
+
+    expect(failure.code).toBe('INVALID_INPUT');
+    expect(failure.message).toMatch(/Recarga la página/);
+  });
+
   it('never leaks jargon or English into a tenant-facing message (hard rule 8)', () => {
     const raw = 'new row violates check constraint "chk_whatever"';
     const codes = ['PGRST204', '23514', '23505', '23502', '22001', '22003', '42501', '23503', 'x'];

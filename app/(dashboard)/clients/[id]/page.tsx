@@ -30,6 +30,7 @@ import {
 import { Client } from '@/types';
 import { findRegimen } from '@/lib/satRegimenes';
 import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
+import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -52,6 +53,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const { org } = useCurrentOrg();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const confirmAction = useConfirm();
+  const result = useActionResult();
 
   const client = getClientById(id);
 
@@ -109,15 +111,34 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
+  // The modal closing was the only success signal, which on a phone is
+  // indistinguishable from the tap not registering — the #146 gap the create
+  // path already closed (#298). Same shape as clients/page.tsx: the success
+  // text is built from the row the server returned, and the throw is re-raised
+  // so ClientFormModal keeps pinning per-field messages under their inputs.
   const handleUpdate = async (data: Partial<Client>) => {
-    await updateClient(id, data);
+    try {
+      const saved = await updateClient(id, data);
+      result.succeed({
+        title: 'Cambios guardados',
+        message: `Los datos de ${saved.name} se actualizaron en tu directorio.`,
+      });
+    } catch (error) {
+      result.fail(error, { title: 'No se guardaron los cambios' });
+      throw error;
+    }
   };
 
   const handleDelete = () => {
     confirmAction.ask({
       title: `Eliminar a ${client.name}`,
+      // What actually happens (#262): quotes and contracts reference the
+      // client with ON DELETE RESTRICT, so a client who has ever been quoted
+      // cannot be deleted at all. The old copy promised the delete would
+      // coexist with those documents — the exact outcome the schema forbids.
       consequence:
-        'Se quitará de tu directorio junto con su historial en esta pantalla. Sus cotizaciones y cobros ya emitidos no se borran.',
+        'Se quitará de tu directorio. Si este cliente ya tiene cotizaciones, contratos o cobros, ' +
+        'no se puede eliminar: esos documentos se conservan como tu evidencia, y te lo diremos aquí.',
       confirmLabel: 'Sí, eliminar cliente',
       onConfirm: async () => {
         await deleteClient(id);
@@ -465,6 +486,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       />
 
       <ConfirmDialog request={confirmAction.request} onClose={confirmAction.dismiss} />
+      <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
   );
 }

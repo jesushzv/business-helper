@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import ClientDetailPage from '@/app/(dashboard)/clients/[id]/page';
 import { __resetCurrentOrgCacheForTests } from '@/lib/hooks/useCurrentOrg';
@@ -266,6 +266,88 @@ describe('the SAT fiscal card does not fake a profile the client does not have',
     expect(screen.getByText('37000')).toBeTruthy();
     expect(screen.queryByText(/Falta capturar/i)).toBeNull();
     expect(screen.queryByText(/no podrás facturarle/i)).toBeNull();
+  });
+});
+
+describe('deleting a client the schema will not release (#262)', () => {
+  it('asks with honest copy and surfaces the refusal in the dialog instead of hanging forever', async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.startsWith('/api/clients') && init?.method === 'DELETE') {
+        // The referencing-side 23503, as dbWriteError now describes it.
+        return jsonResponse(409, {
+          error: {
+            code: 'HAS_LINKED_RECORDS',
+            message:
+              'No se puede eliminar: el cliente tiene cotizaciones, contratos o cobros ligados, ' +
+              'y esos documentos se conservan como tu evidencia.',
+          },
+        });
+      }
+      if (url.startsWith('/api/clients')) return jsonResponse(200, { clients: [SERVER_CLIENT] });
+      if (url.startsWith('/api/quotes')) return jsonResponse(200, { quotes: [] });
+      if (url.startsWith('/api/receivables')) return jsonResponse(200, { receivables: [] });
+      if (url.startsWith('/api/organization')) {
+        return jsonResponse(200, {
+          organization: { id: 'org-real-1', name: 'Ferretería La Central' },
+          role: 'owner',
+        });
+      }
+      return jsonResponse(404, {});
+    });
+    renderPage();
+
+    await screen.findAllByText('Aceros del Bajío S.A. de C.V.');
+    fireEvent.click(screen.getByRole('button', { name: /Eliminar/i }));
+
+    // The consequence names what the schema actually does — the old copy
+    // promised the delete would coexist with the quotes, which RESTRICT
+    // forbids for every client who has ever been quoted.
+    expect(await screen.findByText(/no se puede eliminar/i)).toBeTruthy();
+    expect(screen.queryByText(/no se borran/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, eliminar cliente' }));
+
+    // The refusal renders in the dialog — the old shape was an unhandled
+    // rejection: spinner, then nothing, forever.
+    expect(await screen.findByText(/se conservan como tu evidencia/)).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe('the edit outcome is announced (#298)', () => {
+  it('says "Cambios guardados" with the server row after a successful update', async () => {
+    const updatedRow = { ...SERVER_CLIENT, name: 'Aceros del Bajío S.A. de C.V.' };
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.startsWith('/api/clients') && init?.method === 'PUT') {
+        return jsonResponse(200, updatedRow);
+      }
+      if (url.startsWith('/api/clients')) return jsonResponse(200, { clients: [SERVER_CLIENT] });
+      if (url.startsWith('/api/quotes')) return jsonResponse(200, { quotes: [] });
+      if (url.startsWith('/api/receivables')) return jsonResponse(200, { receivables: [] });
+      if (url.startsWith('/api/organization')) {
+        return jsonResponse(200, {
+          organization: { id: 'org-real-1', name: 'Ferretería La Central' },
+          role: 'owner',
+        });
+      }
+      return jsonResponse(404, {});
+    });
+    renderPage();
+
+    await screen.findAllByText('Aceros del Bajío S.A. de C.V.');
+    fireEvent.click(screen.getByRole('button', { name: /Editar/i }));
+
+    // The form opens prefilled from the client row; submitting as-is is a
+    // valid save. The modal closing used to be the only success signal —
+    // indistinguishable from the tap not registering on a phone.
+    fireEvent.click(await screen.findByRole('button', { name: /Actualizar Cliente/i }));
+
+    expect(await screen.findByText(/Cambios guardados/i)).toBeTruthy();
+    expect(
+      screen.getByText(/Los datos de Aceros del Bajío S\.A\. de C\.V\. se actualizaron/i)
+    ).toBeTruthy();
   });
 });
 

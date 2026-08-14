@@ -5,6 +5,7 @@ import { Client } from '@/types';
 import { track } from '@/lib/analytics';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { readClientWriteError } from '@/lib/clientWriteError';
+import { foldSearchText } from '@/lib/search';
 
 // Demo-mode fixtures. Reachable ONLY behind isClientDemoMode(): they used to be
 // the fallback for any API failure — and for a real tenant with zero clients,
@@ -242,13 +243,14 @@ export function useClients() {
 
   const filteredClients = useMemo(() => {
     if (!searchQuery.trim()) return clients;
-    const q = searchQuery.toLowerCase().trim();
+    // Folded, not lowercased: "ferreteria" must find "Ferretería" (#278).
+    const q = foldSearchText(searchQuery).trim();
     return clients.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.contact_name && c.contact_name.toLowerCase().includes(q)) ||
-        (c.rfc && c.rfc.toLowerCase().includes(q)) ||
-        (c.email && c.email.toLowerCase().includes(q))
+        foldSearchText(c.name).includes(q) ||
+        (c.contact_name && foldSearchText(c.contact_name).includes(q)) ||
+        (c.rfc && foldSearchText(c.rfc).includes(q)) ||
+        (c.email && foldSearchText(c.email).includes(q))
     );
   }, [clients, searchQuery]);
 

@@ -274,6 +274,21 @@ export function describeDbWriteError(
   }
 
   if (code === '23503') {
+    // One code, two opposite situations. On an INSERT/UPDATE the referenced
+    // row is missing — reloading genuinely helps. On a DELETE the row being
+    // removed is still referenced (ON DELETE RESTRICT), and "recarga la
+    // página" is a misdiagnosis that can never resolve it (#262): Postgres
+    // names that side "still referenced" in the detail.
+    const stillReferenced = /still referenced/i.test(`${e.details || ''} ${e.message || ''}`);
+    if (stillReferenced) {
+      return describe({
+        status: 409,
+        code: 'HAS_LINKED_RECORDS',
+        message:
+          `No se puede eliminar: ${entity} tiene cotizaciones, contratos o cobros ligados, ` +
+          'y esos documentos se conservan como tu evidencia.',
+      });
+    }
     return describe({
       status: 400,
       code: 'INVALID_INPUT',

@@ -66,6 +66,25 @@ describe('ConfirmDialog (#99)', () => {
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
   });
 
+  it('surfaces a rejected action inside the dialog instead of swallowing it (#262)', async () => {
+    // The throw used to escape handleConfirm as an unhandled rejection: the
+    // dialog sat re-enabled with no message, so "Sí, eliminar" did nothing
+    // forever from the tenant's side.
+    const onConfirm = vi.fn(async () => {
+      throw new Error('No se puede eliminar: el cliente tiene cotizaciones ligadas.');
+    });
+    const onClose = vi.fn();
+    render(<ConfirmDialog request={{ ...REQUEST, onConfirm }} onClose={onClose} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Timbrar factura' }));
+
+    expect(await screen.findByText(/tiene cotizaciones ligadas/)).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+    // Re-enabled for a retry, not stranded on "Procesando…".
+    const button = screen.getByRole('button', { name: 'Timbrar factura' }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+  });
+
   it('does not run the action when dismissed', () => {
     const onConfirm = vi.fn();
     const onClose = vi.fn();

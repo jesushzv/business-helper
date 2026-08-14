@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { validateProductCatalogItem, ProductCatalogItem } from '@/lib/products';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { track } from '@/lib/analytics';
+import { foldSearchText } from '@/lib/search';
 
 // Demo-mode fixtures. Reachable ONLY behind isClientDemoMode(): before #98
 // they seeded every visitor's localStorage — including real tenants', whose
@@ -92,7 +93,11 @@ export function useProducts() {
         const data = await res.json().catch(() => null);
         if (res.ok && Array.isArray(data?.products)) {
           setProducts(data.products);
-          setLegacyLocalProducts(data.products.length === 0 ? readLegacyLocalProducts() : []);
+          // Keyed on "legacy rows remain on this browser", NOT on the server
+          // list being empty: gating on emptiness meant one successful add (or
+          // a partially failed import) hid the banner forever while rows sat
+          // stranded in localStorage (#280).
+          setLegacyLocalProducts(readLegacyLocalProducts());
         } else {
           setError(data?.error?.message || 'No se pudieron cargar los productos.');
         }
@@ -181,8 +186,11 @@ export function useProducts() {
             organization_id: data.product.organization_id,
             has_stock_tracking: data.product.stock_quantity !== null,
           });
+          // Deliberately does NOT clear `legacyLocalProducts`: an unrelated
+          // manual add used to dismiss the import offer while the legacy rows
+          // were still stranded on this browser (#280). The import path clears
+          // each row as its own upload lands.
           setProducts((prev) => [data.product, ...prev]);
-          setLegacyLocalProducts([]);
           return { success: true, product: data.product };
         } catch {
           const msg = 'No se pudo guardar el producto. Revisa tu conexión.';
@@ -230,8 +238,13 @@ export function useProducts() {
 
   /**
    * Uploads the rows this browser saved during the localStorage-only era.
-   * Each row goes through the same POST as a fresh add; the local copy is
-   * cleared only after every upload landed, so a partial failure loses nothing.
+   *
+   * Each row goes through the same POST as a fresh add, and its local copy is
+   * removed as soon as *that* upload lands — so a failure at row 4 of 12
+   * leaves exactly the nine unsent rows in localStorage, the banner still
+   * offering them, and the report says how far it got. The old shape cleared
+   * everything on the first success and returned a bare failure, stranding
+   * the remainder invisibly (#280).
    */
   const importLegacyProducts = useCallback(async (): Promise<MutationResult> => {
     const pending = readLegacyLocalProducts();
@@ -240,9 +253,32 @@ export function useProducts() {
       return { success: true };
     }
 
+    let uploaded = 0;
     for (const item of pending) {
       const result = await addProduct(item);
-      if (!result.success) return result;
+      if (!result.success) {
+        const remaining = readLegacyLocalProducts();
+        setLegacyLocalProducts(remaining);
+        const msg =
+          `Se subieron ${uploaded} de ${pending.length} productos. ${result.error} ` +
+          `Los ${remaining.length} restantes siguen guardados en este navegador; vuelve a intentar para subirlos.`;
+        setError(msg);
+        return { success: false, error: msg };
+      }
+      uploaded += 1;
+      // This row is on the server now; only then does its local copy go.
+      try {
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const parsed = stored ? JSON.parse(stored) : null;
+        if (Array.isArray(parsed)) {
+          localStorage.setItem(
+            LOCAL_STORAGE_KEY,
+            JSON.stringify(parsed.filter((p) => !(p && typeof p === 'object' && p.id === item.id)))
+          );
+        }
+      } catch {
+        // The server has the row; a stale local copy is cosmetic now.
+      }
     }
 
     try {
@@ -256,11 +292,12 @@ export function useProducts() {
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm.trim()) return products;
-    const term = searchTerm.toLowerCase();
+    // Folded, not lowercased: "instalacion" must find "Instalación" (#278).
+    const term = foldSearchText(searchTerm).trim();
     return products.filter(
       (p) =>
-        p.name.toLowerCase().includes(term) ||
-        (p.description && p.description.toLowerCase().includes(term)) ||
+        foldSearchText(p.name).includes(term) ||
+        (p.description && foldSearchText(p.description).includes(term)) ||
         (p.sat_product_code && p.sat_product_code.includes(term))
     );
   }, [products, searchTerm]);
