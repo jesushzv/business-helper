@@ -40,6 +40,17 @@ const dbState = {
 const ROW_OK = { data: { id: 'row-1' }, error: null };
 const NO_ROW = { data: null, error: null };
 
+/**
+ * The parent-contract read `DELETE /api/receivables/[id]` now issues first
+ * (#335). A schedule the client has signed is immutable, so the route reads
+ * the contract's status before it destroys anything and refuses when it is
+ * not one the tenant may still change.
+ */
+const parentContract = (status: string) => ({
+  data: { id: 'row-1', contracts: { status } },
+  error: null,
+});
+
 function makeSupabaseMock() {
   return {
     from: vi.fn((table: string) => {
@@ -122,7 +133,12 @@ describe('the delete_records gate holds on every data-delete route', () => {
 
   it.each(routes)('lets a manager delete a %s row', async (_name, table, load) => {
     authState.role = 'manager';
-    dbState.tables = { [table]: [ROW_OK] };
+    // The receivables route reads its parent contract first (#335); every
+    // other route's first answer on its own table is the delete itself.
+    dbState.tables =
+      table === 'milestones'
+        ? { milestones: [parentContract('draft'), ROW_OK] }
+        : { [table]: [ROW_OK] };
     const { DELETE } = await load();
     const res = await DELETE(req(), { params });
     expect(res.status).toBe(200);
@@ -218,12 +234,13 @@ describe('DELETE /api/quotes/[id] — signed and converted quotes are not deleta
 
 describe('DELETE /api/receivables/[id] — a cobro with movement is a money record', () => {
   it('deletes only a pending milestone with no CFDI, enforced inside the DELETE', async () => {
-    dbState.tables = { milestones: [ROW_OK] };
+    dbState.tables = { milestones: [parentContract('sent'), ROW_OK] };
     const { DELETE } = await import('@/app/api/receivables/[id]/route');
     const res = await DELETE(req(), { params });
 
     expect(res.status).toBe(200);
-    const chain = chainsFor('milestones')[0];
+    // [0] is the parent-contract read; the DELETE is the chain after it.
+    const chain = chainsFor('milestones')[1];
     expect(chain.eq).toHaveBeenCalledWith('status', 'pending');
     expect(chain.eq).toHaveBeenCalledWith('cfdi_status', 'none');
     expect(chain.eq).toHaveBeenCalledWith('organization_id', 'org-1');
@@ -233,7 +250,10 @@ describe('DELETE /api/receivables/[id] — a cobro with movement is a money reco
     // Between the claim insert and the cfdi_status flip, the milestone still
     // reads pending/none; deleting it would CASCADE the claim away and leave
     // a possible live SAT document with no reconciliation anchor.
-    dbState.tables = { cfdi_stamp_claims: [{ data: { milestone_id: 'row-1' }, error: null }] };
+    dbState.tables = {
+      milestones: [parentContract('draft')],
+      cfdi_stamp_claims: [{ data: { milestone_id: 'row-1' }, error: null }],
+    };
     const { DELETE } = await import('@/app/api/receivables/[id]/route');
     const res = await DELETE(req(), { params });
 
@@ -241,11 +261,12 @@ describe('DELETE /api/receivables/[id] — a cobro with movement is a money reco
     const body = await res.json();
     expect(body.error.code).toBe('MILESTONE_PROTECTED');
     expect(body.error.message).toMatch(/timbrado/i);
-    expect(chainsFor('milestones')).toHaveLength(0);
+    // The parent-contract read is a read; nothing was destroyed.
+    expect(chainsFor('milestones').some((c) => c.delete.mock.calls.length > 0)).toBe(false);
   });
 
   it('answers 409 MILESTONE_PROTECTED for a milestone the guard excluded', async () => {
-    dbState.tables = { milestones: [NO_ROW, ROW_OK] };
+    dbState.tables = { milestones: [parentContract('draft'), NO_ROW, ROW_OK] };
     const { DELETE } = await import('@/app/api/receivables/[id]/route');
     const res = await DELETE(req(), { params });
 
@@ -253,6 +274,71 @@ describe('DELETE /api/receivables/[id] — a cobro with movement is a money reco
     const body = await res.json();
     expect(body.error.code).toBe('MILESTONE_PROTECTED');
     expect(body.error.message).toMatch(/pago o factura|movimientos/i);
+  });
+
+  // #335 — the decision taken in #329: a schedule carrying the client's OTP
+  // evidence is immutable, mirroring how #327 treats signed quotes.
+  it.each(['client_signed', 'accepted'])(
+    'refuses to delete a pending milestone of a %s contract',
+    async (status) => {
+      dbState.tables = { milestones: [parentContract(status)] };
+      const { DELETE } = await import('@/app/api/receivables/[id]/route');
+      const res = await DELETE(req(), { params });
+
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.error.code).toBe('CONTRACT_SIGNED');
+      // Plain Spanish saying *why*, not "precondition failed" (hard rule 8).
+      expect(body.error.message).toMatch(/firmó/i);
+      expect(body.error.message).not.toMatch(/precondition|status|contract\b/i);
+      // Refused before anything was destroyed.
+      expect(chainsFor('milestones').some((c) => c.delete.mock.calls.length > 0)).toBe(false);
+    }
+  );
+
+  it('refuses for completed and cancelled contracts too — the allowlist is draft/sent', async () => {
+    for (const status of ['completed', 'cancelled']) {
+      dbState.tables = { milestones: [parentContract(status)] };
+      dbState.chains = [];
+      const { DELETE } = await import('@/app/api/receivables/[id]/route');
+      const res = await DELETE(req(), { params });
+      expect(res.status).toBe(409);
+      expect((await res.json()).error.code).toBe('CONTRACT_SIGNED');
+    }
+  });
+
+  it('refuses rather than proceeds when the contract status cannot be established', async () => {
+    // `milestones.contract_id` is NOT NULL, so an unresolvable contract is a
+    // broken row. "We could not establish the status" must not collapse into
+    // "go ahead and destroy it" (#64's tri-state rule on a destructive write).
+    dbState.tables = { milestones: [{ data: { id: 'row-1', contracts: null }, error: null }] };
+    const { DELETE } = await import('@/app/api/receivables/[id]/route');
+    const res = await DELETE(req(), { params });
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe('CONTRACT_SIGNED');
+    expect(chainsFor('milestones').some((c) => c.delete.mock.calls.length > 0)).toBe(false);
+  });
+
+  it('reads the embed as PostgREST may hand it back — an array of one', async () => {
+    dbState.tables = {
+      milestones: [{ data: { id: 'row-1', contracts: [{ status: 'draft' }] }, error: null }, ROW_OK],
+    };
+    const { DELETE } = await import('@/app/api/receivables/[id]/route');
+    const res = await DELETE(req(), { params });
+
+    expect(res.status).toBe(200);
+  });
+
+  it("still deletes a pending, unstamped milestone of a contract the tenant may change", async () => {
+    for (const status of ['draft', 'sent']) {
+      dbState.tables = { milestones: [parentContract(status), ROW_OK] };
+      dbState.chains = [];
+      const { DELETE } = await import('@/app/api/receivables/[id]/route');
+      const res = await DELETE(req(), { params });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ success: true });
+    }
   });
 
   it('answers the conventional Spanish envelope on not-found, not a bare English string', async () => {
