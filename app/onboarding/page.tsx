@@ -8,6 +8,7 @@ import { formatClabe, normalizeClabe, isValidClabeLength, hasValidClabeCheckDigi
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { track } from '@/lib/analytics';
 import { postOnboardingPath } from '@/lib/upgradeIntent';
+import { invalidateCurrentOrg } from '@/lib/hooks/useCurrentOrg';
 import { regimenOptions } from '@/lib/satRegimenes';
 import {
   validateBankAccount,
@@ -175,6 +176,11 @@ export default function OnboardingPage() {
           industry,
           has_rfc: Boolean(rfc.trim()),
         });
+        // The chrome's cached identity predates this organization — a session
+        // that reached onboarding read `/api/organization` and got nothing.
+        // Dropping it makes the next dashboard render read the real row rather
+        // than the absence it cached (#281).
+        invalidateCurrentOrg();
         // The bank account is a separate write and needs the organization to
         // exist first (the accounts route resolves it from the session).
         setOrganizationId(data.organization.id);

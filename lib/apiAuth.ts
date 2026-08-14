@@ -109,44 +109,87 @@ export async function requireOrgAccess(): Promise<AuthResult> {
     return fail(401, 'UNAUTHENTICATED', 'Sesión requerida');
   }
 
+  const resolved = await resolveActiveOrganization(supabase, user.id);
+
+  if (!resolved) {
+    return fail(403, 'NO_ORGANIZATION', 'La cuenta no pertenece a ninguna organización');
+  }
+
+  return {
+    ok: true,
+    ctx: {
+      supabase,
+      userId: user.id,
+      organizationId: resolved.organizationId,
+      role: resolved.role,
+    },
+  };
+}
+
+/** The organization a caller acts on, and how the answer was reached. */
+export interface ActiveOrganization {
+  organizationId: string;
+  role: UserRole;
+  source: 'owner' | 'membership';
+  /** True when the caller could have acted as more than one tenant. */
+  ambiguous: boolean;
+}
+
+/**
+ * Which organization is this user's, as far as the app is concerned?
+ *
+ * Exported because a second caller needs the *same* answer, not its own version
+ * of it: the invitation-accept route has to tell a user whether accepting will
+ * change what they see, and it can only do that by asking the question exactly
+ * the way every authenticated route asks it (#269). Two places deciding "which
+ * tenant may this user act on" is the shape of #146, where `requireOrgAccess`
+ * and nine RLS policies disagreed and every INSERT came back 42501.
+ *
+ * Takes the client rather than creating one, so the accept route can ask with
+ * its service-role client — that route redeems an invitation for a user who is
+ * not yet a member, and no RLS policy can match them.
+ */
+export async function resolveActiveOrganization(
+  supabase: SupabaseServerClient,
+  userId: string
+): Promise<ActiveOrganization | null> {
   const { data: owned } = await (supabase as SupabaseServerClient)
     .from('organizations')
     .select('id')
-    .eq('owner_id', user.id)
+    .eq('owner_id', userId)
     .order('created_at', { ascending: true })
     .limit(2);
 
   if (owned && owned.length > 0) {
-    warnOnAmbiguousTenant('organizations.owner_id', user.id, owned.length);
+    warnOnAmbiguousTenant('organizations.owner_id', userId, owned.length);
     return {
-      ok: true,
-      ctx: { supabase, userId: user.id, organizationId: owned[0].id, role: 'owner' },
+      organizationId: owned[0].id,
+      role: 'owner',
+      source: 'owner',
+      ambiguous: owned.length > 1,
     };
   }
 
   const { data: membership } = await (supabase as SupabaseServerClient)
     .from('organization_members')
     .select('organization_id, role')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: true })
     .limit(2);
 
   if (membership && membership.length > 0) {
-    warnOnAmbiguousTenant('organization_members.user_id', user.id, membership.length);
+    warnOnAmbiguousTenant('organization_members.user_id', userId, membership.length);
     return {
-      ok: true,
-      ctx: {
-        supabase,
-        userId: user.id,
-        organizationId: membership[0].organization_id,
-        // A membership row without a readable role gets the least privileged one
-        // rather than a permissive default.
-        role: (membership[0].role as UserRole) || 'member',
-      },
+      organizationId: membership[0].organization_id,
+      // A membership row without a readable role gets the least privileged one
+      // rather than a permissive default.
+      role: (membership[0].role as UserRole) || 'member',
+      source: 'membership',
+      ambiguous: membership.length > 1,
     };
   }
 
-  return fail(403, 'NO_ORGANIZATION', 'La cuenta no pertenece a ninguna organización');
+  return null;
 }
 
 /**
