@@ -117,6 +117,8 @@
 - `credit_limit`: numeric(12,2) (nullable, **no default**) -- Authorised credit limit line ($ MXN). NULL = no credit line has ever been configured
 - `credit_days`: int4 (nullable, **no default**) -- Payment terms in days. NULL = never configured; `0` is a real answer meaning contado
 - `credit_status`: text (nullable, **no default**, CHECK in `'active' | 'suspended' | 'blocked'`) -- NULL = never configured
+- `archived_at`: timestamptz (nullable, **no default**) -- When the owner archived this client. NULL = never archived. **Directory visibility only, never a soft delete**: quotes, contracts and milestones are untouched, and the client's `/q/` and `/pay/` links keep resolving. `quotes.client_id` and `contracts.client_id` are `ON DELETE RESTRICT`, so a client with history can never be hard-deleted — this is where the tenant goes instead
+- *Index*: partial `idx_clients_org_active` on `(organization_id) WHERE archived_at IS NULL` -- the shape of every directory and picker read. The archived list is deliberately unindexed: it is opened rarely, by one tenant at a time
 
 > **These three carry no default on purpose.** This document previously
 > specified them as `default 0.00 / 0 / 'active'`, and no migration ever created

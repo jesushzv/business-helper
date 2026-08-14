@@ -28,6 +28,8 @@ const INITIAL_DEMO_CLIENTS: Client[] = [
     credit_limit: 100000,
     credit_days: 30,
     credit_status: 'active',
+    // Demo fixtures are never archived; the sandbox has one list.
+    archived_at: null,
     created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -47,6 +49,8 @@ const INITIAL_DEMO_CLIENTS: Client[] = [
     credit_limit: 50000,
     credit_days: 15,
     credit_status: 'suspended',
+    // Demo fixtures are never archived; the sandbox has one list.
+    archived_at: null,
     created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -66,6 +70,8 @@ const INITIAL_DEMO_CLIENTS: Client[] = [
     credit_limit: 0,
     credit_days: 0,
     credit_status: 'active',
+    // Demo fixtures are never archived; the sandbox has one list.
+    archived_at: null,
     created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -73,11 +79,37 @@ const INITIAL_DEMO_CLIENTS: Client[] = [
 
 const LOCAL_STORAGE_KEY = 'business_helper_clients_v1';
 
-export function useClients() {
+export interface UseClientsOptions {
+  /**
+   * Read active *and* archived clients, for surfaces that only need to put a
+   * name and a phone next to a record that already exists (#337).
+   *
+   * The quotes list is the case: it resolves each card's client out of this
+   * hook, so an active-only read turned every quote belonging to a newly
+   * archived client into "Cliente sin asignar" with the WhatsApp action
+   * disabled — for a client whose phone is on file. The disjoint-lists rule is
+   * right for *pickers* (never offer an archived client for new work) and
+   * wrong for *labels*.
+   *
+   * Callers that pass this must not use the list as a picker.
+   */
+  includeArchived?: boolean;
+}
+
+export function useClients(options: UseClientsOptions = {}) {
+  const includeArchived = options.includeArchived === true;
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  /**
+   * Which of the two disjoint lists is on screen (#337).
+   *
+   * `/api/clients` returns active clients or archived ones, never both, so
+   * this is a place the tenant goes rather than a filter over one list — and
+   * no consumer can show archived clients by forgetting a flag.
+   */
+  const [showArchived, setShowArchived] = useState<boolean>(false);
 
   /**
    * Real tenants get the server's answer — including an empty list, which is a
@@ -92,7 +124,13 @@ export function useClients() {
 
     if (!isClientDemoMode()) {
       try {
-        const res = await fetch('/api/clients');
+        // The flag rides inside the query string rather than being
+        // interpolated into the path: `tests/unit/clientFetchMethods.test.ts`
+        // resolves a fetch URL to its route file and stops at `?`, so a
+        // template expression before the `?` leaves it unable to check this
+        // call site at all — dodging the gate rather than passing it.
+        const scope = includeArchived ? 'all' : showArchived ? '1' : '0';
+        const res = await fetch(`/api/clients?archived=${scope}`);
         const data = await res.json().catch(() => null);
         if (res.ok && Array.isArray(data?.clients)) {
           setClients(data.clients);
@@ -107,7 +145,18 @@ export function useClients() {
       return;
     }
 
-    // Demo deployment: localStorage keeps the sandbox interactive.
+    // Demo deployment: localStorage keeps the sandbox interactive. It holds a
+    // single list and no `archived_at`, so the archived view is empty there
+    // rather than showing the active clients back (#337). Returning them would
+    // have been worse than cosmetic: each would carry a *Restaurar* button
+    // whose handler filters the row out of the only list the sandbox has, so
+    // "restoring" a demo client deleted it, under a green confirmation.
+    if (showArchived) {
+      setClients([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       const parsed = saved ? JSON.parse(saved) : null;
@@ -122,7 +171,7 @@ export function useClients() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showArchived, includeArchived]);
 
   useEffect(() => {
     fetchClients();
@@ -234,6 +283,44 @@ export function useClients() {
     });
   };
 
+  /**
+   * Archives a client, or restores one (#337).
+   *
+   * The row leaves whichever list is on screen, because the two lists are
+   * disjoint: archiving removes it from the active directory, restoring
+   * removes it from the archived view. That is done only *after* the server
+   * confirms — a failure throws with the server's Spanish message and the
+   * directory is left exactly as it was, rather than hiding a client on a
+   * write that did not land (#33/#50/#59).
+   */
+  const archiveClient = async (id: string, archived: boolean): Promise<Client | null> => {
+    let serverRow: Client | null = null;
+
+    if (!isClientDemoMode()) {
+      const res = await fetch(`/api/clients/${id}/archive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived }),
+      });
+      if (!res.ok) {
+        throw await readClientWriteError(
+          res,
+          archived ? 'No se pudo archivar el cliente.' : 'No se pudo restaurar el cliente.'
+        );
+      }
+      const data = await res.json().catch(() => null);
+      serverRow = (data?.client as Client) ?? null;
+    }
+
+    setClients((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      syncLocalStorage(next);
+      return next;
+    });
+
+    return serverRow;
+  };
+
   const getClientById = useCallback(
     (id: string): Client | undefined => {
       return clients.find((c) => c.id === id);
@@ -261,10 +348,13 @@ export function useClients() {
     error,
     searchQuery,
     setSearchQuery,
+    showArchived,
+    setShowArchived,
     fetchClients,
     addClient,
     updateClient,
     deleteClient,
+    archiveClient,
     getClientById,
   };
 }

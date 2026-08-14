@@ -143,7 +143,14 @@ export function calculateBusinessMetrics(
     overdueDebt: Math.round(overdueDebt * 100) / 100,
     dueTodayAmount: Math.round(dueTodayAmount * 100) / 100,
     upcomingAmount: Math.round(upcomingAmount * 100) / 100,
-    activeClientsCount: clients.length,
+    // Only clients still in the directory. Both computers of this figure —
+    // the analytics route and the client-side fallback — read the same
+    // predicate, or the same tile shows two numbers depending on which read
+    // answered (#337). Rows with no `archived_at` key at all (an older
+    // deployment's payload) count as active, which is what they were.
+    activeClientsCount: clients.filter(
+      (c) => !(c as { archived_at?: string | null }).archived_at
+    ).length,
     acceptedQuotesCount,
     pendingMilestonesCount,
   };

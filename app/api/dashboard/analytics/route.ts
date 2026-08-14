@@ -108,7 +108,12 @@ export async function GET(request: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: clients } = await (supabase as any)
       .from('clients')
-      .select('id, name, contact_name, phone, health_score, rfc')
+      // Unfiltered on purpose, with `archived_at` carried along: an archived
+      // client's historical revenue still happened, so they stay in the
+      // top-clients ranking — but they must not be counted as an *active*
+      // client, and the card needs to know not to link to a profile page the
+      // active directory cannot resolve (#337).
+      .select('id, name, contact_name, phone, health_score, rfc, archived_at')
       .eq('organization_id', organizationId);
 
     const milestoneList = milestones || [];
