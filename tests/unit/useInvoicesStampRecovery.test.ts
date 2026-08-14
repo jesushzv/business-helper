@@ -68,12 +68,13 @@ describe('stampCFDI recovery outcomes (#264)', () => {
             'Un intento anterior sí timbró la factura (folio fiscal SAT-UUID-1). Ya quedó registrada en este cobro; no se emitió una nueva.',
         },
         uuid: 'SAT-UUID-1',
+        environment: 'sandbox',
       })
     );
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
         receivables: [
-          receivableRow({ cfdi_status: 'issued', cfdi_uuid: 'SAT-UUID-1', cfdi_environment: 'live' }),
+          receivableRow({ cfdi_status: 'issued', cfdi_uuid: 'SAT-UUID-1', cfdi_environment: 'sandbox' }),
         ],
       })
     );
@@ -85,6 +86,9 @@ describe('stampCFDI recovery outcomes (#264)', () => {
 
     expect(outcome).toMatchObject({ success: true, alreadyIssued: true, uuid: 'SAT-UUID-1' });
     expect(outcome!.message).toMatch(/Un intento anterior sí timbró/);
+    // The environment travels with the outcome so a sandbox document keeps its
+    // "sin validez fiscal" caveat in the banner (money-path review of #264).
+    expect(outcome!.environment).toBe('sandbox');
     // The row shows what the server holds — issued — not an invented failure
     // with a retry button.
     expect(result.current.invoices[0].cfdiStatus).toBe('issued');

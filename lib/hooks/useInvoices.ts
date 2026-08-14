@@ -300,7 +300,15 @@ export function useInvoices() {
         if (code === 'ALREADY_ISSUED' || code === 'STAMP_NOT_RECORDED' || code === 'STAMP_IN_PROGRESS') {
           await loadInvoices();
           if (code === 'ALREADY_ISSUED') {
-            return { success: true, alreadyIssued: true, uuid: data?.uuid, message };
+            // `environment` travels too: a sandbox document keeps its "sin
+            // validez fiscal" caveat in the banner, same as a fresh stamp.
+            return {
+              success: true,
+              alreadyIssued: true,
+              uuid: data?.uuid,
+              environment: data?.environment ?? undefined,
+              message,
+            };
           }
           return { success: false, error: message };
         }

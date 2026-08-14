@@ -249,8 +249,10 @@ export default function QuotesPage() {
                     result.succeed({
                       title: 'Contrato creado',
                       message: warning
-                        ? `${warning}. Tus ${count} ${
-                            count === 1 ? 'cobro programado ya está' : 'cobros programados ya están'
+                        ? `${warning}. ${
+                            count === 1
+                              ? 'Tu cobro programado ya está'
+                              : `Tus ${count} cobros programados ya están`
                           } en Cobranza; vuelve a convertirla para corregir el estado.`
                         : `La cotización ya es un contrato con ${count} ${
                             count === 1 ? 'cobro programado' : 'cobros programados'
