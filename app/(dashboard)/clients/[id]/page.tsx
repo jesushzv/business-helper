@@ -8,6 +8,7 @@ import { HealthScoreMeter } from '@/components/clients/HealthScoreMeter';
 import { ActivityTimeline } from '@/components/clients/ActivityTimeline';
 import { ClientFormModal } from '@/components/clients/ClientFormModal';
 import { useClients } from '@/lib/hooks/useClients';
+import { useClient } from '@/lib/hooks/useClient';
 import { useQuotes } from '@/lib/hooks/useQuotes';
 import { useReceivables } from '@/lib/hooks/useReceivables';
 import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
@@ -27,6 +28,7 @@ import {
   Trash2,
   Clock,
   Archive,
+  ArchiveRestore,
 } from 'lucide-react';
 import { Client } from '@/types';
 import { findRegimen } from '@/lib/satRegimenes';
@@ -37,7 +39,22 @@ import { hasCapability } from '@/lib/teamRBAC';
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { getClientById, updateClient, deleteClient, archiveClient, loading, error } = useClients();
+  /**
+   * The record comes from `GET /api/clients/[id]`, not from the directory list
+   * (#360).
+   *
+   * Resolving it out of `useClients()` made this page a function of whichever
+   * list happened to be loaded, and since #337 that list is the **active**
+   * directory — so an archived client reached from Top Clientes landed on
+   * "Cliente no encontrado" with their whole history behind it.
+   *
+   * `useClients()` stays for the mutations only. It still fetches the list,
+   * which this page no longer reads: the write paths keep their demo-sandbox
+   * bookkeeping there, and suppressing that fetch would leave those mutations
+   * filtering an empty array and writing it back over the sandbox.
+   */
+  const { client, loading, error, applyServerRow, refresh: refreshClient } = useClient(id);
+  const { updateClient, deleteClient, archiveClient } = useClients();
   // The activity timeline is only as trustworthy as this read too (#260): a
   // failed quotes fetch yields `[]`, which rendered "Sin historial de
   // actividad / 0 Eventos" as fact — on the same screen whose credit figures
@@ -64,10 +81,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   // would tell an owner they cannot delete.
   const canDelete = role === null || hasCapability(role, 'delete_records');
 
-  const client = getClientById(id);
-
-  // Three states, not two: until the directory has loaded, an unmatched id
-  // means "still loading", not "deleted". The old page rendered "Cliente no
+  // Three states, not two: until the read has answered, an unresolved id means
+  // "still loading", not "deleted". The old page rendered "Cliente no
   // encontrado — fue eliminado" on every cold load while the fetch was in
   // flight (#96).
   if (!client && loading) {
@@ -101,6 +116,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
+  // Reached when the server answered 404 (`notFound`) — a fact about this
+  // organization's records, not a failed read, which the branch above owns.
+  // Archiving no longer lands here: `GET /api/clients/[id]` answers for
+  // archived rows too (#360).
   if (!client) {
     return (
       <div className="min-h-screen">
@@ -128,6 +147,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const handleUpdate = async (data: Partial<Client>) => {
     try {
       const saved = await updateClient(id, data);
+      // The page reads one record, not the directory list, so the edit has to
+      // land here or the profile keeps rendering the pre-edit row while the
+      // dialog says it saved (#360's read change, #95's shape).
+      applyServerRow(saved);
       result.succeed({
         title: 'Cambios guardados',
         message: `Los datos de ${saved.name} se actualizaron en tu directorio.`,
@@ -165,6 +188,44 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     });
   };
 
+  /**
+   * Restores an archived client from their own profile (#360).
+   *
+   * Reachable because the page now resolves archived clients: the archived view
+   * is no longer the only place a restore can happen, which is the point of
+   * keeping their history browsable.
+   *
+   * The banner goes away on the row the **server** returned. When the write
+   * lands but the response carries no row, the page refetches rather than
+   * assuming — clearing `archived_at` locally would be a client-side claim
+   * about a column only the server can report (#33/#50/#59).
+   */
+  const handleRestore = () => {
+    confirmAction.ask({
+      title: `Restaurar a ${client.name}`,
+      consequence:
+        'Volverá a aparecer en tu directorio y en el selector de clientes al cotizar. ' +
+        'Su historial no cambia: sigue siendo el mismo cliente con las mismas cotizaciones y contratos.',
+      confirmLabel: 'Sí, restaurar cliente',
+      onConfirm: async () => {
+        try {
+          const restored = await archiveClient(id, false);
+          if (restored) {
+            applyServerRow(restored);
+          } else {
+            refreshClient();
+          }
+          result.succeed({
+            title: 'Cliente restaurado',
+            message: `${client.name} volvió a tu directorio.`,
+          });
+        } catch (err) {
+          result.fail(err, { title: 'No se pudo restaurar' });
+        }
+      },
+    });
+  };
+
   const handleDelete = () => {
     confirmAction.ask({
       title: `Eliminar a ${client.name}`,
@@ -197,6 +258,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       },
     });
   };
+
+  // A column, not an inference: `archived_at` is nullable with no default
+  // precisely so "never archived" stays distinguishable (#337).
+  const isArchived = Boolean(client.archived_at);
 
   const waMessage = buildClientGreeting(client.contact_name || client.name, org?.name);
   const whatsappUrl = generateWhatsAppLink(client.phone, waMessage);
@@ -251,14 +316,26 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 {/* Offered before Eliminar, because for any client with a
                     quote or a contract it is the only one of the two that can
                     actually work — ON DELETE RESTRICT refuses the other
-                    (#262/#337). */}
-                <button
-                  onClick={handleArchive}
-                  className="flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 active:scale-95 cursor-pointer"
-                >
-                  <Archive className="h-4 w-4" />
-                  <span className="hidden sm:inline">Archivar</span>
-                </button>
+                    (#262/#337). An already-archived client is offered the
+                    inverse instead: "Archivar" on one is a control whose job
+                    is already done (#360). */}
+                {isArchived ? (
+                  <button
+                    onClick={handleRestore}
+                    className="flex min-h-[48px] items-center gap-2 rounded-xl border border-emerald-700/60 bg-emerald-950/40 px-4 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900/50 active:scale-95 cursor-pointer"
+                  >
+                    <ArchiveRestore className="h-4 w-4" />
+                    <span className="hidden sm:inline">Restaurar</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleArchive}
+                    className="flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 active:scale-95 cursor-pointer"
+                  >
+                    <Archive className="h-4 w-4" />
+                    <span className="hidden sm:inline">Archivar</span>
+                  </button>
+                )}
                 <button
                   onClick={handleDelete}
                   className="flex min-h-[48px] items-center gap-2 rounded-xl border border-rose-900/50 bg-rose-950/40 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-900/60 active:scale-95 cursor-pointer"
@@ -270,6 +347,36 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             )}
           </div>
         </div>
+
+        {/* Archived notice — above the profile card, so at 375px the owner
+            reads why this client is missing from their directory before they
+            read anything else about them. A message you have to scroll to find
+            is not a message (#146). */}
+        {isArchived && (
+          <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-950/30 p-4 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <Archive className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+                <div>
+                  <h2 className="text-sm font-bold text-amber-200">Este cliente está archivado</h2>
+                  <p className="mt-1 text-xs text-amber-100/80">
+                    No aparece en tu directorio ni en el selector al cotizar. Su historial se
+                    conserva completo y puedes restaurarlo cuando quieras.
+                  </p>
+                </div>
+              </div>
+              {canDelete && (
+                <button
+                  onClick={handleRestore}
+                  className="flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-black text-slate-950 shadow-md hover:bg-emerald-400 active:scale-95 cursor-pointer"
+                >
+                  <ArchiveRestore className="h-4 w-4" />
+                  <span>Restaurar cliente</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Profile Card Header */}
         <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl sm:p-8 backdrop-blur-xl text-white">

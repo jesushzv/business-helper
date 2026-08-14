@@ -14,12 +14,16 @@ interface ClientCardProps {
   /**
    * Restores this client from the archived view (#337).
    *
-   * When present, the card is rendered as an archived entry: the profile link
-   * is replaced by a restore action. The detail page resolves its client from
-   * the active directory, so an archived client has no profile page to reach —
-   * the archived view is a holding area you restore *from*, not browse
-   * through, and offering a link into a "Cliente no encontrado" would be the
-   * dead end this feature exists to remove.
+   * When present, the card is rendered as an archived entry: it gains a restore
+   * action, and it *keeps* its profile link.
+   *
+   * That link used to be removed. The reason was real at the time — the detail
+   * page resolved its client from the active directory, so an archived client
+   * had no profile to reach and the link led to "Cliente no encontrado". #360
+   * removed that premise: the page reads `GET /api/clients/[id]`, which answers
+   * for archived rows, and shows an "Archivado" banner with its own Restaurar.
+   * Their history is browsable again, which is what "visibility, not a soft
+   * delete" was always supposed to mean.
    */
   onRestore?: (client: Client) => void;
 }
@@ -39,20 +43,14 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, onRestore }) => 
               <Building2 className="h-6 w-6" />
             </div>
             <div className="min-w-0 flex-1">
-              {/* Archived clients have no profile page to reach, so the name
-                  is text rather than a link that goes nowhere. */}
-              {onRestore ? (
-                <span className="block truncate text-base font-extrabold text-white">
-                  {client.name}
-                </span>
-              ) : (
-                <Link
-                  href={`/clients/${client.id}`}
-                  className="text-base font-extrabold text-white transition-colors hover:text-emerald-400 focus:outline-none block truncate"
-                >
-                  {client.name}
-                </Link>
-              )}
+              {/* One link for both views since #360: an archived client's
+                  profile resolves and says so. */}
+              <Link
+                href={`/clients/${client.id}`}
+                className="text-base font-extrabold text-white transition-colors hover:text-emerald-400 focus:outline-none block truncate"
+              >
+                {client.name}
+              </Link>
               {client.contact_name && (
                 <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400 truncate">
                   <UserCheck className="h-3.5 w-3.5 shrink-0 text-slate-500" />

@@ -49,16 +49,27 @@ function jsonResponse(status: number, body: unknown): Response {
 
 const fetchMock = vi.fn<typeof fetch>();
 
+/**
+ * `client` answers `GET /api/clients/[id]` — the by-id route the page reads
+ * since #360, which returns `{ client }` and answers for archived rows too.
+ *
+ * The directory list is answered separately and empty: the page no longer
+ * resolves its record from it (that was the #360 dead end — an archived client
+ * is absent from the active list), and `useClients()` remains mounted only for
+ * the mutations. An empty list here is therefore the honest fixture: it proves
+ * the profile renders from the by-id read alone.
+ */
 function answerApis({
-  clients,
+  client,
   receivables = [],
 }: {
-  clients: Promise<Response> | Response;
+  client: Promise<Response> | Response;
   receivables?: unknown[];
 }) {
   fetchMock.mockImplementation(async (input) => {
     const url = String(input);
-    if (url.startsWith('/api/clients')) return clients;
+    if (url.startsWith('/api/clients/')) return client;
+    if (url.startsWith('/api/clients')) return jsonResponse(200, { clients: [] });
     if (url.startsWith('/api/quotes')) return jsonResponse(200, { quotes: [] });
     if (url.startsWith('/api/receivables')) return jsonResponse(200, { receivables });
     if (url.startsWith('/api/organization')) {
@@ -103,9 +114,9 @@ afterEach(() => {
 });
 
 describe('loading gate', () => {
-  it('never claims "Cliente no encontrado" while the directory is still loading', async () => {
-    // The clients fetch never resolves within this test.
-    answerApis({ clients: new Promise<Response>(() => {}) });
+  it('never claims "Cliente no encontrado" while the read is still in flight', async () => {
+    // The by-id fetch never resolves within this test.
+    answerApis({ client: new Promise<Response>(() => {}) });
     renderPage();
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -113,8 +124,8 @@ describe('loading gate', () => {
     expect(screen.queryByText(/fue eliminado/i)).toBeNull();
   });
 
-  it('says "no encontrado" only after the directory resolved without the client', async () => {
-    answerApis({ clients: jsonResponse(200, { clients: [] }) });
+  it('says "no encontrado" only when the server actually answered 404', async () => {
+    answerApis({ client: jsonResponse(404, { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } }) });
     renderPage();
 
     expect(await screen.findByText(/Cliente no encontrado/i)).toBeTruthy();
@@ -122,8 +133,8 @@ describe('loading gate', () => {
     expect(screen.queryByText(/fue eliminado/i)).toBeNull();
   });
 
-  it('shows an error state, not "no encontrado", when the directory fetch failed', async () => {
-    answerApis({ clients: jsonResponse(500, { error: { message: 'boom' } }) });
+  it('shows an error state, not "no encontrado", when the read failed', async () => {
+    answerApis({ client: jsonResponse(500, { error: { message: 'boom' } }) });
     renderPage();
 
     expect(await screen.findByText(/No se pudo cargar el cliente/i)).toBeTruthy();
@@ -133,7 +144,7 @@ describe('loading gate', () => {
 
 describe('real financial data (#96)', () => {
   it('renders zero credit utilization and an empty timeline for a client with no rows', async () => {
-    answerApis({ clients: jsonResponse(200, { clients: [SERVER_CLIENT] }) });
+    answerApis({ client: jsonResponse(200, { client: SERVER_CLIENT }) });
     renderPage();
 
     expect((await screen.findAllByText('Aceros del Bajío S.A. de C.V.')).length).toBeGreaterThan(0);
@@ -151,7 +162,7 @@ describe('real financial data (#96)', () => {
 
   it('counts this client’s owed milestones and ignores other clients’ (the #78 mapping, pinned)', async () => {
     answerApis({
-      clients: jsonResponse(200, { clients: [SERVER_CLIENT] }),
+      client: jsonResponse(200, { client: SERVER_CLIENT }),
       // Server-shaped rows: client arrives nested under contracts, the way
       // /api/receivables actually returns it — toMilestoneWithClient flattens.
       receivables: [
@@ -204,7 +215,7 @@ describe('a client with no credit line configured', () => {
   };
 
   it('says no credit line is assigned instead of showing a green "Activo" over $0', async () => {
-    answerApis({ clients: jsonResponse(200, { clients: [UNASSESSED] }) });
+    answerApis({ client: jsonResponse(200, { client: UNASSESSED }) });
     renderPage();
 
     expect(await screen.findByText(/Sin línea de crédito asignada/i)).toBeTruthy();
@@ -216,7 +227,7 @@ describe('a client with no credit line configured', () => {
 
   it('still shows money genuinely owed, so the balance is not hidden', async () => {
     answerApis({
-      clients: jsonResponse(200, { clients: [UNASSESSED] }),
+      client: jsonResponse(200, { client: UNASSESSED }),
       receivables: [
         {
           id: 'm-1',
@@ -240,8 +251,8 @@ describe('a client with no credit line configured', () => {
 describe('the SAT fiscal card does not fake a profile the client does not have', () => {
   it('marks missing régimen and código postal instead of showing 601 / N/A', async () => {
     answerApis({
-      clients: jsonResponse(200, {
-        clients: [{ ...SERVER_CLIENT, regimen_fiscal: null, codigo_postal: null }],
+      client: jsonResponse(200, {
+        client: { ...SERVER_CLIENT, regimen_fiscal: null, codigo_postal: null },
       }),
     });
     renderPage();
@@ -255,7 +266,7 @@ describe('the SAT fiscal card does not fake a profile the client does not have',
   });
 
   it('shows the stored values when they exist, with no warning', async () => {
-    answerApis({ clients: jsonResponse(200, { clients: [SERVER_CLIENT] }) });
+    answerApis({ client: jsonResponse(200, { client: SERVER_CLIENT }) });
     renderPage();
 
     await screen.findAllByText('Aceros del Bajío S.A. de C.V.');
@@ -285,7 +296,8 @@ describe('deleting a client the schema will not release (#262)', () => {
           },
         });
       }
-      if (url.startsWith('/api/clients')) return jsonResponse(200, { clients: [SERVER_CLIENT] });
+      if (url.startsWith('/api/clients/')) return jsonResponse(200, { client: SERVER_CLIENT });
+      if (url.startsWith('/api/clients')) return jsonResponse(200, { clients: [] });
       if (url.startsWith('/api/quotes')) return jsonResponse(200, { quotes: [] });
       if (url.startsWith('/api/receivables')) return jsonResponse(200, { receivables: [] });
       if (url.startsWith('/api/organization')) {
@@ -328,7 +340,8 @@ describe('the edit outcome is announced (#298)', () => {
       if (url.startsWith('/api/clients') && init?.method === 'PUT') {
         return jsonResponse(200, updatedRow);
       }
-      if (url.startsWith('/api/clients')) return jsonResponse(200, { clients: [SERVER_CLIENT] });
+      if (url.startsWith('/api/clients/')) return jsonResponse(200, { client: SERVER_CLIENT });
+      if (url.startsWith('/api/clients')) return jsonResponse(200, { clients: [] });
       if (url.startsWith('/api/quotes')) return jsonResponse(200, { quotes: [] });
       if (url.startsWith('/api/receivables')) return jsonResponse(200, { receivables: [] });
       if (url.startsWith('/api/organization')) {
@@ -363,7 +376,8 @@ describe('the activity timeline is only as honest as its reads (#260)', () => {
     // failed quotes fetch.
     fetchMock.mockImplementation(async (input) => {
       const url = String(input);
-      if (url.startsWith('/api/clients')) return jsonResponse(200, { clients: [SERVER_CLIENT] });
+      if (url.startsWith('/api/clients/')) return jsonResponse(200, { client: SERVER_CLIENT });
+      if (url.startsWith('/api/clients')) return jsonResponse(200, { clients: [] });
       if (url.startsWith('/api/quotes'))
         return jsonResponse(500, { error: { code: 'SERVER_ERROR', message: 'boom' } });
       if (url.startsWith('/api/receivables')) return jsonResponse(200, { receivables: [] });
