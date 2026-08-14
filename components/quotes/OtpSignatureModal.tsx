@@ -43,6 +43,18 @@ const MAX_ATTEMPTS = 3;
  */
 const RESEND_COOLDOWN_SECONDS = 30;
 
+/**
+ * A wait as the signer reads it: "27s" under a minute, "12:34" above — the
+ * hourly cap can answer with waits of many minutes, and "754s" is not a time
+ * anyone does arithmetic on mid-signature (#160).
+ */
+function formatWait(totalSeconds: number): string {
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
 export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
   isOpen,
   onClose,
@@ -86,6 +98,23 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
       if (!res.ok) {
         // Public routes answer { error: { code, message } } (#65); message is
         // Spanish and safe to show verbatim.
+        //
+        // The rate-limit refusals also say exactly HOW LONG to wait —
+        // `retry_after_seconds` rides on the body root (#65's extras). It was
+        // returned and never rendered (#160): the signer read "espere un
+        // momento" with no idea if that meant 30 seconds or an hour, and each
+        // re-tap against the invisible timer extended their own backoff. The
+        // server's number drives the same countdown the local cooldown uses,
+        // so the button disables with a visible timer instead.
+        const code = data?.error?.code;
+        const retryAfter = Number(data?.retry_after_seconds);
+        if (
+          (code === 'OTP_RESEND_COOLDOWN' || code === 'OTP_RATE_LIMITED') &&
+          Number.isFinite(retryAfter) &&
+          retryAfter > 0
+        ) {
+          setCooldown(Math.ceil(retryAfter));
+        }
         setError(data?.error?.message || 'No se pudo enviar el código de verificación');
         return;
       }
@@ -216,11 +245,17 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
             <button
               type="button"
               onClick={handleSendOtp}
-              disabled={sending}
+              disabled={sending || cooldown > 0}
               className="w-full min-h-[48px] px-4 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 text-sm shadow-md"
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-              <span>{sending ? 'Enviando…' : 'Enviar Código de Verificación'}</span>
+              <span>
+                {sending
+                  ? 'Enviando…'
+                  : cooldown > 0
+                    ? `Podrá solicitar otro código en ${formatWait(cooldown)}`
+                    : 'Enviar Código de Verificación'}
+              </span>
             </button>
             <button
               type="button"
@@ -260,7 +295,7 @@ export const OtpSignatureModal: React.FC<OtpSignatureModalProps> = ({
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>
-                  {cooldown > 0 ? `Reenviar en ${cooldown}s` : 'Reenviar Código'}
+                  {cooldown > 0 ? `Reenviar en ${formatWait(cooldown)}` : 'Reenviar Código'}
                 </span>
               </button>
             </div>

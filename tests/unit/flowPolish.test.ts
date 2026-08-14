@@ -114,7 +114,9 @@ describe('destructive-by-mistake and dead ends (#104)', () => {
   it('cools down the OTP resend instead of letting a double tap spend a send', () => {
     const otp = read('components/quotes/OtpSignatureModal.tsx');
     expect(otp).toContain('RESEND_COOLDOWN_SECONDS');
-    expect(otp).toContain('Reenviar en ${cooldown}s');
+    // Since #160 the countdown is formatted (m:ss above a minute) and driven
+    // by the server's retry_after_seconds when a 429 carries one.
+    expect(otp).toContain('Reenviar en ${formatWait(cooldown)}');
     expect(otp).toContain('disabled={sending || cooldown > 0}');
   });
 

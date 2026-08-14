@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     const { clientName, phone, amountDue, dueDate, token } = body as WhatsAppReminderOptions;
 
     if (!clientName || !phone || !amountDue || !token) {
-      return NextResponse.json({ error: 'Faltan parámetros obligatorios (clientName, phone, amountDue, token)' }, { status: 400 });
+      return NextResponse.json({ error: { code: 'INVALID_INPUT', message: 'Faltan datos del recordatorio: cliente, teléfono, monto o liga de pago.' } }, { status: 400 });
     }
 
     // No isSandbox here: it was `isDemoDeployment()`, which requireOrgAccess
