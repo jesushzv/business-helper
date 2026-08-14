@@ -923,3 +923,88 @@ the current record.)*
 Coverage was the reason for moving to `@sentry/nextjs`: the hand-rolled `fetch` envelope could not
 see an unhandled Server Component, render or Edge error. The live state of error monitoring stays in
 [`../STATUS.md`](../STATUS.md).
+
+---
+
+## Entries moved 2026-08-14 (STATUS.md budget trim — the pass that introduced the date TTL)
+
+*`tests/unit/docsStatusAuthority.test.ts` gained rule 5 on 2026-08-14: no `YYYY-MM-DD` date in
+`docs/STATUS.md` may outlive the TTL the test sets (7 days at introduction, sized to the measured
+~2 KB/day growth), so settled narrative now rolls out continuously instead of piling up against
+the 32 KB budget. The entries below were moved in the same PR to restore
+headroom; each one's surviving current-state fact stays in [`../STATUS.md`](../STATUS.md).*
+
+### From §02 — how the live PAC integration was found dead (2026-08-12)
+
+**Half fell on 2026-08-12.** The founder supplied a sandbox key and the integration was exercised
+live from a session — which found it **entirely broken**: every call targeted `/v1`, which answers
+410 for everything since April 2023, and v2 refuses the payload on four fields. Mocked-`fetch`
+coverage had kept all of it green. Fixed and re-verified against the live sandbox end to end: real
+SAT UUIDs, documents, cancellation (02/03), totals landing on the milestone amount with and without
+retenciones. Re-scoped by the BYOK decision (§05, 2026-08-12): the platform does not stamp on
+behalf of tenants, so the sandbox `FACTURAPI_SECRET_KEY` briefly set on Vercel comes back out. Also
+live-observed: `external_id` deduplicates nothing (#213) — the DB-side claim guard landed
+2026-08-13 (PR #241): `cfdi_stamp_claims` applied to production, duplicate claim refused `23505`
+live.
+
+### From §02 — the one-organization-per-owner probe detail (2026-08-11)
+
+The invariant was applied to production 2026-08-11 (`uq_organizations_owner_id`, `20260811150000`).
+Two blocking rows were found first — one owner held two `— BORRAR` test organizations, so #168's
+"0 duplicates" was stale — and the older was deleted with its client and quote. Verified live: the
+index reads back `indisunique`/`indisvalid`, and a probe INSERT of a second organization for an
+existing owner was refused with `23505`.
+
+### From §03 — the three-sessions-in-two-hours P0 tally incident (2026-08-11)
+
+The re-derive instruction has earned itself repeatedly, and most sharply on 2026-08-11, when three
+sessions edited the P0 table within two hours and each wrote a number that was already stale. One
+dropped #64's row and kept #63; another dropped #63's and kept #64 — each right about the issue it
+had just closed, both writing "3 open P0s", and a textual merge would have kept one number and lost
+the other's row. The lesson is not "run the query" — every one of them did — but *run it at the
+moment you write the number*, and re-run it when you merge.
+
+### From §03 P1 — error monitoring's road to @sentry/nextjs (settled 2026-08-12)
+
+**The code half landed 2026-08-11** as a raw-`fetch` envelope client, and **moved to
+`@sentry/nextjs` on 2026-08-12** following Sentry's official setup skill. The reason for the swap
+is coverage, not style: a hand-written transport only sees errors someone handed it, and never an
+unhandled Server Component error, a React render error or an Edge middleware throw — most of what a
+production 500 is. `instrumentation.ts`'s `onRequestError` sees all of them. Configured across
+browser, Node and Edge with tracing, session replay (all text, inputs and media masked), logs and
+profiling; `sendDefaultPii` is off, and email/RFC/CLABE/phone are scrubbed in `beforeSend` — now
+also out of stack-frame locals, breadcrumbs, headers and cookies — while `organization_id` and
+`route` survive. Call sites did not change: `lib/sentry.ts` keeps its signature as an adapter, so
+`app/global-error.tsx` and `app/(dashboard)/error.tsx` report as before. **The DSN was configured
+on Vercel by the founder on 2026-08-12, and #52 closed on that basis.**
+
+### From §03 P1 — the CI-absence narrative (PR #28, then #132)
+
+CI was silently absent on PR #28 for ten hours across four pushes while Vercel and GitGuardian
+reported green, so the PR looked checked. The cause is still unexplained — which is the argument
+for a rule that fails closed rather than one that depends on understanding it. It has since missed
+again, three times on one PR (#132).
+
+### From §03 P2 — migrations verified in CI (merged 2026-08-09)
+
+CI's `migration-verify` job applies the full set twice to Postgres 16 under a faithful Supabase
+shim (including the default-privilege auto-grants — the #76 trap), seeds a tenant, and asserts anon
+isolation, service_role access, the OTP phone CHECK, SECURITY DEFINER grants via `aclexplode`, and
+RLS-on-every-table. Shown red against a planted anon leak; making double-apply pass surfaced 16
+non-idempotent statements, all fixed.
+
+### From §03 P2 — the Gemini wiring and the 2026-08-13 "assistant not working" forensics
+
+**Gemini wired 2026-08-12** (`lib/geminiClient.ts`, raw REST). **Verified against a mocked `fetch`
+only — no session held the key, so no live call had run** (the #26 lesson says to exercise it
+once). **2026-08-13, "assistant not working" — root cause confirmed live:** Sentry event
+7669023728 shows `Gemini respondió 404` on `models/gemini-2.5-flash` — Google retired that id for
+new API keys in July 2026, so every call from the founder's (new) key 404s and answers degrade to
+the labeled rules engine. Supabase edge logs prove the rest of the chain works (key set,
+service-role budget reads 200, tier `inicial` allowed). Fix: client and `verify:gemini` default to
+the rolling `gemini-flash-latest` alias (`GEMINI_MODEL` pins), with a per-generation thinking cap —
+`thinkingBudget: 0` for 2.5-era flash (the MAX_TOKENS defect, real but secondary),
+`thinkingLevel: 'low'` for Gemini 3+/aliases — and both AI routes `console.warn` a Gemini failure
+into Vercel logs beside the Sentry capture. The model allowance became server-derived on 2026-08-12
+(#228): migration `20260812210000` applied to production and read back — RLS deny-all held against
+`anon`/`authenticated` probes, and the atomic increment returned 1 then 2 live.

@@ -235,3 +235,63 @@ describe('rule 4 — the authority is not an append-only log', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Rule 5 — dated narrative in the authority expires (a TTL).
+ *
+ * Rule 3's byte budget is the backstop, but it fires at the worst moment: whichever session
+ * happens to push the file past 32 KB inherits an archival chore unrelated to its own change,
+ * and the file spends most of its life at 95%+ of budget (30.5 KB when this rule was written).
+ * What actually grows it is rule 4's shape in disguise: undated-heading-compliant prose that is
+ * nonetheless a dated story — "**Half fell on 2026-08-12.** …" — which is accurate when written,
+ * settled within days, and never leaves.
+ *
+ * The TTL makes the archive step continuous instead of episodic. A date is how narrative
+ * identifies itself: once a `YYYY-MM-DD` in this file is older than TTL_DAYS, the event it
+ * anchors is settled history. Move the narrative VERBATIM to `docs/99-archive/status-log-<YYYY-MM>.md`
+ * (the pattern rule 3's guidance describes) and keep only the still-true fact, stated date-free —
+ * "the claim guard is applied to production" needs no date once nobody would write it differently
+ * next month. The `Last verified:` stamp is deliberately NOT exempt: if it is a week old, the
+ * whole document is stale-optimistic and re-running §06 is exactly the right price.
+ *
+ * Why 7 days: the TTL only helps if it fires BEFORE the byte budget does. Measured over
+ * 2026-08-11 → 08-13, this file grew ~2 KB/day and STATUS-touching PRs landed several times a
+ * day; with ~24 KB of permanent content, a 30-day TTL would have let the 32 KB gate trip first
+ * every time (as it did on 08-08, 08-11 and 08-13 — an emergency trim every 2-3 days). At this
+ * repo's cadence a week-old event IS settled history, and the reconciliation stamp has been
+ * refreshed every 1-3 days in practice anyway. If PR cadence slows, this number can rise —
+ * re-derive it from the growth rate rather than guessing.
+ *
+ * Yes, this gate goes red purely by time passing, on a PR that never touched the file. That is
+ * the point of a TTL — the alternative was a gate that fires only after the debt is 32 KB deep.
+ * The fix is cheap, local to the doc, and the message below says precisely which lines to move.
+ */
+const TTL_DAYS = 7;
+const ISO_DATE = /\b20\d{2}-\d{2}-\d{2}\b/g;
+
+describe(`rule 5 — no date in the authority is older than ${TTL_DAYS} days`, () => {
+  it('settled history has been archived', () => {
+    const cutoff = Date.now() - TTL_DAYS * 24 * 60 * 60 * 1000;
+    const stale: string[] = [];
+
+    read(AUTHORITY)
+      .split('\n')
+      .forEach((line, i) => {
+        for (const m of line.matchAll(ISO_DATE)) {
+          const parsed = Date.parse(`${m[0]}T00:00:00Z`);
+          if (!Number.isNaN(parsed) && parsed < cutoff) {
+            stale.push(`  line ${i + 1}: ${m[0]} — "${line.trim().slice(0, 90)}"`);
+          }
+        }
+      });
+
+    expect(
+      stale,
+      `${AUTHORITY} carries dates older than ${TTL_DAYS} days:\n${stale.join('\n')}\n\n` +
+        `A date this old anchors settled history, not current state. For each line: move the ` +
+        `narrative verbatim to docs/99-archive/status-log-<YYYY-MM>.md and keep the still-true ` +
+        `fact here, stated without the date. If the stale date is the "Last verified" stamp, the ` +
+        `document itself has expired — re-run the §06 reconciliation and re-stamp it.`
+    ).toEqual([]);
+  });
+});
