@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { hasCapability } from '@/lib/teamRBAC';
 
 /**
  * Deletes one catalog product. Added for #98 — the catalog UI offered a
@@ -16,7 +17,14 @@ export async function DELETE(
 ) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId } = auth.ctx;
+  const { supabase, organizationId, role } = auth.ctx;
+
+  if (!hasCapability(role, 'delete_records')) {
+    return NextResponse.json(
+      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite eliminar conceptos del catálogo' } },
+      { status: 403 }
+    );
+  }
 
   try {
     const { id } = await params;

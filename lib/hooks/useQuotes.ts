@@ -7,6 +7,7 @@ import { calculateQuoteTotals, LineItem } from '../quoteCalculator';
 import { convertQuoteToContract, ContractResult } from '../quoteToContract';
 import { track } from '@/lib/analytics';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
+import { readClientWriteError } from '@/lib/clientWriteError';
 
 const INITIAL_DEMO_QUOTES: Quote[] = [
   {
@@ -351,6 +352,28 @@ export function useQuotes() {
     return { contract: saved.contract, milestones: saved.milestones || [] };
   };
 
+  /**
+   * Deletes a quote the tenant may still delete (draft/sent/rejected/expired —
+   * the route refuses accepted and converted ones with a 409, because those
+   * carry a signature or a live /pay/ link). The row leaves local state only
+   * after the server confirms; a refused or failed delete throws with the
+   * server's Spanish message so the page can show why.
+   */
+  const deleteQuote = async (id: string): Promise<void> => {
+    if (!isClientDemoMode()) {
+      const res = await fetch(`/api/quotes/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        throw await readClientWriteError(res, 'No se pudo eliminar la cotización.');
+      }
+    }
+
+    setQuotes((prev) => {
+      const next = prev.filter((q) => q.id !== id);
+      syncLocalStorage(next);
+      return next;
+    });
+  };
+
   const filteredQuotes = useMemo(() => {
     return quotes.filter((q) => {
       const matchesStatus = statusFilter === 'all' || q.status === statusFilter;
@@ -384,6 +407,7 @@ export function useQuotes() {
     createQuote,
     updateQuoteStatus,
     convertToContract,
+    deleteQuote,
     resetDemoQuotes,
   };
 }

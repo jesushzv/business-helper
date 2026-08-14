@@ -11,6 +11,7 @@ import {
   CLIENT_CREDIT_FIELDS,
 } from '@/lib/clientCreditAuthorization';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { hasCapability } from '@/lib/teamRBAC';
 
 /**
  * Single-client operations.
@@ -167,7 +168,14 @@ export async function DELETE(
 ) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId } = auth.ctx;
+  const { supabase, organizationId, role } = auth.ctx;
+
+  if (!hasCapability(role, 'delete_records')) {
+    return NextResponse.json(
+      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite eliminar clientes' } },
+      { status: 403 }
+    );
+  }
 
   try {
     const { id } = await params;
@@ -183,6 +191,13 @@ export async function DELETE(
     if (error) {
       return dbWriteErrorResponse(error, 'el cliente', 'DELETE /api/clients/[id]', {
         verb: 'eliminar',
+        // `quotes.client_id` and `contracts.client_id` are ON DELETE RESTRICT:
+        // a client with history cannot be hard-deleted, by design — deleting it
+        // would orphan documents the business already issued. Name the actual
+        // obstacle instead of the generic "registros relacionados".
+        restrictMessage:
+          'Este cliente tiene cotizaciones o contratos registrados, así que no se puede ' +
+          'eliminar sin perder ese historial. Solo puedes eliminar clientes sin documentos emitidos.',
       });
     }
 
