@@ -23,7 +23,11 @@ describe('Monthly accountant CSV', () => {
     const csv = generateMonthlySummaryCSV('org123', '2026-08', [milestone]);
 
     expect(csv.split('\n')[0]).toBe(
-      'ID,Concepto,Monto,Estado,Fecha Vencimiento,Clave Rastreo,CFDI ID,Cliente,RFC Cliente,Fecha Confirmacion'
+      // `Metodo Pago` and `Complementos` since #31: only a PPD invoice owes
+      // payment complements, and a PPD row showing 0 of them is a gap the
+      // accountant can see rather than one they have to know to look for.
+      'ID,Concepto,Monto,Estado,Fecha Vencimiento,Clave Rastreo,CFDI ID,Metodo Pago,' +
+        'Cliente,RFC Cliente,Fecha Confirmacion,Complementos'
     );
   });
 
@@ -46,9 +50,17 @@ describe('Accountant ZIP manifest', () => {
     expect(manifest.month).toBe('2026-08');
     expect(manifest.files.map((f) => f.type)).toEqual([
       'text/csv',
+      // The complements sheet, listed even for a month with none: a package
+      // that silently omits it is indistinguishable from one where nothing
+      // was owed, and that is a claim the export must not make on its own (#31).
+      'text/csv',
       'application/xml',
       'application/pdf',
       'image/jpeg',
     ]);
+    // A complement is a payment against an invoice already in `totalAmount`;
+    // counting it there would report the same money twice.
+    expect(manifest.totalComplementsCount).toBe(0);
+    expect(manifest.totalComplementsAmount).toBe(0);
   });
 });

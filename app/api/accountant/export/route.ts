@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   generateMonthlySummaryCSV,
+  generatePaymentComplementsCSV,
   buildAccountantZipManifest,
   mapMilestoneRows,
   isValidExportMonth,
@@ -54,7 +55,13 @@ export async function GET(request: Request) {
     .select(
       'id, label, amount, transferred_amount, cfdi_total, cfdi_status, due_date, status, ' +
         'tracking_reference, cfdi_id, cfdi_xml_url, cfdi_pdf_url, receipt_url, confirmed_at, ' +
-        'contracts(title, clients(name, rfc))'
+        // A PPD invoice's complements are separate stamped documents proving
+        // when it was paid, and the package shipped neither them nor the
+        // method that says whether they are owed (#31).
+        'cfdi_payment_method, ' +
+        'contracts(title, clients(name, rfc)), ' +
+        'cfdi_payment_complements(id, installment, amount, last_balance, remaining_balance, ' +
+        'payment_date, operation_number, status, cfdi_uuid, cfdi_xml_path, cfdi_pdf_path)'
     )
     .eq('organization_id', organizationId)
     .gte('due_date', start)
@@ -78,6 +85,19 @@ export async function GET(request: Request) {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="Paquete_Contador_${month}.csv"`
+      }
+    });
+  }
+
+  // Its own sheet, because a complement is a payment and the invoice it
+  // settles is a sale: put them in one table and any column-sum of `Monto`
+  // counts the same money twice (#31).
+  if (format === 'complements') {
+    const csvContent = generatePaymentComplementsCSV(organizationId, month, milestones);
+    return new Response(csvContent, {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="Complementos_Pago_${month}.csv"`
       }
     });
   }
