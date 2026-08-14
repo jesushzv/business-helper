@@ -3,19 +3,13 @@
 import React from 'react';
 import { ReceivablesSummary } from '@/lib/receivablesCalculator';
 import { AlertCircle, Clock, Calendar, CheckCircle2 } from 'lucide-react';
+import { formatMXN } from '@/lib/currencyFormat';
 
 interface ReceivablesSummaryCardsProps {
   summary: ReceivablesSummary;
 }
 
 export const ReceivablesSummaryCards: React.FC<ReceivablesSummaryCardsProps> = ({ summary }) => {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-    }).format(amount);
-  };
-
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 text-white">
       {/* Overdue Card */}
@@ -27,7 +21,7 @@ export const ReceivablesSummaryCards: React.FC<ReceivablesSummaryCardsProps> = (
           </div>
         </div>
         <div className="text-3xl font-black font-mono text-rose-400 tracking-tight">
-          {formatCurrency(summary.totalOverdue)}
+          {formatMXN(summary.totalOverdue)}
         </div>
         <p className="text-xs text-slate-400 mt-1 font-medium">
           {summary.countOverdue} {summary.countOverdue === 1 ? 'pago vencido' : 'pagos vencidos'}
@@ -43,7 +37,7 @@ export const ReceivablesSummaryCards: React.FC<ReceivablesSummaryCardsProps> = (
           </div>
         </div>
         <div className="text-3xl font-black font-mono text-amber-300 tracking-tight">
-          {formatCurrency(summary.totalDueToday)}
+          {formatMXN(summary.totalDueToday)}
         </div>
         <p className="text-xs text-slate-400 mt-1 font-medium">
           {summary.countDueToday} {summary.countDueToday === 1 ? 'pago hoy' : 'pagos hoy'}
@@ -59,7 +53,7 @@ export const ReceivablesSummaryCards: React.FC<ReceivablesSummaryCardsProps> = (
           </div>
         </div>
         <div className="text-3xl font-black font-mono text-indigo-300 tracking-tight">
-          {formatCurrency(summary.totalUpcoming)}
+          {formatMXN(summary.totalUpcoming)}
         </div>
         <p className="text-xs text-slate-400 mt-1 font-medium">
           {summary.countUpcoming} {summary.countUpcoming === 1 ? 'pago próximo' : 'pagos próximos'}
@@ -75,7 +69,7 @@ export const ReceivablesSummaryCards: React.FC<ReceivablesSummaryCardsProps> = (
           </div>
         </div>
         <div className="text-3xl font-black font-mono text-emerald-400 tracking-tight">
-          {formatCurrency(summary.totalConfirmed)}
+          {formatMXN(summary.totalConfirmed)}
         </div>
         <p className="text-xs text-slate-400 mt-1 font-medium">
           {summary.countConfirmed} {summary.countConfirmed === 1 ? 'pago confirmado' : 'pagos confirmados'}
@@ -87,7 +81,7 @@ export const ReceivablesSummaryCards: React.FC<ReceivablesSummaryCardsProps> = (
           <p className="text-xs text-amber-300 mt-1 font-semibold">
             {summary.countPartial}{' '}
             {summary.countPartial === 1 ? 'pago parcial' : 'pagos parciales'}: faltan{' '}
-            {formatCurrency(summary.totalPartialOutstanding)}
+            {formatMXN(summary.totalPartialOutstanding)}
           </p>
         )}
       </div>

@@ -6,6 +6,7 @@ import { ClientCard } from '@/components/clients/ClientCard';
 import { ClientFormModal } from '@/components/clients/ClientFormModal';
 import { useClients } from '@/lib/hooks/useClients';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
+import { ListState } from '@/components/shared/ListState';
 import { Search, Users, Plus, ShieldCheck } from 'lucide-react';
 import { Client } from '@/types';
 
@@ -107,52 +108,42 @@ export default function ClientsPage() {
           )}
         </div>
 
-        {/* Client Cards Grid. Three states, not two (#97/#260): a failed read
-            used to render "No se encontraron clientes" with a "Registrar
-            Cliente Ahora" CTA — the owner's worst case being re-registering a
-            client that already exists. */}
-        {loading ? (
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-48 animate-pulse rounded-2xl bg-slate-800/80" />
-            ))}
-          </div>
-        ) : error ? (
-          <div role="alert" className="mt-12 rounded-3xl border border-rose-500/30 bg-rose-950/60 p-12 text-center space-y-3">
-            <Users className="mx-auto h-12 w-12 text-rose-400" />
-            <h3 className="text-lg font-bold text-white">No pudimos cargar tu directorio</h3>
-            <p className="mx-auto max-w-sm text-sm text-rose-200">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="min-h-[48px] rounded-2xl bg-slate-800 px-6 py-3 text-sm font-bold text-white transition-all hover:bg-slate-700 active:scale-95"
-            >
-              Reintentar
-            </button>
-          </div>
-        ) : filteredClients.length > 0 ? (
+        {/* Client Cards Grid — ListState enforces three states, not two
+            (#97/#260): a failed read used to render "No se encontraron
+            clientes" with a "Registrar Cliente Ahora" CTA. */}
+        <ListState
+          loading={loading}
+          error={error}
+          isEmpty={filteredClients.length === 0}
+          icon={Users}
+          errorTitle="No pudimos cargar tu directorio"
+          skeletonClassName="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          errorClassName="mt-12"
+          empty={
+            <div className="mt-12 flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/90 p-12 text-center shadow-xl">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-950/80 text-indigo-400 border border-indigo-500/30">
+                <Users className="h-8 w-8" />
+              </div>
+              <h3 className="mt-4 text-lg font-extrabold text-white">No se encontraron clientes</h3>
+              <p className="mt-1 max-w-sm text-xs text-slate-400">
+                {searchQuery ? 'Prueba con otro término de búsqueda.' : 'Registra a tu primer cliente para comenzar a cotizar.'}
+              </p>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="mt-6 flex min-h-[48px] items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 px-6 py-2.5 text-sm font-bold text-slate-950 shadow-md"
+              >
+                <Plus className="h-5 w-5" />
+                <span>Registrar Cliente Ahora</span>
+              </button>
+            </div>
+          }
+        >
           <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filteredClients.map((client) => (
               <ClientCard key={client.id} client={client} />
             ))}
           </div>
-        ) : (
-          <div className="mt-12 flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/90 p-12 text-center shadow-xl">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-950/80 text-indigo-400 border border-indigo-500/30">
-              <Users className="h-8 w-8" />
-            </div>
-            <h3 className="mt-4 text-lg font-extrabold text-white">No se encontraron clientes</h3>
-            <p className="mt-1 max-w-sm text-xs text-slate-400">
-              {searchQuery ? 'Prueba con otro término de búsqueda.' : 'Registra a tu primer cliente para comenzar a cotizar.'}
-            </p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="mt-6 flex min-h-[48px] items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 px-6 py-2.5 text-sm font-bold text-slate-950 shadow-md"
-            >
-              <Plus className="h-5 w-5" />
-              <span>Registrar Cliente Ahora</span>
-            </button>
-          </div>
-        )}
+        </ListState>
       </div>
 
       {/* Add / Edit Client Modal */}

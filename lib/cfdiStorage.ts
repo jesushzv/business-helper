@@ -121,3 +121,20 @@ export async function signCFDIDocumentUrl(
 
   return { ok: true, url: data.signedUrl };
 }
+
+/**
+ * The app-relative download path for a stamped document, served by
+ * `GET /api/invoices/[id]/document` (which signs a short-lived storage link
+ * per request). This format existed in three copies — the issue route, the
+ * complement route and useInvoices — and a drift in any one of them is a
+ * broken download in front of a tenant. Server callers prefix
+ * `getAppBaseUrl()`; the client uses the relative path as-is.
+ */
+export function cfdiDocumentPath(
+  milestoneId: string,
+  type: 'xml' | 'pdf',
+  complementId?: string
+): string {
+  const complement = complementId ? `&complement=${complementId}` : '';
+  return `/api/invoices/${milestoneId}/document?type=${type}${complement}`;
+}

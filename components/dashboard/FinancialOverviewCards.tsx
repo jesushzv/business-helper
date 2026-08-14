@@ -4,19 +4,13 @@ import React from 'react';
 import Link from 'next/link';
 import { DollarSign, TrendingUp, AlertTriangle, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { BusinessMetrics } from '@/lib/dashboardAnalytics';
+import { formatMXN } from '@/lib/currencyFormat';
 
 interface FinancialOverviewCardsProps {
   metrics: BusinessMetrics;
 }
 
 export const FinancialOverviewCards: React.FC<FinancialOverviewCardsProps> = ({ metrics }) => {
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-    }).format(val);
-  };
-
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {/* 1. Cobrado (Collected Revenue) */}
@@ -30,7 +24,7 @@ export const FinancialOverviewCards: React.FC<FinancialOverviewCardsProps> = ({ 
           </div>
         </div>
         <p className="mt-3 font-mono text-3xl font-black tracking-tight text-white sm:text-4xl">
-          {formatCurrency(metrics.collectedRevenue)}
+          {formatMXN(metrics.collectedRevenue)}
         </p>
         <div className="mt-3 flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
           <div className="flex items-center gap-1.5 font-semibold text-emerald-400">
@@ -54,7 +48,7 @@ export const FinancialOverviewCards: React.FC<FinancialOverviewCardsProps> = ({ 
           </div>
         </div>
         <p className="mt-3 font-mono text-3xl font-black tracking-tight text-white sm:text-4xl">
-          {formatCurrency(metrics.pendingReceivables)}
+          {formatMXN(metrics.pendingReceivables)}
         </p>
         <div className="mt-3 flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
           <div className="flex items-center gap-1.5 font-semibold text-amber-300">
@@ -98,7 +92,7 @@ export const FinancialOverviewCards: React.FC<FinancialOverviewCardsProps> = ({ 
         <p className={`mt-3 font-mono text-3xl font-black tracking-tight sm:text-4xl ${
           metrics.overdueDebt > 0 ? 'text-rose-400' : 'text-white'
         }`}>
-          {formatCurrency(metrics.overdueDebt)}
+          {formatMXN(metrics.overdueDebt)}
         </p>
         <div className="mt-3 flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
           <div className={`flex items-center gap-1.5 font-semibold ${

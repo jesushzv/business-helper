@@ -1,4 +1,4 @@
-import { Header } from '@/components/layout/Header';
+import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { ProductCatalogCard } from '@/components/products/ProductCatalogCard';
 
 export const metadata = {
@@ -8,20 +8,13 @@ export const metadata = {
 
 export default function ProductsPage() {
   return (
-    <>
-      <Header />
-      <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Catálogo de Productos y Servicios
-          </h1>
-          <p className="text-sm sm:text-base text-slate-400 mt-1">
-            Gestiona tus servicios pre-guardados con claves SAT de unidad (E48) y producto (84111506).
-          </p>
-        </div>
-
-        <ProductCatalogCard />
-      </div>
-    </>
+    // The Header bar deliberately carries no title here — it would repeat the
+    // h1 right below it (flowPolish.test.ts, "printing its own title twice").
+    <DashboardPageShell
+      title="Catálogo de Productos y Servicios"
+      subtitle="Gestiona tus servicios pre-guardados con claves SAT de unidad (E48) y producto (84111506)."
+    >
+      <ProductCatalogCard />
+    </DashboardPageShell>
   );
 }
