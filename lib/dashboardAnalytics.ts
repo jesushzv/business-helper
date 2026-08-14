@@ -5,7 +5,13 @@
  * 1. Business Metrics Aggregator (Collected Revenue, Pending Receivables, Overdue Debt)
  * 2. Top Clients Ranking Leaderboard
  * 3. 30/60/90-Day Cash Flow Forecast Timeline
+ *
+ * "Collected" and "still owed" are defined once, in `lib/receivablesCalculator`,
+ * and imported here. Two screens deriving the same money two ways is how
+ * Cobranza and Facturación came to disagree about one cobro (#253).
  */
+
+import { collectedAmount, outstandingAmount } from './receivablesCalculator';
 
 export interface MilestoneItem {
   id: string;
@@ -15,6 +21,8 @@ export interface MilestoneItem {
   amount: number;
   due_date: string;
   status: 'pending' | 'requested' | 'marked_paid' | 'confirmed';
+  /** What the owner confirmed actually arrived; may be less than `amount` (#253). */
+  transferred_amount?: number | null;
   confirmed_at?: string | null;
 }
 
@@ -42,7 +50,13 @@ export interface BusinessMetrics {
   upcomingAmount: number;
   activeClientsCount: number;
   acceptedQuotesCount: number;
-  totalMilestonesCount: number;
+  /**
+   * How many cobros make up `pendingReceivables` — the same subset, not every
+   * milestone ever created. It was `milestones.length`, so an org that had
+   * collected all twelve of its cobros read "$0.00 / 12 hitos registrados"
+   * under a card headed *Por Cobrar (Pendiente)* (#297).
+   */
+  pendingMilestonesCount: number;
 }
 
 export interface TopClientRevenue {
@@ -88,23 +102,30 @@ export function calculateBusinessMetrics(
   let overdueDebt = 0;
   let dueTodayAmount = 0;
   let upcomingAmount = 0;
+  let pendingMilestonesCount = 0;
 
   milestones.forEach((m) => {
-    const amt = Number(m.amount) || 0;
-    if (m.status === 'confirmed') {
-      collectedRevenue += amt;
-    } else {
-      pendingReceivables += amt;
-      const dueDate = new Date(m.due_date);
-      dueDate.setHours(0, 0, 0, 0);
+    // Same two facts the Cobranza cards derive, from the same helpers: what
+    // arrived, and what is still owed. A confirmed-but-short cobro contributes
+    // to both, so the dashboard stops booking a $20,000 wire as $48,720 of
+    // revenue (#253).
+    collectedRevenue += collectedAmount(m);
 
-      if (dueDate < today) {
-        overdueDebt += amt;
-      } else if (dueDate.getTime() === today.getTime()) {
-        dueTodayAmount += amt;
-      } else {
-        upcomingAmount += amt;
-      }
+    const outstanding = outstandingAmount(m);
+    if (outstanding <= 0) return;
+
+    pendingReceivables += outstanding;
+    pendingMilestonesCount += 1;
+
+    const dueDate = new Date(m.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+
+    if (dueDate < today) {
+      overdueDebt += outstanding;
+    } else if (dueDate.getTime() === today.getTime()) {
+      dueTodayAmount += outstanding;
+    } else {
+      upcomingAmount += outstanding;
     }
   });
 
@@ -118,7 +139,7 @@ export function calculateBusinessMetrics(
     upcomingAmount: Math.round(upcomingAmount * 100) / 100,
     activeClientsCount: clients.length,
     acceptedQuotesCount,
-    totalMilestonesCount: milestones.length,
+    pendingMilestonesCount,
   };
 }
 
@@ -134,7 +155,9 @@ export function getTopClientsByRevenue(
 
   milestones.forEach((m) => {
     if (m.status === 'confirmed' && m.client_id) {
-      const amt = Number(m.amount) || 0;
+      // Revenue is what the client actually transferred, not what they were
+      // billed — the leaderboard ranked a $20,000 payer as a $48,720 one (#253).
+      const amt = collectedAmount(m);
       if (!clientRevenueMap[m.client_id]) {
         clientRevenueMap[m.client_id] = { totalRevenue: 0, count: 0 };
       }

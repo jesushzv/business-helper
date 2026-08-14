@@ -31,7 +31,14 @@ vi.mock('@/lib/supabase/server', () => ({ isSupabaseConfigured: () => true }));
 function failingTable() {
   const result = async () => ({ data: null, error: state.failure });
   const selectable = () => ({ select: () => ({ single: result, maybeSingle: result }) });
-  const scoped = () => ({ eq: () => ({ eq: () => selectable(), ...selectable() }) });
+  // `neq` after the org scope is the confirm route's not-yet-confirmed
+  // precondition, carried inside the UPDATE (#286).
+  const scoped = () => ({
+    eq: () => ({
+      eq: () => ({ neq: () => selectable(), ...selectable() }),
+      ...selectable(),
+    }),
+  });
   return {
     insert: () => ({ ...selectable(), then: undefined }),
     update: () => scoped(),

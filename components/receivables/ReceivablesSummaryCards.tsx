@@ -80,6 +80,16 @@ export const ReceivablesSummaryCards: React.FC<ReceivablesSummaryCardsProps> = (
         <p className="text-xs text-slate-400 mt-1 font-medium">
           {summary.countConfirmed} {summary.countConfirmed === 1 ? 'pago confirmado' : 'pagos confirmados'}
         </p>
+        {/* A cobro paid in part is not a cobro collected. The amount above
+            counts only what arrived; this line says the rest is still owed and
+            is why it also appears in Atrasado / Vence Hoy / Por Vencer (#253). */}
+        {summary.countPartial > 0 && (
+          <p className="text-xs text-amber-300 mt-1 font-semibold">
+            {summary.countPartial}{' '}
+            {summary.countPartial === 1 ? 'pago parcial' : 'pagos parciales'}: faltan{' '}
+            {formatCurrency(summary.totalPartialOutstanding)}
+          </p>
+        )}
       </div>
     </div>
   );

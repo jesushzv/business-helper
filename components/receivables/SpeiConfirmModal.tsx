@@ -21,13 +21,20 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [complementWarning, setComplementWarning] = useState<string | null>(null);
-  const [transferredAmount, setTransferredAmount] = useState<number>(
-    milestone?.transferred_amount || milestone?.amount || 0
+  // Held as the typed text, not a number, so "cleared" and "zero" stay
+  // distinguishable: `Number(x) || milestone.amount` substituted the FULL
+  // amount for anything falsy, and a cleared field displayed 0 while confirming
+  // the whole cobro — screen and write disagreeing about money (#284). The
+  // string state is also what #151 asks of this input (a number binding
+  // re-rendered a trailing zero over a half-typed decimal), though jsdom
+  // normalizes that away and no test here claims it.
+  const [transferredAmount, setTransferredAmount] = useState<string>(
+    String(milestone?.transferred_amount ?? milestone?.amount ?? '')
   );
 
   React.useEffect(() => {
     if (milestone) {
-      setTransferredAmount(milestone.transferred_amount || milestone.amount);
+      setTransferredAmount(String(milestone.transferred_amount ?? milestone.amount ?? ''));
       setErrorMessage(null);
       setComplementWarning(null);
     }
@@ -36,10 +43,21 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   if (!isOpen || !milestone) return null;
 
   const handleConfirm = async () => {
+    // What arrived is the tenant's declaration, and it is what the complemento
+    // de pago will carry to the SAT. An unreadable one is a question, not a
+    // default.
+    const declared = Number(transferredAmount.trim());
+    if (transferredAmount.trim() === '' || !Number.isFinite(declared) || declared <= 0) {
+      setErrorMessage(
+        'Indica el monto que recibiste, mayor a cero. Si no llegó nada, no confirmes el pago.'
+      );
+      return;
+    }
+
     setLoading(true);
     setErrorMessage(null);
     try {
-      const outcome = await onConfirm(milestone.id, Number(transferredAmount) || milestone.amount);
+      const outcome = await onConfirm(milestone.id, declared);
 
       if (!outcome.success) {
         // The payment was NOT confirmed. Say so where the user is looking,
@@ -157,7 +175,7 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
               type="number"
               step="0.01"
               value={transferredAmount}
-              onChange={(e) => setTransferredAmount(parseFloat(e.target.value) || 0)}
+              onChange={(e) => setTransferredAmount(e.target.value)}
               className="w-full min-h-[48px] px-4 py-3 border border-slate-800 bg-slate-950/80 rounded-xl font-bold font-mono text-lg text-white focus:border-emerald-500 outline-none"
             />
           </div>

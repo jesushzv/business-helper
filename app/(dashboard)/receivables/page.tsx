@@ -173,7 +173,18 @@ export default function ReceivablesPage() {
           // confirmed payment whose SAT complement did not stamp — that
           // warning is a live fiscal obligation, and a green dialog on top of
           // it would bury exactly the thing the tenant must act on.
-          if (outcome.success && !outcome.complementError) {
+          //
+          // The modal holds open for three outcomes, not one, and this gate
+          // named only the first: the overpayment alert (#81) and the
+          // unknown-método skip (#213) / storage warning (#238) were both
+          // rendered *behind* a green "Pago confirmado" at z-[60] (#272). The
+          // shapes are read the same way the modal reads them.
+          const overpaid = Number(outcome.complement?.overpaidAmount) || 0;
+          const complementWarning = outcome.complement?.warning;
+          const cleanConfirmation =
+            outcome.success && !outcome.complementError && overpaid <= 0 && !complementWarning;
+
+          if (cleanConfirmation) {
             result.succeed({
               title: 'Pago confirmado',
               message: outcome.milestone

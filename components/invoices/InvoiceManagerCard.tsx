@@ -254,9 +254,20 @@ export function InvoiceManagerCard() {
       return;
     }
 
+    // The surplus (#81) reaches the tenant here too. `/api/invoices/[id]/complement`
+    // has always returned `overpaidAmount`; this message never mentioned it, so
+    // the manual path dropped the fact the automatic one holds a modal open to
+    // show (#272).
+    const overpaid = Number(res.overpaidAmount) || 0;
+    const surplusNotice =
+      overpaid > 0
+        ? ` Se recibieron ${currency(overpaid)} por encima del saldo de esta factura. ` +
+          'El complemento se timbró por el saldo; aplica el excedente a otro cobro o devuélvelo a tu cliente.'
+        : '';
+
     setStampedMessage(
       `Complemento de pago timbrado (parcialidad ${res.installment}). Folio fiscal ${res.uuid}. ` +
-        `Saldo insoluto ${currency(res.remainingBalance ?? 0)}.${res.warning ? ` ${res.warning}` : ''}`
+        `Saldo insoluto ${currency(res.remainingBalance ?? 0)}.${surplusNotice}${res.warning ? ` ${res.warning}` : ''}`
     );
   };
 
@@ -298,14 +309,32 @@ export function InvoiceManagerCard() {
   const handleNotaDeVenta = (inv: InvoiceItem) => {
     if (!inv.clientPhone) return;
 
+    // Three facts the document must not invent, all of them the row's own.
+    const paid = inv.status === 'confirmed';
+    // What arrived, when something did: a confirmation may record less than
+    // the cobro (#253), and the comprobante is for the money, not the bill.
+    const received = inv.transferredAmount === null ? inv.amount : inv.transferredAmount;
+    const documentTotal = paid ? received : inv.amount;
+    const partial = paid && documentTotal < inv.amount;
+
     const payload = generateNotaDeVentaPayload({
       title: inv.concept,
       clientName: inv.clientName,
       clientRfc: inv.clientRfc || '',
-      amount: inv.amount,
+      // A milestone amount is a slice of the quote total and is already
+      // IVA-inclusive; as `amount` the generator added another 16% on top of it
+      // and the client received a comprobante that matched nothing (#251).
+      totalIncludingIva: documentTotal,
+      paid,
       // Only a document stamped against a live PAC account is a filed invoice.
       status:
-        inv.cfdiStatus === 'issued' && inv.cfdiEnvironment === 'live' ? 'FACTURADO SAT' : 'PAGADO',
+        inv.cfdiStatus === 'issued' && inv.cfdiEnvironment === 'live'
+          ? 'FACTURADO SAT'
+          : paid
+            ? partial
+              ? 'PAGO PARCIAL'
+              : 'PAGADO'
+            : 'PENDIENTE DE PAGO',
     });
 
     const waUrl = generateReceiptWhatsAppLink(payload, inv.clientPhone);

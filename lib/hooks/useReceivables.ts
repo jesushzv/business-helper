@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { MilestoneItem, calculateReceivablesSummary, ReceivablesSummary } from '../receivablesCalculator';
+import {
+  MilestoneItem,
+  agingBucketOf,
+  calculateReceivablesSummary,
+  ReceivablesSummary,
+} from '../receivablesCalculator';
 import { isClientDemoMode } from '../clientDemoMode';
 
 export interface MilestoneWithClient extends MilestoneItem {
@@ -394,6 +399,20 @@ export function useReceivables() {
       transferred_amount: data.transferred_amount,
     };
 
+    // The sandbox never reaches the API: it short-circuits *before* the fetch,
+    // which is the rule LESSONS states — a demo simulation is never a fallback
+    // on a real request's result. This used to read
+    // `if (res.ok || isClientDemoMode())` after the request, so a failed write
+    // in a demo-flagged browser still applied a local "comprobante registrado":
+    // the #58/#86 shape, sitting in a money hook (#287). `confirmPayment` above
+    // still simulates from the failed-response branch; it is at least gated on
+    // the build-time signal rather than a status code, and is left alone here.
+    if (isClientDemoMode()) {
+      const updated = applyRowUpdate(id, changes);
+      if (!updated) return { success: false, error: 'Hito de pago no encontrado' };
+      return { success: true, milestone: updated };
+    }
+
     let res: Response;
     try {
       res = await fetch(`/api/receivables/${id}`, {
@@ -407,7 +426,7 @@ export function useReceivables() {
 
     const body = await res.json().catch(() => null);
 
-    if (res.ok || isClientDemoMode()) {
+    if (res.ok) {
       const updated = applyRowUpdate(id, changes);
       if (!updated) return { success: false, error: 'Hito de pago no encontrado' };
       return { success: true, milestone: updated };
@@ -424,15 +443,17 @@ export function useReceivables() {
 
   const filteredReceivables = useMemo(() => {
     return receivables.filter((m) => {
-      const dueDate = m.due_date ? m.due_date.substring(0, 10) : '';
-
       let matchesStatus = true;
+      // The aging tabs ask `agingBucketOf` — the same predicate the summary
+      // cards sum. Written out here they disagreed with the cards twice: a
+      // `marked_paid` cobro counted toward Atrasado but the tab hid it, and a
+      // partially-paid one appeared in no tab at all (#253).
       if (statusFilter === 'overdue') {
-        matchesStatus = (m.status === 'pending' || m.status === 'requested') && dueDate < todayStr;
+        matchesStatus = agingBucketOf(m, todayStr) === 'overdue';
       } else if (statusFilter === 'due_today') {
-        matchesStatus = (m.status === 'pending' || m.status === 'requested') && dueDate === todayStr;
+        matchesStatus = agingBucketOf(m, todayStr) === 'due_today';
       } else if (statusFilter === 'upcoming') {
-        matchesStatus = (m.status === 'pending' || m.status === 'requested') && dueDate > todayStr;
+        matchesStatus = agingBucketOf(m, todayStr) === 'upcoming';
       } else if (statusFilter === 'marked_paid') {
         matchesStatus = m.status === 'marked_paid';
       } else if (statusFilter === 'confirmed') {
