@@ -23,7 +23,6 @@ import { BrowserFrameMockup } from '@/components/landing/BrowserFrameMockup';
 import { LiveDemoButton } from '@/components/landing/LiveDemoButton';
 import { BottomConversionForm } from '@/components/landing/BottomConversionForm';
 import { DifferentiatorTimeline } from '@/components/landing/DifferentiatorTimeline';
-import { PricingComparisonTable } from '@/components/pricing/PricingComparisonTable';
 import { Footer } from '@/components/layout/Footer';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { getAssetUrl } from '@/lib/url';
@@ -79,9 +78,13 @@ export default function LandingPage() {
             <a href="#testimonios" className="hover:text-emerald-400 transition-colors py-2">
               Casos por Industria
             </a>
-            <a href="#precios" className="hover:text-emerald-400 transition-colors py-2">
+            {/* To the page, not the section (#349): `/pricing` carries the full
+                comparison and the billing FAQ, and is what the sitemap already
+                claims at priority 0.9. The section below stays as the summary a
+                visitor scrolling the landing runs into. */}
+            <Link href="/pricing" className="hover:text-emerald-400 transition-colors py-2">
               Precios
-            </a>
+            </Link>
             <a href="#equipo" className="hover:text-emerald-400 transition-colors py-2">
               Nosotros
             </a>
@@ -606,9 +609,18 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Side-by-Side Feature Comparison Table */}
-          <div className="mt-16">
-            <PricingComparisonTable />
+          {/* The full side-by-side comparison lives on `/pricing`, which is the
+              canonical pricing surface (#349). Rendering it here too gave the
+              site two pages with the same table and left the one the sitemap
+              points at unlinked. This is the link onward. */}
+          <div className="mt-12 text-center">
+            <Link
+              href="/pricing"
+              className="min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-white font-bold text-xs transition-all active:scale-95"
+            >
+              <span>Ver todos los planes y comparativa</span>
+              <ArrowRight className="w-4 h-4 text-emerald-400" />
+            </Link>
           </div>
 
           {/* CFDI Add-on & SAT CSD Trust Guarantee Callout */}

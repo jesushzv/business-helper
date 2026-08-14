@@ -53,7 +53,12 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/#precios" className="hover:text-emerald-400 transition-colors">
+                {/* `/pricing` is the canonical pricing surface (#349): it owns the
+                    full comparison table and the billing FAQ, and the landing's
+                    `#precios` is a summary that links onward. This one is a real
+                    page, so it is not a rooted section anchor like its
+                    neighbours — #290's rule applies to in-page ids, not routes. */}
+                <Link href="/pricing" className="hover:text-emerald-400 transition-colors">
                   Precios & Planes
                 </Link>
               </li>
