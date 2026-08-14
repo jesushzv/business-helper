@@ -17,7 +17,7 @@ export interface PhoneValidationResult {
  * typing "8112345678" means Monterrey, and asking them to pick a country for
  * the 99% case would be a tax on every client they add.
  */
-export const DEFAULT_COUNTRY: CountryCode = 'MX';
+const DEFAULT_COUNTRY: CountryCode = 'MX';
 
 /**
  * Mexico retired the `1` that used to sit between the country code and a

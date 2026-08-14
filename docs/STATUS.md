@@ -60,7 +60,7 @@ completion claim needs checking against source. The full findings are in
 
 | Metric | State |
 |:---|:---|
-| Test suite | **1855 tests / 185 files**, `npx vitest run` on the deployed-smoke branch with `main` merged in (2026-08-13). The `scripts/test-runner.js` that reported "182/182" no longer exists |
+| Test suite | **2033 tests / 190 files**, `npx vitest run` on the deletion-semantics branch cut from `main` (2026-08-14). The `scripts/test-runner.js` that reported "182/182" no longer exists |
 | Coverage gate | 85/85/80/80 is configured and **fails**; CI does not run it ([#51](https://github.com/jesushzv/business-helper/issues/51)). Judge a change on the delta, not the absolute |
 | Error monitoring | **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling (why it replaced the hand-rolled transport: archive). PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | **Rewritten and executed 2026-08-13** ([#69](https://github.com/jesushzv/business-helper/issues/69)/[#91](https://github.com/jesushzv/business-helper/issues/91)): **18 passed, 0 skipped, 0 failed** — 9 scenarios × desktop + mobile chromium, production build, demo posture. Scenarios pinning remediated defects (P0-4 CLABE, pre-#57 OTP) now assert the opposite; suite joined CI. It caught a live wizard defect (`docs/LESSONS.md` #91). Scenario 10 (deployed health) left for the row below — it had never run |
@@ -94,6 +94,19 @@ decision behind the invariant is recorded, and
 
 **Schema/catalog divergence (#204) is resolved** — every index on `organizations` matches a
 migration, verified against `pg_indexes`; the full account is in the archive.
+
+### Deletion semantics
+
+**Record deletion is capability-gated and guarded** (2026-08-14): `delete_records`
+(owner + manager) fronts the clientes/cotizaciones/productos/cobros DELETE routes, which
+previously had no role check at all. Guards: a signed (`accepted`) or `converted` quote is not
+deletable (409 — its token anchors the live `/q/`–`/pay/` link); a milestone is deletable only
+while `pending` with no CFDI (its complementos would CASCADE away); a client with quotes or
+contracts is refused by the DB's `ON DELETE RESTRICT` and now told so in those words instead of
+the old wrong-direction "ya no existe, recarga" — and the confirm dialog no longer promises that
+deletion succeeds. Cotizaciones gained their first UI delete (draft/sent/rejected/expired,
+confirm-guarded). Verified with the Vitest suite (route handlers against Supabase doubles,
+hooks against a mocked `fetch`); no live-database pass — RLS itself was not changed.
 
 ### Founder admin surface
 

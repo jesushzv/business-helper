@@ -7,7 +7,7 @@ import { generateWhatsAppLink } from '@/lib/whatsappLink';
 import { track } from '@/lib/analytics';
 import { getQuotePublicUrl } from '@/lib/url';
 import { isQuoteExpired } from '@/lib/quoteSignability';
-import { MessageSquare, ArrowRight, CheckCircle, FileText } from 'lucide-react';
+import { MessageSquare, ArrowRight, CheckCircle, FileText, Trash2 } from 'lucide-react';
 
 interface QuoteCardProps {
   quote: Quote;
@@ -21,9 +21,17 @@ interface QuoteCardProps {
    * quote, which is the enforcement that matters; this is the other half.
    */
   onConvert?: (quoteId: string) => void | Promise<void>;
+  /**
+   * Opens the page's confirmation flow — the card never deletes on a bare tap.
+   * Absent (a role without delete_records, or a surface that doesn't offer
+   * deletion) no delete control renders at all, and it never renders for an
+   * accepted or converted quote: those carry the client's signature or a live
+   * /pay/ link, and the route refuses them with a 409 anyway.
+   */
+  onDelete?: (quoteId: string) => void;
 }
 
-export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }) => {
+export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert, onDelete }) => {
   const [converting, setConverting] = useState(false);
 
   const handleConvert = async () => {
@@ -126,6 +134,17 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert }
             <ArrowRight className="w-3.5 h-3.5 shrink-0 text-slate-400" />
           </a>
         </div>
+
+        {onDelete && quote.status !== 'accepted' && quote.status !== 'converted' && (
+          <button
+            type="button"
+            onClick={() => onDelete(quote.id)}
+            className="w-full min-h-[48px] px-3.5 py-2.5 bg-transparent hover:bg-rose-950/40 text-rose-400 border border-rose-900/50 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors text-xs sm:text-sm"
+          >
+            <Trash2 className="w-4 h-4 shrink-0" />
+            <span>Eliminar Cotización</span>
+          </button>
+        )}
 
         {/* Convert to Contract Action Button if Accepted */}
         {quote.status === 'accepted' && (

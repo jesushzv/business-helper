@@ -352,6 +352,12 @@ export async function POST(
             code: 'QUOTE_STATUS_NOT_UPDATED',
             message: 'Se creó el contrato pero no se pudo actualizar el estado de la cotización',
           },
+          // The partial success travels with the refusal: the contract and its
+          // schedule exist, and the client can only say so — instead of
+          // "No se pudo convertir" over a live payment schedule — if the
+          // response carries them (#283).
+          contract,
+          milestones,
         },
         { status: 500 }
       );

@@ -57,13 +57,6 @@ export interface RFCValidationResult {
   error?: string;
 }
 
-export interface AccountsReceivableSummary {
-  totalOverdue: number;
-  totalDueToday: number;
-  totalUpcoming: number;
-  overdueCount: number;
-}
-
 export interface ClientCreditSummary {
   /**
    * Whether a credit line has ever been configured for this client.

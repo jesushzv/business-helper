@@ -59,4 +59,23 @@ describe('RoiCalculator Component & Steppers Suite', () => {
     // 60 quotes * 0.33 = 20 hrs
     expect(screen.getByText('20 hrs')).toBeInTheDocument();
   });
+
+  it('pluralizes the days-saved copy from the rendered component', () => {
+    // The retired p1AuditFixes suite asserted a copy of this formula defined
+    // inside the test file, which could never turn red when the component
+    // changed. These assertions read the real render instead.
+    render(<RoiCalculator />);
+
+    // Default state: 10 hrs -> max(1, round(10/8)) = 1 day, singular.
+    expect(screen.getByText(/Equivalente a 1 día laborable completo dedicado /)).toBeInTheDocument();
+
+    // 60 quotes -> 20 hrs -> round(20/8) = 3 days, plural.
+    const incrementBtn = screen.getByRole('button', { name: /Aumentar cotizaciones/i });
+    for (let i = 0; i < 6; i++) {
+      fireEvent.click(incrementBtn);
+    }
+    expect(
+      screen.getByText(/Equivalente a 3 días laborables completos dedicados /)
+    ).toBeInTheDocument();
+  });
 });
