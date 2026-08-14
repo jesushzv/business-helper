@@ -42,7 +42,7 @@ export const OTP_PHONE_WINDOW_MAX_SENDS = 5;
  * The figure is convention (Twilio's guidance suggests 10–20), not a standard;
  * revisit against real traffic once a provider is live.
  */
-export const OTP_PHONE_DAY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const OTP_PHONE_DAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const OTP_PHONE_DAY_MAX_SENDS = 15;
 
 /**
@@ -66,7 +66,7 @@ export const OTP_RESEND_BACKOFF_MAX_MS = 15 * 60 * 1000;
  */
 export const OTP_QUOTE_LIFETIME_MAX_SENDS = 10;
 
-export const OTP_SEND_LOG_TABLE = 'otp_send_log';
+const OTP_SEND_LOG_TABLE = 'otp_send_log';
 
 export type OtpRateLimitScope = 'phone' | 'phone_day' | 'backoff' | 'quote';
 

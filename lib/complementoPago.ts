@@ -39,7 +39,7 @@ function toMoney(value: number): number {
 }
 
 /** Reads a numeric column that PostgREST returns as a string. */
-export function toAmount(value: unknown): number {
+function toAmount(value: unknown): number {
   const parsed = typeof value === 'string' ? Number(value) : (value as number);
   return Number.isFinite(parsed) ? parsed : 0;
 }

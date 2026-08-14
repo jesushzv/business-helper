@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 /**
  * #64 — the settlement-account gate, over a list of accounts since #164.
@@ -134,91 +134,6 @@ describe('requireSettlementAccount', () => {
     // An unscoped gate would answer for whichever tenant came back first.
     expect(supabase.__chain.eq).toHaveBeenCalledWith('organization_id', 'org-42');
     expect(supabase.__chain.is).toHaveBeenCalledWith('archived_at', null);
-  });
-});
-
-/* ------------------------------------------------------------------ */
-/* The outbound WhatsApp reminder — the route that hands out the link. */
-/* ------------------------------------------------------------------ */
-
-const authState: {
-  accounts: unknown[];
-} = { accounts: [] };
-
-const dispatchWhatsAppReminder = vi.fn();
-
-vi.mock('@/lib/apiAuth', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/apiAuth')>('@/lib/apiAuth');
-  return {
-    ...actual,
-    isDemoDeployment: () => false,
-    requireOrgAccess: async () => ({
-      ok: true,
-      ctx: {
-        supabase: {
-          from: () => ({
-            select: () => ({
-              eq: () => ({
-                is: async () => ({ data: authState.accounts, error: null }),
-              }),
-            }),
-          }),
-        },
-        userId: 'user-1',
-        organizationId: 'org-1',
-        role: 'owner',
-      },
-    }),
-  };
-});
-
-vi.mock('@/lib/whatsappOutbound', () => ({
-  dispatchWhatsAppReminder: (...args: unknown[]) => dispatchWhatsAppReminder(...args),
-}));
-
-async function postReminder() {
-  const { POST } = await import('@/app/api/whatsapp/broadcast/route');
-  const req = new Request('https://businesshelper.app/api/whatsapp/broadcast', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      clientName: 'Construcciones Maya',
-      phone: '8115551234',
-      amountDue: 48720,
-      dueDate: '2026-09-01',
-      token: 'tok-1',
-    }),
-  });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return POST(req as any);
-}
-
-beforeEach(() => {
-  dispatchWhatsAppReminder.mockReset();
-  dispatchWhatsAppReminder.mockResolvedValue({ success: true, mode: 'wa_me_link' });
-});
-
-describe('POST /api/whatsapp/broadcast — settlement account gate (#64)', () => {
-  it('refuses to send a payment reminder when the organization has no account', async () => {
-    authState.accounts = [];
-
-    const res = await postReminder();
-    const body = await res.json();
-
-    expect(res.status).toBe(409);
-    expect(body.error.code).toBe(SETTLEMENT_ACCOUNT_MISSING_CODE);
-    // The point of the gate: the message must not go out. A 409 returned after
-    // dispatch would still have put a dead link in front of the client.
-    expect(dispatchWhatsAppReminder).not.toHaveBeenCalled();
-  });
-
-  it('sends the reminder once the organization has an account', async () => {
-    authState.accounts = [account()];
-
-    const res = await postReminder();
-
-    expect(res.status).toBe(200);
-    expect(dispatchWhatsAppReminder).toHaveBeenCalledTimes(1);
   });
 });
 

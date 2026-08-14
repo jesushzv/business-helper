@@ -12,13 +12,28 @@ import {
 
 describe('WS-A Credibility, Social Proof & Trust Architecture Data Engine', () => {
   it('should export realistic Mexican SME testimonials with roles, locations and metric tags', () => {
-    expect(TESTIMONIALS.length).toBeGreaterThanOrEqual(2);
+    // Casos de Uso por Industria: four industries minimum, each fully tagged
+    // (folded in from the retired p1AuditFixes suite).
+    expect(TESTIMONIALS.length).toBeGreaterThanOrEqual(4);
     TESTIMONIALS.forEach((t) => {
       expect(t.quote).toBeDefined();
       expect(t.location).toBeDefined();
       expect(t.metricTag).toBeDefined();
+      expect(t.useCaseTitle).toBeDefined();
+      expect(t.industry).toBeDefined();
+      expect(t.personaLabel).toBeDefined();
       expect(t.rating).toBe(5);
     });
+  });
+
+  it('phrases the SSL badge as a benefit, never a protocol version (#103)', () => {
+    const sslBadge = TRUST_BADGES.find((b) => b.id === 'ssl-encryption');
+    expect(sslBadge).toBeDefined();
+    // "TLS 1.3" is an implementation detail to the person reading a trust
+    // badge. The Stripe PCI credential is a recognisable seal and stays.
+    expect(sslBadge?.externalSealLabel).not.toContain('TLS');
+    expect(sslBadge?.externalSealLabel).toContain('cifrada');
+    expect(sslBadge?.externalSealLabel).toContain('PCI DSS Nivel 1');
   });
 
   // The standalone 'pac-partner' badge was removed in 1e39e7c ("simplify trust
@@ -49,10 +64,15 @@ describe('WS-A Credibility, Social Proof & Trust Architecture Data Engine', () =
   });
 
   it('should define Tijuana / San Diego location and valid contact channels in CONTACT_INFO', () => {
-    expect(CONTACT_INFO.cityState).toContain('Tijuana');
-    expect(CONTACT_INFO.email).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
-    expect(CONTACT_INFO.supportEmail).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
-    expect(CONTACT_INFO.founderEmail).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+    // Exact pins folded in from the retired p0AuditFixes suite: the legal
+    // address and every official inbox on the businesshelper.app domain
+    // (.mx was never registered, #36).
+    expect(CONTACT_INFO.cityState).toBe('Tijuana, B.C., México / San Diego, CA');
+    expect(CONTACT_INFO.country).toBe('México / EE.UU.');
+    expect(CONTACT_INFO.email).toBe('contacto@businesshelper.app');
+    expect(CONTACT_INFO.supportEmail).toBe('soporte@businesshelper.app');
+    expect(CONTACT_INFO.privacyEmail).toBe('privacidad@businesshelper.app');
+    expect(CONTACT_INFO.founderEmail).toBe('hector@businesshelper.app');
   });
 
   it('should structure demo video walkthrough steps matching the full quote-to-payment CUJ flow', () => {
