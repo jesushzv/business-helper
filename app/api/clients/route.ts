@@ -112,13 +112,19 @@ export async function POST(request: Request) {
     // resurfaces later as an invoice that cannot be issued.
     if (fields.cfdi_use === null) delete fields.cfdi_use;
 
+    // No health_score on insert (#276): a client registered thirty seconds ago
+    // has no payment history, and writing 100 declared them "Excelente" on the
+    // exact surface where the owner decides how much credit to extend —
+    // defeating the #108 "Sin historial" state one layer down. Absent is
+    // absent; the score belongs to whatever computes it from real payments.
+    // (Until the migration dropping the column's DEFAULT 100 is applied, the
+    // default still fills it — this write-side fix is ordering-safe either way.)
     const { data: newClient, error } = await supabase
       .from('clients')
       .insert({
         ...fields,
         ...values,
         organization_id: organizationId,
-        health_score: 100,
       })
       .select()
       .single();

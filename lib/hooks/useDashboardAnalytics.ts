@@ -15,6 +15,7 @@ import {
 import { useClients } from './useClients';
 import { useQuotes } from './useQuotes';
 import { useReceivables } from './useReceivables';
+import { isClientDemoMode } from '../clientDemoMode';
 
 export function useDashboardAnalytics() {
   const { clients, loading: clientsLoading, error: clientsError } = useClients();
@@ -34,6 +35,17 @@ export function useDashboardAnalytics() {
   // fallback — they derive from the sub-hooks' real rows — but the dashboard
   // must be able to say the server disagreed instead of silently diverging.
   const fetchAnalytics = useCallback(async () => {
+    // The sandbox never asks the server (#273): this was the one dashboard
+    // hook with no demo gate, so the tour's very first screen fired a real
+    // fetch that 401s and opened on an amber "No pudimos actualizar tus
+    // números" banner over the fixture KPIs. The sub-hooks already serve
+    // fixtures behind the same signal; the computed figures below derive from
+    // them, so skipping the fetch is the whole gate.
+    if (isClientDemoMode()) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);

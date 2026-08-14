@@ -9,9 +9,16 @@ import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
 
 interface TopClientsCardProps {
   topClients: TopClientRevenue[];
+  /**
+   * Whether the org has clients at all. An empty leaderboard now means "no
+   * confirmed revenue" (#277 filters $0 rows out), and "registra a tu primer
+   * cliente" is the wrong advice for a tenant with three clients who simply
+   * haven't paid yet — the two absences get their own copy.
+   */
+  hasClients?: boolean;
 }
 
-export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients }) => {
+export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients, hasClients = true }) => {
   const { org } = useCurrentOrg();
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -20,7 +27,10 @@ export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients }) =>
     }).format(val);
   };
 
-  const getHealthBadge = (score: number) => {
+  // `null` = no score on record (#276): named as such, never scored as 100.
+  const getHealthBadge = (score: number | null) => {
+    if (score === null)
+      return { label: 'Sin historial', bg: 'bg-slate-800 text-slate-300 border-slate-700' };
     if (score >= 90) return { label: 'Excelente', bg: 'bg-emerald-950 text-emerald-400 border-emerald-500/30' };
     if (score >= 70) return { label: 'Bueno', bg: 'bg-teal-950 text-teal-300 border-teal-500/30' };
     if (score >= 50) return { label: 'Regular', bg: 'bg-amber-950 text-amber-300 border-amber-500/30' };
@@ -53,7 +63,9 @@ export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients }) =>
 
       {topClients.length === 0 ? (
         <div className="py-8 text-center text-xs text-slate-400">
-          No hay ingresos confirmados registrados aún.
+          {hasClients
+            ? 'No hay ingresos confirmados registrados aún. Cuando confirmes tu primer pago, tus mejores clientes aparecerán aquí.'
+            : 'Todavía no tienes clientes registrados. Registra el primero para empezar a cotizar y cobrar.'}
         </div>
       ) : (
         <div className="mt-4 space-y-3">
@@ -77,7 +89,8 @@ export const TopClientsCard: React.FC<TopClientsCardProps> = ({ topClients }) =>
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-extrabold text-white">{client.name}</h4>
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-extrabold ${badge.bg}`}>
-                        {badge.label} ({client.health_score} pt)
+                        {badge.label}
+                        {client.health_score !== null && ` (${client.health_score} pt)`}
                       </span>
                     </div>
                     <p className="text-xs text-slate-400">

@@ -101,3 +101,94 @@ describe('quotes page (#97)', () => {
     expect(screen.queryByText(/No pudimos cargar/i)).toBeNull();
   });
 });
+
+/**
+ * #260 — the #97 class, finished. Five more surfaces collapsed a failed read
+ * into "you have nothing"; each case below plants the failure and asserts the
+ * screen refuses to claim an empty book of business.
+ */
+describe('clients directory (#260)', () => {
+  it('renders an error state on a failed fetch — never "Registra a tu primer cliente"', async () => {
+    failAllApis();
+    const { default: ClientsPage } = await import('@/app/(dashboard)/clients/page');
+    render(<ClientsPage />);
+
+    expect(await screen.findByText(/No pudimos cargar tu directorio/i)).toBeTruthy();
+    // The CTA whose worst case is re-registering an existing client.
+    expect(screen.queryByText(/Registrar Cliente Ahora/i)).toBeNull();
+    expect(screen.queryByText(/No se encontraron clientes/i)).toBeNull();
+    // And no "0 Clientes / 0 Excelente" tiles asserting figures off the failure.
+    expect(screen.queryByText(/0 Clientes/i)).toBeNull();
+  });
+
+  it('keeps the genuine empty state for a tenant with zero clients', async () => {
+    emptyAllApis();
+    const { default: ClientsPage } = await import('@/app/(dashboard)/clients/page');
+    render(<ClientsPage />);
+
+    expect(await screen.findByText(/No se encontraron clientes/i)).toBeTruthy();
+    expect(screen.getByText(/Registrar Cliente Ahora/i)).toBeTruthy();
+    expect(screen.queryByText(/No pudimos cargar tu directorio/i)).toBeNull();
+  });
+});
+
+describe('quotes page KPI tiles and the clients join (#260)', () => {
+  it('withholds the KPI figures while the read has failed', async () => {
+    failAllApis();
+    render(<QuotesPage />);
+
+    await screen.findByText(/No pudimos cargar tus cotizaciones/i);
+    // "Enviadas 0 / $0.00" beside an error panel is a claim, not a placeholder.
+    expect(screen.queryByText('$0.00')).toBeNull();
+    const dashes = screen.getAllByText('—');
+    expect(dashes.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('warns when the clients half of the join failed while quotes loaded', async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith('/api/clients')) {
+        return jsonResponse(500, { error: { code: 'SERVER_ERROR', message: 'Error interno' } });
+      }
+      if (url.startsWith('/api/quotes')) {
+        return jsonResponse(200, {
+          quotes: [
+            {
+              id: 'q-1',
+              client_id: 'c-1',
+              title: 'Bardas Perimetrales',
+              status: 'sent',
+              total_amount: 12000,
+              line_items: [],
+              public_token: 'tok-1',
+              created_at: '2026-08-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.startsWith('/api/organization')) {
+        return jsonResponse(200, { organization: { id: 'org-1', name: 'X' }, role: 'owner' });
+      }
+      return jsonResponse(200, {});
+    });
+    render(<QuotesPage />);
+
+    await screen.findByText('Bardas Perimetrales');
+    // The quotes render; the missing names are announced instead of every card
+    // silently reading "Cliente sin asignar".
+    expect(
+      screen.getByText(/No pudimos cargar tu directorio de clientes/i)
+    ).toBeTruthy();
+  });
+});
+
+describe('facturación list (#260)', () => {
+  it('says the read failed instead of "Aún no tienes cobros registrados"', async () => {
+    failAllApis();
+    const { InvoiceManagerCard } = await import('@/components/invoices/InvoiceManagerCard');
+    render(<InvoiceManagerCard />);
+
+    expect(await screen.findByText(/No pudimos cargar tus cobros/i)).toBeTruthy();
+    expect(screen.queryByText(/Aún no tienes cobros registrados/i)).toBeNull();
+  });
+});

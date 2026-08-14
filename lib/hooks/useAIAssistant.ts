@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { parseNaturalLanguageQuery } from '@/lib/whatsappAI';
-import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { isClientDemoMode } from '@/lib/clientDemoMode';
 
 /**
  * Operations assistant state.
@@ -53,8 +53,16 @@ export function useAIAssistant() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  /** True when answers come from the sample ledger instead of real records. */
-  const isDemoMode = !isSupabaseConfigured();
+  /**
+   * True when answers come from the sample ledger instead of real records.
+   *
+   * `isClientDemoMode()`, not `isSupabaseConfigured()` (#273): the latter is
+   * true on the real deployment, so a `/demo` visitor following the tour's own
+   * `?demo=true` link asked their first question and got a red "Sesión
+   * requerida" — the hooks' demo signal is the one that honors the visitor
+   * opt-in, and it already refuses over a real session cookie.
+   */
+  const isDemoMode = isClientDemoMode();
 
   const askAssistant = useCallback(
     async (inputQuery: string): Promise<AIResponse | undefined> => {

@@ -26,7 +26,11 @@ export default function QuotesPage() {
     convertToContract,
   } = useQuotes();
 
-  const { clients } = useClients();
+  // The clients read has its own failure mode (#260): when /api/clients fails
+  // while /api/quotes succeeds, `clients` is [] and every card would read
+  // "Cliente sin asignar" — plus "Agrega un teléfono" for clients whose phone
+  // is on file, and a wizard whose required client select is silently empty.
+  const { clients, error: clientsError } = useClients();
 
   // "Nothing matches your filter" and "you have nothing yet" are different
   // facts, and only the second one warrants a create CTA (#104).
@@ -51,6 +55,9 @@ export default function QuotesPage() {
   const totalSent = quotes.filter((q) => q.status === 'sent').length;
   const totalAccepted = quotes.filter((q) => q.status === 'accepted' || q.status === 'converted').length;
   const totalAmountSum = quotes.reduce((acc, q) => acc + q.total_amount, 0);
+  // The tiles only assert figures the list actually holds (#260): during load
+  // or on a failed read, "Enviadas 0 / $0.00" is a claim, not a placeholder.
+  const kpisKnown = !loading && !error;
 
   return (
     <>
@@ -95,7 +102,7 @@ export default function QuotesPage() {
           </div>
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase">Enviadas</p>
-            <p className="text-2xl font-black font-mono text-white">{totalSent}</p>
+            <p className="text-2xl font-black font-mono text-white">{kpisKnown ? totalSent : '—'}</p>
           </div>
         </div>
 
@@ -105,7 +112,7 @@ export default function QuotesPage() {
           </div>
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase">Aceptadas</p>
-            <p className="text-2xl font-black font-mono text-white">{totalAccepted}</p>
+            <p className="text-2xl font-black font-mono text-white">{kpisKnown ? totalAccepted : '—'}</p>
           </div>
         </div>
 
@@ -116,7 +123,9 @@ export default function QuotesPage() {
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase">Monto Total en Propuestas</p>
             <p className="text-2xl font-black font-mono text-white">
-              ${totalAmountSum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              {kpisKnown
+                ? `$${totalAmountSum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+                : '—'}
             </p>
           </div>
         </div>
@@ -204,6 +213,16 @@ export default function QuotesPage() {
           )}
         </div>
       ) : (
+        <>
+        {clientsError && (
+          // The quotes are real; the client names are the failed half (#260).
+          // Without this, every card read "Cliente sin asignar" as fact and
+          // showed "Agrega un teléfono" for clients whose phone is on file.
+          <div role="alert" className="rounded-2xl border border-amber-500/30 bg-amber-950/60 p-4 text-xs font-semibold text-amber-300">
+            No pudimos cargar tu directorio de clientes, así que los nombres y teléfonos de estas
+            cotizaciones pueden aparecer incompletos. Recarga la página para intentar de nuevo.
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredQuotes.map((q) => {
             const client = clients.find((c) => c.id === q.client_id);
@@ -236,6 +255,7 @@ export default function QuotesPage() {
             );
           })}
         </div>
+        </>
       )}
 
       {/* Wizard Modal */}

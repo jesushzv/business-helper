@@ -268,3 +268,30 @@ describe('the SAT fiscal card does not fake a profile the client does not have',
     expect(screen.queryByText(/no podrás facturarle/i)).toBeNull();
   });
 });
+
+describe('the activity timeline is only as honest as its reads (#260)', () => {
+  it('does not render "0 Eventos" as fact when the quotes read failed', async () => {
+    // The credit figures already carried balanceKnown; the timeline on the
+    // same screen rendered "Sin historial de actividad / 0 Eventos" off a
+    // failed quotes fetch.
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith('/api/clients')) return jsonResponse(200, { clients: [SERVER_CLIENT] });
+      if (url.startsWith('/api/quotes'))
+        return jsonResponse(500, { error: { code: 'SERVER_ERROR', message: 'boom' } });
+      if (url.startsWith('/api/receivables')) return jsonResponse(200, { receivables: [] });
+      if (url.startsWith('/api/organization')) {
+        return jsonResponse(200, {
+          organization: { id: 'org-real-1', name: 'Ferretería La Central' },
+          role: 'owner',
+        });
+      }
+      return jsonResponse(404, {});
+    });
+    renderPage();
+
+    await screen.findByText(/No pudimos cargar el historial de este cliente/i);
+    expect(screen.queryByText(/0 Eventos/i)).toBeNull();
+    expect(screen.getByText(/— Eventos/i)).toBeTruthy();
+  });
+});

@@ -87,7 +87,7 @@ export default function DashboardPage() {
         {loading ? (
           <div className="h-64 w-full animate-pulse rounded-3xl border border-slate-800 bg-slate-900/60" />
         ) : (
-          <TopClientsCard topClients={topClients} />
+          <TopClientsCard topClients={topClients} hasClients={metrics.activeClientsCount > 0} />
         )}
       </div>
     </div>

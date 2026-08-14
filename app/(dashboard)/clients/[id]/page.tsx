@@ -35,7 +35,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const { id } = use(params);
   const router = useRouter();
   const { getClientById, updateClient, deleteClient, loading, error } = useClients();
-  const { quotes } = useQuotes();
+  // The activity timeline is only as trustworthy as this read too (#260): a
+  // failed quotes fetch yields `[]`, which rendered "Sin historial de
+  // actividad / 0 Eventos" as fact — on the same screen whose credit figures
+  // are carefully gated on `balanceKnown` below.
+  const { quotes, loading: quotesLoading, error: quotesError } = useQuotes();
   // The financial modules below are only as trustworthy as this read. A failed
   // or in-flight receivables fetch yields `[]`, which would render as
   // "Crédito Utilizado $0 / Disponible $50,000" — a confident zero on the
@@ -141,6 +145,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     [],
     clientMilestones as unknown as Array<Record<string, unknown>>
   );
+
+  // Same tri-state as the credit meter: an empty timeline is a fact only once
+  // both of its sources answered (#260).
+  const activityKnown =
+    !quotesLoading && !quotesError && !receivablesLoading && !receivablesError;
 
   return (
     <div className="min-h-screen pb-16">
@@ -424,12 +433,24 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 </div>
                 <span className="flex items-center gap-1 rounded-xl bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 text-xs font-bold text-indigo-400">
                   <Clock className="h-3.5 w-3.5" />
-                  <span>{activityFeed.length} Eventos</span>
+                  <span>{activityKnown ? `${activityFeed.length} Eventos` : '— Eventos'}</span>
                 </span>
               </div>
 
               <div className="mt-6">
-                <ActivityTimeline items={activityFeed} />
+                {activityKnown ? (
+                  <ActivityTimeline items={activityFeed} />
+                ) : quotesLoading || receivablesLoading ? (
+                  <div className="space-y-3">
+                    <div className="h-16 w-full animate-pulse rounded-xl bg-slate-800/70" />
+                    <div className="h-16 w-full animate-pulse rounded-xl bg-slate-800/70" />
+                  </div>
+                ) : (
+                  <p role="alert" className="rounded-2xl border border-rose-500/30 bg-rose-950/60 p-4 text-xs font-semibold text-rose-200">
+                    No pudimos cargar el historial de este cliente. Su actividad no se ha perdido;
+                    recarga la página para intentar de nuevo.
+                  </p>
+                )}
               </div>
             </div>
           </div>
