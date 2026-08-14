@@ -8,6 +8,11 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Manual escape hatch for #132: the pull_request event has now been observed
+  # completely dead for a branch (three delivery attempts, zero runs), and
+  # absence looks identical to passing. workflow_dispatch lets a session run
+  # the same jobs against any ref and link the run on the PR.
+  workflow_dispatch:
 
 # A newer push to the same branch makes the in-flight run redundant.
 concurrency:
