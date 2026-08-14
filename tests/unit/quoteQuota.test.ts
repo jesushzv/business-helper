@@ -80,9 +80,23 @@ describe('checkQuoteQuotaGate', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('counts from the first instant of the current calendar month, UTC', () => {
-    expect(monthStartISO(new Date('2026-08-14T03:00:00Z'))).toBe('2026-08-01T00:00:00.000Z');
-    expect(monthStartISO(new Date('2026-01-31T23:59:59Z'))).toBe('2026-01-01T00:00:00.000Z');
+  /**
+   * These three assertions used to read `…T00:00:00.000Z` — the UTC month, which
+   * is the defect #334 fixes, pinned by its own test. The month a tenant is
+   * counted against is the one Mexico City is in, so its first instant is
+   * 06:00Z, and the boundary case is the one that matters: at 22:30 on 31
+   * August the counter must still be August's.
+   */
+  it('counts from the first instant of the current month in the product timezone', () => {
+    expect(monthStartISO(new Date('2026-08-14T03:00:00Z'))).toBe('2026-08-01T06:00:00.000Z');
+    expect(monthStartISO(new Date('2026-01-31T23:59:59Z'))).toBe('2026-01-01T06:00:00.000Z');
+  });
+
+  it('does not roll the quota over while it is still last month in Mexico', () => {
+    // 22:30 on 31 August in Mexico City; UTC has already turned September.
+    expect(monthStartISO(new Date('2026-09-01T04:30:00Z'))).toBe('2026-08-01T06:00:00.000Z');
+    // 00:30 on 1 September there — now it rolls.
+    expect(monthStartISO(new Date('2026-09-01T06:30:00Z'))).toBe('2026-09-01T06:00:00.000Z');
   });
 });
 

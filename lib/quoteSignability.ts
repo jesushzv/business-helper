@@ -19,6 +19,8 @@
  * live "Aceptar y Firmar" that dead-ended at OTP time with no explanation.
  */
 
+import { productTodayStr } from './dates';
+
 /** The states a quote's public link may be in, from the signer's point of view. */
 export type QuoteSignableState =
   | 'signable'
@@ -42,7 +44,7 @@ export interface SignabilityInput {
 
 /** Today as a `YYYY-MM-DD` string, matching the `date` column's shape. */
 function todayDateString(): string {
-  return new Date().toISOString().split('T')[0];
+  return productTodayStr();
 }
 
 /**
@@ -54,8 +56,12 @@ function todayDateString(): string {
  * quote is the pre-existing behaviour, and inventing an expiry the tenant never
  * set would block a signature they want.
  *
- * The reference date is UTC, like every other "today" on the server. #263
- * tracks that choice across the money surfaces; it is not re-decided here.
+ * The reference date is the **product's** day (`America/Mexico_City`), not the
+ * server's UTC one: from 18:00 in Mexico, UTC has already turned over, and a
+ * quote valid "hasta hoy" was refused for the whole evening of the day it was
+ * still good for. `todayStr` stays injectable for callers that have already
+ * resolved the day — but it is never taken from the request, because expiry is
+ * enforcement and a client-supplied day is a client-chosen deadline (#334).
  */
 export function isQuoteExpired(validUntil?: string | null, todayStr?: string): boolean {
   if (!validUntil) return false;

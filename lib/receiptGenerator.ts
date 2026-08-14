@@ -5,6 +5,7 @@
  * receivables with tenant branding, tax breakdown, and 1-tap WhatsApp sharing.
  */
 
+import { localTodayStr } from './dates';
 import { generateWhatsAppLink } from './whatsappLink';
 
 export interface NotaDeVentaLineItem {
@@ -133,7 +134,11 @@ export function generateNotaDeVentaPayload(
     : [{ description: title, quantity: 1, unitPrice: rawSubtotal, total: rawSubtotal }];
 
   const folio = data?.folio || `NV-${Date.now().toString().slice(-6)}`;
-  const dateStr = data?.date || new Date().toISOString().split('T')[0];
+  // The client's browser builds this document, so the date on it is the
+  // tenant's own day — `toISOString()` here printed tomorrow's date on every
+  // Nota de Venta issued after 18:00 (#263's rule, found re-deriving #334's
+  // list of "today" sites).
+  const dateStr = data?.date || localTodayStr();
 
   return {
     folio,
