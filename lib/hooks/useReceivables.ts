@@ -389,53 +389,6 @@ export function useReceivables() {
     return { success: false, error: errorMessage(data, 'No se pudo confirmar el pago') };
   };
 
-  const uploadSpeiProof = async (
-    id: string,
-    data: { receipt_url: string; tracking_reference: string; transferred_amount?: number }
-  ): Promise<ReceivableMutationOutcome> => {
-    const changes: Partial<MilestoneWithClient> = {
-      status: 'marked_paid',
-      receipt_url: data.receipt_url,
-      tracking_reference: data.tracking_reference,
-      transferred_amount: data.transferred_amount,
-    };
-
-    // The sandbox never reaches the API: it short-circuits *before* the fetch,
-    // which is the rule LESSONS states — a demo simulation is never a fallback
-    // on a real request's result. This used to read
-    // `if (res.ok || isClientDemoMode())` after the request, so a failed write
-    // in a demo-flagged browser still applied a local "comprobante registrado":
-    // the #58/#86 shape, sitting in a money hook (#287). `confirmPayment` above
-    // still simulates from the failed-response branch; it is at least gated on
-    // the build-time signal rather than a status code, and is left alone here.
-    if (isClientDemoMode()) {
-      const updated = applyRowUpdate(id, changes);
-      if (!updated) return { success: false, error: 'Hito de pago no encontrado' };
-      return { success: true, milestone: updated };
-    }
-
-    let res: Response;
-    try {
-      res = await fetch(`/api/receivables/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(changes),
-      });
-    } catch {
-      return { success: false, error: 'Sin conexión. El comprobante no se registró.' };
-    }
-
-    const body = await res.json().catch(() => null);
-
-    if (res.ok) {
-      const updated = applyRowUpdate(id, changes);
-      if (!updated) return { success: false, error: 'Hito de pago no encontrado' };
-      return { success: true, milestone: updated };
-    }
-
-    return { success: false, error: errorMessage(body, 'No se pudo registrar el comprobante') };
-  };
-
   /**
    * Files the comprobante the client sent over WhatsApp, on their behalf (#339).
    *
@@ -488,51 +441,14 @@ export function useReceivables() {
       return { success: false, error: errorMessage(uploaded, 'No se pudo subir el comprobante') };
     }
 
-    // Stored, but not yet *filed*: the row still has to point at it, or the
-    // evidence exists in the bucket and nowhere the tenant can see.
-    let saveRes: Response;
-    try {
-      saveRes = await fetch(`/api/receivables/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receipt_url: uploaded.url }),
-      });
-    } catch {
-      return {
-        success: false,
-        error: 'El archivo se subió pero no se pudo guardar en el cobro. Intenta de nuevo.',
-      };
-    }
-
-    const saved = await saveRes.json().catch(() => null);
-
-    if (!saveRes.ok) {
-      // Leads with "se subió" rather than deferring to the server's message,
-      // which is generic here and would lose the one fact that decides what
-      // the owner does next: the file *is* stored, so this is a retry, not a
-      // "your file is no good".
-      const reason = errorMessage(saved, '');
-      return {
-        success: false,
-        error: `El comprobante se subió pero no se pudo guardar en el cobro.${
-          reason ? ` ${reason}` : ''
-        } Intenta de nuevo.`,
-      };
-    }
-
-    // The status is deliberately untouched. Filing evidence is not the same
-    // claim as "this was paid" — confirming is its own deliberate act, with
-    // its own capability gate and its own complemento de pago behind it.
-    //
-    // The row the PUT returned wins over the URL the upload reported: the
-    // route re-selects after writing, so that is what is actually stored, and
-    // preferring the local value would be applying a patch next to the server
-    // row it was meant to reflect (#33/#50/#59).
-    const stored =
-      typeof (saved as { receipt_url?: unknown } | null)?.receipt_url === 'string'
-        ? (saved as { receipt_url: string }).receipt_url
-        : uploaded.url;
-    const updated = applyRowUpdate(id, { receipt_url: stored });
+    // One call, not two (#355). The route stores the object *and* writes the
+    // row, so there is no window where the file exists in the bucket and
+    // nothing points at it — and no step where this client hands the server a
+    // URL to trust. `uploaded.url` is what the row now holds, read back from
+    // the write; the status is deliberately untouched, because filing evidence
+    // is not the same claim as "this was paid" (confirming is its own
+    // deliberate act, with its own gate and its own complemento behind it).
+    const updated = applyRowUpdate(id, { receipt_url: uploaded.url });
     if (!updated) return { success: false, error: 'Cobro no encontrado' };
     return { success: true, milestone: updated };
   };
@@ -595,7 +511,6 @@ export function useReceivables() {
     setSearchQuery,
     fetchReceivables,
     confirmPayment,
-    uploadSpeiProof,
     uploadReceipt,
     resetDemoReceivables,
   };

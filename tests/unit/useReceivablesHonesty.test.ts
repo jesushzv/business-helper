@@ -193,90 +193,6 @@ describe('confirmPayment honesty', () => {
   });
 });
 
-describe('uploadSpeiProof honesty', () => {
-  it('reports failure and leaves the row unchanged when the PUT fails', async () => {
-    const { result } = await mountHook();
-    fetchMock.mockResolvedValueOnce(jsonResponse(500, { error: 'Failed to update milestone' }));
-
-    let outcome;
-    await act(async () => {
-      outcome = await result.current.uploadSpeiProof('m-1', {
-        receipt_url: 'https://example.com/r.pdf',
-        tracking_reference: 'SPEI123',
-      });
-    });
-
-    expect(outcome).toMatchObject({ success: false });
-    expect(result.current.receivables[0].tracking_reference).toBeNull();
-  });
-
-  it('applies the row after a successful PUT', async () => {
-    const { result } = await mountHook();
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ...SERVER_ROW, status: 'marked_paid' }));
-
-    let outcome;
-    await act(async () => {
-      outcome = await result.current.uploadSpeiProof('m-1', {
-        receipt_url: 'https://example.com/r.pdf',
-        tracking_reference: 'SPEI123',
-        transferred_amount: 1000,
-      });
-    });
-
-    expect(outcome).toMatchObject({ success: true });
-    expect(result.current.receivables[0].tracking_reference).toBe('SPEI123');
-  });
-
-  /**
-   * #287 — the demo simulation runs *instead of* the request, never on top of
-   * its result.
-   *
-   * This read `if (res.ok || isClientDemoMode())`, evaluated after the fetch,
-   * so in a demo-flagged browser a rejected write still applied a local
-   * "comprobante registrado" — the #58/#86 catch-fallback shape, in the hook
-   * that records money arriving. No component wired this up yet, which is the
-   * only reason nothing user-facing was wrong.
-   */
-  it('does not launder a failed write into a local success for a demo build', async () => {
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
-    const { result } = await mountHook();
-    fetchMock.mockClear();
-
-    let outcome;
-    await act(async () => {
-      // The sandbox's own fixture row — the only list it has.
-      outcome = await result.current.uploadSpeiProof('milestone-demo-1', {
-        receipt_url: 'https://example.com/r.pdf',
-        tracking_reference: 'SPEI123',
-      });
-    });
-
-    // The sandbox short-circuits: no request is made at all, so there is no
-    // response for a simulated success to hide behind.
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(outcome).toMatchObject({ success: true });
-  });
-
-  it('reports the failure even though a demo-shaped build would have simulated', async () => {
-    // The real-tenant path, stated as the contrast: the request is made and
-    // its refusal is the answer.
-    const { result } = await mountHook();
-    fetchMock.mockResolvedValueOnce(jsonResponse(503, { error: 'sin base de datos' }));
-
-    let outcome;
-    await act(async () => {
-      outcome = await result.current.uploadSpeiProof('m-1', {
-        receipt_url: 'https://example.com/r.pdf',
-        tracking_reference: 'SPEI123',
-      });
-    });
-
-    expect(outcome).toMatchObject({ success: false, error: 'sin base de datos' });
-    expect(result.current.receivables[0].tracking_reference).toBeNull();
-    expect(result.current.receivables[0].status).toBe('marked_paid');
-  });
-});
-
 describe('fetchReceivables honesty', () => {
   it('shows a real tenant with zero receivables an empty list, not the demo fixtures', async () => {
     fetchMock.mockReset();
@@ -344,13 +260,12 @@ describe('fetchReceivables honesty', () => {
 
   it('does not mirror a real tenant\'s rows into localStorage', async () => {
     const { result } = await mountHook();
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ...SERVER_ROW, status: 'marked_paid' }));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { success: true, url: 'https://cdn/x.pdf' })
+    );
 
     await act(async () => {
-      await result.current.uploadSpeiProof('m-1', {
-        receipt_url: 'https://example.com/r.pdf',
-        tracking_reference: 'SPEI123',
-      });
+      await result.current.uploadReceipt('m-1', new File(['%PDF-1.4'], 'r.pdf', { type: 'application/pdf' }));
     });
 
     // The mirror was also the stale snapshot the fixture fallback read back.
@@ -396,8 +311,7 @@ describe('uploadReceipt honesty (#339)', () => {
           url: 'https://project.supabase.co/storage/v1/object/public/spei-vouchers/org-1/spei_m-1_123.pdf',
           filePath: 'org-1/spei_m-1_123.pdf',
         })
-      )
-      .mockResolvedValueOnce(jsonResponse(200, { id: 'm-1' }));
+      );
 
     let outcome;
     await act(async () => {
@@ -417,9 +331,7 @@ describe('uploadReceipt honesty (#339)', () => {
 
   it('posts the file under the field name the route reads', async () => {
     const { result } = await mountHook();
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse(200, { success: true, url: 'https://cdn/x.pdf' }))
-      .mockResolvedValueOnce(jsonResponse(200, {}));
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true, url: 'https://cdn/x.pdf' }));
 
     await act(async () => {
       await result.current.uploadReceipt('m-1', file());
@@ -456,7 +368,7 @@ describe('uploadReceipt honesty (#339)', () => {
       error: 'El archivo no es una imagen PNG, JPG ni un documento PDF válido.',
     });
     expect(result.current.receivables[0].receipt_url).toBeNull();
-    // The row was never touched, so no PUT was attempted either.
+    // One request: the list load, then the refused upload.
     expect(fetchMock.mock.calls).toHaveLength(2);
   });
 
@@ -474,13 +386,23 @@ describe('uploadReceipt honesty (#339)', () => {
     expect(result.current.receivables[0].receipt_url).toBeNull();
   });
 
-  it('says so when the file stored but the cobro could not be updated', async () => {
+  it('surfaces the server\'s "stored but not filed" message verbatim', async () => {
     // Two different failures with two different next steps: retrying is right
-    // here, and "el archivo no sirve" would be wrong.
+    // here, and "el archivo no sirve" would be wrong. Since #355 the route is
+    // the only writer, so it is the only thing that knows the object landed —
+    // the lead used to be constructed here and now comes from the server.
     const { result } = await mountHook();
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse(200, { success: true, url: 'https://cdn/x.pdf' }))
-      .mockResolvedValueOnce(jsonResponse(500, { error: { code: 'SERVER_ERROR', message: 'Error' } }));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(500, {
+        error: {
+          code: 'RECEIPT_SAVE_FAILED',
+          message:
+            'El comprobante se subió pero no se pudo guardar en el cobro. ' +
+            'No se pudo guardar el comprobante. Vuelve a intentarlo; si sigue fallando, avísanos. ' +
+            'Intenta de nuevo.',
+        },
+      })
+    );
 
     let outcome;
     await act(async () => {
@@ -490,6 +412,27 @@ describe('uploadReceipt honesty (#339)', () => {
     expect(outcome).toMatchObject({ success: false });
     expect((outcome as unknown as { error: string }).error).toMatch(/se subió/i);
     expect(result.current.receivables[0].receipt_url).toBeNull();
+  });
+
+  it('makes exactly one request — the route stores and files in one step (#355)', async () => {
+    // The two-step left a window where the object existed in the bucket and
+    // nothing pointed at it, and required this client to hand the server a URL
+    // to trust. Both are gone.
+    const { result } = await mountHook();
+    const before = fetchMock.mock.calls.length;
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { success: true, url: 'https://cdn/x.pdf', filePath: 'org-1/owner_m-1_1.pdf' })
+    );
+
+    await act(async () => {
+      await result.current.uploadReceipt('m-1', file());
+    });
+
+    expect(fetchMock.mock.calls).toHaveLength(before + 1);
+    expect(fetchMock.mock.calls[before][0]).toBe('/api/receivables/m-1/upload');
+    // No PUT carrying a receipt_url the server would have had to trust.
+    const methods = fetchMock.mock.calls.slice(before).map((c) => (c[1] as RequestInit)?.method);
+    expect(methods).not.toContain('PUT');
   });
 
   it('reports a dropped connection as a failure, not a filed receipt', async () => {

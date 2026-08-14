@@ -279,7 +279,19 @@ export const QUOTE_WRITABLE_FIELDS = [
   'bank_account_id',
 ] as const;
 
-/** Columns a client may set on a milestone. */
+/**
+ * Columns a client may set on a milestone.
+ *
+ * `receipt_url` was here and is deliberately gone (#355). It was applied by
+ * PUT /api/receivables/[id] with no format check, no existence check and no
+ * capability gate, so any member could point a cobro's payment evidence at
+ * `blob:http://x/y` — the dead link SpeiConfirmModal still guards against
+ * (#85) — or at an arbitrary external URL, which then rode into the
+ * accountant's export as `Comprobante_SPEI_.jpg`. It is now written only by
+ * POST /api/receivables/[id]/upload, from the URL storage actually issued, so
+ * the guarantee is structural rather than a client-side convention.
+ * `tests/unit/receiptUrlServerOwned.test.ts` fails the build if it returns.
+ */
 export const MILESTONE_WRITABLE_FIELDS = [
   'label',
   'amount',
@@ -287,7 +299,6 @@ export const MILESTONE_WRITABLE_FIELDS = [
   'status',
   'tracking_reference',
   'transferred_amount',
-  'receipt_url',
 ] as const;
 
 /**
