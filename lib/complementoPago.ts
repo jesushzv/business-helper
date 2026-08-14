@@ -29,6 +29,7 @@ import {
   deriveCFDITaxTreatment,
   type QuoteTaxProfile,
 } from './facturapi';
+import { expectedSettlementAmount } from './receivablesCalculator';
 import { resolvePacCredentials } from './pacConnection';
 import { downloadCFDIDocuments, stampInvoice } from './pacClient';
 import { storeCFDIDocuments } from './cfdiStorage';
@@ -160,9 +161,12 @@ export function planPaymentComplement(
     };
   }
 
-  const total = toMoney(
-    toAmount(milestone.cfdi_total) > 0 ? toAmount(milestone.cfdi_total) : toAmount(milestone.amount)
-  );
+  // The same base the Cobranza card measures against and the confirm modal
+  // prefills from. It used to be picked here and nowhere else, so a stamped
+  // total one centavo under the milestone amount read as an overpayment to
+  // refund on the confirm screen while the complement declared it settled
+  // (#341). One definition, in lib/receivablesCalculator.ts.
+  const total = toMoney(expectedSettlementAmount(milestone));
 
   const issued = complements.filter((c) => c.status === 'issued');
   const paid = toMoney(issued.reduce((sum, c) => sum + toAmount(c.amount), 0));

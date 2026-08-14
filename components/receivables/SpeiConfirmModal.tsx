@@ -5,6 +5,7 @@ import { MilestoneWithClient, ReceivableMutationOutcome } from '@/lib/hooks/useR
 import { CheckCircle, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 import { normalizeNumericInput, numericInputValue, parseNumericInput } from '@/lib/numericInput';
+import { expectedSettlementAmount } from '@/lib/receivablesCalculator';
 
 interface SpeiConfirmModalProps {
   isOpen: boolean;
@@ -33,13 +34,27 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   // The prefill stays. Confirming a SPEI means agreeing with the amount the
   // milestone expects far more often than correcting it, and the defect here
   // was never the default — it was the round-trip through `parseFloat`.
+  //
+  // What it defaults *to* changed in #341. `milestone.amount` is the
+  // contractual figure; `expectedSettlementAmount` is what the stamped invoice
+  // says, which is what the complemento de pago measures its balance against.
+  // Where the PAC's recomputed total came out a centavo under the milestone —
+  // its own comment says it can — a client paying exactly what this modal
+  // proposed tripped the #81 overpayment notice, and the product told Don
+  // Roberto to refund $0.01.
+  //
+  // `transferred_amount` still wins when it is set: `/pay/[token]` records the
+  // payer's own declaration there before the owner ever opens this modal, and
+  // a figure someone stated about money that moved outranks any expectation.
   const [transferredAmount, setTransferredAmount] = useState<string>(
-    numericInputValue(milestone?.transferred_amount ?? milestone?.amount)
+    numericInputValue(milestone?.transferred_amount ?? expectedSettlementAmount(milestone))
   );
 
   React.useEffect(() => {
     if (milestone) {
-      setTransferredAmount(numericInputValue(milestone.transferred_amount ?? milestone.amount));
+      setTransferredAmount(
+        numericInputValue(milestone.transferred_amount ?? expectedSettlementAmount(milestone))
+      );
       setErrorMessage(null);
       setComplementWarning(null);
     }
@@ -114,10 +129,13 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
     }
   };
 
+  // The same figure the field is prefilled with. Showing "Monto Esperado:
+  // $10,000.00" above a field holding 9,999.99 invites the owner to "correct"
+  // the field back to the milestone amount and re-create the centavo (#341).
   const formattedAmount = new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: 'MXN',
-  }).format(milestone.amount);
+  }).format(expectedSettlementAmount(milestone));
 
   return (
     <Modal
