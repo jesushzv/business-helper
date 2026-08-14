@@ -46,10 +46,19 @@ test.describe('Business Helper E2E User Scenarios', () => {
     // Launch announcement banner
     await expect(page.locator('body')).toContainText('PLATAFORMA');
 
-    // Navigate to the demo dashboard. Two "Ver Demo" links exist (nav +
-    // hero) and the nav one is hidden below lg — take whichever is visible.
+    // The nav's demo slot reaches the explanatory /demo page (#338) — pin it
+    // here, since only a real browser can tell whether the crawler-visible
+    // link exists at all. It is hidden below lg, so count it rather than
+    // assert visibility.
+    await expect(page.locator('nav a[href="/demo"]')).toHaveCount(1);
+
+    // Then into the sandbox itself, via the hero CTA. Both links are still
+    // named "Ver Demo" and the nav one now goes somewhere else, so this picks
+    // by destination rather than by "whichever is visible at this viewport" —
+    // which is what made the desktop run land on /demo.
     await page
-      .getByRole('link', { name: 'Ver Demo' })
+      .locator('a[href="/dashboard?demo=true"]')
+      .filter({ hasText: 'Ver Demo' })
       .filter({ visible: true })
       .first()
       .click();

@@ -66,7 +66,11 @@ export default function LandingPage() {
             <a href="#caracteristicas" className="hover:text-emerald-400 transition-colors py-2">
               Características
             </a>
-            <Link href="/dashboard?demo=true" className="hover:text-emerald-400 transition-colors py-2">
+            {/* The nav slot is for the cold visitor who wants to know what the
+                demo *is*; the hero's LiveDemoButton below is for the one who
+                already wants in. Pointing both at the sandbox left /demo with
+                no inbound link but a sitemap entry (#338). */}
+            <Link href="/demo" className="hover:text-emerald-400 transition-colors py-2">
               Ver Demo
             </Link>
             <a href="#garantia" className="hover:text-emerald-400 transition-colors py-2">
