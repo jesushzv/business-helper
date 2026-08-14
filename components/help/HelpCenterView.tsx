@@ -85,12 +85,23 @@ export const HelpCenterView: React.FC = () => {
           },
         ]);
       } else {
+        // The route's own message when it sent one (#295): a rate-limited user
+        // told "intenta reformular tu pregunta" rephrases and retries straight
+        // into the same 429, when the actual instruction is to wait. The
+        // envelope's Spanish is written to be rendered verbatim; the generic
+        // copy covers only shapeless failures.
+        const routeMessage =
+          typeof data?.error?.message === 'string' && data.error.message.trim()
+            ? data.error.message
+            : null;
         setChatMessages((prev) => [
           ...prev,
           {
             id: `b-${Date.now()}`,
             sender: 'bot',
-            text: 'Disculpa, no pude procesar tu duda en este momento. Por favor selecciona un tema en el buscador o intenta reformular tu pregunta.',
+            text:
+              routeMessage ||
+              'Disculpa, no pude procesar tu duda en este momento. Por favor selecciona un tema en el buscador o intenta reformular tu pregunta.',
           },
         ]);
       }

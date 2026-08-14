@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   checkRateLimit,
   sanitizeAIQuery,
@@ -9,6 +9,7 @@ import {
   buildGroundedAssistantPrompt,
   parseNaturalLanguageQuery,
   TIER_AI_QUOTAS,
+  type AIOrgData,
 } from '@/lib/whatsappAI';
 
 describe('AI monthly tier quotas', () => {
@@ -72,7 +73,7 @@ describe('In-app AI support routing', () => {
 
     expect(result.intent).toBe('app_support_faq');
     expect(result.matchedFAQ).not.toBeNull();
-    expect(result.answerText).toContain('COTIZACIONES');
+    expect(result.answerText).toContain('Cotizaciones:'); // the category as copy, not the raw slug (#274)
   });
 
   it('hands off to a human when one is asked for', () => {
@@ -155,5 +156,161 @@ describe('Client balance queries', () => {
     });
 
     expect(result.totalOverdue).toBe(0);
+  });
+});
+
+/**
+ * #274 — the assistant must answer the questions its own chips ask.
+ *
+ * Three of the four suggested chips got answers to different questions: the
+ * FAQ keyword `factura` hijacked "facturas pendientes" into a Facturapi
+ * how-to; "¿cuánto hemos cobrado?" was answered with the por-cobrar total —
+ * the semantic opposite — because collected rows were never even loaded; and
+ * "¿qué cliente me debe más?" fell to the same generic total with no client
+ * named.
+ */
+describe('the chips get answers to their own questions (#274)', () => {
+  const today = new Date().toISOString().split('T')[0];
+  const CHIP_ORG: AIOrgData = {
+    clients: [
+      { id: 'c-1', name: 'Constructora del Bajío', phone: '+528112345678' },
+      { id: 'c-2', name: 'Materiales del Norte', phone: null },
+    ],
+    receivables: [
+      { id: 'm-1', clientId: 'c-1', amount: 48720, status: 'pending', label: 'Anticipo', due_date: today },
+      { id: 'm-2', clientId: 'c-2', amount: 12000, status: 'pending', label: 'Entrega', due_date: '2026-12-01' },
+    ],
+    collected: [
+      { clientId: 'c-1', amount: 20000, confirmed_at: new Date().toISOString() },
+      // A payment from a past month must not count into "este mes".
+      { clientId: 'c-2', amount: 99000, confirmed_at: '2020-01-15T00:00:00Z' },
+    ],
+  };
+
+  it('names the top debtor for "¿Qué cliente me debe más?"', () => {
+    const result = parseNaturalLanguageQuery('¿Qué cliente me debe más?', CHIP_ORG);
+
+    expect(result.intent).toBe('top_debtor');
+    expect(result.matchedClient).toBe('Constructora del Bajío');
+    expect(result.answerText).toContain('48,720.00');
+    expect(result.totalOverdue).toBe(48720);
+  });
+
+  it('lists the owing clients for "¿Qué clientes tienen facturas pendientes?" — never the Facturapi how-to', () => {
+    const result = parseNaturalLanguageQuery('¿Qué clientes tienen facturas pendientes?', CHIP_ORG);
+
+    expect(result.intent).toBe('pending_by_client');
+    expect(result.answerText).toContain('Constructora del Bajío');
+    expect(result.answerText).toContain('Materiales del Norte');
+    // The hijack this pins: the FAQ answer about connecting Facturapi.
+    expect(result.answerText).not.toMatch(/Facturapi|Ajustes/);
+    expect(result.matchedFAQ).toBeNull();
+  });
+
+  it('answers collected — not por cobrar — for "¿Cuánto hemos cobrado este mes?"', () => {
+    const result = parseNaturalLanguageQuery('¿Cuánto hemos cobrado este mes?', CHIP_ORG);
+
+    expect(result.intent).toBe('collected_this_month');
+    // What arrived this month; neither the old-month payment nor the
+    // por-cobrar total (the semantic opposite this issue names).
+    expect(result.answerText).toContain('20,000.00');
+    expect(result.answerText).not.toContain('60,720.00');
+    expect(result.answerText).not.toContain('99,000');
+  });
+
+  it('answers with zero collected honestly when nothing confirmed this month', () => {
+    const result = parseNaturalLanguageQuery('¿Cuánto hemos cobrado este mes?', {
+      ...CHIP_ORG,
+      collected: [],
+    });
+
+    expect(result.intent).toBe('collected_this_month');
+    expect(result.answerText).toMatch(/todavía no has confirmado/i);
+  });
+
+  it('filters today for "¿Cuáles pagos vencen hoy?"', () => {
+    const result = parseNaturalLanguageQuery('¿Cuáles pagos vencen hoy?', CHIP_ORG);
+
+    expect(result.intent).toBe('due_today');
+    expect(result.answerText).toContain('Constructora del Bajío');
+    expect(result.answerText).not.toContain('Materiales del Norte');
+  });
+
+  it('still resolves a product how-to through the FAQ when no data intent matches', () => {
+    const result = parseNaturalLanguageQuery('¿Cómo genero una factura electrónica?', CHIP_ORG);
+
+    expect(result.intent).toBe('app_support_faq');
+    expect(result.matchedFAQ).not.toBeNull();
+  });
+
+  it('lets a client whose name carries an FAQ keyword resolve as the client', () => {
+    const result = parseNaturalLanguageQuery('¿Cuánto me debe Facturas del Norte?', {
+      clients: [{ id: 'c-9', name: 'Facturas del Norte', phone: null }],
+      receivables: [{ id: 'm-9', clientId: 'c-9', amount: 500, status: 'pending' }],
+    });
+
+    expect(result.intent).toBe('client_overdue_balance');
+    expect(result.matchedClient).toBe('Facturas del Norte');
+  });
+});
+
+/**
+ * #257 — the reminder link must not double the country code.
+ *
+ * The hand-rolled `startsWith('52')` prefix logic read "+52 81…" (E.164, the
+ * shape every phone has been stored in since the backfill) as not-prefixed
+ * after stripping the +, then… actually it read it as prefixed, but a phone
+ * stored as "+528112345678" was stripped to digits AFTER the check, so the
+ * check ran against "+52…" — `startsWith('52')` false — and 52 was prefixed
+ * onto the full digits: wa.me/52528112345678, a number that opens nobody's
+ * chat, for every real tenant.
+ */
+describe('reminder links normalize the phone once (#257)', () => {
+  it('builds wa.me/52... — not wa.me/5252... — from an E.164 phone', () => {
+    const result = parseNaturalLanguageQuery('¿Cuánto me debe Constructora del Bajío?', {
+      clients: [{ id: 'c-1', name: 'Constructora del Bajío', phone: '+528112345678' }],
+      receivables: [{ id: 'm-1', clientId: 'c-1', amount: 1000, status: 'pending' }],
+    });
+
+    expect(result.whatsappUrl).toContain('wa.me/528112345678');
+    expect(result.whatsappUrl).not.toContain('5252');
+  });
+
+  it('still lifts a legacy 10-digit phone to 52...', () => {
+    const result = parseNaturalLanguageQuery('¿Cuánto me debe Constructora del Bajío?', {
+      clients: [{ id: 'c-1', name: 'Constructora del Bajío', phone: '8112345678' }],
+      receivables: [{ id: 'm-1', clientId: 'c-1', amount: 1000, status: 'pending' }],
+    });
+
+    expect(result.whatsappUrl).toContain('wa.me/528112345678');
+  });
+});
+
+/**
+ * #296 — no live-transfer promise without a line to transfer to.
+ */
+describe('the human handoff promises only what is configured (#296)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('offers the WhatsApp chat when a support line is configured', () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPPORT_WHATSAPP', '5218112345678');
+    const result = parseNaturalLanguageQuery('quiero hablar con un humano', {});
+
+    expect(result.intent).toBe('human_handoff_request');
+    expect(result.whatsappUrl).toContain('wa.me/5218112345678');
+    expect(result.answerText).toMatch(/transfiriendo/i);
+  });
+
+  it('promises no transfer when none exists — points at the real channel', () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPPORT_WHATSAPP', '');
+    const result = parseNaturalLanguageQuery('quiero hablar con un humano', {});
+
+    expect(result.whatsappUrl).toBe('');
+    expect(result.answerText).not.toMatch(/transfiriendo/i);
+    expect(result.answerText).toContain('soporte@businesshelper.app');
+    // The retired placeholder, gone in every trace.
+    expect(JSON.stringify(result)).not.toContain('528180000000');
   });
 });

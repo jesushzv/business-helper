@@ -136,3 +136,47 @@ describe('asking the support agent', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * #295 — the route's specific refusal reaches the user, verbatim.
+ *
+ * Every non-answerText body fell into one generic message — "intenta
+ * reformular tu pregunta" — including the 429, whose actual instruction is to
+ * WAIT. The rate-limited user rephrased and retried straight into the same
+ * limit.
+ */
+describe('the route’s own error copy is rendered, not replaced (#295)', () => {
+  it('tells a rate-limited user to wait, not to rephrase', async () => {
+    render(<HelpCenterView />);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(429, {
+        error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Límite de consultas alcanzado. Por favor espera un momento.' },
+      })
+    );
+
+    ask('¿Cómo facturo?');
+
+    await screen.findByText(/Límite de consultas alcanzado/i);
+    expect(screen.queryByText(/intenta reformular tu pregunta/i)).toBeNull();
+  });
+
+  it('renders the 401 message rather than blaming the question', async () => {
+    render(<HelpCenterView />);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(401, { error: { code: 'UNAUTHORIZED', message: 'Sesión requerida' } })
+    );
+
+    ask('¿Cómo facturo?');
+
+    await screen.findByText(/Sesión requerida/i);
+  });
+
+  it('keeps the generic copy for a shapeless failure', async () => {
+    render(<HelpCenterView />);
+    fetchMock.mockResolvedValueOnce(jsonResponse(500, {}));
+
+    ask('¿Cómo facturo?');
+
+    await screen.findByText(/no pude procesar tu duda/i);
+  });
+});

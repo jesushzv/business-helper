@@ -97,8 +97,42 @@ export function searchFAQItems(query: string = '', category: string = 'todas'): 
   });
 }
 
-export function generateWhatsAppSupportLink(userMessage: string = ''): string {
-  const phone = '528180000000'; // Default Business Helper support line
+/** The FAQ category as copy, never as a raw slug ("Facturación SAT", not "FACTURACION"). */
+export function faqCategoryLabel(categoryId: string): string {
+  return CATEGORIES.find((c) => c.id === categoryId)?.label || 'Ayuda';
+}
+
+/**
+ * The support WhatsApp line, when one is configured.
+ *
+ * This was `const supportPhone = '528180000000'` in three places — 81 8000 0000,
+ * a placeholder-shaped number nobody verified is real — and the handoff answer
+ * promised "te estamos transfiriendo con un especialista" to whatever that line
+ * is (#296). A support line is provider-shaped state: resolved from the
+ * environment, `null` when unset, never a literal default (#68's rule for
+ * provider ids, applied to the number the product routes distressed users to).
+ *
+ * `NEXT_PUBLIC_` because the help center builds these links in the browser.
+ * Read inside the function with the env as a parameter — a module-level const
+ * would freeze at import and give tests no seam (#68).
+ */
+export function getSupportWhatsAppNumber(env: Record<string, string | undefined> = process.env): string | null {
+  const raw = env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '';
+  const digits = raw.replace(/\D/g, '');
+  return digits.length >= 10 ? digits : null;
+}
+
+/**
+ * A wa.me link to the configured support line, or `''` when there is none —
+ * callers render no chat button for an empty link, rather than one that opens
+ * a conversation with a number that may belong to a stranger.
+ */
+export function generateWhatsAppSupportLink(
+  userMessage: string = '',
+  env: Record<string, string | undefined> = process.env
+): string {
+  const phone = getSupportWhatsAppNumber(env);
+  if (!phone) return '';
   const defaultText = 'Hola Business Helper, necesito ayuda con mi cuenta de negocio.';
   const messageText = userMessage.trim() ? `Hola Business Helper, necesito ayuda con: ${userMessage.trim()}` : defaultText;
   const encodedText = encodeURIComponent(messageText);

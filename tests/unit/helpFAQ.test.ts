@@ -31,9 +31,30 @@ describe('Help Center & FAQ Engine Suite', () => {
     });
   });
 
-  it('should generate valid WhatsApp support link with encoded message', () => {
-    const link = generateWhatsAppSupportLink('problema con facturación');
-    expect(link).toContain('https://wa.me/528180000000?text=');
+  /**
+   * #296 — the support line is configuration, not a literal.
+   *
+   * This test used to pin `wa.me/528180000000` — 81 8000 0000, a
+   * placeholder-shaped number nobody verified answers — holding the
+   * fabricated live-transfer promise in place (hard rule #7). The number now
+   * comes from NEXT_PUBLIC_SUPPORT_WHATSAPP; unset, no link is produced and
+   * no chat button renders.
+   */
+  it('builds the support link from the configured line, with the message encoded', () => {
+    const link = generateWhatsAppSupportLink('problema con facturación', {
+      NEXT_PUBLIC_SUPPORT_WHATSAPP: '5218112345678',
+    });
+    expect(link).toContain('https://wa.me/5218112345678?text=');
     expect(link).toContain(encodeURIComponent('problema con facturación'));
+  });
+
+  it('produces no link at all when no support line is configured', () => {
+    expect(generateWhatsAppSupportLink('ayuda', {})).toBe('');
+    // Junk shapes are not a phone number either.
+    expect(generateWhatsAppSupportLink('ayuda', { NEXT_PUBLIC_SUPPORT_WHATSAPP: '12345' })).toBe('');
+  });
+
+  it('never falls back to the retired placeholder number', () => {
+    expect(generateWhatsAppSupportLink('ayuda', {})).not.toContain('528180000000');
   });
 });
