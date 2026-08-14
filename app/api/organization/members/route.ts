@@ -203,12 +203,22 @@ export async function POST(request: Request) {
     // to revoke every pending invitation in the organization (#289). Rows are
     // stored normalized, so equality on the normalized address is the
     // case-insensitive match the ilike was there for.
-    await supabase
+    const { error: revokeError } = await supabase
       .from('organization_invitations')
       .update({ status: 'revoked' })
       .eq('organization_id', organizationId)
       .eq('status', 'pending')
       .eq('email', normalizedEmail);
+
+    if (revokeError) {
+      // Proceeding on a failed revoke used to collide the INSERT with the
+      // still-pending row (23505 via uq_org_invitation_pending_email) — a
+      // confusing "no se pudo crear" whose real cause was never named, and
+      // without that index it would have left two redeemable links (#314).
+      return dbWriteErrorResponse(revokeError, 'la invitación anterior', 'POST /api/organization/members', {
+        verb: 'reemplazar',
+      });
+    }
 
     const { token, tokenHash } = generateInvitationToken();
 
