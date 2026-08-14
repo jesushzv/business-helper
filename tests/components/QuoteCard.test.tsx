@@ -95,3 +95,76 @@ describe('QuoteCard WhatsApp link integrity (#36)', () => {
     expect(source).not.toMatch(/\/q\/\$\{/);
   });
 });
+
+/**
+ * The blocked-client warning (#340).
+ *
+ * #237 decided option C — warn, don't refuse — and #203 already covers the
+ * *creation* path: `QuoteWizardModal` shows the red notice and disables submit
+ * for a blocked client, because `POST /api/quotes` refuses it.
+ *
+ * The gap #340 names is an existing quote that already points at a blocked
+ * client. There is no quote editor in the product — the wizard only creates,
+ * and the sole client-side `PUT` sends `{status}` — so the moments that matter
+ * are the ones the card offers: sharing the quote and converting it. The
+ * server deliberately allows both, so this warns and never blocks.
+ */
+describe('the blocked-client notice (#340)', () => {
+  const blockedClient = {
+    id: 'c-1',
+    name: 'Comercial Morosa SA',
+    phone: '8112223344',
+    credit_status: 'blocked',
+  } as unknown as Client;
+
+  const notice = () => screen.queryByText(/solo contado/i);
+
+  it('names the client and says the owner made the call', () => {
+    render(<QuoteCard quote={quote} client={blockedClient} creditBlocked />);
+
+    expect(notice()).toBeTruthy();
+    expect(notice()?.textContent).toContain('Comercial Morosa SA');
+    // Plain Spanish about a business decision, not a machine state.
+    expect(notice()?.textContent).not.toMatch(/CLIENT_CREDIT_BLOCKED|credit_status|blocked/i);
+  });
+
+  it('informs without blocking — every action still works', () => {
+    // The server allows a quote already pointing at a blocked client to move
+    // forward, so a control disabled here would be the UI inventing a refusal.
+    render(<QuoteCard quote={quote} client={blockedClient} creditBlocked />);
+
+    const share = screen.getByRole('link', { name: /Enviar por WhatsApp/i });
+    expect(share).toHaveAttribute('href', expect.stringContaining('wa.me'));
+    expect(share.getAttribute('aria-disabled')).toBeNull();
+  });
+
+  it('appears above the actions, not below them', () => {
+    // On a 375px card a notice under the buttons is one the owner taps past.
+    render(<QuoteCard quote={quote} client={blockedClient} creditBlocked />);
+
+    const share = screen.getByRole('link', { name: /Enviar por WhatsApp/i });
+    const position = notice()?.compareDocumentPosition(share);
+    // DOCUMENT_POSITION_FOLLOWING === 4: the share button comes after the notice.
+    expect((position as number) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('says nothing for a client whose credit is fine', () => {
+    render(<QuoteCard quote={quote} client={clientWithPhone} creditBlocked={false} />);
+
+    expect(notice()).toBeNull();
+  });
+
+  it('says nothing while the answer is unknown', () => {
+    // `/api/clients` failed, or this quote's client is not in the list. Neither
+    // a false all-clear nor a false accusation — the #64 rule.
+    render(<QuoteCard quote={quote} client={clientWithPhone} creditBlocked={null} />);
+
+    expect(notice()).toBeNull();
+  });
+
+  it('defaults to unknown when the prop is not passed at all', () => {
+    render(<QuoteCard quote={quote} client={clientWithPhone} />);
+
+    expect(notice()).toBeNull();
+  });
+});

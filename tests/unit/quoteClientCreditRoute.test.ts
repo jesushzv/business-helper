@@ -191,4 +191,27 @@ describe('PUT /api/quotes/[id] credit gate (#203)', () => {
     expect(res.status).toBe(200);
     expect(updateCalls).toHaveLength(1);
   });
+
+  /**
+   * The posture, recorded in the suite rather than in prose (#340/#237).
+   *
+   * Raising the total of a quote that *already* points at a blocked client is
+   * allowed, and deliberately so: `blocked` stops new pointing, not the
+   * existing pipeline — the same rule #203 settled on and the trial gate uses.
+   * Option B of #237 (gating amount increases server-side) was declined; it
+   * costs a read on every edit and would refuse edits that *lower* a total
+   * while fixing a typo.
+   *
+   * #340 closes the gap with information instead: `QuoteCard` warns wherever
+   * such a quote is acted on. If a real tenant is ever bitten, B is the
+   * fallback — and this test is what will have to change, which is the point
+   * of writing it down here.
+   */
+  it('allows raising the total on a quote already pointing at a blocked client', async () => {
+    const res = await putQuote({ total_amount: 250000 });
+
+    expect(res.status).toBe(200);
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0]).toMatchObject({ total_amount: 250000 });
+  });
 });

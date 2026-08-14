@@ -244,6 +244,13 @@ export default function QuotesPage() {
                 key={q.id}
                 quote={q}
                 client={client}
+                // Tri-state (#340/#64). A failed `/api/clients` read is not
+                // evidence that this client's credit is fine, and neither is a
+                // quote whose client is not in the list — both answer
+                // "unknown" and the card shows nothing.
+                creditBlocked={
+                  clientsError || !client ? null : client.credit_status === 'blocked'
+                }
                 onDelete={
                   canDelete
                     ? (id) => {
