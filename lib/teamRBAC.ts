@@ -26,7 +26,17 @@ export type Capability =
    * without it: a member may register and edit a client, not decide the terms
    * on which it is trusted with money.
    */
-  | 'manage_credit';
+  | 'manage_credit'
+  /**
+   * Hard-deleting records: clientes, cotizaciones, productos, cobros.
+   *
+   * Deletes were the only writes with no gate at all — any member could
+   * destroy a client or a milestone while confirming a payment required
+   * manager rank. Owner and manager only: a member registers and edits
+   * records, but removing them from the business's history is a decision
+   * for whoever runs it. Accountants keep their read-and-confirm scope.
+   */
+  | 'delete_records';
 
 const ROLE_CAPABILITIES: Record<UserRole, Set<Capability>> = {
   owner: new Set([
@@ -38,7 +48,8 @@ const ROLE_CAPABILITIES: Record<UserRole, Set<Capability>> = {
     'billing_management',
     'issue_cfdi',
     'view_analytics',
-    'manage_credit'
+    'manage_credit',
+    'delete_records'
   ]),
   manager: new Set([
     'create_quote',
@@ -48,7 +59,8 @@ const ROLE_CAPABILITIES: Record<UserRole, Set<Capability>> = {
     'invite_members',
     'issue_cfdi',
     'view_analytics',
-    'manage_credit'
+    'manage_credit',
+    'delete_records'
   ]),
   member: new Set([
     'create_quote',

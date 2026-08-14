@@ -20,6 +20,15 @@ describe('Multi-User Team Roles & RBAC Engine', () => {
     expect(hasCapability('accountant', 'create_quote')).toBe(false);
   });
 
+  it('reserves record deletion for owner and manager', () => {
+    // Deletes were the only writes with no gate: a member could destroy a
+    // client while confirming a payment required manager rank.
+    expect(hasCapability('owner', 'delete_records')).toBe(true);
+    expect(hasCapability('manager', 'delete_records')).toBe(true);
+    expect(hasCapability('member', 'delete_records')).toBe(false);
+    expect(hasCapability('accountant', 'delete_records')).toBe(false);
+  });
+
   it('denies every capability to an unknown or empty role', () => {
     expect(hasCapability('', 'create_quote')).toBe(false);
     expect(hasCapability('superadmin', 'create_quote')).toBe(false);

@@ -7,6 +7,9 @@ import { useClients } from '@/lib/hooks/useClients';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { QuoteWizardModal } from '@/components/quotes/QuoteWizardModal';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
+import { ConfirmDialog, useConfirm } from '@/components/shared/ConfirmDialog';
+import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
+import { hasCapability } from '@/lib/teamRBAC';
 import { Plus, Search, FileText, CheckCircle2, Clock, Send } from 'lucide-react';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
 import { getQuotePublicUrl } from '@/lib/url';
@@ -24,7 +27,17 @@ export default function QuotesPage() {
     setSearchQuery,
     createQuote,
     convertToContract,
+    deleteQuote,
   } = useQuotes();
+  const confirmAction = useConfirm();
+  const { role } = useCurrentOrg();
+
+  // Tri-state on purpose (#64): a known role without delete_records gets no
+  // delete control — never send someone into a write they lack — while an
+  // unknown role (loading, or the read failed) keeps it, because the route
+  // enforces the capability regardless and hiding on a network blip would tell
+  // an owner they cannot delete.
+  const canDelete = role === null || hasCapability(role, 'delete_records');
 
   // The clients read has its own failure mode (#260): when /api/clients fails
   // while /api/quotes succeeds, `clients` is [] and every card would read
@@ -231,6 +244,36 @@ export default function QuotesPage() {
                 key={q.id}
                 quote={q}
                 client={client}
+                onDelete={
+                  canDelete
+                    ? (id) => {
+                        const target = quotes.find((quote) => quote.id === id);
+                        if (!target) return;
+                        confirmAction.ask({
+                          title: 'Eliminar cotización',
+                          // A 'sent' quote's /q/ link is already in the
+                          // client's hands; deleting it retires that link.
+                          // Name the cost before the tap (#99).
+                          consequence:
+                            target.status === 'sent'
+                              ? `«${target.title}» se eliminará de forma permanente y el enlace para firmar que compartiste con tu cliente dejará de funcionar.`
+                              : `«${target.title}» se eliminará de forma permanente.`,
+                          confirmLabel: 'Sí, eliminar cotización',
+                          onConfirm: async () => {
+                            // Caught here: a throw would leave ConfirmDialog
+                            // open with no message anywhere. The dialog shows
+                            // the server's reason — a signed quote's 409, a
+                            // role's 403 — instead.
+                            try {
+                              await deleteQuote(id);
+                            } catch (err) {
+                              result.fail(err, { title: 'No se pudo eliminar' });
+                            }
+                          },
+                        });
+                      }
+                    : undefined
+                }
                 onConvert={async (id) => {
                   // Announce what the server actually created, and only after
                   // it confirms. The count was hardcoded at 2 and the message
@@ -303,6 +346,7 @@ export default function QuotesPage() {
         }}
       />
 
+      <ConfirmDialog request={confirmAction.request} onClose={confirmAction.dismiss} />
       <ActionResultDialog result={result.value} onClose={result.dismiss} />
     </div>
     </>

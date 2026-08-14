@@ -3,6 +3,17 @@ import { requireOrgAccess, pickFields, QUOTE_WRITABLE_FIELDS } from '@/lib/apiAu
 import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
 import { checkClientCreditGate } from '@/lib/clientCredit';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { hasCapability } from '@/lib/teamRBAC';
+
+/**
+ * Statuses a quote may be deleted in. `accepted` and `converted` are excluded:
+ * an accepted quote carries the client's OTP signature — legal evidence — and a
+ * converted quote's `public_token` is what `/pay/[token]` resolves, so deleting
+ * it would kill the payment link already in the client's hands (the #72 defect,
+ * manufactured on purpose). Deleting a `sent` quote does retire its shared
+ * `/q/` link; the UI names that cost before the tap.
+ */
+const DELETABLE_QUOTE_STATUSES = ['draft', 'sent', 'rejected', 'expired'] as const;
 
 /**
  * Single-quote operations.
@@ -142,16 +153,27 @@ export async function DELETE(
 ) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId } = auth.ctx;
+  const { supabase, organizationId, role } = auth.ctx;
+
+  if (!hasCapability(role, 'delete_records')) {
+    return NextResponse.json(
+      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite eliminar cotizaciones' } },
+      { status: 403 }
+    );
+  }
 
   try {
     const { id } = await params;
 
+    // The status precondition rides inside the DELETE itself (the #286
+    // pattern): a separate read-then-delete would let the quote get signed
+    // between the check and the destruction.
     const { data: deleted, error } = await supabase
       .from('quotes')
       .delete()
       .eq('id', id)
       .eq('organization_id', organizationId)
+      .in('status', DELETABLE_QUOTE_STATUSES)
       .select('id')
       .maybeSingle();
 
@@ -162,6 +184,30 @@ export async function DELETE(
     }
 
     if (!deleted) {
+      // Zero rows is two different answers: the quote does not exist (in this
+      // organization), or it exists in a status the guard protects. Only the
+      // follow-up read — still org-scoped — can tell them apart.
+      const { data: existing } = await supabase
+        .from('quotes')
+        .select('status')
+        .eq('id', id)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (existing) {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'QUOTE_PROTECTED',
+              message:
+                'Esta cotización ya fue firmada o convertida en contrato, así que forma parte ' +
+                'de tu historial legal y no se puede eliminar.',
+            },
+          },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json(
         { error: { code: 'NOT_FOUND', message: 'Cotización no encontrada' } },
         { status: 404 }

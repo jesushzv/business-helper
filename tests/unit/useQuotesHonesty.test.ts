@@ -302,6 +302,54 @@ describe('convertToContract honesty (configured deployment)', () => {
   });
 });
 
+describe('deleteQuote honesty (configured deployment)', () => {
+  it('keeps the quote when the route refuses the deletion, and surfaces the server\'s reason', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    // The 409 a signed/converted quote gets: it must reach the tenant as the
+    // route wrote it, and the card must not vanish for a row that still exists.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, {
+        error: { code: 'QUOTE_PROTECTED', message: 'Esta cotización ya fue firmada o convertida en contrato' },
+      })
+    );
+
+    await act(async () => {
+      await expect(result.current.deleteQuote('srv-quote-1')).rejects.toThrow(
+        'ya fue firmada o convertida'
+      );
+    });
+
+    expect(result.current.quotes).toHaveLength(1);
+  });
+
+  it('keeps the quote when the network fails', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    await act(async () => {
+      await expect(result.current.deleteQuote('srv-quote-1')).rejects.toThrow();
+    });
+
+    expect(result.current.quotes).toHaveLength(1);
+  });
+
+  it('removes the quote only after the server confirms, with a single DELETE call', async () => {
+    const { result } = await mountHook([SERVER_QUOTE]);
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true }));
+
+    await act(async () => {
+      await result.current.deleteQuote('srv-quote-1');
+    });
+
+    expect(result.current.quotes).toEqual([]);
+    const deleteCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE');
+    expect(deleteCalls).toHaveLength(1);
+    expect(String(deleteCalls[0][0])).toBe('/api/quotes/srv-quote-1');
+    // No mirror of a real tenant's quotes survives the deletion either (#113).
+    expect(localStorage.getItem('business_helper_quotes_v1')).toBeNull();
+  });
+});
+
 describe('demo mode (no backend in the bundle)', () => {
   it('creates a local quote without calling the API', async () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
@@ -318,5 +366,21 @@ describe('demo mode (no backend in the bundle)', () => {
     expect(fetchMock.mock.calls.length).toBe(fetchCallsBefore);
     expect(created).toMatchObject({ organization_id: 'org-demo-1' });
     expect(rendered.result.current.quotes.some((q) => q.id === created!.id)).toBe(true);
+  });
+
+  it('deletes locally without calling the API', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+
+    const rendered = renderHook(() => useQuotes());
+    await waitFor(() => expect(rendered.result.current.loading).toBe(false));
+    const target = rendered.result.current.quotes[0];
+    const fetchCallsBefore = fetchMock.mock.calls.length;
+
+    await act(async () => {
+      await rendered.result.current.deleteQuote(target.id);
+    });
+
+    expect(fetchMock.mock.calls.length).toBe(fetchCallsBefore);
+    expect(rendered.result.current.quotes.some((q) => q.id === target.id)).toBe(false);
   });
 });

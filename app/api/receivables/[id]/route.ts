@@ -99,16 +99,31 @@ export async function DELETE(
 ) {
   const auth = await requireOrgAccess();
   if (!auth.ok) return auth.response;
-  const { supabase, organizationId } = auth.ctx;
+  const { supabase, organizationId, role } = auth.ctx;
+
+  if (!hasCapability(role, 'delete_records')) {
+    return NextResponse.json(
+      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite eliminar cobros' } },
+      { status: 403 }
+    );
+  }
 
   try {
     const { id } = await params;
 
+    // Only a milestone nothing has happened to yet may be deleted. Once the
+    // payment loop starts (`requested`/`marked_paid`/`confirmed`) or a CFDI
+    // exists for it, the row is a money/fiscal record — and deleting it would
+    // CASCADE its complementos de pago (payment_complements.milestone_id).
+    // The precondition rides inside the DELETE so a payment declared between
+    // check and destruction still blocks it.
     const { data: deleted, error } = await supabase
       .from('milestones')
       .delete()
       .eq('id', id)
       .eq('organization_id', organizationId)
+      .eq('status', 'pending')
+      .eq('cfdi_status', 'none')
       .select('id')
       .maybeSingle();
 
@@ -119,11 +134,38 @@ export async function DELETE(
     }
 
     if (!deleted) {
-      return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
+      const { data: existing } = await supabase
+        .from('milestones')
+        .select('id')
+        .eq('id', id)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (existing) {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'MILESTONE_PROTECTED',
+              message:
+                'Este cobro ya tiene movimientos de pago o factura registrados, ' +
+                'así que forma parte de tu historial y no se puede eliminar.',
+            },
+          },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ error: 'Failed to delete milestone' }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'No se pudo eliminar el cobro' } },
+      { status: 500 }
+    );
   }
 }

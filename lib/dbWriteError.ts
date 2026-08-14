@@ -44,6 +44,14 @@ export interface DescribeOptions {
   audience?: 'tenant' | 'client';
   /** Verb for the prose that names the operation: `guardar` (default), `eliminar`, `actualizar`. */
   verb?: string;
+  /**
+   * What to tell the tenant when a delete is refused because other rows still
+   * reference this one (`ON DELETE RESTRICT`). The route knows which children
+   * exist — "tiene cotizaciones o contratos registrados" — and that is the
+   * only wording a tenant can act on; the generic fallback below only knows
+   * "registros relacionados".
+   */
+  restrictMessage?: string;
 }
 
 interface PostgrestLikeError {
@@ -274,6 +282,23 @@ export function describeDbWriteError(
   }
 
   if (code === '23503') {
+    // 23503 covers two opposite situations, and the message for one is
+    // nonsense for the other. On INSERT/UPDATE the *referenced* row is gone
+    // ("is not present in table …"): reloading genuinely helps. On DELETE the
+    // row is refused because children still point at it ("is still referenced
+    // from table …", per ON DELETE RESTRICT): nothing vanished, and telling
+    // the tenant to reload sends them in a circle. Postgres wording tells the
+    // two apart; the fixture in dbWriteError.test.ts pins both phrasings.
+    const haystack = `${e.message || ''} ${e.details || ''}`;
+    if (/still referenced/i.test(haystack)) {
+      return describe({
+        status: 409,
+        code: 'HAS_REFERENCES',
+        message:
+          options.restrictMessage ||
+          `No se puede ${verb} ${entity} porque tiene registros relacionados.`,
+      });
+    }
     return describe({
       status: 400,
       code: 'INVALID_INPUT',
