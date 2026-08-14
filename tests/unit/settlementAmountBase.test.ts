@@ -197,3 +197,96 @@ describe('cfdi_total survives the flattening (#341, #78)', () => {
     expect(flat.public_token).toBe('tok-abc');
   });
 });
+
+/**
+ * The other rounding direction, and the flow that actually generates most
+ * confirmations (#341).
+ *
+ * A first pass at this fix changed only the confirm modal's prefill. That
+ * would have left two holes, both of which these cases hold shut:
+ *
+ *   - `cfdi_total` lands *above* `amount` about as often as below. There, a
+ *     client who paid the amount every screen quoted leaves the cobro
+ *     confirmed and still owing a centavo — in `countPartial`, in an aging
+ *     bucket, forever.
+ *   - `/pay/[token]` seeds the payer's declaration, and it read
+ *     `milestone.amount`. So on the normal path — owner shares link, client
+ *     declares, owner confirms — `transferred_amount` carried the old figure
+ *     straight past a prefill fix and the $0.01 notice fired anyway.
+ *
+ * Both are the same root cause: the payer was asked for one number and the
+ * fiscal document settled another. The fix is that the *ask* is the document.
+ */
+describe('the stamped total above the milestone amount (#341)', () => {
+  const over = { ...PPD_STAMPED, amount: 29.18, cfdi_total: 29.19 };
+
+  it('is what the client is asked for', () => {
+    expect(expectedSettlementAmount(over)).toBe(29.19);
+  });
+
+  it('settles the cobro instead of leaving a centavo owing forever', () => {
+    const confirmed: MilestoneItem = {
+      id: 'm-over',
+      label: 'Pago único',
+      amount: 29.18,
+      cfdi_total: 29.19,
+      due_date: '2026-01-15',
+      status: 'confirmed',
+      transferred_amount: 29.19,
+    };
+    const summary = calculateReceivablesSummary([confirmed], '2026-02-01');
+
+    expect(outstandingAmount(confirmed)).toBe(0);
+    expect(summary.countConfirmed).toBe(1);
+    expect(summary.countPartial).toBe(0);
+    expect(summary.countOverdue).toBe(0);
+    expect(summary.totalOverdue).toBe(0);
+  });
+
+  it('produces no overpayment notice on the complement either', () => {
+    const plan = planPaymentComplement(over, [], expectedSettlementAmount(over));
+
+    expect(plan.required).toBe(true);
+    if (!plan.required) return;
+    expect(plan.overpaidAmount).toBe(0);
+    expect(plan.settles).toBe(true);
+  });
+});
+
+describe('end to end: what the payer is asked for is what settles (#341)', () => {
+  it.each([
+    ['the stamped total below the milestone', 10000, 9999.99],
+    ['the stamped total above the milestone', 29.18, 29.19],
+    ['no stamped total at all', 10000, null],
+  ])('%s', (_label, amount, cfdiTotal) => {
+    const milestone = { ...PPD_STAMPED, amount, cfdi_total: cfdiTotal };
+
+    // 1. Every surface quotes this: the Cobranza card, the WhatsApp reminder,
+    //    and `/api/receivables/public/[token]` → the /pay page's prefill.
+    const asked = expectedSettlementAmount(milestone);
+
+    // 2. The client pays exactly that and declares it, which is what
+    //    `transferred_amount` records.
+    const declared = asked;
+
+    // 3. The complement measures the declaration against the same base.
+    const plan = planPaymentComplement(milestone, [], declared);
+    expect(plan.required).toBe(true);
+    if (!plan.required) return;
+    expect(plan.overpaidAmount).toBe(0);
+    expect(plan.settles).toBe(true);
+
+    // 4. And the receivable is done — no residue in either direction.
+    const confirmed: MilestoneItem = {
+      id: 'm-flow',
+      label: 'Anticipo',
+      amount,
+      cfdi_total: cfdiTotal,
+      due_date: '2026-01-15',
+      status: 'confirmed',
+      transferred_amount: declared,
+    };
+    expect(outstandingAmount(confirmed)).toBe(0);
+    expect(calculateReceivablesSummary([confirmed], '2026-02-01').countPartial).toBe(0);
+  });
+});

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { expectedSettlementAmount } from '../receivablesCalculator';
 
 /**
  * Invoicing state for the facturación screen.
@@ -163,7 +164,10 @@ function toInvoiceItem(row: ReceivableRow): InvoiceItem {
         : null,
     }));
 
-  const total = toNumber(row.cfdi_total) > 0 ? toNumber(row.cfdi_total) : toNumber(row.amount);
+  // Was the same precedence written out inline a third time, and without the
+  // cancelled guard — so Facturación and Cobranza disagreed about the balance
+  // of a cancelled invoice (#341). One definition, imported.
+  const total = expectedSettlementAmount(row);
   const paid = complements
     .filter((c) => c.status === 'issued')
     .reduce((sum, c) => sum + c.amount, 0);
