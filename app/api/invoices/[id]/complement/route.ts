@@ -6,6 +6,7 @@ import { hasCapability } from '@/lib/teamRBAC';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { issuePaymentComplement, planPaymentComplement } from '@/lib/complementoPago';
 import { getAppBaseUrl } from '@/lib/url';
+import { cfdiDocumentPath } from '@/lib/cfdiStorage';
 
 /**
  * Complementos de pago for one milestone's PPD invoice.
@@ -90,12 +91,8 @@ export async function GET(
       operationNumber: row.operation_number,
       stampedAt: row.stamped_at,
       error: row.error,
-      xmlUrl: row.cfdi_xml_path
-        ? `${baseUrl}/api/invoices/${id}/document?type=xml&complement=${row.id}`
-        : null,
-      pdfUrl: row.cfdi_pdf_path
-        ? `${baseUrl}/api/invoices/${id}/document?type=pdf&complement=${row.id}`
-        : null,
+      xmlUrl: row.cfdi_xml_path ? `${baseUrl}${cfdiDocumentPath(id, 'xml', String(row.id))}` : null,
+      pdfUrl: row.cfdi_pdf_path ? `${baseUrl}${cfdiDocumentPath(id, 'pdf', String(row.id))}` : null,
     })),
     // `required` is the answer to "does this cobro owe the SAT a complement
     // right now" — the question the invoicing screen needs to ask.

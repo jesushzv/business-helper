@@ -17,7 +17,7 @@ import {
   takeOverStaleClaim,
   releaseStampClaim,
 } from '@/lib/cfdiStampClaim';
-import { storeCFDIDocuments } from '@/lib/cfdiStorage';
+import { cfdiDocumentPath, storeCFDIDocuments } from '@/lib/cfdiStorage';
 import { getAppBaseUrl } from '@/lib/url';
 import { track } from '@/lib/analytics';
 
@@ -444,8 +444,7 @@ export async function POST(request: Request) {
   // From here the CFDI exists at the SAT. Nothing below may turn the response
   // into a failure — the user needs the UUID even if a copy could not be filed.
   const baseUrl = getAppBaseUrl();
-  const documentUrl = (type: 'xml' | 'pdf') =>
-    `${baseUrl}/api/invoices/${milestoneId}/document?type=${type}`;
+  const documentUrl = (type: 'xml' | 'pdf') => `${baseUrl}${cfdiDocumentPath(milestoneId, type)}`;
 
   let xmlPath: string | null = null;
   let pdfPath: string | null = null;

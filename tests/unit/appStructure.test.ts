@@ -52,6 +52,14 @@ describe('Dashboard navigation', () => {
   ];
 
   it.each(DASHBOARD_PAGES)('the %s page renders the shared Header', (page) => {
-    expect(read(join('app', '(dashboard)', page, 'page.tsx'))).toContain('Header');
+    // Directly, or through DashboardPageShell — whose own assertion below
+    // closes the indirection.
+    expect(read(join('app', '(dashboard)', page, 'page.tsx'))).toMatch(
+      /<Header|<DashboardPageShell/
+    );
+  });
+
+  it('DashboardPageShell renders the shared Header', () => {
+    expect(read(join('components', 'layout', 'DashboardPageShell.tsx'))).toContain('<Header');
   });
 });

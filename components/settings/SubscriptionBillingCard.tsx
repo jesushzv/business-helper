@@ -5,6 +5,7 @@ import { CreditCard, Check, Zap, ExternalLink, ShieldCheck } from 'lucide-react'
 import { STRIPE_PLANS, statusHoldsPlan, StripeTierConfig, SubscriptionStatusResult } from '@/lib/stripe';
 import { OrganizationSettings } from '@/lib/hooks/useOrganizationSettings';
 import { useTrialState } from '@/lib/hooks/useTrialState';
+import { formatMXN } from '@/lib/currencyFormat';
 
 interface SubscriptionBillingCardProps {
   settings: OrganizationSettings;
@@ -62,13 +63,8 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
     }
   };
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-      maximumFractionDigits: 0,
-    }).format(val);
-  };
+  // Plan prices render in whole pesos; the shared formatter keeps the locale.
+  const formatCurrency = (val: number) => formatMXN(val, { wholePesos: true });
 
   const plansList: StripeTierConfig[] = Object.values(STRIPE_PLANS);
 

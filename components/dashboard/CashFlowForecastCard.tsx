@@ -3,19 +3,13 @@
 import React from 'react';
 import { Calendar, TrendingUp, ShieldAlert, CheckCircle } from 'lucide-react';
 import { CashFlowForecast } from '@/lib/dashboardAnalytics';
+import { formatMXN } from '@/lib/currencyFormat';
 
 interface CashFlowForecastCardProps {
   forecast: CashFlowForecast;
 }
 
 export const CashFlowForecastCard: React.FC<CashFlowForecastCardProps> = ({ forecast }) => {
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-    }).format(val);
-  };
-
   const buckets = [
     { ...forecast.days30, color: 'bg-emerald-500', bgDark: 'bg-slate-950/60 text-slate-100 border-emerald-500/30' },
     { ...forecast.days60, color: 'bg-teal-400', bgDark: 'bg-slate-950/60 text-slate-100 border-teal-500/30' },
@@ -43,7 +37,7 @@ export const CashFlowForecastCard: React.FC<CashFlowForecastCardProps> = ({ fore
 
         <div className="flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-xs font-bold text-emerald-400 border border-emerald-500/30">
           <TrendingUp className="h-4 w-4 text-emerald-400" />
-          <span>Total Proyectado: {formatCurrency(forecast.totalForecast)}</span>
+          <span>Total Proyectado: {formatMXN(forecast.totalForecast)}</span>
         </div>
       </div>
 
@@ -62,7 +56,7 @@ export const CashFlowForecastCard: React.FC<CashFlowForecastCardProps> = ({ fore
                 </div>
 
                 <p className="mt-3 font-mono text-2xl font-black tracking-tight text-white">
-                  {formatCurrency(bucket.amount)}
+                  {formatMXN(bucket.amount)}
                 </p>
 
                 <p className="mt-1 text-xs font-medium text-slate-400">
