@@ -58,7 +58,10 @@ describe('WhatsApp Payment Reminder Links', () => {
 
     expect(link).toContain('wa.me/528115551234');
     expect(link).toContain('token_xyz789');
-    expect(decodeURIComponent(link)).toContain('vence el 2026-09-02');
+    // The date reads as the client reads dates (#263) — "2 sep 2026", never a
+    // raw ISO string, and built from date parts so UTC parsing cannot render
+    // the previous day.
+    expect(decodeURIComponent(link)).toContain('vence el 2 sep 2026');
   });
 });
 

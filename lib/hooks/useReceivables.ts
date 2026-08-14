@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { localTodayStr } from '@/lib/dates';
 import {
   MilestoneItem,
   agingBucketOf,
@@ -435,7 +436,9 @@ export function useReceivables() {
     return { success: false, error: errorMessage(body, 'No se pudo registrar el comprobante') };
   };
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  // Local today, never UTC's (#263): from 18:00 in Mexico the UTC date is
+  // tomorrow, so every cobro due today filtered as Atrasado all evening.
+  const todayStr = useMemo(() => localTodayStr(), []);
 
   const summary: ReceivablesSummary = useMemo(() => {
     return calculateReceivablesSummary(receivables, todayStr);
