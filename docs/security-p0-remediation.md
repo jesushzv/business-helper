@@ -110,7 +110,7 @@ is shared at all (`lib/settlementAccount.ts`):
 | `STRIPE_PRICE_INICIAL` | Recommended | Exact price id. Falls back to substring matching if unset. |
 | `STRIPE_PRICE_NEGOCIO` | Recommended | As above. |
 | `STRIPE_PRICE_EMPRESA` | Recommended | As above. |
-| `OTP_DELIVERY_CHANNEL` | Yes (production) | `sms` \| `whatsapp`. See §4 for the provider variables each channel needs. Unset fails closed in production. |
+| `OTP_DELIVERY_CHANNEL` | Yes (production) | `email`. See §4 for the provider variables. Unset — or still set to the removed `sms`/`whatsapp` channels — fails closed in production. |
 
 Rotating `OTP_SECRET` invalidates outstanding OTP codes and makes previously
 stored seals unverifiable against a recomputation. Treat it as long-lived and
@@ -149,17 +149,18 @@ select id, name from organizations where bank_clabe is null;
 
 ## 4. OTP delivery
 
-`lib/otpDelivery.ts` sends the code over one of three channels, selected by
+`lib/otpDelivery.ts` sends the code by email, selected by
 `OTP_DELIVERY_CHANNEL`:
 
 | `OTP_DELIVERY_CHANNEL` | Provider | Required variables |
 |---|---|---|
-| `sms` | Twilio Messages API | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_NUMBER` (or `TWILIO_PHONE_NUMBER`) |
-| `whatsapp` | Twilio, else Meta Cloud API | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` — or `META_WHATSAPP_TOKEN`, `META_PHONE_NUMBER_ID` |
+| `email` | Resend API | `RESEND_API_KEY`, `OTP_EMAIL_FROM` (from-domain verified in Resend) |
 | unset | console (development only) | — |
 
-On `whatsapp`, Twilio is used when `TWILIO_WHATSAPP_NUMBER` is set; otherwise
-the Meta Cloud API is used. A provider that rejects the send, times out, or is
+The deprecated `sms` / `whatsapp` channels (Twilio Messages API, Meta Cloud
+API) were removed after email became the launch channel; a deployment still
+configured for one fails closed exactly like an unset channel, with a log line
+naming the migration. A provider that rejects the send, times out, or is
 missing credentials produces a failure — `POST /api/quotes/public/[token]/otp`
 then returns 502 rather than reporting a code that never arrived.
 
@@ -174,39 +175,29 @@ exactly the same 502 as an unset channel — and by default the first person to
 discover it is a signer. Check before enabling:
 
 ```
-OTP_DELIVERY_CHANNEL=sms \
-TWILIO_ACCOUNT_SID=AC… TWILIO_AUTH_TOKEN=… TWILIO_SMS_NUMBER=+1… \
+OTP_DELIVERY_CHANNEL=email \
+RESEND_API_KEY=re_… OTP_EMAIL_FROM='Business Helper <firmas@businesshelper.app>' \
 npm run verify:otp
 ```
 
-It resolves which provider the environment selects, names any variable that
-provider still needs, and makes an authenticated read against Twilio or Meta —
-without sending anything. Adding `OTP_TEST_PHONE=+52…` sends one real message
-to that handset; it is a fixed sample string, not an OTP, and the script never
-touches a quote.
+It names any variable the provider still needs and makes an authenticated read
+against Resend — without sending anything. Adding `OTP_TEST_EMAIL=you@…` sends
+one real message to that inbox; it is a fixed sample string, not an OTP, and
+the script never touches a quote.
 
 `describeDeliveryConfig()` in `lib/otpDelivery.ts` applies the same rules
 in-process, and a failed send is now logged server-side (provider and reason,
 never the code or the recipient) so a misconfiguration is visible in the
 platform log rather than only as a 502.
 
-A provider accepting a message is also not the same as a handset receiving one —
-a number can be unreachable, or the account can have no WhatsApp — so the
-end-to-end check below is what settles it.
+A provider accepting a message is also not the same as an inbox receiving one —
+the address can bounce, or a filter can drop it — so the end-to-end check below
+is what settles it.
 
-### The `whatsapp` channel needs an approved template
-
-WhatsApp permits free-form business-initiated messages only inside the 24-hour
-customer service window, i.e. to someone who messaged the business first.
-Outside it, an OTP must go out as a pre-approved template in the authentication
-category.
-
-`lib/otpDelivery.ts` currently sends free-form text on both WhatsApp providers,
-so a send to a signer who has not messaged the business recently is rejected —
-Meta error 131047, Twilio error 63016 — and the signing flow returns 502. That
-is the normal case for a client who was just sent a quote link, so the channel
-does not yet work for cold recipients. Tracked in #42; `sms` has no
-equivalent requirement, which is why it is the launch channel.
+(Historical: the removed `whatsapp` channel additionally could not reach a
+cold recipient without an approved authentication template — Meta error
+131047, Twilio error 63016 — which was #42 and part of why the channel was
+deprecated in favour of email.)
 
 ## 5. Staging verification
 
@@ -231,15 +222,15 @@ the organization check before reaching the ledger, so those two are skipped.
 ### OTP delivery checks — scripted
 
 ```
-OTP_DELIVERY_CHANNEL=whatsapp \
-TWILIO_ACCOUNT_SID=AC… TWILIO_AUTH_TOKEN=… TWILIO_WHATSAPP_NUMBER=+1… \
-OTP_TEST_PHONE=+52… \
+OTP_DELIVERY_CHANNEL=email \
+RESEND_API_KEY=re_… OTP_EMAIL_FROM='Business Helper <firmas@businesshelper.app>' \
+OTP_TEST_EMAIL=you@… \
 npm run verify:otp
 ```
 
 - [ ] `npm run verify:otp` reports the intended provider with no missing variables.
 - [ ] The credential stage passes against the account that will serve production.
-- [ ] With `OTP_TEST_PHONE` set, the sample message arrives on that handset.
+- [ ] With `OTP_TEST_EMAIL` set, the sample message arrives in that inbox.
 
 ### By hand
 

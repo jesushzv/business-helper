@@ -9,9 +9,10 @@
  * not the one a quote spends.
  *
  * The key is the recipient the database holds for the client — the email
- * address on the email channel, the E.164 phone on the deprecated sms and
- * whatsapp channels. Both normalize to a single canonical form so two rows
- * spelling the same contact differently share one budget.
+ * address on the email channel, the E.164 phone on the dev console fallback
+ * (and in ledger rows from the removed sms/whatsapp channels). Both normalize
+ * to a single canonical form so two rows spelling the same contact
+ * differently share one budget.
  *
  * Two properties matter and neither is available in process:
  *
@@ -27,7 +28,7 @@
  * closed rather than sending unbounded messages when the ledger is unreachable.
  */
 
-import { formatE164Phone } from './whatsappOutbound';
+import { formatE164Phone } from './phoneValidator';
 import { looksLikeEmail } from './clientFieldHints';
 
 /** Rolling window over which sends to one recipient are counted. */

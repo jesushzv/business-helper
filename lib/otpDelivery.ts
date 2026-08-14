@@ -3,46 +3,31 @@
  *
  * Issuing a code server-side is only half of a real e-signature: the code has
  * to reach the signer over a channel the signer controls, and nothing else.
- * This module sends over email (Resend), Twilio SMS, Twilio WhatsApp, or the
- * Meta WhatsApp Cloud API depending on configuration, and makes it impossible
- * for an unconfigured deployment to leak the code back over the HTTP response.
+ * This module sends over email (Resend) and makes it impossible for an
+ * unconfigured deployment to leak the code back over the HTTP response.
  *
  * email is the launch channel (founder decision, 2026-08-11): it needs one API
  * key and a verified sending domain — no WABA, no carrier registration, no
- * per-message cost. The sms and whatsapp channels are **deprecated** but stay
- * wired so a deployment configured for them keeps signing while it migrates;
- * WhatsApp OTP additionally cannot reach a cold recipient without a
- * business-owned WABA and an approved authentication template (#42).
- * Phone-number *login* remains retired; a phone or an email here is delivery
- * data, not a credential.
+ * per-message cost. The sms and whatsapp channels (Twilio / Meta) were
+ * deprecated with that decision and have since been removed: a deployment
+ * still configured for one fails closed with an error naming the migration,
+ * exactly as an unconfigured one does. Phone-number *login* remains retired; a
+ * phone or an email here is delivery data, not a credential.
  */
 
-import { formatE164Phone } from './whatsappOutbound';
 import { looksLikeEmail } from './clientFieldHints';
 
-export type OtpDeliveryChannel = 'email' | 'sms' | 'whatsapp' | 'console';
+export type OtpDeliveryChannel = 'email' | 'console';
 
-/**
- * The concrete API a channel resolves to. `whatsapp` is two providers, chosen
- * by which credentials are present, so the channel alone does not say what an
- * operator has to configure.
- */
-export type OtpDeliveryProvider =
-  | 'resend_email'
-  | 'twilio_sms'
-  | 'twilio_whatsapp'
-  | 'meta_whatsapp'
-  | 'console';
+export type OtpDeliveryProvider = 'resend_email' | 'console';
 
 export interface OtpDeliveryConfigReport {
   channel: OtpDeliveryChannel;
   provider: OtpDeliveryProvider;
-  /** True only when a code can reach a real inbox or handset. Never true for `console`. */
+  /** True only when a code can reach a real inbox. Never true for `console`. */
   ready: boolean;
   /** Variables the selected provider needs and the environment does not have. */
   missing: string[];
-  /** sms and whatsapp still work but are deprecated in favour of email. */
-  deprecated: boolean;
 }
 
 export interface OtpDeliveryResult {
@@ -66,12 +51,15 @@ function isProduction(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
+/** The removed channels, recognized so a stale deployment gets a named cause. */
+function isRetiredChannel(value: string | undefined): boolean {
+  return value === 'sms' || value === 'whatsapp';
+}
+
 export function getDeliveryChannel(env: EnvRecord = process.env): OtpDeliveryChannel {
-  const configured = env.OTP_DELIVERY_CHANNEL;
-  if (configured === 'email' || configured === 'sms' || configured === 'whatsapp') {
-    return configured;
-  }
-  return 'console';
+  // sms and whatsapp were removed; a deployment still set to one resolves to
+  // console, which fails closed in production — deliverOtp names the cause.
+  return env.OTP_DELIVERY_CHANNEL === 'email' ? 'email' : 'console';
 }
 
 export function isDeliveryConfigured(env: EnvRecord = process.env): boolean {
@@ -84,7 +72,7 @@ export function isDeliveryConfigured(env: EnvRecord = process.env): boolean {
  *
  * Without this, a half-configured deployment — channel set, credentials absent
  * or misspelled — is indistinguishable from a working one until a real signer
- * requests a code and gets a 502. The same rules drive the send functions
+ * requests a code and gets a 502. The same rules drive the send function
  * below and `npm run verify:otp`, so a preflight check and an actual send agree
  * on what "configured" means.
  */
@@ -93,38 +81,17 @@ export function describeDeliveryConfig(env: EnvRecord = process.env): OtpDeliver
 
   if (channel === 'console') {
     // Not a deployable channel: in production it fails closed, and in
-    // development it reaches a log rather than an inbox or handset.
+    // development it reaches a log rather than an inbox.
     return {
       channel,
       provider: 'console',
       ready: false,
       missing: ['OTP_DELIVERY_CHANNEL'],
-      deprecated: false,
     };
   }
 
-  if (channel === 'email') {
-    const missing = ['RESEND_API_KEY', 'OTP_EMAIL_FROM'].filter((key) => !env[key]);
-    return { channel, provider: 'resend_email', ready: missing.length === 0, missing, deprecated: false };
-  }
-
-  const twilioShared = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'];
-
-  if (channel === 'sms') {
-    const missing = twilioShared.filter((key) => !env[key]);
-    if (!env.TWILIO_SMS_NUMBER && !env.TWILIO_PHONE_NUMBER) missing.push('TWILIO_SMS_NUMBER');
-    return { channel, provider: 'twilio_sms', ready: missing.length === 0, missing, deprecated: true };
-  }
-
-  // whatsapp: Twilio when its number is set, Meta otherwise — mirroring
-  // sendViaProvider, so the report names the provider that would actually run.
-  if (env.TWILIO_WHATSAPP_NUMBER) {
-    const missing = twilioShared.filter((key) => !env[key]);
-    return { channel, provider: 'twilio_whatsapp', ready: missing.length === 0, missing, deprecated: true };
-  }
-
-  const missing = ['META_WHATSAPP_TOKEN', 'META_PHONE_NUMBER_ID'].filter((key) => !env[key]);
-  return { channel, provider: 'meta_whatsapp', ready: missing.length === 0, missing, deprecated: true };
+  const missing = ['RESEND_API_KEY', 'OTP_EMAIL_FROM'].filter((key) => !env[key]);
+  return { channel, provider: 'resend_email', ready: missing.length === 0, missing };
 }
 
 /**
@@ -193,209 +160,30 @@ async function sendViaResendEmail(recipient: string, code: string): Promise<OtpD
 }
 
 /**
- * Sends the OTP as a plain SMS via the Twilio Messages API (no `whatsapp:`
- * prefix on either number).
- */
-async function sendViaTwilioSms(recipient: string, code: string): Promise<OtpDeliveryResult> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_SMS_NUMBER || process.env.TWILIO_PHONE_NUMBER;
-
-  if (!accountSid || !authToken || !from) {
-    return {
-      delivered: false,
-      channel: 'sms',
-      devCode: null,
-      error: notConfiguredError('SMS', describeDeliveryConfig().missing),
-    };
-  }
-
-  const body = new URLSearchParams({ From: from, To: recipient, Body: otpMessage(code) });
-
-  try {
-    const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: body.toString(),
-        signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-      }
-    );
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      return {
-        delivered: false,
-        channel: 'sms',
-        devCode: null,
-        error: `Twilio rechazó el envío del SMS (${response.status}${data?.code ? ` / ${data.code}` : ''})`,
-      };
-    }
-
-    return { delivered: true, channel: 'sms', devCode: null };
-  } catch (err) {
-    const reason = err instanceof Error && err.name === 'TimeoutError' ? 'tiempo agotado' : 'error de red';
-    return { delivered: false, channel: 'sms', devCode: null, error: `No se pudo contactar a Twilio (${reason})` };
-  }
-}
-
-/** Sends the OTP over WhatsApp via Twilio, preferred when both providers are configured. */
-async function sendViaTwilioWhatsApp(recipient: string, code: string): Promise<OtpDeliveryResult> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_WHATSAPP_NUMBER;
-
-  if (!accountSid || !authToken || !from) {
-    // The route returns this string to the caller, so it has to read as a
-    // message rather than as an internal token.
-    return {
-      delivered: false,
-      channel: 'whatsapp',
-      devCode: null,
-      error: notConfiguredError('WhatsApp', describeDeliveryConfig().missing),
-    };
-  }
-
-  const body = new URLSearchParams({
-    From: `whatsapp:${from}`,
-    To: `whatsapp:${recipient}`,
-    Body: otpMessage(code),
-  });
-
-  try {
-    const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: body.toString(),
-        signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-      }
-    );
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      return {
-        delivered: false,
-        channel: 'whatsapp',
-        devCode: null,
-        error: `Twilio rechazó el envío por WhatsApp (${response.status}${data?.code ? ` / ${data.code}` : ''})`,
-      };
-    }
-
-    return { delivered: true, channel: 'whatsapp', devCode: null };
-  } catch (err) {
-    const reason = err instanceof Error && err.name === 'TimeoutError' ? 'tiempo agotado' : 'error de red';
-    return { delivered: false, channel: 'whatsapp', devCode: null, error: `No se pudo contactar a Twilio (${reason})` };
-  }
-}
-
-/** Sends the OTP over WhatsApp via the Meta Cloud API, when Twilio isn't configured. */
-async function sendViaMetaWhatsApp(recipient: string, code: string): Promise<OtpDeliveryResult> {
-  const token = process.env.META_WHATSAPP_TOKEN;
-  const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
-
-  if (!token || !phoneNumberId) {
-    return {
-      delivered: false,
-      channel: 'whatsapp',
-      devCode: null,
-      error: notConfiguredError('WhatsApp', describeDeliveryConfig().missing),
-    };
-  }
-
-  const version = process.env.META_GRAPH_API_VERSION || 'v21.0';
-
-  try {
-    const response = await fetch(
-      `https://graph.facebook.com/${version}/${encodeURIComponent(phoneNumberId)}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: recipient,
-          type: 'text',
-          text: { preview_url: false, body: otpMessage(code) },
-        }),
-        signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-      }
-    );
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      return {
-        delivered: false,
-        channel: 'whatsapp',
-        devCode: null,
-        error: `Meta rechazó el envío por WhatsApp (${response.status}${data?.error?.code ? ` / ${data.error.code}` : ''})`,
-      };
-    }
-
-    return { delivered: true, channel: 'whatsapp', devCode: null };
-  } catch (err) {
-    const reason = err instanceof Error && err.name === 'TimeoutError' ? 'tiempo agotado' : 'error de red';
-    return { delivered: false, channel: 'whatsapp', devCode: null, error: `No se pudo contactar a Meta (${reason})` };
-  }
-}
-
-async function sendViaProvider(
-  channel: Exclude<OtpDeliveryChannel, 'console'>,
-  recipient: string,
-  code: string
-): Promise<OtpDeliveryResult> {
-  if (channel === 'email') {
-    const email = recipient.trim().toLowerCase();
-    if (!looksLikeEmail(email)) {
-      return { delivered: false, channel, devCode: null, error: 'Correo electrónico inválido' };
-    }
-    return sendViaResendEmail(email, code);
-  }
-
-  const phone = formatE164Phone(recipient);
-  if (!phone) {
-    return { delivered: false, channel, devCode: null, error: 'Número de teléfono inválido' };
-  }
-
-  if (channel === 'sms') {
-    return sendViaTwilioSms(phone, code);
-  }
-
-  // whatsapp: Twilio first, Meta as a fallback provider.
-  if (process.env.TWILIO_WHATSAPP_NUMBER) {
-    return sendViaTwilioWhatsApp(phone, code);
-  }
-  return sendViaMetaWhatsApp(phone, code);
-}
-
-/**
- * `recipient` is an email address on the email channel and a phone number on
- * the deprecated sms/whatsapp channels; the route resolves which one from the
- * configured channel before calling.
+ * `recipient` is an email address on the email channel; the route resolves it
+ * from the client record before calling.
  */
 export async function deliverOtp(recipient: string, code: string): Promise<OtpDeliveryResult> {
   const channel = getDeliveryChannel();
 
   if (channel === 'console') {
+    const configured = process.env.OTP_DELIVERY_CHANNEL;
+
     if (isProduction()) {
       // Fail closed. Returning the code to the caller in production would
       // hand every signature to whoever requested it.
-      console.error('[otp] delivery failed: OTP_DELIVERY_CHANNEL is unset in production');
+      console.error(
+        isRetiredChannel(configured)
+          ? `[otp] delivery failed: the ${configured} channel was removed — set OTP_DELIVERY_CHANNEL=email`
+          : '[otp] delivery failed: OTP_DELIVERY_CHANNEL is unset in production'
+      );
       return {
         delivered: false,
         channel,
         devCode: null,
-        error: 'No hay un canal de entrega de OTP configurado',
+        error: isRetiredChannel(configured)
+          ? 'El canal de entrega de OTP configurado fue retirado'
+          : 'No hay un canal de entrega de OTP configurado',
       };
     }
 
@@ -403,13 +191,12 @@ export async function deliverOtp(recipient: string, code: string): Promise<OtpDe
     return { delivered: true, channel, devCode: code };
   }
 
-  if (channel === 'sms' || channel === 'whatsapp') {
-    // Deprecated but functional: a configured deployment keeps signing while
-    // it migrates. The warning is the operator's only nudge.
-    console.warn(`[otp] the ${channel} channel is deprecated; set OTP_DELIVERY_CHANNEL=email`);
+  const email = recipient.trim().toLowerCase();
+  if (!looksLikeEmail(email)) {
+    return { delivered: false, channel, devCode: null, error: 'Correo electrónico inválido' };
   }
 
-  const result = await sendViaProvider(channel, recipient, code);
+  const result = await sendViaResendEmail(email, code);
 
   if (!result.delivered) {
     // The signer only ever sees a 502, so without this a provider outage or a

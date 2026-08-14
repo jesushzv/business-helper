@@ -2,13 +2,14 @@
 //
 // Runs without jsdom so `typeof window === 'undefined'` — the branch the
 // outbound reminder builders take. That is exactly where the hardcoded origins
-// lived: `POST /api/whatsapp/broadcast` never passes a baseUrl, so every
-// reminder it sent carried whichever literal the builder defaulted to —
+// lived: production callers never pass a baseUrl, so every reminder carried
+// whichever literal the builder defaulted to —
 // 'https://business-helper.app' (hyphenated, unowned) or
 // 'https://business-helper.vercel.app' (a preview host). #73, and #36 before it.
+// (The third builder this pinned, formatOutboundReminderPayload, was removed
+// with the outbound provider engine.)
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getPaymentPublicUrl } from '@/lib/url';
-import { formatOutboundReminderPayload } from '@/lib/whatsappOutbound';
 import { generatePaymentReminderLink } from '@/lib/whatsappReminder';
 import { generateReminderBroadcastPayload } from '@/lib/whatsappBroadcast';
 
@@ -52,20 +53,6 @@ describe('getPaymentPublicUrl (server-side)', () => {
 describe('Outbound reminder builders resolve the configured origin (#73)', () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_APP_URL = 'https://businesshelper.app';
-  });
-
-  it('formatOutboundReminderPayload — the API dispatch path', () => {
-    const payload = formatOutboundReminderPayload({
-      clientName: 'Construcciones Maya',
-      phone: '8115559988',
-      amountDue: 15000,
-      dueDate: '2026-08-20',
-      token: 'tok_abc123',
-    });
-
-    expect(payload.payUrl).toBe('https://businesshelper.app/pay/tok_abc123');
-    expect(payload.message).toContain('https://businesshelper.app/pay/tok_abc123');
-    expect(payload.message).not.toContain('business-helper.app');
   });
 
   it('generatePaymentReminderLink — the Cobranza card path', () => {

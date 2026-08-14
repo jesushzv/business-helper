@@ -155,3 +155,31 @@ export function normalizeClientPhone(
 
   return { value: result.phone };
 }
+
+/**
+ * Resolves a stored or typed phone to the E.164 form a delivery ledger or
+ * provider is handed.
+ *
+ * Since #94 `clients.phone` stores E.164 already, so for a migrated row this
+ * is a validating pass-through. It stays a *function* rather than a raw read
+ * for two reasons:
+ *
+ *  - **The deploy can outrun the backfill** (hard rule 6). Vercel ships `main`
+ *    on merge and migrations are applied by hand, so this code will run
+ *    against rows still holding 10 bare digits. Those keep working, read as
+ *    Mexican national numbers exactly as before.
+ *  - It still has to **fail closed**. It used to return `+${digits}` for any
+ *    input, so a 7-digit local number or an extension was handed onward with a
+ *    plus in front, and `normalizeOtpPhone`'s `\+[0-9]{10,15}` waved through
+ *    everything from 10 to 15 digits (#40). Callers already treat `''` as
+ *    "unusable number" and surface it, which tells the tenant their stored
+ *    phone is the problem rather than blaming the provider.
+ *
+ * Not Mexico-only: a `+1`/`+44` client number is a legitimate stored value and
+ * must pass through intact rather than being re-prefixed with +52.
+ * (Moved here from lib/whatsappOutbound.ts when the outbound provider engine
+ * was removed with the deprecated OTP channels.)
+ */
+export function formatE164Phone(phone: string): string {
+  return validatePhone(phone || '').phone;
+}

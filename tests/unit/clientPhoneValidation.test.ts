@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { normalizeClientPhone, validatePhone } from '@/lib/phoneValidator';
-import { formatE164Phone } from '@/lib/whatsappOutbound';
+import { formatE164Phone } from '@/lib/phoneValidator';
 import { normalizeOtpPhone } from '@/lib/otpRateLimit';
 import { generateWhatsAppLink } from '@/lib/whatsappLink';
 

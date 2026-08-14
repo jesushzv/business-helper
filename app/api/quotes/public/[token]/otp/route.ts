@@ -21,9 +21,9 @@ import { QUOTE_REFUSAL, quoteSignableState } from '@/lib/quoteSignability';
  * the code is minted here, only its keyed digest is persisted, and the
  * plaintext leaves the server exclusively over the delivery channel to the
  * client's registered contact — their email on the email channel (the launch
- * channel), their phone on the deprecated sms/whatsapp channels. The response
- * never carries the code in production, so requesting one grants the caller
- * nothing.
+ * channel), their phone on the dev console fallback when no email is stored.
+ * The response never carries the code in production, so requesting one grants
+ * the caller nothing.
  *
  * Issuance is bounded by the ledger in lib/otpRateLimit, keyed on the
  * recipient the database holds — no matter how many quotes, and therefore how
