@@ -65,12 +65,16 @@ export const APP_TIERS: TierConfig[] = [
     name: 'Plan Inicial',
     priceMonthly: 299,
     description: 'Ideal para pequeños negocios que buscan profesionalizar sus cotizaciones y cobranza.',
-    targetAudience: '1 usuario • Hasta 15 clientes activos',
+    // One quota, stated the same way everywhere (#271): 50 cotizaciones/mes,
+    // enforced by lib/quoteQuota.ts. The unlimited-quotes-with-client-cap
+    // version that used to live here contradicted every other surface, and no
+    // code has ever capped the directory.
+    targetAudience: '1 usuario • Hasta 50 cotizaciones al mes',
     features: [
-      'Cotizaciones ilimitadas con logotipo y PDF',
+      'Hasta 50 cotizaciones al mes con logotipo y PDF',
       'Recordatorios por WhatsApp con 1 toque',
       'Validación de comprobantes SPEI Banxico',
-      'Gestión de hasta 15 clientes',
+      'Directorio de clientes con RFC y WhatsApp',
       'Timbrado CFDI 4.0 con tu propio PAC (Facturapi) — tu proveedor te cobra el timbrado, tú conservas tus sellos CSD.',
       'Reporte básico de cobranza',
       'Soporte por correo electrónico',
