@@ -79,6 +79,44 @@ export async function PUT(
       );
     }
 
+    // An `amount` edit on a stamped cobro used to be accepted and then change
+    // nothing (#352). Since #341 the stamped `cfdi_total` is the base for what
+    // the cobro must be paid to settle, so an owner could edit a stamped
+    // milestone from $10,000 to $15,000, see the save succeed, and watch
+    // Cobranza go on showing $10,000 — a screen ignoring what they just typed,
+    // with no explanation, which is the #146 shape.
+    //
+    // Option A from #352: refuse, and name the invoice. The CFDI is the fiscal
+    // fact; changing what the client owes means cancelling it and re-stamping,
+    // which is what the SAT expects anyway. Only `issued` is blocked — a
+    // cancelled or failed document governs nothing, and the field stays usable
+    // for typo fixes on everything unstamped.
+    if (updates.amount !== undefined) {
+      const { data: stamped } = await supabase
+        .from('milestones')
+        .select('cfdi_status, cfdi_uuid')
+        .eq('id', id)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (stamped?.cfdi_status === 'issued') {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'AMOUNT_LOCKED_BY_CFDI',
+              message:
+                'Este cobro ya tiene una factura timbrada' +
+                (stamped.cfdi_uuid ? ` (folio fiscal ${stamped.cfdi_uuid})` : '') +
+                ', así que el monto quedó en firme. Para cobrar otra cantidad, ' +
+                'cancela la factura y emite una nueva.',
+              fields: { amount: 'El monto no se puede cambiar con una factura timbrada.' },
+            },
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const { data: updated, error } = await supabase
       .from('milestones')
       .update(updates)
