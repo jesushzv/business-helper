@@ -24,6 +24,7 @@ import { join } from 'node:path';
 
 const ROOTS = ['app', 'components'];
 const ROUTE = 'app/api/invoices/[id]/cancel/route.ts';
+const COMPLEMENT_ROUTE = 'app/api/invoices/[id]/complement/[complementId]/cancel/route.ts';
 const STAMP_COPY = 'no se puede deshacer desde la app';
 
 function tsxFiles(dir: string): string[] {
@@ -48,6 +49,18 @@ describe('CFDI cancellation has no UI caller, by decision (#174)', () => {
     expect(src).toContain('export async function POST');
     // The decision is recorded where someone about to wire it will look.
     expect(src).toContain('#174');
+  });
+
+  it('covers the complement cancel route the same way (#30)', () => {
+    // #30 shipped `[complementId]/cancel`, which is the same class of action on
+    // the same kind of document: a motivo, a receptor who can refuse, an async
+    // SAT answer. The `no UI calls it` case below already matches its path —
+    // this pins that the route exists and carries the decision, so the match is
+    // deliberate rather than incidental.
+    const src = readFileSync(COMPLEMENT_ROUTE, 'utf8');
+    expect(src).toContain('export async function POST');
+    expect(src).toContain('#174');
+    expect(src).toContain('#30');
   });
 
   it('no UI calls it', () => {

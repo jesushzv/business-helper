@@ -25,8 +25,9 @@ import { CFDI_CANCELLATION_MOTIVES, cancelInvoice } from '@/lib/pacClient';
  * receptor can **refuse** a cancellation that is not `04`, and the SAT answers
  * asynchronously — "en proceso" now, settled later. A button with a spinner
  * over that would report an outcome the SAT has not given, which is hard rule
- * #1 applied to a fiscal document. The PPD case is worse again: #30 tracks
- * cancelling a complemento de pago, and the two want designing together.
+ * #1 applied to a fiscal document. The PPD case is handled since #30: this
+ * route refuses while a complement referencing the invoice is still live, and
+ * `[complementId]/cancel` is what withdraws one.
  *
  * So for launch a tenant cancels at their PAC's own portal, and the stamping
  * confirmation says as much in plain Spanish: "Esta acción no se puede deshacer
@@ -109,6 +110,37 @@ export async function POST(
           code: 'NOT_ISSUED',
           message: 'Este cobro no tiene una factura timbrada que cancelar.',
         },
+      },
+      { status: 409 }
+    );
+  }
+
+  // The SAT will not accept the cancellation of a PPD invoice while a
+  // complemento de pago referencing it is still live — the complement has to
+  // be cancelled first (#30). Without this check the PAC rejects the request
+  // and the tenant reads a provider error that does not say which document is
+  // in the way, on a screen that cannot show them the complements either.
+  const { data: liveComplements } = await supabase
+    .from('cfdi_payment_complements')
+    .select('id, installment, cfdi_uuid')
+    .eq('milestone_id', id)
+    .eq('organization_id', organizationId)
+    .eq('status', 'issued')
+    .order('installment', { ascending: true });
+
+  if (liveComplements && liveComplements.length > 0) {
+    const numbers = liveComplements.map((c: { installment: number }) => c.installment).join(', ');
+    return NextResponse.json(
+      {
+        error: {
+          code: 'HAS_LIVE_COMPLEMENTS',
+          message:
+            `Esta factura tiene ${liveComplements.length} complemento(s) de pago vigente(s) ` +
+            `(parcialidad ${numbers}). Cancélalos primero: el SAT no acepta cancelar una ` +
+            'factura mientras un complemento que la referencia siga vigente.',
+        },
+        // Which ones, so the caller can act without a second round-trip.
+        complements: liveComplements,
       },
       { status: 409 }
     );
