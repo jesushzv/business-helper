@@ -98,6 +98,56 @@ describe('describeDbWriteError', () => {
     expect(failure.message).not.toMatch(/recarga la página|ya no existe/i);
   });
 
+  it('maps both #336 RESTRICTs to a Spanish 409, never a bare 500', () => {
+    // The two constraints 20260814210000 creates. Postgres reports a refused
+    // DELETE as 23503 in the "still referenced from" direction; the acceptance
+    // criterion is that neither reaches the tenant as a 500.
+    const quoteRestrict = describeDbWriteError(
+      {
+        code: '23503',
+        message:
+          'update or delete on table "quotes" violates foreign key constraint ' +
+          '"contracts_quote_id_fkey" on table "contracts"',
+        details: 'Key (id)=(q-1) is still referenced from table "contracts".',
+      },
+      'la cotización',
+      'DELETE /api/quotes/[id]',
+      {
+        verb: 'eliminar',
+        restrictMessage:
+          'Esta cotización ya generó un contrato con cobros programados, ' +
+          'así que forma parte de tu historial y no se puede eliminar.',
+      }
+    );
+
+    expect(quoteRestrict.status).toBe(409);
+    expect(quoteRestrict.code).toBe('HAS_REFERENCES');
+    expect(quoteRestrict.message).toContain('contrato');
+    // No jargon reaches the tenant (hard rule 8).
+    expect(quoteRestrict.message).not.toMatch(/constraint|fkey|23503|RESTRICT/i);
+
+    const claimRestrict = describeDbWriteError(
+      {
+        code: '23503',
+        message:
+          'update or delete on table "milestones" violates foreign key constraint ' +
+          '"cfdi_stamp_claims_milestone_id_fkey" on table "cfdi_stamp_claims"',
+        details: 'Key (id)=(m-1) is still referenced from table "cfdi_stamp_claims".',
+      },
+      'el cobro',
+      'DELETE /api/receivables/[id]',
+      { verb: 'eliminar' }
+    );
+
+    // The receivables route passes no restrictMessage: it pre-checks the claim
+    // and answers MILESTONE_PROTECTED itself, so this arm is the race that
+    // slipped past the pre-check. Generic, but still a Spanish 409.
+    expect(claimRestrict.status).toBe(409);
+    expect(claimRestrict.code).toBe('HAS_REFERENCES');
+    expect(claimRestrict.message).toMatch(/no se puede eliminar el cobro/i);
+    expect(claimRestrict.message).not.toMatch(/constraint|fkey|cfdi_stamp_claims/i);
+  });
+
   it('still tells an insert about the vanished parent, and a restrict without wording gets the generic 409', () => {
     const missingParent = describeDbWriteError(
       {

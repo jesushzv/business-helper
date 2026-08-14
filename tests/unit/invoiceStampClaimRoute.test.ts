@@ -23,7 +23,9 @@ const milestoneState: {
   selectResults: Array<Record<string, unknown> | null>;
   updates: Array<Record<string, unknown>>;
   updateError: { message: string } | null;
-} = { row: null, selectResults: [], updates: [], updateError: null };
+  /** Rows the UPDATE … RETURNING id matched. Empty = matched nothing. */
+  updatedRows: Array<{ id: string }>;
+} = { row: null, selectResults: [], updates: [], updateError: null, updatedRows: [{ id: 'm-1' }] };
 
 const stampMock = vi.fn();
 const findMock = vi.fn();
@@ -51,11 +53,21 @@ vi.mock('@/lib/apiAuth', () => ({
                   }),
                 }),
               }),
+              // `.update().eq().eq()` is awaitable *and* chains `.select('id')`:
+              // both issued-writes now read the affected row count back, since
+              // 0 rows changed looks exactly like success (#128/#336).
               update: (values: Record<string, unknown>) => ({
                 eq: () => ({
-                  eq: async () => {
+                  eq: () => {
                     milestoneState.updates.push(values);
-                    return { error: milestoneState.updateError };
+                    const result = {
+                      data: milestoneState.updateError ? null : milestoneState.updatedRows,
+                      error: milestoneState.updateError,
+                    };
+                    return {
+                      select: async () => result,
+                      then: (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve),
+                    };
                   },
                 }),
               }),
@@ -231,6 +243,7 @@ beforeEach(() => {
   milestoneState.selectResults = [];
   milestoneState.updates = [];
   milestoneState.updateError = null;
+  milestoneState.updatedRows = [{ id: 'm-1' }];
   stampMock.mockReset();
   findMock.mockReset();
 });
@@ -448,6 +461,27 @@ describe('claim lifecycle around the stamp call', () => {
 
     expect(res.status).toBe(500);
     expect(body.error.code).toBe('STAMP_NOT_RECORDED');
+    expect(claimState.deletes).toBe(0);
+  });
+
+  it('treats an issued-write that matched no row as unrecorded, not as success (#336)', async () => {
+    // The complement #336 asks for and says not to skip. A milestone deleted
+    // between the claim and this write matches nothing, and PostgREST answers
+    // that with `{ error: null }` — success, for a live SAT document recorded
+    // nowhere. 0 rows changed looks exactly like success (#128).
+    claimState.insertResults = [{ error: null }];
+    stampMock.mockResolvedValueOnce(STAMPED);
+    milestoneState.updateError = null;
+    milestoneState.updatedRows = [];
+
+    const res = await post();
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error.code).toBe('STAMP_NOT_RECORDED');
+    // The folio is handed back either way — it is the only trace left.
+    expect(body.uuid).toBe('UUID-NEW');
+    // And the claim is kept, or a retry stamps a second document.
     expect(claimState.deletes).toBe(0);
   });
 
