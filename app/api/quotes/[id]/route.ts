@@ -211,6 +211,15 @@ export async function DELETE(
     if (error) {
       return dbWriteErrorResponse(error, 'la cotización', 'DELETE /api/quotes/[id]', {
         verb: 'eliminar',
+        // Since #336 `contracts.quote_id` is ON DELETE RESTRICT, so a
+        // conversion that completed between the pre-check above and this
+        // DELETE comes back as a 23503 instead of silently orphaning the
+        // contract. Without this wording the tenant reads the generic "tiene
+        // registros relacionados"; with it they get the same sentence the
+        // pre-check would have given them, which is the one they can act on.
+        restrictMessage:
+          'Esta cotización ya generó un contrato con cobros programados, ' +
+          'así que forma parte de tu historial y no se puede eliminar.',
       });
     }
 

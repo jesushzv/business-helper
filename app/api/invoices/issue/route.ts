@@ -277,7 +277,7 @@ export async function POST(request: Request) {
       // The earlier attempt DID stamp. Record the document the SAT already
       // has instead of leaving the milestone in limbo — and never stamp again.
       const found = search.data.document;
-      const { error: adoptError } = await supabase
+      const { data: adopted, error: adoptError } = await supabase
         .from('milestones')
         .update({
           cfdi_id: found.providerInvoiceId,
@@ -298,13 +298,24 @@ export async function POST(request: Request) {
           cfdi_pdf_url: found.verificationUrl,
         })
         .eq('id', milestoneId)
-        .eq('organization_id', organizationId);
+        .eq('organization_id', organizationId)
+        // The affected row count, not just the error (#128, #336): a milestone
+        // deleted between the claim and this write matches nothing, and
+        // PostgREST answers that with `{ error: null }` — success, for a
+        // document that exists at the SAT and is recorded nowhere. The FK
+        // RESTRICT added in 20260814210000 is what makes that delete
+        // impossible while the claim is held; this is the same invariant read
+        // back rather than assumed.
+        .select('id');
 
-      if (adoptError) {
+      if (adoptError || !adopted || adopted.length === 0) {
         // The document exists at the SAT and the milestone still does not say
         // so. The claim is deliberately kept: released, a retry would pass
         // the ALREADY_ISSUED read and stamp a second document.
-        console.error('[cfdi] found orphaned stamp but failed to record it:', adoptError.message);
+        console.error(
+          '[cfdi] found orphaned stamp but failed to record it:',
+          adoptError?.message ?? 'update matched no milestone row'
+        );
         return NextResponse.json(
           {
             error: {
@@ -492,7 +503,7 @@ export async function POST(request: Request) {
       'La factura se timbró, pero no se pudo descargar el XML y PDF desde tu PAC. Vuelve a intentarlo más tarde.';
   }
 
-  const { error: updateError } = await supabase
+  const { data: recorded, error: updateError } = await supabase
     .from('milestones')
     .update({
       cfdi_id: document.providerInvoiceId,
@@ -520,15 +531,23 @@ export async function POST(request: Request) {
       cfdi_pdf_url: pdfPath ? documentUrl('pdf') : document.verificationUrl,
     })
     .eq('id', milestoneId)
-    .eq('organization_id', organizationId);
+    .eq('organization_id', organizationId)
+    // 0 rows changed looks exactly like success (#128), and here "exactly like
+    // success" means a live SAT document reported as filed against a milestone
+    // that is no longer there. #336's FK RESTRICT closes the delete that
+    // causes it; this reads the result back instead of trusting it.
+    .select('id');
 
-  if (updateError) {
+  if (updateError || !recorded || recorded.length === 0) {
     // The document is stamped and the folio spent; losing the row would leave a
     // CFDI nobody can find. Report it loudly with the UUID in hand. The claim
     // is deliberately NOT released: the milestone does not say 'issued', so
     // without it a retry would stamp a second document — held, the retry hits
     // the stale-claim reconciliation and adopts this one instead.
-    console.error('[cfdi] stamped but failed to record milestone:', updateError.message);
+    console.error(
+      '[cfdi] stamped but failed to record milestone:',
+      updateError?.message ?? 'update matched no milestone row'
+    );
     return NextResponse.json(
       {
         error: {
