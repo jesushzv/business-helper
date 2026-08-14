@@ -131,6 +131,16 @@ describe('validateSubscriptionStatus', () => {
     }
   });
 
+  it('defaults to unknown, not to active, when the caller has no status', () => {
+    // The default parameter used to be `'active'`: a caller that had learned
+    // nothing was handed a healthy subscription (#116, the last site).
+    for (const nothing of [undefined, '']) {
+      const result = validateSubscriptionStatus(nothing);
+      expect(result.badgeText).toBe('Estado desconocido');
+      expect(result.isAccessible).toBe(false);
+    }
+  });
+
   it('keeps the known statuses reading the way they read before', () => {
     expect(validateSubscriptionStatus('active').badgeText).toBe('Activo');
     expect(validateSubscriptionStatus('trialing').isAccessible).toBe(true);

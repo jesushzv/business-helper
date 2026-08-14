@@ -78,7 +78,16 @@ export function toOrganizationSettings(row: Record<string, unknown>): Organizati
     logo_url: typeof row.logo_url === 'string' && row.logo_url ? row.logo_url : null,
     subscription_tier:
       tier === 'inicial' || tier === 'negocio' || tier === 'empresa' ? tier : null,
-    subscription_status: typeof status === 'string' && status ? status : 'active',
+    // Absent is **unknown**, not active. `''` is the one value outside the
+    // stored vocabulary, so `validateSubscriptionStatus` badges it "Estado
+    // desconocido" and `statusHoldsPlan` answers false — where `'active'` here
+    // claimed a healthy subscription on the strength of a column the row did
+    // not carry. That is #116's rule ("an unrecognised value is not evidence of
+    // a healthy subscription") applied to its last remaining site: the only
+    // reason it was invisible is that `organizations.subscription_status` is
+    // NOT NULL, which makes this a claim resting on a constraint declared in
+    // another file.
+    subscription_status: typeof status === 'string' && status ? status : '',
   };
 }
 
@@ -206,8 +215,11 @@ export function useOrganizationSettings() {
   // `currentTierConfig` used to be returned here, resolving an unknown tier to
   // STRIPE_PLANS.inicial. Nothing consumed it and the fallback was a claim the
   // server had not made, so it is gone rather than corrected.
+  // `?? 'active'` here was the same fabrication one level up: before the server
+  // answers, `settings` is null and the badge would have read "Activo" for a
+  // subscription nothing had yet established (#116).
   const subscriptionStatusInfo: SubscriptionStatusResult = validateSubscriptionStatus(
-    settings?.subscription_status ?? 'active'
+    settings?.subscription_status ?? ''
   );
 
   return {
