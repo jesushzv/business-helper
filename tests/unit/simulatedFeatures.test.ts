@@ -293,8 +293,9 @@ describe('Accountant export reads real records', () => {
 
     expect(manifest.totalMilestonesCount).toBe(2);
     expect(manifest.totalAmount).toBe(100000);
-    // CSV + the single real receipt, and no CFDI entries for unstamped work.
-    expect(manifest.files).toHaveLength(2);
+    // Both CSVs (summary + complements, #31) plus the single real receipt, and
+    // no CFDI entries for unstamped work.
+    expect(manifest.files).toHaveLength(3);
     expect(manifest.files.some((f) => f.url.includes('orgId='))).toBe(false);
     expect(manifest.files.some((f) => f.url.includes('storage.businesshelper.mx'))).toBe(false);
   });
