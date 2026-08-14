@@ -139,3 +139,55 @@ describe('an unknown role is not treated as a locked one', () => {
     expect(onSave.mock.calls[0][0].credit_limit).toBe(50000);
   });
 });
+
+/**
+ * #151 at a fifth site the issue's list did not name — found by re-deriving the
+ * set with a grep rather than working from the enumeration.
+ *
+ * `credit_limit` was `useState<number | ''>` bound to `type="number"` and
+ * round-tripped through `Number(e.target.value)` on every keystroke: editing a
+ * client whose stored limit is 50000, with the caret where a tap on the left
+ * half of the field puts it, made it 500000. That is ten times the credit the
+ * owner meant to extend, on a field the client detail page reads back as
+ * "Disponible".
+ */
+describe('the credit limit keeps what was typed into it (#151)', () => {
+  it('offers a decimal keypad rather than a spinner', async () => {
+    asRealTenant('owner');
+    renderModal();
+
+    await waitFor(() => expect(creditLimitInput().disabled).toBe(false));
+    expect(creditLimitInput().getAttribute('type')).toBe('text');
+    expect(creditLimitInput().getAttribute('inputMode')).toBe('decimal');
+  });
+
+  it('cannot be multiplied by a leading zero', async () => {
+    asRealTenant('owner');
+    const onSave = renderModal();
+
+    await waitFor(() => expect(creditLimitInput().disabled).toBe(false));
+    fireEvent.change(nameInput(), { target: { value: 'Ferretería Don Roberto' } });
+    fireEvent.change(creditLimitInput(), { target: { value: '050000' } });
+    expect(creditLimitInput().value).toBe('50000');
+
+    fireEvent.click(submit());
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].credit_limit).toBe(50000);
+  });
+
+  it('sends null for a cleared limit rather than zero', async () => {
+    asRealTenant('owner');
+    const onSave = renderModal();
+
+    await waitFor(() => expect(creditLimitInput().disabled).toBe(false));
+    fireEvent.change(nameInput(), { target: { value: 'Ferretería Don Roberto' } });
+    fireEvent.change(creditLimitInput(), { target: { value: '50000' } });
+    fireEvent.change(creditLimitInput(), { target: { value: '' } });
+    fireEvent.click(submit());
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    // Unset and zero are different facts: the column is nullable so the UI can
+    // tell "nunca lo definí" from "le puse cero" (#96).
+    expect(onSave.mock.calls[0][0].credit_limit).toBeNull();
+  });
+});

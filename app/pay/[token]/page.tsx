@@ -6,6 +6,9 @@ import { validateTrackingReference, validateReceiptFile } from '@/lib/speiValida
 import { formatClabe } from '@/lib/clabe';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 import { getOrganizationBranding, generateThemeCssVariables } from '@/lib/branding';
+// The payer's own phone is the only device this field is ever typed on, and
+// `type="number"` blanked it on the decimal point (#151).
+import { normalizeNumericInput, parseNumericInput } from '@/lib/numericInput';
 import { Building2, Upload, CheckCircle2, ShieldCheck, Copy, Check, FileText } from 'lucide-react';
 
 interface PublicMilestone {
@@ -155,7 +158,7 @@ export default function PublicPayPortalPage() {
     // — or anything unparseable — into a declaration for the FULL cobro (#284).
     // A payer who wires part of it must be able to say so, and one who typed
     // nothing must be asked rather than answered for.
-    const declaredAmount = Number(transferredAmount.trim());
+    const declaredAmount = parseNumericInput(transferredAmount);
     if (transferredAmount.trim() === '' || !Number.isFinite(declaredAmount) || declaredAmount <= 0) {
       setFormError('Escribe el monto que transferiste (mayor a cero).');
       return;
@@ -474,10 +477,10 @@ export default function PublicPayPortalPage() {
                 </label>
                 <input
                   id="page-monto-transferido-mxn"
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   value={transferredAmount}
-                  onChange={(e) => setTransferredAmount(e.target.value)}
+                  onChange={(e) => setTransferredAmount(normalizeNumericInput(e.target.value))}
                   required
                   className="w-full min-h-[48px] px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-sm font-bold font-mono text-white focus:border-emerald-500 outline-none"
                 />

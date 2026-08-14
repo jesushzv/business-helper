@@ -44,35 +44,14 @@ export function createLineItemDraft(satCode: string = ADDED_ITEM_SAT_CODE): Line
 }
 
 /**
- * Keeps a numeric field's text to what a MXN amount can look like, without
- * fighting the person typing it.
- *
- * Everything that is not a digit or a decimal point is dropped — in es-MX the
- * comma is the thousands separator, so `1,500.50` is $1,500.50 and not a
- * decimal — only the first point survives, and a redundant leading zero is
- * removed so `0150` reads back as `150`. A trailing `.` is preserved: it is a
- * half-typed decimal, and erasing it would delete the keystroke the owner just
- * made.
+ * The numeric-text rule now lives in `lib/numericInput.ts`, because four other
+ * surfaces needed it (#151) and a shared rule about money inputs does not
+ * belong inside the line-item module. Re-exported here so the wizard's existing
+ * imports keep reading as they did.
  */
-export function normalizeNumericInput(raw: string): string {
-  const cleaned = raw.replace(/[^\d.]/g, '');
-  if (cleaned === '') return '';
+import { normalizeNumericInput, parseNumericInput } from './numericInput';
 
-  const [integerPart, ...rest] = cleaned.split('.');
-  const hasSeparator = rest.length > 0;
-  const decimals = rest.join('');
-
-  // '007' → '7', '000' → '0', '' (from '.5') → '0'
-  const integer = integerPart.replace(/^0+(?=\d)/, '') || '0';
-
-  return hasSeparator ? `${integer}.${decimals}` : integer;
-}
-
-/** The number a draft field stands for. Blank or half-typed reads as 0. */
-export function parseNumericInput(raw: string): number {
-  const parsed = Number.parseFloat(normalizeNumericInput(raw));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+export { normalizeNumericInput, parseNumericInput };
 
 /** Drafts → the `LineItem[]` the calculator and the API expect. */
 export function toLineItems(drafts: LineItemDraft[]): LineItem[] {
