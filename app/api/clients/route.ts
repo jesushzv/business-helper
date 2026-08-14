@@ -38,7 +38,7 @@ import { describeDbWriteError } from '@/lib/dbWriteError';
  * enforced where it matters, at CFDI stamping.
  */
 
-export async function GET() {
+export async function GET(request: Request) {
   if (isDemoDeployment()) {
     return NextResponse.json({ clients: [] });
   }
@@ -48,11 +48,22 @@ export async function GET() {
   const { supabase, organizationId } = auth.ctx;
 
   try {
-    const { data: clients, error } = await supabase
+    // The archived view is opt-in and exclusive: `?archived=1` returns *only*
+    // archived clients, everything else returns only active ones (#337). Two
+    // disjoint lists rather than a superset, so "Ver archivados" is a place the
+    // tenant goes rather than a filter they have to read carefully — and so no
+    // caller can accidentally show archived clients by forgetting a flag.
+    const archivedOnly = new URL(request.url).searchParams.get('archived') === '1';
+
+    const query = supabase
       .from('clients')
       .select('*')
-      .eq('organization_id', organizationId)
-      .order('created_at', { ascending: false });
+      .eq('organization_id', organizationId);
+
+    const { data: clients, error } = await (archivedOnly
+      ? query.not('archived_at', 'is', null)
+      : query.is('archived_at', null)
+    ).order('created_at', { ascending: false });
 
     if (error) {
       return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus clientes.' } }, { status: 500 });

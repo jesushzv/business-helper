@@ -6,11 +6,21 @@ import { ClientCard } from '@/components/clients/ClientCard';
 import { ClientFormModal } from '@/components/clients/ClientFormModal';
 import { useClients } from '@/lib/hooks/useClients';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
-import { Search, Users, Plus, ShieldCheck } from 'lucide-react';
+import { Search, Users, Plus, ShieldCheck, Archive } from 'lucide-react';
 import { Client } from '@/types';
 
 export default function ClientsPage() {
-  const { filteredClients, searchQuery, setSearchQuery, addClient, loading, error } = useClients();
+  const {
+    filteredClients,
+    searchQuery,
+    setSearchQuery,
+    addClient,
+    loading,
+    error,
+    showArchived,
+    setShowArchived,
+    archiveClient,
+  } = useClients();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const result = useActionResult();
 
@@ -89,6 +99,23 @@ export default function ClientsPage() {
             />
           </div>
 
+          {/* Two disjoint lists, not a filter over one (#337): the archived
+              view is somewhere the tenant goes. Full-width on a phone so it is
+              reachable without a desktop-width table. */}
+          <button
+            type="button"
+            onClick={() => setShowArchived(!showArchived)}
+            aria-pressed={showArchived}
+            className={`flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-xs font-bold transition-all active:scale-95 sm:w-auto ${
+              showArchived
+                ? 'border-amber-500/40 bg-amber-950/60 text-amber-300'
+                : 'border-slate-800 bg-slate-900/90 text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            <Archive className="h-4 w-4" />
+            <span>{showArchived ? 'Ver clientes activos' : 'Ver archivados'}</span>
+          </button>
+
           {/* Figures derived from a failed read are not figures (#260): "0
               Clientes" off a dropped request is a claim about the directory
               the app cannot back. */}
@@ -132,7 +159,28 @@ export default function ClientsPage() {
         ) : filteredClients.length > 0 ? (
           <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {filteredClients.map((client) => (
-              <ClientCard key={client.id} client={client} />
+              <ClientCard
+                key={client.id}
+                client={client}
+                // Only in the archived view, and only ever after the server
+                // confirms: the row leaves the list because the write landed,
+                // not because the button was tapped.
+                onRestore={
+                  showArchived
+                    ? async (c) => {
+                        try {
+                          await archiveClient(c.id, false);
+                          result.succeed({
+                            title: 'Cliente restaurado',
+                            message: `${c.name} volvió a tu directorio y al selector de clientes.`,
+                          });
+                        } catch (err) {
+                          result.fail(err, { title: 'No se pudo restaurar' });
+                        }
+                      }
+                    : undefined
+                }
+              />
             ))}
           </div>
         ) : (
@@ -140,17 +188,35 @@ export default function ClientsPage() {
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-950/80 text-indigo-400 border border-indigo-500/30">
               <Users className="h-8 w-8" />
             </div>
-            <h3 className="mt-4 text-lg font-extrabold text-white">No se encontraron clientes</h3>
+            <h3 className="mt-4 text-lg font-extrabold text-white">
+              {showArchived ? 'No tienes clientes archivados' : 'No se encontraron clientes'}
+            </h3>
             <p className="mt-1 max-w-sm text-xs text-slate-400">
-              {searchQuery ? 'Prueba con otro término de búsqueda.' : 'Registra a tu primer cliente para comenzar a cotizar.'}
+              {showArchived
+                ? 'Aquí aparecen los clientes que sacaste del directorio. Puedes restaurarlos cuando quieras.'
+                : searchQuery
+                ? 'Prueba con otro término de búsqueda.'
+                : 'Registra a tu primer cliente para comenzar a cotizar.'}
             </p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="mt-6 flex min-h-[48px] items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 px-6 py-2.5 text-sm font-bold text-slate-950 shadow-md"
-            >
-              <Plus className="h-5 w-5" />
-              <span>Registrar Cliente Ahora</span>
-            </button>
+            {/* "Registrar cliente" is the wrong route onward from an empty
+                *archived* list — the way back is the active directory. */}
+            {showArchived ? (
+              <button
+                onClick={() => setShowArchived(false)}
+                className="mt-6 flex min-h-[48px] items-center gap-2 rounded-xl bg-slate-800 px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-slate-700 active:scale-95"
+              >
+                <Users className="h-5 w-5" />
+                <span>Ver clientes activos</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="mt-6 flex min-h-[48px] items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 px-6 py-2.5 text-sm font-bold text-slate-950 shadow-md"
+              >
+                <Plus className="h-5 w-5" />
+                <span>Registrar Cliente Ahora</span>
+              </button>
+            )}
           </div>
         )}
       </div>

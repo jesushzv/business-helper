@@ -26,6 +26,7 @@ import {
   Edit,
   Trash2,
   Clock,
+  Archive,
 } from 'lucide-react';
 import { Client } from '@/types';
 import { findRegimen } from '@/lib/satRegimenes';
@@ -36,7 +37,7 @@ import { hasCapability } from '@/lib/teamRBAC';
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { getClientById, updateClient, deleteClient, loading, error } = useClients();
+  const { getClientById, updateClient, deleteClient, archiveClient, loading, error } = useClients();
   // The activity timeline is only as trustworthy as this read too (#260): a
   // failed quotes fetch yields `[]`, which rendered "Sin historial de
   // actividad / 0 Eventos" as fact — on the same screen whose credit figures
@@ -137,6 +138,33 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  /**
+   * Archiving — where the delete refusal used to be a dead end (#337).
+   *
+   * #262 made "no se puede eliminar" honest; this gives the tenant somewhere
+   * to go after reading it. Offered alongside deletion and, crucially, offered
+   * *again* from inside the failed-deletion dialog, since that is the moment
+   * the owner learns their real options.
+   */
+  const handleArchive = () => {
+    confirmAction.ask({
+      title: `Archivar a ${client.name}`,
+      consequence:
+        'Saldrá de tu directorio y del selector de clientes al cotizar. Sus cotizaciones, ' +
+        'contratos y cobros no se tocan: sus enlaces siguen funcionando y su historial se ' +
+        'conserva. Puedes restaurarlo cuando quieras desde "Ver archivados".',
+      confirmLabel: 'Sí, archivar cliente',
+      onConfirm: async () => {
+        try {
+          await archiveClient(id, true);
+          router.push('/clients');
+        } catch (err) {
+          result.fail(err, { title: 'No se pudo archivar' });
+        }
+      },
+    });
+  };
+
   const handleDelete = () => {
     confirmAction.ask({
       title: `Eliminar a ${client.name}`,
@@ -157,7 +185,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           await deleteClient(id);
           router.push('/clients');
         } catch (err) {
-          result.fail(err, { title: 'No se pudo eliminar' });
+          // The refusal ends in an action rather than a dead end (#337). A
+          // client with quotes or contracts can never be deleted — ON DELETE
+          // RESTRICT — so "no se pudo" on its own leaves the owner with a
+          // directory entry they cannot do anything about.
+          result.fail(err, {
+            title: 'No se pudo eliminar',
+            action: { label: 'Archivar en su lugar', onClick: handleArchive },
+          });
         }
       },
     });
@@ -212,13 +247,26 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <span>Editar</span>
             </button>
             {canDelete && (
-              <button
-                onClick={handleDelete}
-                className="flex min-h-[48px] items-center gap-2 rounded-xl border border-rose-900/50 bg-rose-950/40 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-900/60 active:scale-95 cursor-pointer"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Eliminar</span>
-              </button>
+              <>
+                {/* Offered before Eliminar, because for any client with a
+                    quote or a contract it is the only one of the two that can
+                    actually work — ON DELETE RESTRICT refuses the other
+                    (#262/#337). */}
+                <button
+                  onClick={handleArchive}
+                  className="flex min-h-[48px] items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 active:scale-95 cursor-pointer"
+                >
+                  <Archive className="h-4 w-4" />
+                  <span className="hidden sm:inline">Archivar</span>
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="flex min-h-[48px] items-center gap-2 rounded-xl border border-rose-900/50 bg-rose-950/40 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-900/60 active:scale-95 cursor-pointer"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Eliminar</span>
+                </button>
+              </>
             )}
           </div>
         </div>

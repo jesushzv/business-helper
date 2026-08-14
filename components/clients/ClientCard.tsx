@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { MessageSquare, Phone, Building2, UserCheck, ChevronRight, Ban, AlertTriangle } from 'lucide-react';
+import { MessageSquare, Phone, Building2, UserCheck, ChevronRight, Ban, AlertTriangle, ArchiveRestore } from 'lucide-react';
 import { Client } from '@/types';
 import { HealthScoreMeter } from './HealthScoreMeter';
 import { generateWhatsAppLink, buildClientGreeting } from '@/lib/whatsappLink';
@@ -11,9 +11,20 @@ import { useCurrentOrg } from '@/lib/hooks/useCurrentOrg';
 interface ClientCardProps {
   client: Client;
   onEdit?: (client: Client) => void;
+  /**
+   * Restores this client from the archived view (#337).
+   *
+   * When present, the card is rendered as an archived entry: the profile link
+   * is replaced by a restore action. The detail page resolves its client from
+   * the active directory, so an archived client has no profile page to reach —
+   * the archived view is a holding area you restore *from*, not browse
+   * through, and offering a link into a "Cliente no encontrado" would be the
+   * dead end this feature exists to remove.
+   */
+  onRestore?: (client: Client) => void;
 }
 
-export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
+export const ClientCard: React.FC<ClientCardProps> = ({ client, onRestore }) => {
   const { org } = useCurrentOrg();
   const waMessage = buildClientGreeting(client.contact_name || client.name, org?.name);
   const whatsappUrl = generateWhatsAppLink(client.phone, waMessage);
@@ -28,12 +39,20 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
               <Building2 className="h-6 w-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <Link
-                href={`/clients/${client.id}`}
-                className="text-base font-extrabold text-white transition-colors hover:text-emerald-400 focus:outline-none block truncate"
-              >
-                {client.name}
-              </Link>
+              {/* Archived clients have no profile page to reach, so the name
+                  is text rather than a link that goes nowhere. */}
+              {onRestore ? (
+                <span className="block truncate text-base font-extrabold text-white">
+                  {client.name}
+                </span>
+              ) : (
+                <Link
+                  href={`/clients/${client.id}`}
+                  className="text-base font-extrabold text-white transition-colors hover:text-emerald-400 focus:outline-none block truncate"
+                >
+                  {client.name}
+                </Link>
+              )}
               {client.contact_name && (
                 <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400 truncate">
                   <UserCheck className="h-3.5 w-3.5 shrink-0 text-slate-500" />
@@ -123,13 +142,24 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client }) => {
           </div>
         )}
 
-        <Link
-          href={`/clients/${client.id}`}
-          className="ml-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-800 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-          aria-label="Ver Perfil"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </Link>
+        {onRestore ? (
+          <button
+            type="button"
+            onClick={() => onRestore(client)}
+            className="ml-3 flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/60 px-4 text-xs font-bold text-emerald-300 transition-colors hover:bg-emerald-900/60 active:scale-95"
+          >
+            <ArchiveRestore className="h-4 w-4" />
+            <span>Restaurar</span>
+          </button>
+        ) : (
+          <Link
+            href={`/clients/${client.id}`}
+            className="ml-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-800 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            aria-label="Ver Perfil"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Link>
+        )}
       </div>
     </div>
   );

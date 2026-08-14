@@ -28,6 +28,8 @@ const INITIAL_DEMO_CLIENTS: Client[] = [
     credit_limit: 100000,
     credit_days: 30,
     credit_status: 'active',
+    // Demo fixtures are never archived; the sandbox has one list.
+    archived_at: null,
     created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -47,6 +49,8 @@ const INITIAL_DEMO_CLIENTS: Client[] = [
     credit_limit: 50000,
     credit_days: 15,
     credit_status: 'suspended',
+    // Demo fixtures are never archived; the sandbox has one list.
+    archived_at: null,
     created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -66,6 +70,8 @@ const INITIAL_DEMO_CLIENTS: Client[] = [
     credit_limit: 0,
     credit_days: 0,
     credit_status: 'active',
+    // Demo fixtures are never archived; the sandbox has one list.
+    archived_at: null,
     created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -78,6 +84,14 @@ export function useClients() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  /**
+   * Which of the two disjoint lists is on screen (#337).
+   *
+   * `/api/clients` returns active clients or archived ones, never both, so
+   * this is a place the tenant goes rather than a filter over one list — and
+   * no consumer can show archived clients by forgetting a flag.
+   */
+  const [showArchived, setShowArchived] = useState<boolean>(false);
 
   /**
    * Real tenants get the server's answer — including an empty list, which is a
@@ -92,7 +106,12 @@ export function useClients() {
 
     if (!isClientDemoMode()) {
       try {
-        const res = await fetch('/api/clients');
+        // The flag rides inside the query string rather than being
+        // interpolated into the path: `tests/unit/clientFetchMethods.test.ts`
+        // resolves a fetch URL to its route file and stops at `?`, so a
+        // template expression before the `?` leaves it unable to check this
+        // call site at all — dodging the gate rather than passing it.
+        const res = await fetch(`/api/clients?archived=${showArchived ? '1' : '0'}`);
         const data = await res.json().catch(() => null);
         if (res.ok && Array.isArray(data?.clients)) {
           setClients(data.clients);
@@ -122,7 +141,7 @@ export function useClients() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => {
     fetchClients();
@@ -234,6 +253,44 @@ export function useClients() {
     });
   };
 
+  /**
+   * Archives a client, or restores one (#337).
+   *
+   * The row leaves whichever list is on screen, because the two lists are
+   * disjoint: archiving removes it from the active directory, restoring
+   * removes it from the archived view. That is done only *after* the server
+   * confirms — a failure throws with the server's Spanish message and the
+   * directory is left exactly as it was, rather than hiding a client on a
+   * write that did not land (#33/#50/#59).
+   */
+  const archiveClient = async (id: string, archived: boolean): Promise<Client | null> => {
+    let serverRow: Client | null = null;
+
+    if (!isClientDemoMode()) {
+      const res = await fetch(`/api/clients/${id}/archive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived }),
+      });
+      if (!res.ok) {
+        throw await readClientWriteError(
+          res,
+          archived ? 'No se pudo archivar el cliente.' : 'No se pudo restaurar el cliente.'
+        );
+      }
+      const data = await res.json().catch(() => null);
+      serverRow = (data?.client as Client) ?? null;
+    }
+
+    setClients((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      syncLocalStorage(next);
+      return next;
+    });
+
+    return serverRow;
+  };
+
   const getClientById = useCallback(
     (id: string): Client | undefined => {
       return clients.find((c) => c.id === id);
@@ -261,10 +318,13 @@ export function useClients() {
     error,
     searchQuery,
     setSearchQuery,
+    showArchived,
+    setShowArchived,
     fetchClients,
     addClient,
     updateClient,
     deleteClient,
+    archiveClient,
     getClientById,
   };
 }

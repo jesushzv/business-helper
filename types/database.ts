@@ -159,6 +159,18 @@ export interface Database {
           credit_limit: number | null;
           credit_days: number | null;
           credit_status: 'active' | 'suspended' | 'blocked' | null;
+          /**
+           * When the owner archived this client (#337). NULL = never archived.
+           *
+           * Nullable with no default, so "never archived" stays distinguishable
+           * from "archived" — the #64 tri-state rule at the column. Directory
+           * visibility only: the client's quotes, contracts and milestones are
+           * untouched, and their `/q/` and `/pay/` links keep working.
+           *
+           * Created by `20260814080000_clients_archived_at.sql`. A type is a
+           * claim; the migration is the evidence (#96).
+           */
+          archived_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -178,6 +190,7 @@ export interface Database {
           credit_limit?: number | null;
           credit_days?: number | null;
           credit_status?: 'active' | 'suspended' | 'blocked' | null;
+          archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -197,6 +210,7 @@ export interface Database {
           credit_limit?: number | null;
           credit_days?: number | null;
           credit_status?: 'active' | 'suspended' | 'blocked' | null;
+          archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
