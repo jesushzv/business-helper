@@ -7,7 +7,7 @@ import { generateWhatsAppLink } from '@/lib/whatsappLink';
 import { track } from '@/lib/analytics';
 import { getQuotePublicUrl } from '@/lib/url';
 import { isQuoteExpired } from '@/lib/quoteSignability';
-import { MessageSquare, ArrowRight, CheckCircle, FileText, Trash2 } from 'lucide-react';
+import { MessageSquare, ArrowRight, CheckCircle, FileText, Trash2, AlertTriangle } from 'lucide-react';
 
 interface QuoteCardProps {
   quote: Quote;
@@ -29,9 +29,33 @@ interface QuoteCardProps {
    * /pay/ link, and the route refuses them with a 409 anyway.
    */
   onDelete?: (quoteId: string) => void;
+  /**
+   * Whether the owner has marked this quote's client "solo contado" (#340).
+   *
+   * Three states, and the middle one is why this is a prop rather than a read
+   * of `client.credit_status` here: `true` blocked, `false` provably not, and
+   * **`null` unknown** — `/api/clients` failed, or this quote's client is not
+   * in the list. `useClients` failing while `/api/quotes` succeeds is a real
+   * combination this card already handles for the phone (#260), and collapsing
+   * unknown into `false` drops the warning on exactly the network blip where
+   * the owner would want it, while collapsing it into `true` accuses a healthy
+   * client.
+   *
+   * It **informs and never blocks**. `PUT /api/quotes/[id]` only gates credit
+   * when the edit carries `client_id` — deliberately, per #237/#203: blocked
+   * stops new pointing, not the existing pipeline — so a control disabled here
+   * would be the UI inventing a refusal the server does not make.
+   */
+  creditBlocked?: boolean | null;
 }
 
-export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert, onDelete }) => {
+export const QuoteCard: React.FC<QuoteCardProps> = ({
+  quote,
+  client,
+  onConvert,
+  onDelete,
+  creditBlocked = null,
+}) => {
   const [converting, setConverting] = useState(false);
 
   const handleConvert = async () => {
@@ -97,6 +121,23 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({ quote, client, onConvert, 
       </div>
 
       <div className="flex flex-col gap-2 pt-3 border-t border-slate-800">
+        {/* Directly above the actions, never below them: on a 375px card a
+            notice under the buttons is a notice the owner taps past. Strictly
+            `=== true`, so "unknown" renders nothing rather than an answer
+            nobody has (#340). */}
+        {creditBlocked === true && (
+          <p
+            role="status"
+            className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-950/50 p-3 text-xs font-semibold text-amber-200"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+            <span>
+              Marcaste a {clientName} como solo contado. Esta cotización sigue activa y puedes
+              enviarla; si la cobras, que sea de contado.
+            </span>
+          </p>
+        )}
+
         <div className="flex items-center gap-2">
           {/* 1-Tap WhatsApp Button — only when the client has a phone on record */}
           {whatsappUrl ? (
