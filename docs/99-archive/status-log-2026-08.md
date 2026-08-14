@@ -929,8 +929,9 @@ see an unhandled Server Component, render or Edge error. The live state of error
 ## Entries moved 2026-08-14 (STATUS.md budget trim — the pass that introduced the date TTL)
 
 *`tests/unit/docsStatusAuthority.test.ts` gained rule 5 on 2026-08-14: no `YYYY-MM-DD` date in
-`docs/STATUS.md` may be older than 30 days, so settled narrative now rolls out continuously instead
-of piling up against the 32 KB budget. The entries below were moved in the same PR to restore
+`docs/STATUS.md` may outlive the TTL the test sets (7 days at introduction, sized to the measured
+~2 KB/day growth), so settled narrative now rolls out continuously instead of piling up against
+the 32 KB budget. The entries below were moved in the same PR to restore
 headroom; each one's surviving current-state fact stays in [`../STATUS.md`](../STATUS.md).*
 
 ### From §02 — how the live PAC integration was found dead (2026-08-12)

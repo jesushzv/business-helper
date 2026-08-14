@@ -251,14 +251,22 @@ describe('rule 4 — the authority is not an append-only log', () => {
  * anchors is settled history. Move the narrative VERBATIM to `docs/99-archive/status-log-<YYYY-MM>.md`
  * (the pattern rule 3's guidance describes) and keep only the still-true fact, stated date-free —
  * "the claim guard is applied to production" needs no date once nobody would write it differently
- * next month. The `Last verified:` stamp is deliberately NOT exempt: if it is 30 days old, the
+ * next month. The `Last verified:` stamp is deliberately NOT exempt: if it is a week old, the
  * whole document is stale-optimistic and re-running §06 is exactly the right price.
+ *
+ * Why 7 days: the TTL only helps if it fires BEFORE the byte budget does. Measured over
+ * 2026-08-11 → 08-13, this file grew ~2 KB/day and STATUS-touching PRs landed several times a
+ * day; with ~24 KB of permanent content, a 30-day TTL would have let the 32 KB gate trip first
+ * every time (as it did on 08-08, 08-11 and 08-13 — an emergency trim every 2-3 days). At this
+ * repo's cadence a week-old event IS settled history, and the reconciliation stamp has been
+ * refreshed every 1-3 days in practice anyway. If PR cadence slows, this number can rise —
+ * re-derive it from the growth rate rather than guessing.
  *
  * Yes, this gate goes red purely by time passing, on a PR that never touched the file. That is
  * the point of a TTL — the alternative was a gate that fires only after the debt is 32 KB deep.
  * The fix is cheap, local to the doc, and the message below says precisely which lines to move.
  */
-const TTL_DAYS = 30;
+const TTL_DAYS = 7;
 const ISO_DATE = /\b20\d{2}-\d{2}-\d{2}\b/g;
 
 describe(`rule 5 — no date in the authority is older than ${TTL_DAYS} days`, () => {

@@ -29,8 +29,8 @@ simulated, and nothing checked them. A convention nobody executes is how that ha
 (the same lesson as #46 and #38).
 
 That test also holds this file to **32 KB** and — since the budget kept being discovered at 95%+
-full — to a **30-day TTL on dates** (rule 5): a `YYYY-MM-DD` older than that fails the build,
-because a date that old anchors settled history. Either way the fix is the same: move the narrative
+full — to a **7-day TTL on dates** (rule 5): a `YYYY-MM-DD` older than that fails the build,
+because at this repo's PR cadence a date that old anchors settled history. Either way the fix is the same: move the narrative
 to [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md) and keep the still-true
 fact here, stated date-free — never raise the number. **State a number once.** A count restated in a second section drifts
 from the first — this file carried `1576 tests / 165 files` in §02 and `722 tests / 87 files` in §04
