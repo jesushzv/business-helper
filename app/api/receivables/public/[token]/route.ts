@@ -9,6 +9,7 @@ import {
   type BankAccount,
 } from '@/lib/bankAccounts';
 import { publicDbWriteErrorResponse } from '@/lib/dbWriteError';
+import { expectedSettlementAmount } from '@/lib/receivablesCalculator';
 import {
   pickPayableMilestone,
   isValidReceiptPath,
@@ -88,7 +89,12 @@ export async function GET(
         // from which the default is taken when the quote names none — which is
         // what every quote written before #164 means. Both embeds are hinted by
         // FK column, per the rule #79 earned.
-        'id, title, bank_account_id, contracts!quote_id(id, title, milestones(id, label, amount, due_date, status)), clients(name), ' +
+        // `cfdi_total`/`cfdi_status` are what the payer is actually asked to
+        // wire once an invoice exists (#341): the PAC recomputes taxes from
+        // the pre-tax base, so asking for `amount` while the complemento de
+        // pago settles against the stamped total makes an exact payment read
+        // as a one-centavo over- or under-payment.
+        'id, title, bank_account_id, contracts!quote_id(id, title, milestones(id, label, amount, cfdi_total, cfdi_status, due_date, status)), clients(name), ' +
           'bank_accounts!bank_account_id(id, label, bank_name, clabe, account_holder, is_default, archived_at), ' +
           'organizations(name, bank_accounts(id, label, bank_name, clabe, account_holder, is_default, archived_at))'
       )
@@ -148,7 +154,13 @@ export async function GET(
       milestone: {
         id: milestone.id,
         label: milestone.label,
-        amount: milestone.amount,
+        // What this payer is asked to transfer, which is the stamped invoice's
+        // total wherever there is one (#341). This is the load-bearing half of
+        // that fix: the payer's declaration becomes `transferred_amount`, and
+        // `planPaymentComplement` measures it against `cfdi_total`. Asking for
+        // the milestone amount here is what left the owner being told to refund
+        // $0.01 to a client who had paid in full.
+        amount: expectedSettlementAmount(milestone),
         due_date: milestone.due_date,
         status: milestone.status,
         contract_title: quote.contracts.title || quote.title,

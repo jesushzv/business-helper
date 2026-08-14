@@ -17,6 +17,82 @@ export interface MilestoneItem {
   transferred_amount?: number | null;
   confirmed_at?: string | null;
   created_at?: string;
+  /**
+   * The PAC's own total for the stamped document (#341).
+   *
+   * The column has existed and `/api/receivables` has been returning it — `*`
+   * covers it — but no interface between the route and the UI declared it, so
+   * every consumer read `amount` and the value was dropped at the type
+   * boundary. That is the #78 shape: a field that arrives, is never mapped,
+   * and cannot be missed because nothing said it should be there.
+   *
+   * NULL for anything stamped before the column was recorded, and for
+   * everything never stamped at all. {@link expectedSettlementAmount} owns the
+   * fallback — read that, not this.
+   */
+  cfdi_total?: number | string | null;
+  /** Stamping state of the milestone's CFDI. A cancelled document settles nothing. */
+  cfdi_status?: string | null;
+}
+
+/**
+ * The three fields that decide what a cobro has to be paid to be settled.
+ *
+ * Stated as its own type rather than `Pick<MilestoneItem, …>` because the
+ * server-side caller (`ComplementMilestoneState` in lib/complementoPago.ts)
+ * reads the same columns straight off PostgREST, where a `numeric` arrives as
+ * a string and `amount` may be absent — the UI's `MilestoneItem` has already
+ * narrowed `amount` to a required number by the time it gets here.
+ */
+export interface SettlementBase {
+  amount?: number | string | null;
+  cfdi_total?: number | string | null;
+  cfdi_status?: string | null;
+}
+
+/** Reads a numeric column PostgREST may hand back as a string. */
+function toAmount(value: unknown): number {
+  const parsed = typeof value === 'string' ? Number(value) : (value as number);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * What this cobro has to be paid to be settled — the figure every other
+ * calculation here measures against.
+ *
+ * The PAC recomputes taxes from the pre-tax base, so the stamped total and the
+ * milestone amount can differ by a rounding step. `planPaymentComplement`
+ * already tracked the balance against `cfdi_total` for that reason — it is the
+ * document the SAT reconciles against — while the confirm modal prefilled from
+ * `amount` and this module measured "collected" and "outstanding" against
+ * `amount` too. One base out of three disagreeing is enough to manufacture a
+ * centavo out of nothing, and it did, in both directions (#341):
+ *
+ *   - prefill `amount` ($10,000.00) against a `cfdi_total` of $9,999.99 and
+ *     the client who pays exactly what the modal proposed trips the #81
+ *     overpayment notice — the product telling Don Roberto to refund $0.01.
+ *   - prefill `cfdi_total` while *this* module still measures `amount`, and
+ *     the mirror appears: `outstandingAmount` returns $0.01, the cobro is
+ *     counted `countPartial`, and it sits in an aging bucket owing a centavo
+ *     that no one will ever wire.
+ *
+ * So the base is defined once, here, and everything reads it: the complement
+ * plan, the collected/outstanding pair below, and the modal's prefill. The two
+ * sides agree by construction rather than by both being written carefully.
+ *
+ * A **cancelled** CFDI settles nothing — the document is void, so the
+ * contractual amount governs again. `planPaymentComplement` already refuses
+ * cancelled invoices before it reaches a total, so this guard changes nothing
+ * there and only keeps the receivable honest.
+ */
+export function expectedSettlementAmount(
+  item: SettlementBase | null | undefined
+): number {
+  const contractual = toAmount(item?.amount);
+  if (item?.cfdi_status === 'cancelled') return round(contractual);
+
+  const stamped = toAmount(item?.cfdi_total);
+  return round(stamped > 0 ? stamped : contractual);
 }
 
 export interface ReceivablesSummary {
@@ -59,7 +135,9 @@ const round = (val: number) => Math.round(val * 100) / 100;
 export function collectedAmount(item: MilestoneItem): number {
   if ((item?.status || 'pending') !== 'confirmed') return 0;
 
-  const owed = Number(item?.amount) || 0;
+  // The stamped total when there is one, not the milestone amount (#341) —
+  // see expectedSettlementAmount for why one base has to serve all three.
+  const owed = expectedSettlementAmount(item);
   const declared = item?.transferred_amount;
   // Absent is absent: a row confirmed before the column carried a figure means
   // "the full amount arrived", which is what the confirmation recorded. A row
@@ -72,7 +150,7 @@ export function collectedAmount(item: MilestoneItem): number {
 
 /** What this cobro still owes. */
 export function outstandingAmount(item: MilestoneItem): number {
-  const owed = Number(item?.amount) || 0;
+  const owed = expectedSettlementAmount(item);
   return round(Math.max(owed - collectedAmount(item), 0));
 }
 

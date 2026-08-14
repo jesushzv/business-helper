@@ -307,3 +307,66 @@ describe('a payment that exceeded the invoice balance (#81)', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 });
+
+/**
+ * What the modal proposes has to be the same figure the complemento de pago
+ * measures its balance against (#341). It was not: the field defaulted to the
+ * milestone amount while `planPaymentComplement` tracked `cfdi_total`, so on
+ * the ordinary case — the PAC's recomputed total landing a rounding step below
+ * the contractual amount — a client who paid exactly what this screen proposed
+ * was reported as having overpaid by one centavo, and the owner was told to
+ * refund it.
+ */
+describe('the proposed amount follows the stamped invoice (#341)', () => {
+  const withCfdi = (extra: Record<string, unknown>) =>
+    ({
+      ...MILESTONE,
+      amount: 10000,
+      transferred_amount: null,
+      ...extra,
+    }) as unknown as MilestoneWithClient;
+
+  const renderFor = (milestone: MilestoneWithClient) => {
+    render(
+      <SpeiConfirmModal isOpen milestone={milestone} onClose={vi.fn()} onConfirm={vi.fn(async () => ok())} />
+    );
+  };
+
+  it('prefills the PAC total, not the milestone amount', () => {
+    renderFor(withCfdi({ cfdi_total: 9999.99, cfdi_status: 'issued' }));
+
+    expect(amountInput().value).toBe('9999.99');
+  });
+
+  it('shows the same figure it prefills', () => {
+    // "Monto Esperado: $10,000.00" above a field holding 9,999.99 invites the
+    // owner to "correct" the field and put the centavo straight back.
+    renderFor(withCfdi({ cfdi_total: 9999.99, cfdi_status: 'issued' }));
+
+    expect(screen.getByText(/Monto Esperado/i).textContent).toContain('9,999.99');
+    expect(screen.getByText(/Monto Esperado/i).textContent).not.toContain('10,000.00');
+  });
+
+  it('falls back to the milestone amount when nothing was stamped', () => {
+    // NULL on every cobro stamped before the column existed. Losing this
+    // leaves a blank field on all of them.
+    renderFor(withCfdi({ cfdi_total: null }));
+
+    expect(amountInput().value).toBe('10000');
+  });
+
+  it('keeps a declared transfer ahead of any expectation', () => {
+    // `/pay/[token]` writes `transferred_amount` from the payer's own
+    // declaration before the owner opens this modal. A figure someone stated
+    // about money that moved outranks what the invoice expected.
+    renderFor(withCfdi({ cfdi_total: 9999.99, cfdi_status: 'issued', transferred_amount: 4000 }));
+
+    expect(amountInput().value).toBe('4000');
+  });
+
+  it('ignores a cancelled CFDI', () => {
+    renderFor(withCfdi({ cfdi_total: 9999.99, cfdi_status: 'cancelled' }));
+
+    expect(amountInput().value).toBe('10000');
+  });
+});

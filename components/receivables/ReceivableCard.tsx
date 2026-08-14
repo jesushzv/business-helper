@@ -5,6 +5,7 @@ import { MilestoneWithClient } from '@/lib/hooks/useReceivables';
 import { generatePaymentReminderLink } from '@/lib/whatsappReminder';
 import { MessageSquare, CheckCircle, ExternalLink, FileCheck, Clock, AlertCircle } from 'lucide-react';
 import { formatDateOnlyEs, localTodayStr } from '@/lib/dates';
+import { expectedSettlementAmount } from '@/lib/receivablesCalculator';
 
 interface ReceivableCardProps {
   milestone: MilestoneWithClient;
@@ -28,10 +29,15 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
   onOpenConfirmModal,
   canShare = true,
 }) => {
+  // What this cobro has to be paid to be settled — the stamped total wherever
+  // there is one (#341). The card, the WhatsApp reminder and the /pay page all
+  // quote this same figure, so what the client is asked for is what the
+  // complemento de pago settles against.
+  const expectedAmount = expectedSettlementAmount(milestone);
   const formattedAmount = new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: 'MXN',
-  }).format(milestone.amount);
+  }).format(expectedAmount);
 
   const dueDate = milestone.due_date ? milestone.due_date.substring(0, 10) : '';
   const isOverdue = (milestone.status === 'pending' || milestone.status === 'requested') && dueDate < todayStr;
@@ -86,7 +92,9 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
         phone: milestone.client_phone,
         clientName: milestone.client_name || 'Cliente',
         milestoneLabel: milestone.label,
-        amount: milestone.amount,
+        // The figure in the reminder is the ask. It must match the card above
+        // it and the /pay page it links to (#341).
+        amount: expectedAmount,
         dueDate: milestone.due_date,
         status: reminderStatus,
         payToken,

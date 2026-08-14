@@ -6,6 +6,7 @@ import { issuePaymentComplement } from '@/lib/complementoPago';
 import { getAppBaseUrl } from '@/lib/url';
 import { track } from '@/lib/analytics';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { expectedSettlementAmount } from '@/lib/receivablesCalculator';
 
 /**
  * Confirms that a milestone's payment was received.
@@ -147,9 +148,12 @@ export async function POST(
       organizationId,
       userId,
       milestoneId: id,
-      // What the user says arrived, falling back to the milestone amount — the
-      // same value the confirmation itself records.
-      amount: Number(updated.transferred_amount ?? updated.amount),
+      // What the user says arrived, falling back to what the cobro had to be
+      // paid to settle. That fallback used to be `updated.amount`, which
+      // reproduced #341's one-centavo overpayment server-side for any confirm
+      // POST that carries no `transferredAmount` — a path this route
+      // deliberately supports.
+      amount: Number(updated.transferred_amount ?? expectedSettlementAmount(updated)),
       paymentDate: confirmedAt,
       operationNumber: updated.tracking_reference || null,
     });
