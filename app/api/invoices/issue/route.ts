@@ -406,7 +406,18 @@ export async function POST(request: Request) {
   // must not still read as never attempted while a document may exist.
   await supabase
     .from('milestones')
-    .update({ cfdi_status: 'pending', cfdi_error: null })
+    .update({
+      cfdi_status: 'pending',
+      cfdi_error: null,
+      // The previous document's total goes with the previous document (#352).
+      // `expectedSettlementAmount` ignores `cfdi_total` while the status reads
+      // `cancelled`, but this write moves it *off* cancelled — and a failed
+      // attempt leaves it on `failed`, which is durable. In both of those the
+      // guard no longer fires, so a stale total would make the cobro measure
+      // itself against a void document. Cleared here, the contractual amount
+      // governs again until a new stamp writes its own total.
+      cfdi_total: null,
+    })
     .eq('id', milestoneId)
     .eq('organization_id', organizationId);
 
