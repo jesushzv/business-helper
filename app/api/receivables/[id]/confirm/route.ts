@@ -156,7 +156,7 @@ export async function POST(
 
     return NextResponse.json({ ...updated, ...complement });
   } catch {
-    return NextResponse.json({ error: 'No se pudo confirmar el pago' }, { status: 500 });
+    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudo confirmar el pago' } }, { status: 500 });
   }
 }
 

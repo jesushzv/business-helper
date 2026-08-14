@@ -242,3 +242,94 @@ describe('a quote someone already signed', () => {
     expect(onAlreadySigned).toHaveBeenCalledWith(null);
   });
 });
+
+/**
+ * #160 — the rate-limit wait must be visible.
+ *
+ * The OTP route's 429s carry `retry_after_seconds` on the body root (#65's
+ * extras), and the modal rendered only "espere un momento": the signer had no
+ * idea whether that meant 30 seconds or an hour, and each re-tap against the
+ * invisible timer extended their own backoff. The server's number now drives
+ * the countdown that disables the button.
+ */
+describe('the rate-limit wait is visible (#160)', () => {
+  it('disables sending with a countdown taken from retry_after_seconds', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: {
+            code: 'OTP_RESEND_COOLDOWN',
+            message: 'Espere un momento antes de solicitar otro código.',
+          },
+          retry_after_seconds: 90,
+        },
+        false,
+        429
+      )
+    );
+
+    renderModal();
+    fireEvent.click(sendButton());
+
+    // The server's message renders, and the wait is a number, not a mystery —
+    // minutes-scale waits format as m:ss.
+    await screen.findByText(/Espere un momento/i);
+    const button = screen.getByRole('button', {
+      name: /Podrá solicitar otro código en 1:30/i,
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+  });
+
+  it('re-enables the button when the server wait runs out', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: { code: 'OTP_RESEND_COOLDOWN', message: 'Espere un momento.' },
+          retry_after_seconds: 2,
+        },
+        false,
+        429
+      )
+    );
+
+    renderModal();
+    fireEvent.click(sendButton());
+
+    await screen.findByText(/en 2s/i);
+    await waitFor(
+      () =>
+        expect(
+          (screen.getByRole('button', { name: /Enviar Código de Verificación/i }) as HTMLButtonElement)
+            .disabled
+        ).toBe(false),
+      { timeout: 4000 }
+    );
+  });
+
+  it('shows the message verbatim with no countdown when waiting would not help', async () => {
+    // The per-quote lifetime cap answers with no retry_after_seconds: a timer
+    // would promise a retry the server will never grant.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: {
+            code: 'OTP_RATE_LIMITED',
+            message: 'Ya no se pueden enviar más códigos para esta cotización.',
+          },
+        },
+        false,
+        429
+      )
+    );
+
+    renderModal();
+    fireEvent.click(sendButton());
+
+    await screen.findByText(/más códigos para esta cotización/i);
+    const button = screen.getByRole('button', {
+      name: /Enviar Código de Verificación/i,
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(screen.queryByText(/Podrá solicitar otro código en/i)).toBeNull();
+  });
+});

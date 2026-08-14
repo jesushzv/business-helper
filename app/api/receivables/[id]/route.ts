@@ -30,12 +30,12 @@ export async function GET(
       .maybeSingle();
 
     if (error || !milestone) {
-      return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
+      return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } }, { status: 404 });
     }
 
     return NextResponse.json(milestone);
   } catch {
-    return NextResponse.json({ error: 'Failed to fetch milestone' }, { status: 500 });
+    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudo cargar el cobro.' } }, { status: 500 });
   }
 }
 
@@ -84,12 +84,12 @@ export async function PUT(
     }
 
     if (!updated) {
-      return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
+      return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } }, { status: 404 });
     }
 
     return NextResponse.json(updated);
   } catch {
-    return NextResponse.json({ error: 'Failed to update milestone' }, { status: 500 });
+    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudieron guardar los cambios del cobro.' } }, { status: 500 });
   }
 }
 

@@ -55,12 +55,12 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to fetch clients' }, { status: 500 });
+      return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus clientes.' } }, { status: 500 });
     }
 
     return NextResponse.json({ clients: clients || [] });
   } catch {
-    return NextResponse.json({ error: 'Failed to fetch clients' }, { status: 500 });
+    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus clientes.' } }, { status: 500 });
   }
 }
 

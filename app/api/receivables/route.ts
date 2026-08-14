@@ -57,12 +57,20 @@ export async function GET() {
       .order('due_date', { ascending: true });
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to fetch receivables' }, { status: 500 });
+      // Envelope + Spanish (#275): the dashboard rendered "Failed to fetch
+      // receivables" verbatim to the tenant.
+      return NextResponse.json(
+        { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus cobros.' } },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ receivables: receivables || [] });
   } catch {
-    return NextResponse.json({ error: 'Failed to fetch receivables' }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus cobros.' } },
+      { status: 500 }
+    );
   }
 }
 
@@ -117,6 +125,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newMilestone, { status: 201 });
   } catch {
-    return NextResponse.json({ error: 'Failed to create milestone' }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'SERVER_ERROR', message: 'No se pudo crear el cobro.' } },
+      { status: 500 }
+    );
   }
 }

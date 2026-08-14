@@ -118,7 +118,7 @@ export async function GET() {
   } catch {
     // An authenticated tenant must not be shown demo figures on failure —
     // they are indistinguishable from real ones in the UI.
-    return NextResponse.json({ error: 'Failed to compute analytics' }, { status: 500 });
+    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudieron calcular las métricas de tu negocio.' } }, { status: 500 });
   }
 }
 
