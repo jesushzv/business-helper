@@ -32,6 +32,19 @@ interface SubscriptionBillingCardProps {
    * the server is the enforcement either way.
    */
   canManageBilling?: boolean;
+  /**
+   * Whether Stripe knows this organization as a customer (#346).
+   *
+   * Three states, and the middle one is the point: `true` renders the portal
+   * button, `false` renders nothing because `POST /api/stripe/portal` would
+   * answer 409 — a control that is guaranteed to refuse is not a control —
+   * and `null` (unknown: still loading, or the read failed) also renders
+   * nothing, since inventing either answer is worse than waiting. The #64
+   * tri-state rule; the route enforces it regardless of what this says.
+   */
+  hasBillingAccount?: boolean | null;
+  /** Opens the Stripe Billing Portal. Required for the button to appear. */
+  onManageBilling?: () => Promise<void>;
 }
 
 export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = ({
@@ -40,8 +53,11 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
   onSelectTier,
   highlightTier = null,
   canManageBilling = true,
+  hasBillingAccount = null,
+  onManageBilling,
 }) => {
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const [openingPortal, setOpeningPortal] = useState(false);
   const { trial } = useTrialState();
   const highlightRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -61,6 +77,31 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
       setLoadingTier(null);
     }
   };
+
+  const handleManageBilling = async () => {
+    if (!onManageBilling) return;
+    try {
+      setOpeningPortal(true);
+      await onManageBilling();
+    } catch {
+      // Deliberately silent *here* and nowhere else: the caller owns the
+      // message — the settings page catches its own fetch failures and renders
+      // them in the checkout error banner — and this handler's only job is to
+      // stop the click from becoming an unhandled rejection. It reports no
+      // success either; the only success is the redirect that never returns.
+    } finally {
+      // Reached only if the portal did not take over the tab: a successful
+      // open is a full-page redirect, so leaving the button spinning forever
+      // on failure would be the only visible outcome of an error.
+      setOpeningPortal(false);
+    }
+  };
+
+  // Both halves are required. `canManageBilling` is the role gate the checkout
+  // buttons already use — the route refuses a member with the same capability
+  // — and `hasBillingAccount === true` is the "there is something to
+  // administer" gate, strict so that `null` (unknown) shows nothing.
+  const showPortalButton = canManageBilling && hasBillingAccount === true && !!onManageBilling;
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -136,6 +177,37 @@ export const SubscriptionBillingCard: React.FC<SubscriptionBillingCardProps> = (
           Solo el dueño de la cuenta puede contratar o cambiar el plan. Aquí puedes ver lo que
           incluye cada uno; pídele al dueño que haga el cambio.
         </p>
+      )}
+
+      {/* Above the plan grid on purpose. Someone looking for this came to
+          cancel or to fix a card, and on a 375px screen three plan cards sit
+          between the header and anything below them — a cancel path the owner
+          has to scroll past the upsell to reach is a dark pattern. */}
+      {showPortalButton && (
+        <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold text-white">Administrar mi suscripción</p>
+            <p className="mt-0.5 text-xs font-medium text-slate-400">
+              Cambia tu tarjeta, descarga tus facturas o cancela tu plan cuando quieras.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleManageBilling}
+            disabled={openingPortal}
+            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-5 py-3 text-xs font-extrabold text-white shadow-md transition-all hover:bg-slate-700 active:scale-95 disabled:cursor-default disabled:text-slate-500 sm:w-auto"
+          >
+            {openingPortal ? (
+              <span>Abriendo...</span>
+            ) : (
+              <>
+                <CreditCard className="h-4 w-4 text-indigo-400" />
+                <span>Administrar mi suscripción</span>
+                <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+              </>
+            )}
+          </button>
+        </div>
       )}
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">

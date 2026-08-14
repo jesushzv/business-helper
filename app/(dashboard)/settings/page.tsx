@@ -14,8 +14,16 @@ import { normalizeTierKey } from '@/lib/stripe';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 
 function SettingsPageContent() {
-  const { settings, role, subscriptionStatusInfo, updateSettings, loading, saving, error } =
-    useOrganizationSettings();
+  const {
+    settings,
+    role,
+    hasBillingAccount,
+    subscriptionStatusInfo,
+    updateSettings,
+    loading,
+    saving,
+    error,
+  } = useOrganizationSettings();
 
   /**
    * The plan the visitor clicked before they got here.
@@ -97,6 +105,37 @@ function SettingsPageContent() {
     }
   };
 
+  /**
+   * Sends the owner to the Stripe Billing Portal — where cancelling, changing
+   * a card and downloading invoices actually happen (#346).
+   *
+   * Nothing local changes on the way out and nothing is assumed on the way
+   * back: the redirect only happens on a URL Stripe issued, and any
+   * cancellation made over there returns as `customer.subscription.deleted`
+   * for the webhook to apply. The screen never writes the outcome itself.
+   */
+  const handleManageBilling = async () => {
+    setCheckoutError(null);
+
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.url) {
+        track('billing_portal_opened', {});
+        window.location.href = data.url;
+        return;
+      }
+
+      setCheckoutError(
+        data?.error?.message ||
+          'No se pudo abrir la administración de tu suscripción. Intenta de nuevo en unos minutos.'
+      );
+    } catch {
+      setCheckoutError('No se pudo conectar con el servicio de pagos. Intenta de nuevo.');
+    }
+  };
+
   return (
     <div className="min-h-screen pb-16">
       <Header title="Ajustes de Empresa y Suscripción" />
@@ -160,6 +199,10 @@ function SettingsPageContent() {
               // Checkout requires `billing_management` (owner-only), so the
               // same gate the sibling cards use applies here (#266).
               canManageBilling={canEdit}
+              // Tri-state: the portal control appears only for a tenant Stripe
+              // actually knows, and not at all while that is unknown (#346).
+              hasBillingAccount={hasBillingAccount}
+              onManageBilling={handleManageBilling}
             />
           </>
         )}

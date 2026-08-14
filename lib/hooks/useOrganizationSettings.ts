@@ -106,6 +106,21 @@ export function useOrganizationSettings() {
   const demo = isClientDemoMode();
   const [settings, setSettings] = useState<OrganizationSettings | null>(demo ? DEMO_SETTINGS : null);
   const [role, setRole] = useState<OrganizationRole | null>(demo ? 'owner' : null);
+  /**
+   * Whether Stripe knows this organization as a customer (#346).
+   *
+   * Three states, per the #64 rule, because it gates a control: `true` there
+   * is a subscription to administer, `false` there is provably none, `null`
+   * **unknown** — still loading, or the read failed. Collapsing unknown into
+   * `true` offers a button that answers 409; collapsing it into `false` hides
+   * the cancel path from a paying customer on a network blip, which is exactly
+   * when someone is most likely to be looking for it. The card renders nothing
+   * for `null` and the server gates the route either way.
+   *
+   * `false` in demo mode, and honestly so: the demo tenant has no Stripe
+   * customer, and a portal button there could only lead somewhere invented.
+   */
+  const [hasBillingAccount, setHasBillingAccount] = useState<boolean | null>(demo ? false : null);
   const [loading, setLoading] = useState<boolean>(!demo);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
@@ -131,6 +146,12 @@ export function useOrganizationSettings() {
           serverRole === 'owner' || serverRole === 'manager' || serverRole === 'member'
             ? serverRole
             : null
+        );
+        // Only a boolean the server actually sent counts. An older deployment
+        // that does not send the field leaves this `null` — unknown — rather
+        // than reading its absence as "no subscription".
+        setHasBillingAccount(
+          typeof data.hasBillingAccount === 'boolean' ? data.hasBillingAccount : null
         );
       } catch {
         if (!cancelled) setError('No se pudo cargar la información de tu negocio.');
@@ -225,6 +246,7 @@ export function useOrganizationSettings() {
   return {
     settings,
     role,
+    hasBillingAccount,
     subscriptionStatusInfo,
     loading,
     saving,

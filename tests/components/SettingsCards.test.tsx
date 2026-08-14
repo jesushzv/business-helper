@@ -396,3 +396,78 @@ describe('OrgProfileCard — régimen fiscal (#127)', () => {
     ).toBe(true);
   });
 });
+
+/**
+ * "Administrar mi suscripción" — the Stripe Billing Portal entry point (#346).
+ *
+ * The control is gated on a *fetched fact*, which is the #64 shape: three
+ * states, and the wrong collapse of the middle one either offers a button that
+ * can only answer 409, or hides the cancel path from a paying customer during
+ * a network blip — which is exactly when someone is looking for it.
+ */
+describe('SubscriptionBillingCard — the billing portal entry (#346)', () => {
+  const portalButton = () => screen.queryByRole('button', { name: /Administrar mi suscripción/i });
+
+  const renderCard = (props: Record<string, unknown>) =>
+    render(
+      <SubscriptionBillingCard
+        settings={SERVER_ROW}
+        statusInfo={validateSubscriptionStatus('active')}
+        onSelectTier={vi.fn()}
+        onManageBilling={vi.fn()}
+        {...props}
+      />
+    );
+
+  it('offers the portal to an owner Stripe knows', () => {
+    renderCard({ hasBillingAccount: true, canManageBilling: true });
+
+    expect(portalButton()).toBeTruthy();
+    // Don Roberto is on a phone: the tap target has to be a tap target.
+    expect(portalButton()?.className).toContain('min-h-[48px]');
+  });
+
+  it('offers nothing when the organization has never checked out', () => {
+    // The route answers 409 for this tenant, and a control guaranteed to
+    // refuse is not a control.
+    renderCard({ hasBillingAccount: false, canManageBilling: true });
+
+    expect(portalButton()).toBeNull();
+  });
+
+  it('offers nothing while the fact is unknown', () => {
+    // null = still loading, or the read failed. Rendering either answer here
+    // invents one.
+    renderCard({ hasBillingAccount: null, canManageBilling: true });
+
+    expect(portalButton()).toBeNull();
+  });
+
+  it('offers nothing to a member, who the route refuses anyway', () => {
+    renderCard({ hasBillingAccount: true, canManageBilling: false });
+
+    expect(portalButton()).toBeNull();
+  });
+
+  it('opens the portal through the handler it was given', async () => {
+    const onManageBilling = vi.fn().mockResolvedValue(undefined);
+    renderCard({ hasBillingAccount: true, canManageBilling: true, onManageBilling });
+
+    fireEvent.click(portalButton() as HTMLElement);
+
+    await waitFor(() => expect(onManageBilling).toHaveBeenCalledTimes(1));
+  });
+
+  it('stops showing "Abriendo..." when the open failed', async () => {
+    // A successful open is a full-page redirect, so the spinner is only ever
+    // seen on the path where something went wrong — leaving it stuck there
+    // would be the tenant's only feedback.
+    const onManageBilling = vi.fn().mockRejectedValue(new Error('network'));
+    renderCard({ hasBillingAccount: true, canManageBilling: true, onManageBilling });
+
+    fireEvent.click(portalButton() as HTMLElement);
+
+    await waitFor(() => expect(portalButton()).toBeTruthy());
+    expect(screen.queryByText('Abriendo...')).toBeNull();
+  });
+});
