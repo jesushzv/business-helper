@@ -7,6 +7,7 @@ import { getAppBaseUrl } from '@/lib/url';
 import { track } from '@/lib/analytics';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 import { expectedSettlementAmount } from '@/lib/receivablesCalculator';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Confirms that a milestone's payment was received.
@@ -33,10 +34,7 @@ export async function POST(
   // dashboard, the analytics, the accountant export, and (for PPD invoices)
   // stamps a complemento de pago. The role matrix withholds it from `member`.
   if (!hasCapability(role, 'confirm_payment')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite confirmar pagos' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite confirmar pagos');
   }
 
   try {
@@ -54,10 +52,7 @@ export async function POST(
     if (body?.transferredAmount !== undefined) {
       const amount = Number(body.transferredAmount);
       if (!Number.isFinite(amount) || amount <= 0) {
-        return NextResponse.json(
-          { error: { code: 'INVALID_INPUT', message: 'El monto transferido no es válido' } },
-          { status: 400 }
-        );
+        return apiError(400, 'INVALID_INPUT', 'El monto transferido no es válido');
       }
       updates.transferred_amount = amount;
     }
@@ -100,22 +95,10 @@ export async function POST(
         .maybeSingle();
 
       if (existing?.status === 'confirmed') {
-        return NextResponse.json(
-          {
-            error: {
-              code: 'ALREADY_CONFIRMED',
-              message: 'Este cobro ya estaba confirmado; no se registró dos veces.',
-            },
-            milestone: existing,
-          },
-          { status: 409 }
-        );
+        return apiError(409, 'ALREADY_CONFIRMED', 'Este cobro ya estaba confirmado; no se registró dos veces.', { extra: { milestone: existing } });
       }
 
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cobro no encontrado');
     }
 
     // Audit against the session's organization, not a value read back off the
@@ -160,7 +143,7 @@ export async function POST(
 
     return NextResponse.json({ ...updated, ...complement });
   } catch {
-    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudo confirmar el pago' } }, { status: 500 });
+    return apiError(500, 'SERVER_ERROR', 'No se pudo confirmar el pago');
   }
 }
 

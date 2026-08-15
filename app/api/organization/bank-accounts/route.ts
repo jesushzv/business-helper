@@ -10,6 +10,7 @@ import {
 } from '@/lib/bankAccounts';
 import { captureException } from '@/lib/sentry';
 import { describeDbWriteError } from '@/lib/dbWriteError';
+import { apiError } from '@/lib/apiError';
 
 /**
  * The organization's settlement accounts (#164).
@@ -26,17 +27,7 @@ import { describeDbWriteError } from '@/lib/dbWriteError';
  * per round trip (#146).
  */
 function fieldError(validation: Extract<BankAccountValidation, { ok: false }>): NextResponse {
-  return NextResponse.json(
-    {
-      error: {
-        code: 'INVALID_INPUT',
-        message: validation.message,
-        field: validation.field,
-        fields: validation.fields,
-      },
-    },
-    { status: 400 }
-  );
+  return apiError(400, 'INVALID_INPUT', validation.message, { fields: validation.fields, details: { field: validation.field } });
 }
 
 export async function GET() {
@@ -55,10 +46,7 @@ export async function GET() {
     // A failed read is unknown, not "no accounts" — the caller's tri-state
     // depends on telling those apart (#64/#96).
     captureException(error, { route: 'GET /api/organization/bank-accounts', organization_id: organizationId });
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus cuentas de cobro' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudieron cargar tus cuentas de cobro');
   }
 
   // Which live quotes settle at each account (#196/#197): the archive
@@ -82,15 +70,7 @@ export async function POST(request: Request) {
   const { supabase, organizationId, role } = auth.ctx;
 
   if (!hasCapability(role, 'billing_management')) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Solo el dueño de la cuenta puede agregar cuentas de cobro.',
-        },
-      },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Solo el dueño de la cuenta puede agregar cuentas de cobro.');
   }
 
   try {
@@ -109,10 +89,7 @@ export async function POST(request: Request) {
 
     if (countError) {
       const failure = describeDbWriteError(countError, 'la cuenta de cobro', 'POST /api/organization/bank-accounts');
-      return NextResponse.json(
-        { error: { code: failure.code, message: failure.message } },
-        { status: failure.status }
-      );
+      return apiError(failure.status, failure.code, failure.message);
     }
 
     const { data, error } = await supabase
@@ -127,10 +104,7 @@ export async function POST(request: Request) {
 
     if (error || !data) {
       const failure = describeDbWriteError(error, 'la cuenta de cobro', 'POST /api/organization/bank-accounts');
-      return NextResponse.json(
-        { error: { code: failure.code, message: failure.message } },
-        { status: failure.status }
-      );
+      return apiError(failure.status, failure.code, failure.message);
     }
 
     // Adding an account is how money starts arriving somewhere new. Audited
@@ -153,9 +127,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ account: data as BankAccount });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error interno' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error interno');
   }
 }

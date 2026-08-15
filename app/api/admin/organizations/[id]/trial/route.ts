@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requirePlatformAdmin } from '@/lib/platformAdmin';
 import { normalizeSubscriptionStatus } from '@/lib/stripe';
+import { apiError } from '@/lib/apiError';
 
 /**
  * POST /api/admin/organizations/[id]/trial — extend (or restart) a trial.
@@ -23,9 +24,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** A year of trial via repeated grants is a decision; via one typo it is a bug. */
 const MAX_EXTENSION_DAYS = 365;
 
-function error(status: number, code: string, message: string): NextResponse {
-  return NextResponse.json({ error: { code, message } }, { status });
-}
+/**
+ * One of the two private copies of the envelope this route used to carry
+ * (#322 item 2). Kept as a thin alias rather than renamed at 11 call sites:
+ * the shape now comes from `lib/apiError.ts`, which is the point.
+ */
+const error = apiError;
 
 export async function POST(
   request: Request,

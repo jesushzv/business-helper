@@ -11,6 +11,7 @@ import { isGeminiConfigured, generateGeminiText } from '@/lib/geminiClient';
 import { resolveAIModelBudget, recordModelAnswer } from '@/lib/aiUsage';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { captureException } from '@/lib/sentry';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Operations assistant.
@@ -35,10 +36,7 @@ export async function POST(request: Request) {
     const rateLimit = checkRateLimit(userId, 5);
 
     if (!rateLimit.allowed) {
-      return NextResponse.json(
-        { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Límite de solicitudes alcanzado. Por favor espera un minuto.' } },
-        { status: 429 }
-      );
+      return apiError(429, 'RATE_LIMIT_EXCEEDED', 'Límite de solicitudes alcanzado. Por favor espera un minuto.');
     }
 
     const body = await request.json();
@@ -47,19 +45,13 @@ export async function POST(request: Request) {
     const { query } = body;
 
     if (!query || typeof query !== 'string') {
-      return NextResponse.json(
-        { error: { code: 'INVALID_QUERY', message: 'La consulta es requerida' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_QUERY', 'La consulta es requerida');
     }
 
     // 2. Input Sanitization & Truncation Guard (Max 300 characters)
     const sanitizedQuery = sanitizeAIQuery(query, 300);
     if (!sanitizedQuery) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_QUERY', message: 'La consulta no puede estar vacía' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_QUERY', 'La consulta no puede estar vacía');
     }
 
     const orgData = await loadAIOrgContext(supabase, organizationId);
@@ -103,9 +95,6 @@ export async function POST(request: Request) {
       quota
     });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'AI_ERROR', message: 'Error al procesar consulta de IA' } },
-      { status: 500 }
-    );
+    return apiError(500, 'AI_ERROR', 'Error al procesar consulta de IA');
   }
 }

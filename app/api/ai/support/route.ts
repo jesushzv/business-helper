@@ -11,6 +11,7 @@ import { isGeminiConfigured, generateGeminiText } from '@/lib/geminiClient';
 import { resolveAIModelBudget, recordModelAnswer } from '@/lib/aiUsage';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { captureException } from '@/lib/sentry';
+import { apiError } from '@/lib/apiError';
 
 /**
  * POST /api/ai/support
@@ -39,10 +40,7 @@ export async function POST(request: Request) {
     const rateLimit = checkRateLimit(userId, 10);
 
     if (!rateLimit.allowed) {
-      return NextResponse.json(
-        { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Límite de consultas alcanzado. Por favor espera un momento.' } },
-        { status: 429 }
-      );
+      return apiError(429, 'RATE_LIMIT_EXCEEDED', 'Límite de consultas alcanzado. Por favor espera un momento.');
     }
 
     const body = await request.json();
@@ -51,19 +49,13 @@ export async function POST(request: Request) {
     const { query } = body;
 
     if (!query || typeof query !== 'string') {
-      return NextResponse.json(
-        { error: { code: 'INVALID_QUERY', message: 'La pregunta de soporte es requerida' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_QUERY', 'La pregunta de soporte es requerida');
     }
 
     // 2. Input Sanitization & Truncation Guard (Max 300 chars)
     const sanitizedQuery = sanitizeAIQuery(query, 300);
     if (!sanitizedQuery) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_QUERY', message: 'La consulta no puede estar vacía' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_QUERY', 'La consulta no puede estar vacía');
     }
 
     const orgAccess = await requireOrgAccess();
@@ -112,9 +104,6 @@ export async function POST(request: Request) {
       quota,
     });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'AI_SUPPORT_ERROR', message: 'Error al procesar la consulta con el Agente de IA' } },
-      { status: 500 }
-    );
+    return apiError(500, 'AI_SUPPORT_ERROR', 'Error al procesar la consulta con el Agente de IA');
   }
 }

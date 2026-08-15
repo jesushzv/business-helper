@@ -3,6 +3,7 @@ import { handleStripeWebhookEvent } from '@/lib/stripe';
 import { verifyStripeWebhookSignature } from '@/lib/stripeWebhook';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { captureException } from '@/lib/sentry';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Stripe webhook receiver.
@@ -47,32 +48,18 @@ export async function POST(request: Request) {
       // scored a reject-everything endpoint as four passing checks (#63).
       // 503 also matches the service-role branch below and hard rule 3.
       if (verification.code === 'NOT_CONFIGURED') {
-        return NextResponse.json(
-          {
-            error: {
-              code: 'WEBHOOK_NOT_CONFIGURED',
-              message: 'Verificación de webhook no configurada',
-            },
-          },
-          { status: 503 }
-        );
+        return apiError(503, 'WEBHOOK_NOT_CONFIGURED', 'Verificación de webhook no configurada');
       }
 
       // 400 with no detail about which of the request-side checks failed.
-      return NextResponse.json(
-        { error: { code: 'INVALID_SIGNATURE', message: 'Firma de webhook inválida' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_SIGNATURE', 'Firma de webhook inválida');
     }
 
     let event;
     try {
       event = JSON.parse(rawBody);
     } catch {
-      return NextResponse.json(
-        { error: { code: 'INVALID_PAYLOAD', message: 'Payload JSON no válido' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_PAYLOAD', 'Payload JSON no válido');
     }
 
     const handled = handleStripeWebhookEvent(event);
@@ -84,15 +71,7 @@ export async function POST(request: Request) {
     // Without persistence there is no idempotency ledger and no way to apply
     // the change, so refuse rather than 200-ing on a no-op.
     if (!isServiceRoleConfigured()) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'BACKEND_NOT_CONFIGURED',
-            message: 'Almacenamiento no configurado para procesar webhooks',
-          },
-        },
-        { status: 503 }
-      );
+      return apiError(503, 'BACKEND_NOT_CONFIGURED', 'Almacenamiento no configurado para procesar webhooks');
     }
 
     // `handleStripeWebhookEvent` returns null rather than the old 'org_demo'
@@ -100,25 +79,14 @@ export async function POST(request: Request) {
     // malformed id are the same rejection here.
     const organizationId = handled.organizationId;
     if (!organizationId || !UUID_PATTERN.test(organizationId)) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'ORGANIZATION_MISSING',
-            message: 'El evento no identifica una organización válida',
-          },
-        },
-        { status: 400 }
-      );
+      return apiError(400, 'ORGANIZATION_MISSING', 'El evento no identifica una organización válida');
     }
 
     const supabase = createServiceClient();
     const eventId = typeof event?.id === 'string' ? event.id : null;
 
     if (!eventId) {
-      return NextResponse.json(
-        { error: { code: 'EVENT_ID_MISSING', message: 'Evento sin identificador' } },
-        { status: 400 }
-      );
+      return apiError(400, 'EVENT_ID_MISSING', 'Evento sin identificador');
     }
 
     // Claim the event first. The primary key on id makes a concurrent or
@@ -137,10 +105,7 @@ export async function POST(request: Request) {
       if (claimError.code === '23505') {
         return NextResponse.json({ received: true, duplicate: true });
       }
-      return NextResponse.json(
-        { error: { code: 'EVENT_CLAIM_FAILED', message: 'No se pudo registrar el evento' } },
-        { status: 500 }
-      );
+      return apiError(500, 'EVENT_CLAIM_FAILED', 'No se pudo registrar el evento');
     }
 
     // Neither field is guaranteed. An event carrying neither `metadata.tier_id`
@@ -248,15 +213,7 @@ export async function POST(request: Request) {
       // 404 rather than 200: Stripe's dashboard is the only place this is
       // visible, and a green delivery for an unapplied tier change is the
       // failure we are trying to make impossible.
-      return NextResponse.json(
-        {
-          error: {
-            code: 'ORGANIZATION_NOT_FOUND',
-            message: 'La organización del evento no existe en esta base de datos',
-          },
-        },
-        { status: 404 }
-      );
+      return apiError(404, 'ORGANIZATION_NOT_FOUND', 'La organización del evento no existe en esta base de datos');
     }
 
     if (updateError) {
@@ -276,27 +233,11 @@ export async function POST(request: Request) {
         tags: { db_error_code: String(updateError?.code || 'unknown'), stripe_event: eventId },
         extra: { message: updateError?.message, organization_id: organizationId },
       });
-      return NextResponse.json(
-        {
-          error: {
-            code: 'SUBSCRIPTION_UPDATE_FAILED',
-            message: 'No se pudo aplicar el cambio de suscripción',
-          },
-        },
-        { status: 500 }
-      );
+      return apiError(500, 'SUBSCRIPTION_UPDATE_FAILED', 'No se pudo aplicar el cambio de suscripción');
     }
 
     return NextResponse.json({ received: true, processed: handled });
   } catch {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'WEBHOOK_ERROR',
-          message: 'Error procesando el webhook de Stripe',
-        },
-      },
-      { status: 500 }
-    );
+    return apiError(500, 'WEBHOOK_ERROR', 'Error procesando el webhook de Stripe');
   }
 }

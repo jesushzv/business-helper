@@ -4,6 +4,7 @@ import { hasCapability } from '@/lib/teamRBAC';
 import { BANK_ACCOUNT_COLUMNS, validateBankAccount, type BankAccount } from '@/lib/bankAccounts';
 import { captureException } from '@/lib/sentry';
 import { describeDbWriteError } from '@/lib/dbWriteError';
+import { apiError } from '@/lib/apiError';
 
 /**
  * One settlement account: edit it, make it the default, or archive it (#164).
@@ -17,24 +18,13 @@ import { describeDbWriteError } from '@/lib/dbWriteError';
  */
 
 function forbidden(): NextResponse {
-  return NextResponse.json(
-    {
-      error: {
-        code: 'FORBIDDEN',
-        message: 'Solo el dueño de la cuenta puede cambiar las cuentas de cobro.',
-      },
-    },
-    { status: 403 }
-  );
+  return apiError(403, 'FORBIDDEN', 'Solo el dueño de la cuenta puede cambiar las cuentas de cobro.');
 }
 
 function notFound(): NextResponse {
   // Scoped by organization_id as well as id: a by-id route without the filter
   // tells one tenant whether another tenant's row exists.
-  return NextResponse.json(
-    { error: { code: 'NOT_FOUND', message: 'No se encontró esa cuenta de cobro' } },
-    { status: 404 }
-  );
+  return apiError(404, 'NOT_FOUND', 'No se encontró esa cuenta de cobro');
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -62,15 +52,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // would otherwise refuse the write.
     if (body?.makeDefault === true) {
       if ((existing as BankAccount).archived_at) {
-        return NextResponse.json(
-          {
-            error: {
-              code: 'ACCOUNT_ARCHIVED',
-              message: 'No puedes usar una cuenta archivada como principal. Reactívala primero.',
-            },
-          },
-          { status: 409 }
-        );
+        return apiError(409, 'ACCOUNT_ARCHIVED', 'No puedes usar una cuenta archivada como principal. Reactívala primero.');
       }
 
       // Which row holds the flag now, so it can be put back if the set below
@@ -90,10 +72,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       if (clearError) {
         const failure = describeDbWriteError(clearError, 'la cuenta principal', 'PATCH /api/organization/bank-accounts/[id]');
-        return NextResponse.json(
-          { error: { code: failure.code, message: failure.message } },
-          { status: failure.status }
-        );
+        return apiError(failure.status, failure.code, failure.message);
       }
 
       const { data, error } = await supabase
@@ -135,10 +114,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         }
 
         const failure = describeDbWriteError(error, 'la cuenta principal', 'PATCH /api/organization/bank-accounts/[id]');
-        return NextResponse.json(
-          { error: { code: failure.code, message: failure.message } },
-          { status: failure.status }
-        );
+        return apiError(failure.status, failure.code, failure.message);
       }
 
       // Changing where money settles is the move an attacker with a session, or
@@ -175,17 +151,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!validated.ok) {
       // Every problem at once, keyed by input, so an edit does not reveal them
       // one submit at a time (#146). Same envelope as POST.
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_INPUT',
-            message: validated.message,
-            field: validated.field,
-            fields: validated.fields,
-          },
-        },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_INPUT', validated.message, { fields: validated.fields, details: { field: validated.field } });
     }
 
     const { data, error } = await supabase
@@ -198,10 +164,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (error || !data) {
       const failure = describeDbWriteError(error, 'la cuenta de cobro', 'PATCH /api/organization/bank-accounts/[id]');
-      return NextResponse.json(
-        { error: { code: failure.code, message: failure.message } },
-        { status: failure.status }
-      );
+      return apiError(failure.status, failure.code, failure.message);
     }
 
     // An edit can move the CLABE money lands in without changing anything a
@@ -225,10 +188,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     return NextResponse.json({ account: data as BankAccount });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error interno' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error interno');
   }
 }
 
@@ -266,16 +226,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .neq('id', id);
 
     if ((others?.length ?? 0) > 0) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'DEFAULT_ACCOUNT',
-            message:
-              'Esta es tu cuenta principal. Marca otra como principal antes de archivarla.',
-          },
-        },
-        { status: 409 }
-      );
+      return apiError(409, 'DEFAULT_ACCOUNT', 'Esta es tu cuenta principal. Marca otra como principal antes de archivarla.');
     }
   }
 
@@ -295,10 +246,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   if (error || !data) {
     const failure = describeDbWriteError(error, 'la cuenta de cobro', 'DELETE /api/organization/bank-accounts/[id]');
-    return NextResponse.json(
-      { error: { code: failure.code, message: failure.message } },
-      { status: failure.status }
-    );
+    return apiError(failure.status, failure.code, failure.message);
   }
 
   // Removing where money lands is at least as consequential as disconnecting

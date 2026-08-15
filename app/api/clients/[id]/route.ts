@@ -12,6 +12,7 @@ import {
 } from '@/lib/clientCreditAuthorization';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 import { hasCapability } from '@/lib/teamRBAC';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Single-client operations.
@@ -41,18 +42,12 @@ export async function GET(
       .maybeSingle();
 
     if (error || !client) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cliente no encontrado');
     }
 
     return NextResponse.json({ client });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al obtener el cliente' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al obtener el cliente');
   }
 }
 
@@ -90,18 +85,12 @@ export async function PUT(
         return dbWriteErrorResponse(readError, 'el cliente', 'PUT /api/clients/[id]');
       }
       if (!current) {
-        return NextResponse.json(
-          { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
-          { status: 404 }
-        );
+        return apiError(404, 'NOT_FOUND', 'Cliente no encontrado');
       }
 
       const credit = authorizeCreditWrite(fields, role, current as Record<string, unknown>);
       if (!credit.ok) {
-        return NextResponse.json(
-          { error: { code: 'FORBIDDEN', message: credit.message, fields: credit.fields } },
-          { status: 403 }
-        );
+        return apiError(403, 'FORBIDDEN', credit.message, { fields: credit.fields });
       }
       fields = credit.fields;
     }
@@ -113,16 +102,7 @@ export async function PUT(
     // stored one alone rather than renaming the client to "null".
     const { fieldErrors, values } = validateClientWrite(fields, { requireName: false });
     if (Object.keys(fieldErrors).length > 0) {
-      return NextResponse.json(
-        {
-          error: {
-            code: fieldErrorCode(fieldErrors),
-            message: summarizeFieldErrors(fieldErrors),
-            fields: fieldErrors,
-          },
-        },
-        { status: 400 }
-      );
+      return apiError(400, fieldErrorCode(fieldErrors), summarizeFieldErrors(fieldErrors), { fields: fieldErrors });
     }
 
     const updates: Record<string, unknown> = {
@@ -147,18 +127,12 @@ export async function PUT(
     }
 
     if (!updated) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cliente no encontrado');
     }
 
     return NextResponse.json(updated);
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al actualizar el cliente' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al actualizar el cliente');
   }
 }
 
@@ -171,10 +145,7 @@ export async function DELETE(
   const { supabase, organizationId, role } = auth.ctx;
 
   if (!hasCapability(role, 'delete_records')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite eliminar clientes' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite eliminar clientes');
   }
 
   try {
@@ -202,17 +173,11 @@ export async function DELETE(
     }
 
     if (!deleted) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cliente no encontrado');
     }
 
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al eliminar el cliente' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al eliminar el cliente');
   }
 }
