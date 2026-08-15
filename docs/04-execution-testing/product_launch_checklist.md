@@ -86,7 +86,7 @@
 ### Product & Engineering Readiness
 - [x] **P0 Core Features Complete**: Quote Creation, Accounts Receivable Kanban, Client CRM, and SPEI Receipt Uploads fully built.
 - [x] **RLS Multi-Tenant Audit**: All 9 database tables verified with active RLS policies (`organization_id` scoping).
-- [x] **Test Gate Compliance**: `npx vitest run` passes; the count is in [`../STATUS.md`](../STATUS.md). *(The 85% coverage gate is configured but is not run by CI and currently fails — see [#51](https://github.com/jesushzv/business-helper/issues/51). This line previously asserted coverage "exceeds 85%" on the strength of a threshold nobody executes.)*
+- [x] **Test Gate Compliance**: `npx vitest run` passes; the count is in [`../STATUS.md`](../STATUS.md). *(The coverage gate now runs in CI against the thresholds in `vitest.config.ts` — [#51](https://github.com/jesushzv/business-helper/issues/51). This line previously asserted the gate was exceeded, on the strength of a threshold nobody executed.)*
 - [x] **Security Sanitization**: File upload magic byte validation active; brute-force OTP *verification* lockout tested (3 failed attempts). *(OTP **issuance** limiting is separate and still open — see §01.)*
 - [ ] **Stripe Subscription Billing** ([#68](https://github.com/jesushzv/business-helper/issues/68), **P0**): Products & Prices ($299, $599, $999 MXN) configured in sandbox. Live-mode mapping and a real charge remain unverified.
 

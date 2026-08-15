@@ -13,7 +13,7 @@ Business Helper solves the operational cash flow crisis faced by Mexican SMBs. I
 ### Engineering Target Metrics
 * **Page Load Time**: `< 1.5s` LCP on 4G connections.
 * **API Response Time**: `< 150ms` (p95) for all PostgREST and route handlers.
-* **Test Coverage**: `>= 85%` line and branch coverage enforced via pre-commit hooks.
+* **Test Coverage**: Line and branch coverage enforced against the thresholds in `vitest.config.ts`, by CI on every pull request. There are no Husky hooks in this repo (#51).
 * **Uptime Target**: `99.9%` uptime on Vercel Edge + Supabase Cloud.
 
 ---
@@ -85,7 +85,7 @@ export function calculateContractHash(contractPayload: {
 
 | Level | Framework | Scope / Enforcement Target | CI Trigger |
 |:---|:---|:---|:---|
-| **Unit Tests** | Vitest + V8 Coverage | Tax withholding functions, RFC Modulo 11 parser, SHA-256 seals, client health score. Min 85% coverage. | Husky pre-commit & PR (`npm run test:coverage`) |
+| **Unit Tests** | Vitest + V8 Coverage | Tax withholding functions, RFC Modulo 11 parser, SHA-256 seals, client health score. Coverage floor in `vitest.config.ts`. | CI on every PR (`npx vitest run --coverage`). No Husky hooks exist in this repo (#51) |
 | **Component Tests** | Vitest + `@testing-library/react` + JSDOM | React 19 Client components, FaqAccordion, QuoteStatusBadge, Don Roberto 48px+ touch targets. | PR check (`npm run test`) |
 | **Integration & E2E Tests** | Playwright Chromium/Mobile | API routes, Playwright happy-path user flows (Quote → WhatsApp link → Client OTP sign → SPEI payment). | Production Deploy (`npm run test:e2e`) |
 
