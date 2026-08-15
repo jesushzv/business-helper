@@ -28,6 +28,14 @@ interface PublicMilestone {
    */
   clabe: string | null;
   beneficiary?: string;
+  /**
+   * What the business has already recorded as received against this cobro
+   * (#371). `amount` above is the full settlement figure and is **not** net of
+   * it — see the route for why the remainder is not asked for yet — so the page
+   * shows both and tells the payer to confirm the balance before transferring.
+   * Absent or 0 means nothing has been recorded, and nothing is rendered.
+   */
+  already_received?: number;
   tracking_reference?: string;
   receipt_url?: string;
   /**
@@ -260,6 +268,13 @@ export default function PublicPayPortalPage() {
     // transferred that their cobro vanished.
     const alreadyRecorded = loadErrorCode === 'PAYMENT_ALREADY_RECORDED';
     /**
+     * The business has recorded the full amount as received while leaving the
+     * cobro open (#371). A distinct state from `PAYMENT_ALREADY_RECORDED`: the
+     * money is not merely declared, it is logged as arrived, so the message is
+     * "do not transfer again" rather than "we have your comprobante".
+     */
+    const alreadySettled = loadErrorCode === 'PAYMENT_ALREADY_SETTLED';
+    /**
      * The account this quote named has been archived (#164).
      *
      * A real link, a real cobro, and a payer who must **not** transfer yet.
@@ -275,7 +290,12 @@ export default function PublicPayPortalPage() {
      * the route said rather than being flattened into "no existe" — a claim
      * this page cannot actually support for a code it does not know.
      */
-    const unknownRefusal = Boolean(loadErrorCode) && !bankDetailsMissing && !alreadyRecorded && !accountUnavailable;
+    const unknownRefusal =
+      Boolean(loadErrorCode) &&
+      !bankDetailsMissing &&
+      !alreadyRecorded &&
+      !alreadySettled &&
+      !accountUnavailable;
 
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -285,6 +305,8 @@ export default function PublicPayPortalPage() {
               ? 'Pago No Disponible Por El Momento'
               : alreadyRecorded
               ? 'Este Cobro Ya Fue Registrado'
+              : alreadySettled
+              ? 'Este Cobro Ya Está Cubierto'
               : accountUnavailable
               ? 'Pago No Disponible Por El Momento'
               : unknownRefusal
@@ -296,6 +318,9 @@ export default function PublicPayPortalPage() {
               ? 'El negocio aún no ha configurado su cuenta bancaria para recibir pagos SPEI. Contacte a su proveedor para completar el pago.'
               : alreadyRecorded
               ? 'El comprobante de este cobro ya fue enviado o el pago ya fue confirmado. Si tienes dudas, contacta directamente al negocio.'
+              : alreadySettled
+              ? loadErrorMessage ||
+                'Este cobro ya está cubierto según el registro del negocio. No transfieras de nuevo; si tienes dudas, contacta directamente al negocio.'
               : accountUnavailable || unknownRefusal
               ? loadErrorMessage ||
                 'No se puede completar este pago por el momento. Contacta al negocio antes de transferir.'
@@ -306,10 +331,14 @@ export default function PublicPayPortalPage() {
     );
   }
 
-  const formattedAmount = new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-  }).format(milestone.amount);
+  const formatMxn = (value: number) =>
+    new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
+  const formattedAmount = formatMxn(milestone.amount);
+  // Only a figure the business actually recorded is shown. A missing key and a
+  // zero are the same fact here — nothing has arrived — and both render nothing
+  // rather than "$0.00 recibidos", which reads as a failed payment (#371).
+  const alreadyReceived = Number(milestone.already_received) || 0;
+  const hasPartialPayment = alreadyReceived > 0;
 
   return (
     <div style={cssVars as React.CSSProperties} className="min-h-screen bg-slate-950 py-8 px-4 sm:px-6 text-white">
@@ -350,6 +379,31 @@ export default function PublicPayPortalPage() {
             </div>
             <span className="text-2xl font-black font-mono text-emerald-400">{formattedAmount}</span>
           </div>
+
+          {/* A partial wire the business already logged (#371). Before this,
+              a payer who had wired part of this cobro came back to the same
+              link and was shown the full amount with no sign anything had
+              arrived. The figure above is still the cobro's total — this page
+              cannot ask for the remainder, because the declaration it files
+              replaces `transferred_amount` instead of adding to it, which
+              would erase the first wire. So both numbers are shown and the
+              payer is told to confirm the balance rather than being quietly
+              asked for the whole sum again. Directly under the amount, where a
+              375px screen cannot scroll past it (#146). */}
+          {hasPartialPayment && (
+            <div
+              role="status"
+              className="rounded-2xl border border-amber-500/30 bg-amber-950/50 p-4 text-sm text-amber-200"
+            >
+              <p className="font-bold">
+                Este negocio ya registró {formatMxn(alreadyReceived)} recibidos de este cobro.
+              </p>
+              <p className="mt-1 text-xs text-amber-200/80">
+                El monto de arriba es el total del cobro ({formattedAmount}), no lo que falta.
+                Confirma con el negocio cuánto resta antes de transferir.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* The route labels its sandbox fixture and this page now reads it

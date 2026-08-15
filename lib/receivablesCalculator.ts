@@ -230,6 +230,45 @@ export function outstandingAmount(item: CollectedBase): number {
   return round(Math.max(owed - collectedAmount(item), 0));
 }
 
+/**
+ * What the tenant has recorded as received against a cobro that is **still
+ * open** — the figure the public payment page discloses (#371).
+ *
+ * `collectedAmount` cannot answer this and should not be changed to: it gates
+ * on `status === 'confirmed'` because a declaration the owner has not confirmed
+ * is not revenue, and every KPI, aging bucket and export depends on that. But
+ * `/pay/[token]` only ever serves a `pending`/`requested` milestone
+ * (`pickPayableMilestone`), so `collectedAmount` there is always 0 and
+ * `outstandingAmount` always equals the full settlement figure. That is why
+ * #371's proposed swap to `outstandingAmount` changes no number on that page:
+ * the two functions are identical over the only rows it can reach.
+ *
+ * A still-open milestone carrying a `transferred_amount` is the owner having
+ * recorded a partial wire through `PUT /api/receivables/[id]` and left the
+ * cobro open for the rest — a tenant-entered fact, not a payer's claim, which
+ * is what makes it safe to show the payer. Clamped to the settlement figure:
+ * disclosing more received than owed would invite a refund conversation this
+ * page cannot support.
+ *
+ * Note what this deliberately does **not** do: it does not become the amount
+ * asked for. `POST /api/receivables/public/[token]` *overwrites*
+ * `transferred_amount` rather than adding to it, so asking a payer for the
+ * remainder would erase the record of the first wire. Making the declaration
+ * cumulative is a money-path decision with consequences for the complemento
+ * parcialidad and #81's overpayment notice, and is filed separately.
+ */
+export function recordedTransferAmount(item: CollectedBase): number {
+  if (!hasDeclaredTransfer(item)) return 0;
+
+  const declared = item.transferred_amount;
+  if (declared === null || declared === undefined) return 0;
+
+  const amount = Number(declared);
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+
+  return round(Math.min(amount, expectedSettlementAmount(item)));
+}
+
 /** Statuses that still represent money the organization expects to receive. */
 const COLLECTABLE_STATUSES = new Set(['pending', 'requested', 'marked_paid', 'confirmed']);
 

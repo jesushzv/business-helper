@@ -149,6 +149,57 @@ describe('what the payer is shown before paying', () => {
     expect(screen.queryByRole('button', { name: /Copiar CLABE/i })).toBeNull();
   });
 
+  it('says what the business already received, and that the total is not net of it', async () => {
+    // #371: a payer who wired part of this cobro used to come back to the same
+    // link and see the full amount with no sign anything had arrived.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { milestone: { ...MILESTONE, already_received: 10000 } })
+    );
+    render(<PublicPayPortalPage />);
+
+    await screen.findByText(/ya registró \$10,000\.00 recibidos/i);
+    // The amount shown is still the cobro's total, and the copy says so rather
+    // than leaving the payer to assume the figure is the remainder.
+    expect(screen.getByText(/es el total del cobro/i)).toBeTruthy();
+    expect(screen.getByText(/confirma con el negocio cuánto resta/i)).toBeTruthy();
+  });
+
+  it('says nothing about partial payment when nothing has arrived', async () => {
+    // Zero and "the key is absent" are the same fact to the payer, and neither
+    // may render "$0.00 recibidos" — which reads as a failed transfer.
+    for (const milestone of [MILESTONE, { ...MILESTONE, already_received: 0 }]) {
+      fetchMock.mockResolvedValueOnce(jsonResponse(200, { milestone }));
+      const { unmount } = render(<PublicPayPortalPage />);
+
+      await screen.findByText('Anticipo 50%');
+      expect(screen.queryByText(/recibidos de este cobro/i)).toBeNull();
+      expect(screen.queryByText(/\$0\.00 recibidos/i)).toBeNull();
+      unmount();
+    }
+  });
+
+  it('tells a payer whose cobro is already covered not to transfer again', async () => {
+    // Distinct from PAYMENT_ALREADY_RECORDED: the money is logged as arrived,
+    // so the instruction is "do not send it twice", not "we have your receipt".
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, {
+        error: {
+          code: 'PAYMENT_ALREADY_SETTLED',
+          message:
+            'Este cobro ya está cubierto según el registro del negocio. No transfieras de nuevo; si tienes dudas, contacta directamente al negocio.',
+        },
+      })
+    );
+    render(<PublicPayPortalPage />);
+
+    // By role: the heading and the body copy differ only in casing, so a bare
+    // text query matches both.
+    await screen.findByRole('heading', { name: /Este Cobro Ya Está Cubierto/i });
+    expect(screen.getByText(/No transfieras de nuevo/i)).toBeTruthy();
+    // Not flattened into the generic "no existe" refusal.
+    expect(screen.queryByText(/no existe o ha expirado/i)).toBeNull();
+  });
+
   it('shows no CLABE at all when the read fails', async () => {
     // A client-side fallback here would put an account number on screen that no
     // organization owns, in front of someone about to transfer money to it.
