@@ -20,22 +20,27 @@
 Please execute Sprint [N] following the full ECC protocol below.
 ```
 
-### Mode B — Workback Workstream Execution (Post-Expert-Review)
+### Mode B — Priority Stack Execution
 
 ```
-Please execute [WS-X] of @[docs/04-execution-testing/product_readiness_workback.md] following the full ECC protocol below.
+Please execute [ITEM] from the priority stack in @[docs/STATUS.md] following the full ECC protocol below.
 ```
+
+> Mode B used to name `product_readiness_workback.md`, which now lives in `docs/99-archive/` —
+> so the injection resolved to nothing and the agent ran without the context it was promised
+> (#318). The live priority stack is `docs/STATUS.md` §03, which is also the only document
+> allowed to say what is done.
 
 ### Mode C — Bug Fix / Hotfix
 
 ```
-Please investigate and fix [ISSUE_DESCRIPTION] following Phase 3 and Phase 4 of the ECC protocol below, using the bug triage template at @[docs/05-templates/bug-investigation-plan.md].
+Please investigate and fix [ISSUE_DESCRIPTION] following Phase 3 and Phase 4 of the ECC protocol below, using the bug triage template at @[docs/05-templates/bug_investigation_plan.md].
 ```
 
 ### Mode D — UX/UI Audit Remediation Execution
 
 ```
-Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synthesis_aug2026.md] and @[docs/04-execution-testing/product_readiness_workback.md] following the full ECC protocol below.
+Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synthesis_aug2026.md] following the full ECC protocol below.
 ```
 
 ---
@@ -74,8 +79,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 |:---|:---|:---|
 | 🔴 P0 | @[docs/04-execution-testing/ux_ui_audit_synthesis_aug2026.md] | Any UI/UX, landing page, or onboarding remediation task |
 | 🟡 P1 | @[docs/03-product-specs/product-roadmap.md] | Sprint execution (Mode A) — check sprint scope and Definition of Done |
-| 🟡 P1 | @[docs/04-execution-testing/product_readiness_workback.md] | Workback execution (Mode B/D) — check workstream tasks, severity, and gate criteria |
-| 🟡 P1 | @[docs/04-execution-testing/product_expert_review_aug2026.md] | Any UI/UX or landing page work — understand expert-identified gaps |
+| 🟡 P1 | @[docs/STATUS.md] | Mode B — the live priority stack, and the only document that may assert status |
 | 🟡 P1 | @[docs/02-architecture/cfdi_integration_architecture.md] | Any CFDI, invoicing, or PAC-related work |
 | 🟡 P1 | @[docs/01-strategy/brand_guidelines_spec.md] | Any UI, copy, or visual work — brand voice, colors, typography |
 | 🟡 P1 | @[docs/02-architecture/technical_design_document.md] | Security audits, performance targets, deployment procedures |
@@ -166,8 +170,10 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
    Happy-path user flows must pass in headless browser.
 
 4. **Documentation Sync**:
-   - **Sprint mode**: Mark sprint completed in @[docs/03-product-specs/product-roadmap.md] with `[x]`
-   - **Workback mode**: Mark workstream tasks completed in @[docs/04-execution-testing/product_readiness_workback.md] with `☑`
+   - **Status goes in @[docs/STATUS.md] and nowhere else.** This step used to say "mark workstream
+     tasks completed in `product_readiness_workback.md` with ☑" — a file that is now read-only
+     archive, and a write that broke the doc contract `tests/unit/docsStatusAuthority.test.ts`
+     enforces (#318). Record what changed *and what you actually ran*, per CLAUDE.md.
    - Update `feature_implementation_spec.md` status to `Completed`
 
 5. **Git Commit**:
@@ -207,24 +213,17 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 
 ## 04 Current Priority Context
 
-### Active Workback Schedule (Post-Expert-Review)
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
 
-> Reference: @[docs/04-execution-testing/product_readiness_workback.md]
+**Read @[docs/STATUS.md] §03.** This section used to restate the workback phase schedule and the
+expert review's gap scores — timelines, gate thresholds and `3/10`-style figures — copied out of a
+document that has since moved to `docs/99-archive/`, behind a reference that resolved to nothing
+(#318). Every number in it was frozen at the moment it was pasted, which is precisely the drift
+the doc contract exists to stop: a template asserting priorities is a second source of truth, and
+the stale one always looks as authoritative as the live one.
 
-| Phase | Workstreams | Timeline | Gate |
-|:---|:---|:---|:---|
-| **Phase 1: Launch Blockers** | WS-A (Credibility), WS-B (CFDI Pricing), WS-C (Signup & Legal) | Aug 4–17 | Gate 1: Credibility ≥ 7.0 |
-| **Phase 2: Conversion Optimization** | WS-D (Mobile), WS-E (SEO/Technical), WS-F (Demo & Trust) | Aug 18–31 | Gate 2: Mobile ≥ 6.0 |
-| **Phase 3: Differentiation** | WS-G (Accounting), WS-H (Bank Reconciliation), WS-I (Referral) | Sep 1–30 | Gate 3: Paid Acquisition Go/No-Go |
-
-### Key Expert Review Gaps to Close
-
-| Gap | Current Score | Target | Priority Action |
-|:---|:---|:---|:---|
-| Credibility / Social proof | 3/10 | 7/10 | Replace placeholder testimonials, add trust badges, add team section |
-| Conversion funnel | 4/10 | 6/10 | Fix signup form, resolve CFDI pricing contradiction, add legal pages |
-| Mobile responsiveness | 4.75/10 | 6.0/10 | Short mobile H1, replace sliders with steppers, sticky CTA |
-| Security / Compliance | 4/10 | 6/10 | Add privacy checkbox, CSP headers, SAT trust messaging |
+Priorities, gates and scores live in `docs/STATUS.md`. The archived workback and expert review
+remain readable in `docs/99-archive/` as history — never as instructions.
 
 ---
 
@@ -240,7 +239,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
 | **Styling** | Tailwind CSS + Brand dark slate theme (#090D16) | `app/globals.css` |
 | **Testing** | Vitest (unit + component) + Playwright | `tests/unit/`, `tests/components/`, `tests/e2e/` |
 | **Deployment** | Vercel Edge (businesshelper.app) | `vercel.json` |
-| **Monitoring** | ⚠️ Not live — `lib/sentry.ts` is a console shim, nothing transmits (P1 in launch memo) | `lib/sentry.ts` |
+| **Monitoring** | `@sentry/nextjs` across browser, Node and Edge; PII scrubbed in `beforeSend`. Whether an alert has been *observed* arriving is a status question — `docs/STATUS.md` | `sentry.*.config.ts`, `lib/sentryScrub.ts` |
 
 ---
 
