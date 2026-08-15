@@ -100,16 +100,12 @@ migration, verified against `pg_indexes`; the full account is in the archive.
 
 ### Deletion semantics
 
-**Record deletion is capability-gated and guarded** (2026-08-14): `delete_records`
-(owner + manager) fronts the clientes/cotizaciones/productos/cobros DELETE routes, which
-previously had no role check at all. Guards: a signed (`accepted`) or `converted` quote is not
-deletable (409 — its token anchors the live `/q/`–`/pay/` link); a milestone is deletable only
-while `pending` with no CFDI (its complementos would CASCADE away); a client with quotes or
-contracts is refused by the DB's `ON DELETE RESTRICT` and now told so in those words instead of
-the old wrong-direction "ya no existe, recarga" — and the confirm dialog no longer promises that
-deletion succeeds. Cotizaciones gained their first UI delete (draft/sent/rejected/expired,
-confirm-guarded). Verified with the Vitest suite (route handlers against Supabase doubles,
-hooks against a mocked `fetch`); no live-database pass — RLS itself was not changed.
+**Record deletion is capability-gated, and the invariants are in the database** (#327/#336).
+`delete_records` (owner + manager) fronts the DELETE routes; a signed or `converted` quote and a
+stamped or claimed milestone are refused. Both FK RESTRICTs and both restrictive `FOR DELETE`
+policies are **applied to production and proven by rejection** — each refusal paired with a
+permitted case, so nothing passes against a rule that refuses everything. How the guards behave
+and why: the archive.
 
 ### Founder admin surface
 
@@ -199,6 +195,20 @@ primary key was proven by making it *reject* a second claim (`23505`) inside a r
 > unverifiable for a day and #95 for three weeks for want of this distinction, and when #96's
 > "needs a deployment" check was finally taken it **failed**, surfacing two live defects nobody had
 > seen. Don't park a reachable check on the founder. Evidence in the archive.
+>
+> **Test the connector; never inherit a previous session's failure.** Two sessions recorded
+> Supabase and Stripe as `MCP error -32003` and parked work accordingly; both answered normally when
+> retried, and one re-test then applied #242's REVOKE, proved #336 by rejection, and ran #70's
+> read-only checks against the deployment.
+>
+> | Reachable | Needs a human |
+> |:---|:---|
+> | Catalog, grants, RLS, migrations (Supabase) | A live Facturapi key + CSDs (#26/#34/#347/#62) |
+> | The deployed app — container egress is blocked, the **Vercel connector fetches it** | An inbox, for a recovery or OTP link (#245) |
+> | Stripe *reads* | Stripe dashboard *writes* — no portal-config POST (#346) |
+> | Issues, PRs, Actions conclusions | Repo settings — no branch-protection op (#38) |
+>
+> When a check is refused, name the call and its error, so the next session re-tests.
 
 ### P1 — Makes launch week survivable
 
