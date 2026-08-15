@@ -3,7 +3,6 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   getAppBaseUrl,
-  getAuthCallbackUrl,
   getStripeWebhookUrl,
   getAssetUrl,
   getPaymentPublicUrl,
@@ -25,8 +24,7 @@ describe('Dynamic URL & Domain Resolution Engine', () => {
     process.env.NEXT_PUBLIC_APP_URL = origEnv;
   });
 
-  it('should construct valid auth callback and Stripe webhook endpoints', () => {
-    expect(getAuthCallbackUrl()).toContain('/auth/callback');
+  it('should construct a valid Stripe webhook endpoint', () => {
     expect(getStripeWebhookUrl()).toContain('/api/stripe/webhook');
   });
 
@@ -115,5 +113,87 @@ describe('No literal origins in outbound link builders', () => {
     }
 
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * The adjacent hazard the scan above cannot see (#131).
+ *
+ * A helper that resolves to one fixed origin is not a *literal* origin, so the
+ * scan is silent on it — and `getAuthCallbackUrl()` was exactly that: exported,
+ * tested, called by nothing, with a docstring naming the very call sites that
+ * were correctly using `window.location.origin` instead. A session tidying up
+ * "why is this URL built by hand when there's a helper?" would have swapped
+ * them in and broken Google sign-in on every Vercel preview at once, since only
+ * the production origin is allow-listed in Supabase Auth.
+ *
+ * So the helper is gone and this keeps it gone. Every Supabase auth redirect in
+ * the app is derived here rather than listed, because the issue enumerated two
+ * call sites and there are three — `/reset-password` builds one too.
+ */
+describe('Supabase auth redirects come from the browser origin (#131)', () => {
+  const AUTH_DIR = join(process.cwd(), 'app', '(auth)');
+
+  function authPages(dir: string, prefix = ''): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) return authPages(join(dir, entry.name), rel);
+      return entry.name.endsWith('.tsx') ? [rel] : [];
+    });
+  }
+
+  it('no module exports or calls a fixed-origin auth callback builder', () => {
+    const offenders: string[] = [];
+    const roots = [join(process.cwd(), 'lib'), join(process.cwd(), 'app')];
+
+    function walk(dir: string, rel = ''): void {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          walk(join(dir, entry.name), childRel);
+          continue;
+        }
+        if (!/\.tsx?$/.test(entry.name)) continue;
+        const source = readFileSync(join(dir, entry.name), 'utf8');
+        for (const line of source.split('\n')) {
+          const trimmed = line.trim();
+          // The note in lib/url.ts explaining the absence is the point.
+          if (trimmed.startsWith('*') || trimmed.startsWith('//')) continue;
+          if (/getAuthCallbackUrl/.test(line)) offenders.push(`${childRel}: ${trimmed}`);
+        }
+      }
+    }
+
+    roots.forEach((root) => walk(root));
+    expect(
+      offenders,
+      'getAuthCallbackUrl() is back. It resolves to one fixed origin, which is ' +
+        'wrong for a redirect that must return the user to the host they left (#131).'
+    ).toEqual([]);
+  });
+
+  it('every redirectTo in (auth) builds its origin from the browser', () => {
+    const pages = authPages(AUTH_DIR);
+    // A parse that matched nothing is indistinguishable from a pass, so the
+    // set is asserted to be the size the tree actually has.
+    expect(pages.length).toBeGreaterThanOrEqual(4);
+
+    const redirectLines: string[] = [];
+    for (const rel of pages) {
+      const source = readFileSync(join(AUTH_DIR, rel), 'utf8');
+      for (const line of source.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('*') || trimmed.startsWith('//')) continue;
+        if (/redirectTo\s*:/.test(trimmed)) redirectLines.push(`${rel}: ${trimmed}`);
+      }
+    }
+
+    // login, register (OAuth) and forgot-password (recovery). #131 named two.
+    expect(redirectLines).toHaveLength(3);
+    for (const entry of redirectLines) {
+      expect(entry, `${entry} — a fixed origin here fails on every preview`).toContain(
+        'window.location.origin'
+      );
+    }
   });
 });

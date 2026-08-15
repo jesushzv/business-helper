@@ -101,6 +101,8 @@ function RegisterFormContent() {
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          // Deliberately the browser's own origin, not `getAppBaseUrl()` —
+          // see the note at the login page's matching call and #131.
           redirectTo: `${window.location.origin}/auth/callback${
             next ? `?next=${encodeURIComponent(next)}` : ''
           }`,

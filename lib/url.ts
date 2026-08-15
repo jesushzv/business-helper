@@ -64,12 +64,26 @@ export function getPaymentPublicUrl(publicToken: string): string {
   return `${origin}/pay/${publicToken}`;
 }
 
-/**
- * Returns the Supabase auth callback redirect URL for live login / register / OTP flows.
+/*
+ * There is deliberately no `getAuthCallbackUrl()` here (#131).
+ *
+ * It existed, was exported, was tested, and was called by nothing — while its
+ * docstring said it was "for live login / register / OTP flows", which named
+ * precisely the call sites that were not using it. Those sites build the
+ * redirect from `window.location.origin` instead, and that is the correct
+ * form: a Supabase auth redirect has to return to the host the user is
+ * actually on. `getAppBaseUrl()` resolves to one fixed origin for every
+ * deployment, so wiring the helper in would have sent every Vercel preview's
+ * Google sign-in to production — and each preview host must be allow-listed in
+ * Supabase Auth → URL Configuration individually, so it would fail everywhere
+ * but production, on Google's consent screen rather than in the app.
+ *
+ * The `tests/unit/url.test.ts` scan cannot catch that hazard: a helper
+ * resolving to a fixed origin is not a *literal* origin. Deleting it is what
+ * catches it. If a server-initiated auth flow ever needs one, it is two lines
+ * to write back — and whoever writes it will have the preview-origin question
+ * in front of them, which is where that decision belongs.
  */
-export function getAuthCallbackUrl(): string {
-  return `${getAppBaseUrl()}/auth/callback`;
-}
 
 /**
  * Returns the official Stripe webhook listener endpoint URL.
