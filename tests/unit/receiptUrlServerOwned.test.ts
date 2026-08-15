@@ -91,18 +91,36 @@ describe('receipt_url is not a client-writable field (#355)', () => {
     expect(source).toContain("hasCapability(role, 'confirm_payment')");
   });
 
-  it('the only other writer is the public payer route, which mints its own URL', () => {
-    // Stated so the set is closed rather than assumed: two server-side writers,
-    // both building the URL from an object they put in the bucket themselves.
-    const writers = filesUnder(API_ROOT, (n) => n === 'route.ts').filter((file) =>
-      /receipt_url\s*[:=]/.test(
-        readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
-      )
-    );
+  it('the only other writer mints its own URL too, wherever the write now lives', () => {
+    // Stated so the set is closed rather than assumed. It used to be two route
+    // files; the public payer route's declaration write moved into
+    // `record_milestone_payment` behind `lib/milestonePayments.ts` (#381), so
+    // the scan covers `lib/` as well. Narrowing it back to `app/api` would have
+    // let the set look closed while a writer sat outside the walk — the shape
+    // of an absence assertion that quietly matches nothing (rule 7).
+    const strip = (source: string) =>
+      source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+    const candidates = [
+      ...filesUnder(API_ROOT, (n) => n === 'route.ts'),
+      ...filesUnder(join(process.cwd(), 'lib'), (n) => n.endsWith('.ts')),
+    ];
+    // A walk that found almost nothing would make the assertion vacuous.
+    expect(candidates.length).toBeGreaterThan(50);
+
+    // `receipt_url:` in a module that never writes is a *mapping* — the
+    // accountant export and the receivables hook both read the column into a
+    // row shape. A writer is a file that names the column and issues a write,
+    // which is the property this test is about.
+    const WRITES = /\.(insert|update|upsert|rpc)\(|p_receipt_url/;
+    const writers = candidates.filter((file) => {
+      const source = strip(readFileSync(file, 'utf8'));
+      return /receipt_url\s*[:=]/.test(source) && WRITES.test(source);
+    });
 
     expect(writers.map((f) => f.replace(process.cwd() + '/', '')).sort()).toEqual([
       'app/api/receivables/[id]/upload/route.ts',
-      'app/api/receivables/public/[token]/route.ts',
+      'lib/milestonePayments.ts',
     ]);
   });
 });

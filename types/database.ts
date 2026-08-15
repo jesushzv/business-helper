@@ -741,6 +741,50 @@ export interface Database {
           claimed_at?: string;
         };
       };
+      /**
+       * The payment ledger (#381) — created by
+       * `20260815120000_milestone_payments.sql`.
+       *
+       * A type is a claim, not evidence (#96): four modules once read three
+       * `clients.credit_*` columns that no migration created. This block and
+       * that migration were written together; `supabase/migrations/` and the
+       * live catalog are what settle it.
+       */
+      milestone_payments: {
+        Row: {
+          id: string;
+          milestone_id: string;
+          organization_id: string;
+          amount: number;
+          source: 'payer_declaration' | 'owner_record' | 'backfill';
+          tracking_reference: string | null;
+          receipt_url: string | null;
+          declared_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          milestone_id: string;
+          organization_id: string;
+          amount: number;
+          source: 'payer_declaration' | 'owner_record' | 'backfill';
+          tracking_reference?: string | null;
+          receipt_url?: string | null;
+          declared_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          milestone_id?: string;
+          organization_id?: string;
+          amount?: number;
+          source?: 'payer_declaration' | 'owner_record' | 'backfill';
+          tracking_reference?: string | null;
+          receipt_url?: string | null;
+          declared_at?: string;
+          created_at?: string;
+        };
+      };
       ai_usage_monthly: {
         Row: {
           organization_id: string;

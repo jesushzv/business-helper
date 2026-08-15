@@ -18,11 +18,13 @@ import { pickPayableMilestone } from '@/lib/publicReceivable';
  * `collectedAmount` returns 0 for anything not `confirmed`, so the two
  * functions are identical over every row this route can serve.
  *
- * What is real is the disclosure, and the fully-covered case. What is
- * deliberately *not* done is asking for the remainder: the route's POST
- * overwrites `transferred_amount` rather than adding to it, so a payer
- * declaring the balance would erase the record of the first wire. That is a
- * money-path decision, filed separately rather than taken in passing.
+ * What is real is the disclosure, and the fully-covered case. Asking for the
+ * remainder was deliberately *not* done here — the route's POST overwrote
+ * `transferred_amount` rather than adding to it, so a payer declaring the
+ * balance would have erased the record of the first wire. That was filed as
+ * #381, decided as a declarations table, and has now landed: the POST
+ * accumulates and this page asks for what is left. The assertions below moved
+ * with it.
  */
 
 /**
@@ -171,13 +173,23 @@ describe('recordedTransferAmount', () => {
 });
 
 describe('GET /api/receivables/public/[token] discloses what arrived', () => {
-  it('serves already_received alongside the full amount, not netted off it', async () => {
+  it('nets already_received off the figure asked for, and still discloses both', async () => {
     const { status, body } = await getPayload([{ ...OPEN, transferred_amount: 20000 }]);
 
     expect(status).toBe(200);
-    // The asked-for figure is deliberately unchanged — see the route comment.
-    expect(body.milestone.amount).toBe(48720);
+    // **This assertion is the inverse of what it was**, and deliberately so.
+    // #371 shipped informational-only: the figure asked for stayed the full
+    // settlement total, because the declaration *replaced* `transferred_amount`
+    // and asking for the remainder would have erased the earlier wire.
+    //
+    // #381 made declarations accumulate, and the two halves had to ship
+    // together — accumulating while still asking for the whole sum would have
+    // made the total overshoot ($20,000 + $48,720 on a $48,720 cobro) instead
+    // of undershoot. The old expectation was pinning a constraint that no
+    // longer exists.
+    expect(body.milestone.amount).toBe(28720);
     expect(body.milestone.already_received).toBe(20000);
+    expect(body.milestone.settlement_total).toBe(48720);
   });
 
   it('reports zero rather than omitting the key when nothing has arrived', async () => {

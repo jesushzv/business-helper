@@ -199,6 +199,33 @@ export async function DELETE(
               'así que no se puede eliminar.');
     }
 
+    // A declared payment is the record that money moved, and
+    // `milestone_payments.milestone_id` is `ON DELETE RESTRICT` (#381) — so
+    // without this pre-check the DELETE below fails with a bare `23503` and
+    // the tenant is told the cobro "tiene registros relacionados", naming
+    // nothing they could act on. Same treatment the stamp claim gets above:
+    // refuse in words that say which record is in the way.
+    //
+    // Reachable in practice: a `pending` milestone carrying a
+    // `transferred_amount` is a partial wire the owner logged and left open,
+    // which is exactly what the backfill turned into a ledger row.
+    const { data: declaredPayment } = await supabase
+      .from('milestone_payments')
+      .select('id')
+      .eq('milestone_id', id)
+      .eq('organization_id', organizationId)
+      .limit(1)
+      .maybeSingle();
+
+    if (declaredPayment) {
+      return apiError(
+        409,
+        'MILESTONE_PROTECTED',
+        'Este cobro ya tiene un pago registrado, así que no se puede eliminar. ' +
+          'Si el pago fue un error, corrígelo con tu contador antes de borrar el cobro.'
+      );
+    }
+
     // Only a milestone nothing has happened to yet may be deleted. Once the
     // payment loop starts (`requested`/`marked_paid`/`confirmed`) or a CFDI
     // exists for it, the row is a money/fiscal record — and deleting it would

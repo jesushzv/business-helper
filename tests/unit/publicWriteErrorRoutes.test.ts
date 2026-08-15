@@ -51,16 +51,13 @@ vi.mock('@/lib/supabase/service', () => ({
           }),
         };
       }
-      return {
-        update: () => ({
-          eq: () => ({
-            in: () => ({
-              select: async () => ({ data: null, error: state.updateError }),
-            }),
-          }),
-        }),
-      };
+      throw new Error(`unexpected table ${table}`);
     },
+    // The declaration is one transaction since #381 (`record_milestone_payment`
+    // does the claim, the ledger row and the new total together). The failure
+    // this file is about is the same failure — it just arrives from the RPC
+    // now, and the original error still has to reach the payer's message.
+    rpc: async () => ({ data: null, error: state.updateError }),
   }),
 }));
 
