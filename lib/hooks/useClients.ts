@@ -79,6 +79,31 @@ const INITIAL_DEMO_CLIENTS: Client[] = [
 
 const LOCAL_STORAGE_KEY = 'business_helper_clients_v1';
 
+/**
+ * The demo sandbox's client list, read without touching it (#360).
+ *
+ * `useClient(id)` resolves a single client and needs the same sandbox this hook
+ * serves, so the fixtures stay defined once here rather than being copied into
+ * a second module where the two could drift.
+ *
+ * Read-only on purpose: `fetchClients` below seeds `localStorage` when the
+ * sandbox is empty, and a by-id read has no business doing that — visiting a
+ * client's page would otherwise write the directory as a side effect. Callers
+ * must gate on `isClientDemoMode()` themselves; this function does not, so that
+ * the gate stays visible at the call site.
+ */
+export function readDemoClients(): Client[] {
+  try {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const parsed = saved ? JSON.parse(saved) : null;
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as Client[];
+  } catch {
+    // A sandbox with unreadable storage falls back to the fixtures, same as the
+    // list read does.
+  }
+  return INITIAL_DEMO_CLIENTS;
+}
+
 export interface UseClientsOptions {
   /**
    * Read active *and* archived clients, for surfaces that only need to put a
@@ -321,12 +346,11 @@ export function useClients(options: UseClientsOptions = {}) {
     return serverRow;
   };
 
-  const getClientById = useCallback(
-    (id: string): Client | undefined => {
-      return clients.find((c) => c.id === id);
-    },
-    [clients]
-  );
+  // `getClientById` lived here and was removed with #360. Its only caller was
+  // the detail page, and resolving one record out of whichever list happened to
+  // be loaded is what sent an archived client to "Cliente no encontrado".
+  // `useClient(id)` reads `GET /api/clients/[id]` instead; a by-id lookup over
+  // this list would re-create the dead end for the next surface that needs one.
 
   const filteredClients = useMemo(() => {
     if (!searchQuery.trim()) return clients;
@@ -355,6 +379,5 @@ export function useClients(options: UseClientsOptions = {}) {
     updateClient,
     deleteClient,
     archiveClient,
-    getClientById,
   };
 }

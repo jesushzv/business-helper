@@ -11,6 +11,9 @@ import type { Client } from '@/types';
  * any quote or contract can never be deleted (ON DELETE RESTRICT), so the
  * directory had no escape hatch. The archived view is where they go, and the
  * one thing it must do is let them back.
+ *
+ * Since #360 it must also let them be *read*: an archived client's profile
+ * resolves and says it is archived, so the card links to it like any other.
  */
 
 const CLIENT = {
@@ -23,21 +26,23 @@ const CLIENT = {
 } as unknown as Client;
 
 describe('ClientCard in the archived view (#337)', () => {
-  it('offers Restaurar instead of a link to a page that would 404', () => {
-    // The detail page resolves its client from the active directory, so an
-    // archived client has no profile to reach. A link into "Cliente no
-    // encontrado" would be the dead end this feature removes.
+  it('offers Restaurar, and keeps the profile reachable (#360)', () => {
+    // This assertion used to be its opposite, and the reason was sound at the
+    // time: the detail page resolved its client from the active directory, so
+    // an archived client had no profile to reach and the link led to "Cliente
+    // no encontrado". #360 removed that premise — the page reads
+    // `GET /api/clients/[id]`, which answers for archived rows, and states the
+    // archived status itself. Their history is browsable again, so hiding the
+    // link would now be the dead end.
     render(<ClientCard client={CLIENT} onRestore={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: /Restaurar/i })).toBeTruthy();
-    expect(screen.queryByRole('link', { name: /Ver Perfil/i })).toBeNull();
-    // The name is text, not a link that goes nowhere. Asserted by destination
-    // rather than by accessible name — the WhatsApp anchor carries the client
-    // name inside its prefilled message.
+    // Asserted by destination rather than by accessible name — the WhatsApp
+    // anchor carries the client name inside its prefilled message.
     const profileLinks = screen
       .queryAllByRole('link')
-      .filter((a) => a.getAttribute('href')?.startsWith('/clients/'));
-    expect(profileLinks).toHaveLength(0);
+      .filter((a) => a.getAttribute('href') === '/clients/c-1');
+    expect(profileLinks.length).toBeGreaterThan(0);
     expect(screen.getByText('Constructora del Bajío')).toBeTruthy();
   });
 
