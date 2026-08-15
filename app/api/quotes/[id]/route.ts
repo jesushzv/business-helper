@@ -106,18 +106,12 @@ export async function PUT(
       // Scoped by organization, so another tenant's id is indistinguishable
       // from one that does not exist — the same 404 the write below gives.
       if (!current) {
-        return NextResponse.json(
-          { error: { code: 'NOT_FOUND', message: 'Cotización no encontrada' } },
-          { status: 404 }
-        );
+        return apiError(404, 'NOT_FOUND', 'Cotización no encontrada');
       }
 
       const verdict = quoteContentEditVerdict(current.status);
       if (!verdict.ok) {
-        return NextResponse.json(
-          { error: { code: verdict.code, message: verdict.message } },
-          { status: verdict.status }
-        );
+        return apiError(verdict.status, verdict.code, verdict.message);
       }
 
       resetSentQuoteToDraft = verdict.resetToDraft;
