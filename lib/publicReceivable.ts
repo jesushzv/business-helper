@@ -17,6 +17,18 @@ export interface PublicMilestone {
 }
 
 /**
+ * Deliberately generic in the row type (#371).
+ *
+ * Each of the three callers selects a different set of columns, and the GET
+ * route additionally needs the money columns — `transferred_amount` above all,
+ * which `recordedTransferAmount` requires its caller to have selected (#351).
+ * A signature returning the base `PublicMilestone` would erase whatever the
+ * caller actually read, forcing a cast at exactly the seam where dropping a
+ * money column is the defect. Preserving `T` keeps the obligation visible
+ * where the select is written.
+ */
+
+/**
  * The payer-facing target: the earliest milestone still awaiting payment.
  *
  * GET and POST must agree on this predicate. Both used to take `[0]` of an
@@ -26,7 +38,7 @@ export interface PublicMilestone {
  * defect was unreachable while #79 404'd every request; fixing #79 made it
  * live, so both are fixed together.
  */
-export function pickPayableMilestone(milestones: PublicMilestone[]): PublicMilestone | null {
+export function pickPayableMilestone<T extends PublicMilestone>(milestones: T[]): T | null {
   const payable = milestones
     .filter((m) => m.status === 'pending' || m.status === 'requested')
     .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')));
