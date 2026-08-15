@@ -218,16 +218,11 @@ export async function DELETE(
       .maybeSingle();
 
     if (declaredPayment) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'MILESTONE_PROTECTED',
-            message:
-              'Este cobro ya tiene un pago registrado, así que no se puede eliminar. ' +
-              'Si el pago fue un error, corrígelo con tu contador antes de borrar el cobro.',
-          },
-        },
-        { status: 409 }
+      return apiError(
+        409,
+        'MILESTONE_PROTECTED',
+        'Este cobro ya tiene un pago registrado, así que no se puede eliminar. ' +
+          'Si el pago fue un error, corrígelo con tu contador antes de borrar el cobro.'
       );
     }
 
