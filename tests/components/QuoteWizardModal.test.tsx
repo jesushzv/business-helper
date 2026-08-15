@@ -250,14 +250,18 @@ describe('editing an existing quote (#340)', () => {
   } as any;
 
   function renderEditor(quote = existingQuote) {
-    const onSubmit = vi.fn(async () => {});
+    // Typed as `SubmitFn`, not a bare `vi.fn(async () => {})`: an untyped mock
+    // has a zero-length parameter tuple, so `mock.calls[0][0]` is a type error
+    // — and one `tsc` catches while `vitest` does not, because Vitest strips
+    // the annotations. Green tests are not a typecheck.
+    const onSubmit = vi.fn<SubmitFn>(async () => {});
     const onClose = vi.fn();
     render(
       <QuoteWizardModal
         isOpen
         onClose={onClose}
         clients={clients}
-        onSubmit={onSubmit as unknown as SubmitFn}
+        onSubmit={onSubmit}
         quote={quote}
       />
     );
@@ -288,13 +292,7 @@ describe('editing an existing quote (#340)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Guardar Cambios/i }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    const submitted = onSubmit.mock.calls[0][0] as unknown as {
-      title: string;
-      valid_until: string;
-      notes: string;
-      line_items: Array<{ description: string; quantity: number; unit_price: number }>;
-      taxOptions: { applyIva: boolean };
-    };
+    const submitted = onSubmit.mock.calls[0][0];
 
     expect(submitted.line_items[0].unit_price).toBe(300);
     expect(submitted.line_items[0].quantity).toBe(10);
@@ -315,10 +313,7 @@ describe('editing an existing quote (#340)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Guardar Cambios/i }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    const submitted = onSubmit.mock.calls[0][0] as unknown as {
-      taxOptions: { applyIva: boolean };
-    };
-    expect(submitted.taxOptions.applyIva).toBe(false);
+    expect(onSubmit.mock.calls[0][0].taxOptions.applyIva).toBe(false);
   });
 
   it('names the cost of editing a sent quote before the tap', () => {
