@@ -1,0 +1,25 @@
+-- ----------------------------------------------------------------------------
+-- stripe_webhook_events: revoke the named roles, not just rely on RLS (#242)
+--
+-- `20260806120000_security_hardening.sql` creates this table with RLS enabled
+-- and zero policies, and says so on purpose: the ledger is written only by the
+-- service-role client in the webhook route, which bypasses RLS. That reasoning
+-- is right about *rows* and silent about *privileges*. Supabase's default
+-- privileges GRANT on new tables in `public` to `anon` and `authenticated` as
+-- **named roles**, and TRUNCATE is not governed by RLS at all — an anon
+-- TRUNCATE succeeded in the reproduction that found this.
+--
+-- Truncating this ledger erases the webhook idempotency record, so a replayed
+-- Stripe delivery re-applies a tier change. Not reachable through PostgREST
+-- today (it has no TRUNCATE verb), so this is defense in depth — the same class
+-- as #76, at table level rather than function level.
+--
+-- This is the one server-only table that predates the pattern: `otp_send_log`
+-- (20260807000000), `ai_usage_monthly` (20260812210000) and `cfdi_stamp_claims`
+-- (20260813010000) all carry it. A separate file because 20260806120000 is
+-- applied everywhere and an applied migration is never edited.
+--
+-- Live verification is #76's `aclexplode` query, per the issue; CI proves the
+-- refusal itself in `supabase/ci/assertions.sql` §10.
+-- ----------------------------------------------------------------------------
+REVOKE ALL ON TABLE public.stripe_webhook_events FROM PUBLIC, anon, authenticated;
