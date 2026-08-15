@@ -213,3 +213,141 @@ describe('reopening starts clean (#256)', () => {
     expect(title.value).toBe('');
   });
 });
+
+/**
+ * Editing an existing quote (#340).
+ *
+ * Until this, the only mutation any screen issued was `updateQuoteStatus`,
+ * which sends `{ status }` alone — so raising a total was reachable from the
+ * API and from nothing an owner could tap. The founder decided a quote should
+ * be editable after creation; the same three steps serve both, because an
+ * editor that re-implemented conceptos and taxes would be a second place for
+ * the arithmetic the client is shown to diverge from the arithmetic stored.
+ *
+ * The question asked here is the tenant's, not the component's (#146): can an
+ * owner open a quote they already made, change one figure, and save it without
+ * anything else moving?
+ */
+describe('editing an existing quote (#340)', () => {
+  const existingQuote = {
+    id: 'quote-1',
+    client_id: 'client-1',
+    title: 'Suministro para la obra Reforma',
+    status: 'sent',
+    currency: 'MXN',
+    valid_until: '2026-12-31',
+    notes: 'Entrega en 48 horas.',
+    line_items: [
+      { description: 'Cemento gris 50kg', quantity: 10, unit_price: 250, sat_code: '30111500', unit: 'E48' },
+    ],
+    subtotal_amount: 2500,
+    iva_amount: 400,
+    retencion_isr_amount: 0,
+    retencion_iva_amount: 0,
+    total_amount: 2900,
+    bank_account_id: null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+
+  function renderEditor(quote = existingQuote) {
+    const onSubmit = vi.fn(async () => {});
+    const onClose = vi.fn();
+    render(
+      <QuoteWizardModal
+        isOpen
+        onClose={onClose}
+        clients={clients}
+        onSubmit={onSubmit as unknown as SubmitFn}
+        quote={quote}
+      />
+    );
+    return { onSubmit, onClose };
+  }
+
+  it('opens on the quote as it stands rather than on a blank form', () => {
+    renderEditor();
+
+    expect(
+      (screen.getByPlaceholderText(/Suministro de Cemento/i) as HTMLInputElement).value
+    ).toBe('Suministro para la obra Reforma');
+
+    fireEvent.click(next());
+    expect(priceInput().value).toBe('250');
+    expect(quantityInput().value).toBe('10');
+  });
+
+  it('saves one changed figure without moving anything else', async () => {
+    // The round trip is the point. An owner opening the form to fix a price
+    // must not silently rewrite the description, the dates, or the taxes their
+    // client already saw.
+    const { onSubmit } = renderEditor();
+
+    fireEvent.click(next());
+    fireEvent.change(priceInput(), { target: { value: '300' } });
+    fireEvent.click(next());
+    fireEvent.click(screen.getByRole('button', { name: /Guardar Cambios/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const submitted = onSubmit.mock.calls[0][0] as unknown as {
+      title: string;
+      valid_until: string;
+      notes: string;
+      line_items: Array<{ description: string; quantity: number; unit_price: number }>;
+      taxOptions: { applyIva: boolean };
+    };
+
+    expect(submitted.line_items[0].unit_price).toBe(300);
+    expect(submitted.line_items[0].quantity).toBe(10);
+    expect(submitted.line_items[0].description).toBe('Cemento gris 50kg');
+    expect(submitted.title).toBe('Suministro para la obra Reforma');
+    expect(submitted.valid_until).toBe('2026-12-31');
+    expect(submitted.notes).toBe('Entrega en 48 horas.');
+    // Inferred from the stored amounts, not reset to the create-time default —
+    // otherwise a quote written without IVA would gain 16% on a title fix.
+    expect(submitted.taxOptions.applyIva).toBe(true);
+  });
+
+  it('keeps a quote written without IVA free of it', async () => {
+    const { onSubmit } = renderEditor({ ...existingQuote, iva_amount: 0, total_amount: 2500 });
+
+    fireEvent.click(next());
+    fireEvent.click(next());
+    fireEvent.click(screen.getByRole('button', { name: /Guardar Cambios/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const submitted = onSubmit.mock.calls[0][0] as unknown as {
+      taxOptions: { applyIva: boolean };
+    };
+    expect(submitted.taxOptions.applyIva).toBe(false);
+  });
+
+  it('names the cost of editing a sent quote before the tap', () => {
+    renderEditor();
+    fireEvent.click(next());
+    fireEvent.click(next());
+
+    // The link in the client's hands stops opening. Discovering that after
+    // saving is the #146 shape; it sits above the submit button, where a
+    // 375px screen cannot scroll past it.
+    expect(screen.getByText(/volverá a Borrador/i)).toBeTruthy();
+    expect(screen.getByText(/dejará de abrir hasta que la vuelvas a enviar/i)).toBeTruthy();
+  });
+
+  it('says nothing about the link when the quote was never sent', () => {
+    renderEditor({ ...existingQuote, status: 'draft' });
+    fireEvent.click(next());
+    fireEvent.click(next());
+
+    expect(screen.queryByText(/volverá a Borrador/i)).toBeNull();
+  });
+
+  it('creates, rather than edits, when no quote is passed', () => {
+    renderWizard();
+    goToLineItems();
+    fillFirstItem('100');
+    fireEvent.click(next());
+
+    expect(screen.getByRole('button', { name: /Generar y Compartir/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Guardar Cambios/i })).toBeNull();
+  });
+});

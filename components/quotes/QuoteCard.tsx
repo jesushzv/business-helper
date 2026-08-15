@@ -7,7 +7,7 @@ import { generateWhatsAppLink } from '@/lib/whatsappLink';
 import { track } from '@/lib/analytics';
 import { getQuotePublicUrl } from '@/lib/url';
 import { isQuoteExpired } from '@/lib/quoteSignability';
-import { MessageSquare, ArrowRight, CheckCircle, FileText, Trash2, AlertTriangle } from 'lucide-react';
+import { MessageSquare, ArrowRight, CheckCircle, FileText, Trash2, AlertTriangle, Pencil } from 'lucide-react';
 
 interface QuoteCardProps {
   quote: Quote;
@@ -57,6 +57,19 @@ interface QuoteCardProps {
    * asserting a delivery nothing confirmed.
    */
   onShare?: (quoteId: string) => void | Promise<void>;
+  /**
+   * Opens the editor for this quote (#340).
+   *
+   * Offered only while the quote's content is still editable — `draft` and
+   * `sent`. An `accepted` or `converted` quote carries the client's OTP
+   * signature, and the server refuses to change the document behind it
+   * (`lib/quoteEditability.ts`); showing a button that leads to that refusal
+   * would be the corollary of CLAUDE.md's rule about never sending a user to
+   * fix something they lack the write for.
+   *
+   * Absent on a surface that does not offer editing.
+   */
+  onEdit?: (quoteId: string) => void;
 }
 
 export const QuoteCard: React.FC<QuoteCardProps> = ({
@@ -66,6 +79,7 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({
   onDelete,
   creditBlocked = null,
   onShare,
+  onEdit,
 }) => {
   const [converting, setConverting] = useState(false);
 
@@ -192,6 +206,22 @@ export const QuoteCard: React.FC<QuoteCardProps> = ({
             <ArrowRight className="w-3.5 h-3.5 shrink-0 text-slate-400" />
           </a>
         </div>
+
+        {/* Editing a `sent` quote sends it back to Borrador and retires the
+            link the client is holding (#340), so the button says so before the
+            tap rather than after — the same courtesy the delete flow pays. */}
+        {onEdit && (quote.status === 'draft' || quote.status === 'sent') && (
+          <button
+            type="button"
+            onClick={() => onEdit(quote.id)}
+            className="w-full min-h-[48px] px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors text-xs sm:text-sm"
+          >
+            <Pencil className="w-4 h-4 shrink-0 text-slate-300" />
+            <span>
+              {quote.status === 'sent' ? 'Editar (vuelve a Borrador)' : 'Editar Cotización'}
+            </span>
+          </button>
+        )}
 
         {onDelete && quote.status !== 'accepted' && quote.status !== 'converted' && (
           <button
