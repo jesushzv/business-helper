@@ -21,7 +21,7 @@
 - [ ] All database queries in `lib/storageSupabase.ts` scope explicitly to `organization_id`.
 - [ ] Zero instances of legacy `freelancer_id` params remain in active API handlers.
 - [ ] Multi-tenant RLS policies verified across all 9 PostgreSQL tables.
-- [ ] Test suite coverage maintained above **85%**.
+- [ ] Test suite coverage maintained above the level `vitest.config.ts` enforces.
 
 ---
 

@@ -32,7 +32,7 @@ After 15+ sprints, Mi Pacto is a **production-grade SaaS** with:
 | **MX Tax Compliance** | RFC Modulo-11 validator, RESICO ISR/IVA withholding calculator, Facturapi CFDI integration started |
 | **SaaS Infrastructure** | Stripe subscriptions (Free/Starter/Pro), promo codes, email campaigns, admin panel |
 | **Comms** | WhatsApp Click-to-Chat deep links, React Email + Resend transactional emails |
-| **Quality** | 85%+ coverage gate, Playwright E2E, Husky pre-commit hooks, ESLint zero-warnings |
+| **Quality** | Coverage gate enforced in CI (thresholds in `vitest.config.ts`), Playwright E2E, ESLint zero-warnings |
 
 ### Why It's Not Converting (696 Visitors → 0 Signups)
 

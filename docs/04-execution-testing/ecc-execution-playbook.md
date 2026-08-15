@@ -13,7 +13,7 @@
 
 ## 01 Overview of ECC Integration
 
-The ECC framework equips AI assistants with 67 domain-specialized agents, 281 skills, and automated pre-commit quality gates. This playbook standardizes a **4-Phase Sprint Loop** ensuring zero technical debt, 85%+ test coverage, and 100% PostgreSQL RLS multi-tenant security compliance.
+The ECC framework equips AI assistants with 67 domain-specialized agents, 281 skills, and automated pre-commit quality gates. This playbook standardizes a **4-Phase Sprint Loop** ensuring zero technical debt, coverage at or above the gate in `vitest.config.ts`, and 100% PostgreSQL RLS multi-tenant security compliance.
 
 ```mermaid
 graph TD
@@ -106,7 +106,7 @@ graph TD
    * If TypeScript or ESLint errors occur, invoke `@build-error-resolver`.
    * Command: `npm run typecheck && npm run lint`. Both must exit clean. `npm run lint` runs `next lint --max-warnings=0` (enforced since #46), so its exit code is authoritative — any warning fails it.
 2. **Coverage Gate Verification**:
-   * Command: `npm run test:coverage` (Must achieve `>= 85%` line/statement coverage via Vitest V8 reporter).
+   * Command: `npm run test:coverage`. The thresholds it enforces are declared in `vitest.config.ts` and are the only statement of them; CI runs this on every pull request (#51).
 3. **End-to-End Verification**:
    * Delegate to `@e2e-runner` to run Playwright E2E browser tests.
    * Command: `npx playwright test`
@@ -148,6 +148,6 @@ Every feature and sprint MUST pass this checklist before being considered comple
 - [ ] **Security**: PostgreSQL RLS policies active for `organization_id` multi-tenancy.
 - [ ] **Mobile UX**: Tested on mobile viewport; WhatsApp links pre-filled and functional.
 - [ ] **Typecheck & Lint**: `npm run typecheck` and `npm run lint` pass with 0 warnings.
-- [ ] **Coverage Gate**: `npm run test` verifies line/branch coverage `>= 85%`.
+- [ ] **Coverage Gate**: `npm run test:coverage` passes against the thresholds in `vitest.config.ts`. (`npm run test` does *not* measure coverage — it is lint + typecheck + `vitest run`.)
 - [ ] **E2E Tests**: Playwright happy-path user flows pass cleanly in headless browser.
 - [ ] **Roadmap**: [`product-roadmap.md`](../../docs/03-product-specs/product-roadmap.md) updated with checked task boxes.
