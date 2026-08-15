@@ -39,10 +39,11 @@ const target = resolveDeployedTarget(process.env);
 
 test.describe(`Deployed smoke test — ${target.origin}`, () => {
   /**
-   * #70 item 1. Both fields matter and neither implies the other: `status`
-   * additionally folds in `auditReleaseGates()` (see app/api/health/route.ts),
-   * while `services.*` is what actually reports whether the deployment can
-   * reach Supabase.
+   * #70 item 1. Both fields matter and neither implies the other: `status` is
+   * the deployment's own summary, while `services.*` names which half is
+   * missing. Until #317 `status` also folded in `auditReleaseGates()`, whose
+   * six gates were literal `true`s — so a `healthy` here asserted things
+   * nobody had measured.
    */
   test('01 /api/health reports healthy with database connected and auth active', async ({
     request,
@@ -63,8 +64,8 @@ test.describe(`Deployed smoke test — ${target.origin}`, () => {
     const body = JSON.parse(raw);
 
     // The whole body goes into the failure message: "expected healthy, got
-    // degraded" alone does not say which of the six release gates or which
-    // service is the reason, and the scheduled run is nobody's foreground task.
+    // degraded" alone does not say which service is the reason, and the
+    // scheduled run is nobody's foreground task.
     const detail = `\nFull /api/health body:\n${JSON.stringify(body, null, 2)}`;
 
     expect(

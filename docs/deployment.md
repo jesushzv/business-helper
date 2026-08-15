@@ -200,7 +200,8 @@ Or the single check on its own:
 curl -i https://businesshelper.app/api/health
 ```
 
-Expected HTTP 200 payload (the deployed route also folds in `releaseGates`):
+Expected HTTP 200 payload — every field is derived from what the deployment can actually see
+(the route used to serve a hardcoded release-gate report alongside it, removed in #317):
 ```json
 {
   "status": "healthy",
