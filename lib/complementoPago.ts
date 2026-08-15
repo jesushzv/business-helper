@@ -269,6 +269,24 @@ export interface IssueComplementParams {
   milestoneId: string;
   /** What was received. Defaults to the whole outstanding balance. */
   amount?: number | null;
+  /**
+   * Whether `amount` is the **cumulative** total received against this cobro
+   * rather than the sum of this one payment (#381).
+   *
+   * `milestones.transferred_amount` became a running total the moment
+   * declarations started accumulating, and the confirmation route passes that
+   * column. Read as a single payment it is too large by whatever earlier
+   * complements already declared: with parcialidad 1 filed for $20,000 and a
+   * $48,720 cobro fully paid, `planPaymentComplement` returns the right
+   * `amount` — the ImpSaldoAnt clamp catches it — but an `overpaidAmount` of
+   * $20,000. That figure is not cosmetic. It tells Don Roberto to
+   * "devuélvelo a tu cliente" (#81's notice), and it is persisted onto the
+   * complement row and into the audit log as a fiscal fact.
+   *
+   * Defaults false, which is what `POST /api/invoices/[id]/complement` means:
+   * there the tenant types the amount of one payment.
+   */
+  amountIsCumulative?: boolean;
   /** SAT c_FormaPago. '03' (transferencia) is what a SPEI confirmation means. */
   paymentForm?: string | null;
   /** FechaPago. Defaults to now. */
@@ -328,7 +346,21 @@ export async function issuePaymentComplement(
     };
   }
 
-  const plan = planPaymentComplement(milestone, existing || [], params.amount ?? null);
+  // Everything earlier complements already declared. Subtracted when the caller
+  // hands over a cumulative figure, so what reaches the plan is this payment
+  // (#381) — see `amountIsCumulative`.
+  const alreadyDeclared = (existing || [])
+    .filter((c: { status?: string }) => c.status === 'issued')
+    .reduce((sum: number, c: { amount?: number | string | null }) => sum + toAmount(c.amount), 0);
+
+  const requestedAmount =
+    params.amount === null || params.amount === undefined
+      ? null
+      : params.amountIsCumulative
+        ? toMoney(params.amount - alreadyDeclared)
+        : params.amount;
+
+  const plan = planPaymentComplement(milestone, existing || [], requestedAmount);
 
   if (!plan.required) {
     return { ok: true, issued: false, reason: plan.reason, message: plan.message };

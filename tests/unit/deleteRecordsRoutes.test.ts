@@ -29,8 +29,8 @@ const authState = {
  * Per-table answer queues: every `.maybeSingle()` shifts the next answer off
  * the queue for the table its chain was created with, defaulting to no-row.
  * The routes consult more than one table now (quotes → contracts first,
- * milestones → cfdi_stamp_claims first), so a single flat queue would couple
- * the tests to call order.
+ * milestones → cfdi_stamp_claims → milestone_payments first), so a single flat
+ * queue would couple the tests to call order.
  */
 const dbState = {
   tables: {} as Record<string, Array<{ data: unknown; error: unknown }>>,
@@ -55,7 +55,10 @@ function makeSupabaseMock() {
   return {
     from: vi.fn((table: string) => {
       const chain = { table } as { table: string } & Record<string, ReturnType<typeof vi.fn>>;
-      for (const method of ['delete', 'select', 'eq', 'in']) {
+      // `limit` joined the list with the milestone_payments pre-check (#381):
+      // a cobro can carry several declared payments, so that read takes the
+      // first rather than asking maybeSingle() to choose among many.
+      for (const method of ['delete', 'select', 'eq', 'in', 'limit']) {
         chain[method] = vi.fn().mockReturnValue(chain);
       }
       chain.maybeSingle = vi.fn(async () => dbState.tables[table]?.shift() ?? NO_ROW);
@@ -244,6 +247,27 @@ describe('DELETE /api/receivables/[id] — a cobro with movement is a money reco
     expect(chain.eq).toHaveBeenCalledWith('status', 'pending');
     expect(chain.eq).toHaveBeenCalledWith('cfdi_status', 'none');
     expect(chain.eq).toHaveBeenCalledWith('organization_id', 'org-1');
+  });
+
+  it('refuses a milestone that already has a declared payment, by name', async () => {
+    // `milestone_payments.milestone_id` is ON DELETE RESTRICT (#381), so
+    // without this pre-check the DELETE fails with a bare 23503 and the tenant
+    // reads "tiene registros relacionados" — a refusal naming a table they
+    // cannot see. Reachable: a `pending` milestone carrying a
+    // `transferred_amount` is a partial wire the owner logged and left open,
+    // which is exactly what the backfill turned into a ledger row.
+    dbState.tables = {
+      milestones: [parentContract('draft')],
+      milestone_payments: [{ data: { id: 'payment-1' }, error: null }],
+    };
+    const { DELETE } = await import('@/app/api/receivables/[id]/route');
+    const res = await DELETE(req(), { params });
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.code).toBe('MILESTONE_PROTECTED');
+    expect(body.error.message).toMatch(/pago registrado/i);
+    expect(chainsFor('milestones').some((c) => c.delete.mock.calls.length > 0)).toBe(false);
   });
 
   it('refuses a milestone with an in-flight stamp claim before touching the row', async () => {

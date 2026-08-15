@@ -54,6 +54,9 @@ interface PayableMilestone extends PublicMilestone {
  * queries run through the service-role client scoped to the exact token.
  */
 
+/** Centavos, not float dust: 48720 - 20000.1 must not reach a payer as 28719.899999999998. */
+const round = (value: number) => Math.round(value * 100) / 100;
+
 const DEMO_MILESTONE = {
   id: 'milestone-demo-1',
   label: 'Anticipo 50% — Suministro Cemento',
@@ -199,21 +202,27 @@ export async function GET(
       milestone: {
         id: milestone.id,
         label: milestone.label,
-        // What this payer is asked to transfer, which is the stamped invoice's
-        // total wherever there is one (#341). This is the load-bearing half of
-        // that fix: the payer's declaration becomes `transferred_amount`, and
-        // `planPaymentComplement` measures it against `cfdi_total`. Asking for
-        // the milestone amount here is what left the owner being told to refund
-        // $0.01 to a client who had paid in full.
-        amount: settlementTotal,
-        // Disclosed, deliberately *not* subtracted from `amount` above (#371).
-        // The declaration this page files overwrites `transferred_amount`
-        // rather than adding to it, so asking for the remainder would erase the
-        // record of the wire already made. Until that is cumulative, the honest
-        // move is to show the payer both figures and say to confirm the balance
-        // with the business — not to quietly ask for the whole sum again, and
-        // not to ask for a remainder the system would then lose.
+        // What this payer is asked to transfer: the settlement figure **net of
+        // what the business has already recorded**.
+        //
+        // The base is the stamped invoice's total wherever there is one (#341)
+        // — `planPaymentComplement` measures the payment against `cfdi_total`,
+        // and asking for the milestone amount instead is what left the owner
+        // being told to refund $0.01 to a client who had paid in full.
+        //
+        // Subtracting `already_received` is #371's headline behaviour, and it
+        // could not be taken until #381 landed: while the declaration
+        // *replaced* `transferred_amount`, asking for the remainder erased the
+        // record of the earlier wire. Now that payments accumulate, the two
+        // halves have to ship together — asking for the full sum on top of a
+        // recorded partial would make the total overshoot instead.
+        amount: round(settlementTotal - alreadyReceived),
+        // Disclosed alongside, so the payer can see why the figure above is
+        // smaller than the contract's and reconcile it against their own
+        // records rather than assuming a discount.
         already_received: alreadyReceived,
+        // The undiminished figure, for the same reason.
+        settlement_total: settlementTotal,
         due_date: milestone.due_date,
         status: milestone.status,
         contract_title: quote.contracts.title || quote.title,
@@ -265,6 +274,35 @@ export async function POST(
         400,
         'INVALID_TRANSFERRED_AMOUNT',
         'El monto transferido debe ser mayor a cero'
+      );
+    }
+
+    // "Finite and greater than zero" is not what the column accepts.
+    // `numeric(12,2)` rounds 0.004 to 0.00 and then the CHECK rejects it, and
+    // anything from 1e10 overflows — both verified against Postgres 16. A payer
+    // fat-fingering a digit deserves a 400 naming the problem, not a 500 from
+    // the database three statements later.
+    if (transferredAmount < 0.01) {
+      return publicApiError(
+        400,
+        'INVALID_TRANSFERRED_AMOUNT',
+        'El monto transferido debe ser de al menos $0.01'
+      );
+    }
+
+    if (transferredAmount >= 10_000_000_000) {
+      return publicApiError(
+        400,
+        'INVALID_TRANSFERRED_AMOUNT',
+        'El monto transferido es demasiado grande. Verifica la cantidad.'
+      );
+    }
+
+    if (Math.round(transferredAmount * 100) / 100 !== transferredAmount) {
+      return publicApiError(
+        400,
+        'INVALID_TRANSFERRED_AMOUNT',
+        'El monto transferido no puede tener más de dos decimales'
       );
     }
 
@@ -354,46 +392,14 @@ export async function POST(
     // erroring. The declaration now becomes a row in `milestone_payments` and
     // the column is set from the ledger total below. This claim comes first so
     // a refused duplicate never leaves a phantom payment in the ledger.
-    const milestoneUpdate: Record<string, unknown> = {
-      status: 'marked_paid',
-      tracking_reference: trackingReference,
-    };
-    if (receiptUrl !== null) {
-      milestoneUpdate.receipt_url = receiptUrl;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updated, error: updateError } = await (supabase as any)
-      .from('milestones')
-      .update(milestoneUpdate)
-      .eq('id', target.id)
-      .in('status', ['pending', 'requested'])
-      .select('id');
-
-    if (updateError) {
-      // Never a message that could read as "we got your payment": the write
-      // that would have recorded the declaration is the one that just failed.
-      return publicDbWriteErrorResponse(updateError, {
-        operation: 'RECEIPT_WRITE_FAILED',
-        entity: 'el comprobante',
-        route: 'POST /api/receivables/public/[token]',
-        verb: 'registrar',
-      });
-    }
-
-    if (!updated?.length) {
-      return publicApiError(
-        409,
-        'PAYMENT_ALREADY_RECORDED',
-        'Este cobro ya fue registrado. Si tienes dudas, contacta directamente al negocio.'
-      );
-    }
-
-    // The declaration itself, as a row. The claim above is what this payer is
-    // told about; if the ledger write fails, nothing recorded what they
-    // declared, and saying "Comprobante enviado correctamente" would be the
-    // #58/#86 fabricated confirmation — the exact defect this page has already
-    // shipped once.
+    // One call, one transaction: the status claim, the ledger row and the new
+    // `transferred_amount` land together or not at all
+    // (`record_milestone_payment`, #381). Doing them as three statements from
+    // here is what the first draft did, and it left the milestone claimed with
+    // no amount whenever the ledger insert failed — the retry the payer was
+    // told to make then answered "ya fue registrado" for a payment recorded
+    // nowhere. The status filter and the organization scope ride inside the
+    // function, so a replay is still refused.
     const ledger = await recordMilestonePayment({
       supabase,
       milestoneId: target.id,
@@ -404,39 +410,44 @@ export async function POST(
       receiptUrl,
     });
 
-    if (!ledger.ok) {
+    if (!ledger.ok && ledger.reason === 'not_payable') {
+      return publicApiError(
+        409,
+        'PAYMENT_ALREADY_RECORDED',
+        'Este cobro ya fue registrado. Si tienes dudas, contacta directamente al negocio.'
+      );
+    }
+
+    // Named `…Error` and branched on deliberately, not for style:
+    // `tests/unit/writeErrorLegibility.test.ts` finds write branches by that
+    // shape, and a route whose write moved behind a helper drops out of its
+    // population entirely — a scan that stops matching looks exactly like a
+    // scan that found nothing wrong (#146/#148, rule 7).
+    const ledgerError = ledger.ok ? null : ledger;
+    if (ledgerError) {
+      // Never a message that could read as "we got your payment": the write
+      // that would have recorded the declaration is the one that just failed,
+      // and nothing was left half-done for the payer to trip over on retry.
+      //
+      // The original database error still reaches `publicDbWriteErrorResponse`,
+      // which is what keeps the distinction a payer can act on: `42P01` — this
+      // deployment is ahead of its migration — answers 503 "vuelve a intentar
+      // en unos minutos", while an outage answers 500. Flattening both into one
+      // string is the diagnosis thrown away (#146/#148).
+      if (ledgerError.dbError) {
+        return publicDbWriteErrorResponse(ledgerError.dbError, {
+          operation: 'RECEIPT_WRITE_FAILED',
+          entity: 'el comprobante',
+          route: 'POST /api/receivables/public/[token]',
+          verb: 'registrar',
+        });
+      }
+
       return publicApiError(
         500,
         'RECEIPT_WRITE_FAILED',
         'No se pudo registrar el comprobante. Vuelve a intentarlo; si el problema sigue, ' +
           'contacta directamente al negocio.'
-      );
-    }
-
-    // Keep the column every existing reader still measures money against in
-    // step with the ledger. It is set to the **read-back total**, not to this
-    // declaration, which is the whole point of #381: two declarations now sum
-    // instead of the second replacing the first.
-    //
-    // A failure here leaves the ledger ahead of the column — the cobro shows
-    // less received than was declared. That is a stale mirror, not a fabricated
-    // success: the payment is on record and the payer's declaration is real, so
-    // telling them to declare again would invite a duplicate wire. Logged for
-    // the tenant chasing the difference.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: totalError } = await (supabase as any)
-      .from('milestones')
-      .update({ transferred_amount: ledger.total })
-      .eq('id', target.id);
-
-    if (totalError) {
-      // The cause is read, not swallowed (#146/#148). The tenant chasing a
-      // cobro whose figure is behind its ledger needs to know why the mirror
-      // write failed, and "something went wrong" is a diagnosis thrown away.
-      console.error(
-        '[receivables] payment recorded but transferred_amount not updated. ' +
-          `milestone=${target.id} ledger_total=${ledger.total} ` +
-          `code=${totalError.code} cause=${totalError.message}`
       );
     }
 

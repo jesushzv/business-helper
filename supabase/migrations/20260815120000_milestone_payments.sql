@@ -82,8 +82,23 @@ CREATE TABLE IF NOT EXISTS public.milestone_payments (
 CREATE INDEX IF NOT EXISTS idx_milestone_payments_milestone
   ON public.milestone_payments (milestone_id, declared_at);
 
+-- Ordered, because the tenant view this table is heading for lists a
+-- organization's payments newest first.
 CREATE INDEX IF NOT EXISTS idx_milestone_payments_org
-  ON public.milestone_payments (organization_id);
+  ON public.milestone_payments (organization_id, declared_at);
+
+-- A clave de rastreo identifies one SPEI transfer, so the same one twice on
+-- one cobro is a replay, not a second payment. `stripe_webhook_events` and
+-- `cfdi_stamp_claims` both make a replay collide on 23505 rather than trusting
+-- the caller not to send one; this ledger had no such anchor, and a doubled row
+-- would inflate `transferred_amount` by the duplicate with nothing to detect it
+-- afterwards.
+--
+-- Partial, and only over payer declarations: an owner-recorded wire may
+-- legitimately carry no reference at all, and NULLs do not collide anyway.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_milestone_payments_declaration_reference
+  ON public.milestone_payments (milestone_id, tracking_reference)
+  WHERE source = 'payer_declaration' AND tracking_reference IS NOT NULL;
 
 ALTER TABLE public.milestone_payments ENABLE ROW LEVEL SECURITY;
 
@@ -134,3 +149,108 @@ WHERE m.transferred_amount IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM public.milestone_payments p WHERE p.milestone_id = m.id
   );
+
+-- ----------------------------------------------------------------------------
+-- record_milestone_payment — the claim, the ledger row and the new total, in
+-- one transaction.
+--
+-- The first draft of this change did the three writes from the route: claim the
+-- milestone, insert the ledger row, then set `transferred_amount` from the
+-- ledger total read back. Money-path review found three separate defects in
+-- that sequence, and all three are properties of it being a sequence:
+--
+--   1. **The total was wrong for any cobro the owner had already touched.** The
+--      ledger holds payer declarations only — `PUT /api/receivables/[id]` sets
+--      `transferred_amount` and writes no row — so a milestone carrying an
+--      owner-recorded $20,000 with an empty ledger had the column *overwritten*
+--      by the payer's $28,720. Identical to the defect this table exists to
+--      close, reintroduced by the fix.
+--   2. **A failed ledger insert left a torn claim.** The milestone was already
+--      `marked_paid` with the clave de rastreo written and no amount anywhere;
+--      the retry the payer was told to make hit the status filter and answered
+--      "este cobro ya fue registrado" for a payment recorded nowhere. Between a
+--      deploy of `main` and this migration being applied by hand (hard rule
+--      #6), *every* declaration would have landed in that state.
+--   3. **A failed total write returned 200 with the column still NULL**, and
+--      NULL on a confirmed row means "the full amount arrived"
+--      (lib/receivablesCalculator.ts) — so a $20,000 wire would book as fully
+--      collected and the complemento de pago would declare it to the SAT.
+--
+-- Arithmetic on the row itself (`transferred_amount + p_amount`) is what makes
+-- (1) go away: the column is authoritative and complete, the ledger is not, so
+-- the new total is derived from the column and the ledger records the
+-- individual payment. Postgres reads and writes it inside one statement, so
+-- concurrent declarations cannot lose each other's addition the way a
+-- read-modify-write from the route can. (2) and (3) go away because a function
+-- body is one transaction: either all three effects land or none do.
+--
+-- **Not `SECURITY DEFINER`** — deliberately, and this is the point of the #76
+-- lesson rather than an omission. The only caller is the public route's
+-- service-role client, which already bypasses RLS; a definer function would add
+-- an ambient-authority surface at `/rest/v1/rpc/` for nothing. Same posture as
+-- `increment_ai_usage`.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.record_milestone_payment(
+  p_milestone_id uuid,
+  p_organization_id uuid,
+  p_amount numeric,
+  p_source text,
+  p_tracking_reference text,
+  p_receipt_url text
+)
+RETURNS numeric
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_total numeric;
+BEGIN
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    RAISE EXCEPTION 'record_milestone_payment: amount must be greater than zero'
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- The status filter rides *inside* the write, as it did before: a concurrent
+  -- submission or a replay cannot move a milestone backwards out of
+  -- `marked_paid`/`confirmed`. Scoped by organization_id too — the follow-up
+  -- write in the sequence this replaces had neither, so it could land on a row
+  -- another request had confirmed in the meantime.
+  --
+  -- `receipt_url` is written only when this declaration carries one (#339): a
+  -- receipt-less declaration must not erase the comprobante the owner filed on
+  -- the client's behalf.
+  UPDATE public.milestones
+     SET status             = 'marked_paid',
+         tracking_reference = p_tracking_reference,
+         receipt_url        = COALESCE(p_receipt_url, receipt_url),
+         transferred_amount = COALESCE(transferred_amount, 0) + p_amount
+   WHERE id              = p_milestone_id
+     AND organization_id = p_organization_id
+     AND status IN ('pending', 'requested')
+   RETURNING transferred_amount INTO v_total;
+
+  -- Zero rows matched: somebody got there first, or the milestone is not this
+  -- organization's. NULL tells the caller to answer 409 rather than 200 — and
+  -- because this is one transaction, no ledger row is left behind for a
+  -- declaration that was refused.
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  INSERT INTO public.milestone_payments
+    (milestone_id, organization_id, amount, source, tracking_reference, receipt_url)
+  VALUES
+    (p_milestone_id, p_organization_id, p_amount, p_source, p_tracking_reference, p_receipt_url);
+
+  RETURN v_total;
+END;
+$$;
+
+-- PostgREST publishes every executable function in `public` at
+-- /rest/v1/rpc/<name>, and Supabase grants EXECUTE to anon and authenticated as
+-- *named roles* — `REVOKE … FROM PUBLIC` does not touch those (#76). Without
+-- this, any visitor could mark any milestone paid for any amount.
+REVOKE ALL ON FUNCTION public.record_milestone_payment(uuid, uuid, numeric, text, text, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_milestone_payment(uuid, uuid, numeric, text, text, text)
+  TO service_role;

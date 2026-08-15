@@ -154,6 +154,12 @@ export async function POST(
       // POST that carries no `transferredAmount` — a path this route
       // deliberately supports.
       amount: Number(updated.transferred_amount ?? expectedSettlementAmount(updated)),
+      // `transferred_amount` is the **running total** received since #381 made
+      // payer declarations accumulate, not the size of one payment. Saying so
+      // is what keeps the complement's `overpaidAmount` honest when a
+      // parcialidad was already filed — otherwise it reports the earlier
+      // payment as a surplus and tells the tenant to refund it.
+      amountIsCumulative: true,
       paymentDate: confirmedAt,
       operationNumber: updated.tracking_reference || null,
     });
@@ -171,6 +177,8 @@ interface ComplementContext {
   userId: string;
   milestoneId: string;
   amount: number;
+  /** `amount` is the running total received, not one payment's sum (#381). */
+  amountIsCumulative: boolean;
   paymentDate: string;
   operationNumber: string | null;
 }
@@ -211,6 +219,7 @@ async function fileComplementIfOwed(ctx: ComplementContext): Promise<Record<stri
       userId: ctx.userId,
       milestoneId: ctx.milestoneId,
       amount: ctx.amount,
+      amountIsCumulative: ctx.amountIsCumulative,
       // '03' — transferencia electrónica de fondos. A confirmation in this
       // product is a SPEI transfer the user verified.
       paymentForm: '03',

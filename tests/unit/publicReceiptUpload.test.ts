@@ -27,8 +27,8 @@ const state: {
   lastUpdate: { values?: Record<string, unknown> } | null;
   /** Object names present in the bucket under org-1/ — feeds storage.list. */
   storedObjects: string[];
-  /** The #381 payment ledger: what the declaration wrote as a row. */
-  payments: Array<Record<string, unknown>>;
+  /** Arguments of every `record_milestone_payment` call (#381). */
+  rpcCalls: Array<Record<string, unknown>>;
 } = {
   configured: true,
   milestones: [],
@@ -37,7 +37,7 @@ const state: {
   updatedRows: [{ id: 'm-1' }],
   lastUpdate: null,
   storedObjects: [],
-  payments: [],
+  rpcCalls: [],
 };
 
 vi.mock('@/lib/supabase/service', () => ({
@@ -60,41 +60,13 @@ vi.mock('@/lib/supabase/service', () => ({
           }),
         };
       }
-      // The declaration is a `milestone_payments` row now (#381); the milestone
-      // column is set from the ledger total after it lands.
-      if (table === 'milestone_payments') {
-        return {
-          insert: async (row: Record<string, unknown>) => {
-            state.payments.push(row);
-            return { error: null };
-          },
-          select: () => {
-            const builder = {
-              eq: () => builder,
-              then: (resolve: (v: { data: unknown; error: unknown }) => void) =>
-                resolve({
-                  data: state.payments.map((p) => ({ amount: p.amount })),
-                  error: null,
-                }),
-            };
-            return builder;
-          },
-        };
-      }
-
-      return {
-        update: (values: Record<string, unknown>) => ({
-          eq: () => ({
-            in: () => ({
-              select: async () => {
-                state.lastUpdate = { values };
-                return { data: state.updatedRows, error: null };
-              },
-            }),
-            then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
-          }),
-        }),
-      };
+      throw new Error(`unexpected table ${table}`);
+    },
+    // One transaction now (#381): claim + ledger row + new total, inside
+    // `record_milestone_payment`.
+    rpc: async (_name: string, args: Record<string, unknown>) => {
+      state.rpcCalls.push(args);
+      return { data: String(Number(args.p_amount)), error: null };
     },
     storage: {
       from: () => ({
@@ -159,7 +131,7 @@ beforeEach(() => {
   state.updatedRows = [{ id: 'm-1' }];
   state.lastUpdate = null;
   state.storedObjects = [];
-  state.payments = [];
+  state.rpcCalls = [];
 });
 
 describe('POST /api/receivables/public/[token]/upload', () => {
@@ -246,13 +218,15 @@ describe('the declaration write never stores a caller-supplied URL (#85)', () =>
 
     expect(res.status).toBe(200);
     // The caller's URL never reaches the column — the property #85 protects.
-    // It used to be written as an explicit `null`; #339 stopped writing the
-    // key at all, which is strictly stronger here and is also what keeps a
-    // receipt-less declaration from erasing the comprobante the owner filed
-    // from Cobranza. Asserting `toBeNull()` pinned the mechanism rather than
-    // the property, so it failed on a change that tightened it.
-    expect(state.lastUpdate?.values).not.toHaveProperty('receipt_url');
-    expect(JSON.stringify(state.lastUpdate?.values)).not.toContain('dead-beef');
+    // The mechanism has now changed three times (an explicit `null`, then #339
+    // omitting the key, now #381's `COALESCE(p_receipt_url, receipt_url)` in
+    // `record_milestone_payment`), and each change broke an assertion that
+    // pinned the mechanism instead. So this asserts the property: whatever the
+    // route hands the database, the payer's string is not in it, and a
+    // receipt-less declaration passes NULL — which the COALESCE reads as
+    // "leave the comprobante the owner filed alone".
+    expect(state.rpcCalls[0].p_receipt_url).toBeNull();
+    expect(JSON.stringify(state.rpcCalls[0])).not.toContain('dead-beef');
   });
 
   it('turns a valid receipt_path into the storage URL server-side', async () => {
@@ -260,7 +234,7 @@ describe('the declaration write never stores a caller-supplied URL (#85)', () =>
     const res = await post({ receipt_path: 'org-1/spei_m-1_1723500000000.png' });
 
     expect(res.status).toBe(200);
-    expect(state.lastUpdate?.values?.receipt_url).toBe(
+    expect(state.rpcCalls[0].p_receipt_url).toBe(
       'https://project.supabase.co/storage/v1/object/public/spei-vouchers/org-1/spei_m-1_1723500000000.png'
     );
   });
@@ -271,7 +245,7 @@ describe('the declaration write never stores a caller-supplied URL (#85)', () =>
 
     expect(res.status).toBe(400);
     expect(body.error.code).toBe('INVALID_RECEIPT_PATH');
-    expect(state.lastUpdate).toBeNull();
+    expect(state.rpcCalls).toHaveLength(0);
   });
 
   it('refuses a well-formed path whose object was never uploaded — no deliberate dead links', async () => {

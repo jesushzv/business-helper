@@ -250,12 +250,14 @@ export function outstandingAmount(item: CollectedBase): number {
  * disclosing more received than owed would invite a refund conversation this
  * page cannot support.
  *
- * Note what this deliberately does **not** do: it does not become the amount
- * asked for. `POST /api/receivables/public/[token]` *overwrites*
- * `transferred_amount` rather than adding to it, so asking a payer for the
- * remainder would erase the record of the first wire. Making the declaration
- * cumulative is a money-path decision with consequences for the complemento
- * parcialidad and #81's overpayment notice, and is filed separately.
+ * This **is** now subtracted from the figure `/pay/[token]` asks for, which it
+ * was not when this function was written. The blocker was that
+ * `POST /api/receivables/public/[token]` *overwrote* `transferred_amount`, so
+ * asking a payer for the remainder would have erased the record of the first
+ * wire. #381 made declarations accumulate — the route adds on the row itself,
+ * through `record_milestone_payment` — and the two halves had to ship together:
+ * accumulating while still asking for the full sum makes the total overshoot
+ * instead of undershoot.
  */
 export function recordedTransferAmount(item: CollectedBase): number {
   if (!hasDeclaredTransfer(item)) return 0;

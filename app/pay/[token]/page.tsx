@@ -30,12 +30,18 @@ interface PublicMilestone {
   beneficiary?: string;
   /**
    * What the business has already recorded as received against this cobro
-   * (#371). `amount` above is the full settlement figure and is **not** net of
-   * it — see the route for why the remainder is not asked for yet — so the page
-   * shows both and tells the payer to confirm the balance before transferring.
-   * Absent or 0 means nothing has been recorded, and nothing is rendered.
+   * (#371). `amount` above **is** net of it since #381 made declarations
+   * accumulate instead of replacing each other — so this is rendered as the
+   * reason the figure asked for is smaller than the contract's, not as a
+   * second sum to reconcile. Absent or 0 means nothing has been recorded, and
+   * nothing is rendered.
    */
   already_received?: number;
+  /**
+   * The undiminished settlement figure, shown next to the remainder so the
+   * payer can check the arithmetic rather than take it on trust.
+   */
+  settlement_total?: number;
   tracking_reference?: string;
   receipt_url?: string;
   /**
@@ -339,6 +345,7 @@ export default function PublicPayPortalPage() {
   // rather than "$0.00 recibidos", which reads as a failed payment (#371).
   const alreadyReceived = Number(milestone.already_received) || 0;
   const hasPartialPayment = alreadyReceived > 0;
+  const settlementTotal = Number(milestone.settlement_total) || 0;
 
   return (
     <div style={cssVars as React.CSSProperties} className="min-h-screen bg-slate-950 py-8 px-4 sm:px-6 text-white">
@@ -380,15 +387,17 @@ export default function PublicPayPortalPage() {
             <span className="text-2xl font-black font-mono text-emerald-400">{formattedAmount}</span>
           </div>
 
-          {/* A partial wire the business already logged (#371). Before this,
-              a payer who had wired part of this cobro came back to the same
-              link and was shown the full amount with no sign anything had
-              arrived. The figure above is still the cobro's total — this page
-              cannot ask for the remainder, because the declaration it files
-              replaces `transferred_amount` instead of adding to it, which
-              would erase the first wire. So both numbers are shown and the
-              payer is told to confirm the balance rather than being quietly
-              asked for the whole sum again. Directly under the amount, where a
+          {/* A partial wire the business already logged (#371, #381).
+              Originally a payer who had wired part of this cobro came back to
+              the same link and was shown the full amount with no sign anything
+              had arrived. The figure above is now the **remainder**, which the
+              page could not ask for until declarations stopped replacing
+              `transferred_amount` and started accumulating (#381) — asking for
+              a balance the system would then lose was worse than asking twice
+              for the whole sum.
+              So the amount is net, and this says why: a payer who sees a
+              number smaller than their contract needs to know it is not a
+              discount and not an error. Directly under the amount, where a
               375px screen cannot scroll past it (#146). */}
           {hasPartialPayment && (
             <div
@@ -399,8 +408,9 @@ export default function PublicPayPortalPage() {
                 Este negocio ya registró {formatMxn(alreadyReceived)} recibidos de este cobro.
               </p>
               <p className="mt-1 text-xs text-amber-200/80">
-                El monto de arriba es el total del cobro ({formattedAmount}), no lo que falta.
-                Confirma con el negocio cuánto resta antes de transferir.
+                Por eso el monto de arriba ({formattedAmount}) es sólo lo que falta
+                {settlementTotal > 0 ? ` del total de ${formatMxn(settlementTotal)}` : ''}. Si no
+                coincide con tus registros, confírmalo con el negocio antes de transferir.
               </p>
             </div>
           )}

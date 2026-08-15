@@ -34,7 +34,18 @@ const API_ROOT = join(process.cwd(), 'app', 'api');
  */
 const PRE_EXISTING = new Set<string>([]);
 
-const WRITES = /\.(insert|update|upsert|delete)\(/;
+/**
+ * A write, in either shape the tree uses.
+ *
+ * The PostgREST verbs, **and `.rpc(`** — the public payment route moved its
+ * declaration into `record_milestone_payment` so the claim, the ledger row and
+ * the new total land in one transaction (#381), and a route that writes through
+ * a function must not escape this gate by doing so. It dropped out of the
+ * population entirely when the verbs were the only signal, which is the failure
+ * mode rule 7 names: a scan that stops matching looks exactly like a scan that
+ * found nothing wrong.
+ */
+const WRITES = /\.(insert|update|upsert|delete|rpc)\(/;
 /**
  * `if (error`, and every renamed sibling: the public routes call theirs
  * `updateError`, the confirm route `auditError`. Matching only the bare name
@@ -113,7 +124,10 @@ function writeBranches(source: string): Array<{ line: number; handler: string }>
 
   while ((match = pattern.exec(source)) !== null) {
     const before = source.slice(0, match.index);
-    const chainStart = before.lastIndexOf('.from(');
+    // A write chain starts at `.from(` for the table verbs and at `.rpc(` for a
+    // function call — take whichever is nearer, so an `.rpc(` after the last
+    // `.from(` is still seen as its own chain.
+    const chainStart = Math.max(before.lastIndexOf('.from('), before.lastIndexOf('.rpc('));
     if (chainStart === -1) continue;
     if (!WRITES.test(before.slice(chainStart))) continue;
 
@@ -192,10 +206,16 @@ describe('a failed write names its cause (#146)', () => {
       'app/api/quotes/route.ts',
       'app/api/receivables/[id]/confirm/route.ts',
       'app/api/receivables/[id]/route.ts',
-      'app/api/receivables/public/[token]/route.ts',
       'app/api/receivables/route.ts',
     ];
 
+    // `app/api/receivables/public/[token]/route.ts` was the eleventh and is
+    // deliberately not in that list any more: its declaration write moved into
+    // `record_milestone_payment` behind `lib/milestonePayments.ts` (#381), so
+    // it holds no `.from(…).update(…)` chain for the scan above to find. The
+    // obligation did not move with it — the assertion below is what carries it,
+    // and dropping the name without replacing the check is how a pin quietly
+    // becomes a gap.
     const routes = writeRoutes();
     for (const rel of FIXED_IN_148) {
       const route = routes.find((r) => r.rel === rel);
@@ -210,6 +230,30 @@ describe('a failed write names its cause (#146)', () => {
         ).toBe(true);
       }
     }
+  });
+
+  it('a route whose write moved behind a helper still hands over the cause', () => {
+    // The public payment route (#381). Its write is one RPC inside
+    // `lib/milestonePayments.ts`, which returns the original PostgREST error as
+    // `dbError` precisely so this route can classify it: `42P01` — a deployment
+    // running ahead of its hand-applied migration (hard rule #6) — must reach
+    // the payer as "vuelve a intentar en unos minutos" (503), not as the same
+    // flat 500 an outage gets.
+    const route = readFileSync(
+      join(API_ROOT, 'receivables', 'public', '[token]', 'route.ts'),
+      'utf8'
+    );
+    expect(route).toMatch(/ledgerError\b/);
+    expect(
+      /publicDbWriteErrorResponse\(\s*ledgerError\.dbError/.test(route),
+      'the failed declaration must pass its original error to publicDbWriteErrorResponse'
+    ).toBe(true);
+
+    const helper = readFileSync(join(process.cwd(), 'lib', 'milestonePayments.ts'), 'utf8');
+    expect(
+      /dbError:\s*error/.test(helper),
+      'lib/milestonePayments.ts must return the original error, not just a code'
+    ).toBe(true);
   });
 
   it('the route the defect was reported on is not on the list', () => {

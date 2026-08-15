@@ -558,9 +558,19 @@ build when a migration creates a table this document does not describe** (#156).
 - `amount` `numeric(12,2)`, `chk_milestone_payments_amount_positive` — zero is not a payment and a negative one is a refund this table does not model
 - `source`: `payer_declaration` | `owner_record` | `backfill`, enforced by `chk_milestone_payments_source`. The vocabulary is stated once in code as `PAYMENT_SOURCES` (`lib/milestonePayments.ts`), with `normalizePaymentSource` answering `null` for anything else (#116)
 - `tracking_reference`, `receipt_url`: the clave de rastreo and the server-issued storage URL this declaration carried. The milestone columns of the same name hold only the latest; these are what make an earlier wire traceable
-- *Writer*: `POST /api/receivables/public/[token]`, through the service-role client
+- `uq_milestone_payments_declaration_reference`: partial unique on `(milestone_id, tracking_reference)` where `source = 'payer_declaration'` and the reference is non-null. A clave de rastreo identifies one SPEI transfer, so the same one twice on one cobro is a replay — it collides on `23505` and the payer gets a 409, the way `stripe_webhook_events` and `cfdi_stamp_claims` handle theirs
+- *Writer*: `POST /api/receivables/public/[token]`, through `record_milestone_payment` on the service-role client
 - *Why server-only*: RLS is on with **zero policies** and the named roles are revoked, like `cfdi_stamp_claims` and `stripe_webhook_events`. Nothing in the browser reads the ledger yet; tenant read policies arrive with the UI that needs them
-- *Relationship to `milestones.transferred_amount`*: the column is **still the authoritative figure for every money calculation** and is set to the ledger total after each declaration. The ledger is not yet complete — the two owner-side writers set an absolute total, which cannot be appended to an append-only ledger without inventing money — so read the column for totals and this table for what payers declared
+- *Relationship to `milestones.transferred_amount`*: the column is **still the authoritative figure for every money calculation**, and the new total is computed *on the column* (`transferred_amount + amount`), **not** summed from the ledger. Deriving it from the ledger assumes the ledger is complete, and it is not — the two owner-side writers set an absolute total and record no row, so a ledger-derived total silently drops an owner-recorded wire
+- *Deletion*: the RESTRICT means `DELETE /api/receivables/[id]` must pre-check this table and refuse by name, next to its `cfdi_stamp_claims` check — otherwise the tenant reads "tiene registros relacionados" about a table they cannot see
+
+#### `record_milestone_payment(uuid, uuid, numeric, text, text, text) → numeric`
+*Added by the same migration. The claim, the ledger row and the new total in one transaction.*
+- Returns the milestone's new `transferred_amount`, or **NULL** when nothing was payable — the caller answers 409 on NULL rather than 200
+- The status filter (`pending`/`requested`) and the tenant scope ride **inside** the function, so a replay or a concurrent submission is refused there
+- `receipt_url = COALESCE(p_receipt_url, receipt_url)`: a receipt-less declaration cannot erase the comprobante the owner filed (#339)
+- **Not `SECURITY DEFINER`** — its only caller is the service-role client, which already bypasses RLS, so a definer function would add ambient authority at `/rest/v1/rpc/` for nothing. `EXECUTE` is revoked from `PUBLIC`, `anon` and `authenticated` by name and granted to `service_role` (#76). Same posture as `increment_ai_usage`
+- *Why a function at all*: as three statements from the route, a failed ledger insert left the milestone claimed with no amount and the retry answered "ya fue registrado" for a payment recorded nowhere; a failed total write returned 200 with the column NULL, which reads as "the full amount arrived" on a confirmed row
 
 ### `SECURITY DEFINER` Functions — Grants Must Name the Roles
 

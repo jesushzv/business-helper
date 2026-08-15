@@ -23,13 +23,11 @@ interface MockMilestone {
 
 const state: {
   milestones: MockMilestone[];
-  updatedRows: Array<{ id: string }>;
-  lastUpdate: { values?: Record<string, unknown>; id?: string; statuses?: string[] } | null;
-  /** The #381 ledger: what the declaration wrote as a row. */
-  payments: Array<Record<string, unknown>>;
-  /** The follow-up write that syncs `transferred_amount` to the ledger total. */
-  lastTotalUpdate: { values?: Record<string, unknown>; id?: string } | null;
-} = { milestones: [], updatedRows: [], lastUpdate: null, payments: [], lastTotalUpdate: null };
+  /** Every `record_milestone_payment` call the route made, with its arguments. */
+  rpcCalls: Array<{ name: string; args: Record<string, unknown> }>;
+  /** Forced return, for the refusal cases. `{data: null}` is "nothing payable". */
+  rpcResult: { data: unknown; error: unknown } | null;
+} = { milestones: [], rpcCalls: [], rpcResult: null };
 
 vi.mock('@/lib/supabase/service', () => ({
   isServiceRoleConfigured: () => true,
@@ -58,46 +56,14 @@ vi.mock('@/lib/supabase/service', () => ({
           }),
         };
       }
-      // The payment ledger (#381): the declaration is a row, and the milestone
-      // column is set from the ledger total afterwards.
-      if (table === 'milestone_payments') {
-        return {
-          insert: async (row: Record<string, unknown>) => {
-            state.payments.push(row);
-            return { error: null };
-          },
-          select: () => {
-            const builder = {
-              eq: () => builder,
-              then: (resolve: (v: { data: unknown; error: unknown }) => void) =>
-                resolve({
-                  data: state.payments.map((p) => ({ amount: p.amount })),
-                  error: null,
-                }),
-            };
-            return builder;
-          },
-        };
-      }
-
-      // milestones update chain: .update(v).eq('id', x).in('status', [...]).select('id')
-      // and the bare .update(v).eq('id', x) the ledger-total write uses.
-      return {
-        update: (values: Record<string, unknown>) => ({
-          eq: (_col: string, id: string) => ({
-            in: (_c: string, statuses: string[]) => ({
-              select: async () => {
-                state.lastUpdate = { values, id, statuses };
-                return { data: state.updatedRows, error: null };
-              },
-            }),
-            then: (resolve: (v: { error: null }) => void) => {
-              state.lastTotalUpdate = { values, id };
-              resolve({ error: null });
-            },
-          }),
-        }),
-      };
+      throw new Error(`unexpected table ${table}`);
+    },
+    // The declaration is one transaction now (#381): claim, ledger row and the
+    // new total all inside `record_milestone_payment`.
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      state.rpcCalls.push({ name, args });
+      if (state.rpcResult) return state.rpcResult;
+      return { data: String(Number(args.p_amount)), error: null };
     },
     storage: {
       from: () => ({
@@ -130,10 +96,8 @@ const params = { params: Promise.resolve({ token: 'tok-1' }) };
 
 beforeEach(() => {
   state.milestones = [];
-  state.updatedRows = [];
-  state.lastUpdate = null;
-  state.payments = [];
-  state.lastTotalUpdate = null;
+  state.rpcCalls = [];
+  state.rpcResult = null;
 });
 
 describe('GET — which milestone the payer sees', () => {
@@ -169,12 +133,17 @@ describe('POST — which milestone gets marked, and when it refuses', () => {
       { id: 'm-paid', due_date: '2026-08-01', status: 'confirmed' },
       { id: 'm-next', due_date: '2026-09-01', status: 'pending' },
     ];
-    state.updatedRows = [{ id: 'm-next' }];
     const { POST } = await getRoute();
     const res = await POST(postRequest(), params);
     expect(res.status).toBe(200);
-    expect(state.lastUpdate?.id).toBe('m-next');
-    expect(state.lastUpdate?.statuses).toEqual(['pending', 'requested']);
+    // The status filter and the tenant scope moved inside
+    // `record_milestone_payment` (#381) — see the migration for why the three
+    // writes had to become one transaction. What the route still owns is
+    // *which* milestone it names.
+    expect(state.rpcCalls).toHaveLength(1);
+    expect(state.rpcCalls[0].name).toBe('record_milestone_payment');
+    expect(state.rpcCalls[0].args.p_milestone_id).toBe('m-next');
+    expect(state.rpcCalls[0].args.p_organization_id).toBe('org-1');
   });
 
   it('409s when every milestone is already declared or confirmed — a confirmed row is never downgraded', async () => {
@@ -184,12 +153,14 @@ describe('POST — which milestone gets marked, and when it refuses', () => {
     const body = await res.json();
     expect(res.status).toBe(409);
     expect(body.error.code).toBe('PAYMENT_ALREADY_RECORDED');
-    expect(state.lastUpdate).toBeNull();
+    expect(state.rpcCalls).toHaveLength(0);
   });
 
   it('409s — not success — when the guarded write updates zero rows (concurrent duplicate)', async () => {
     state.milestones = [{ id: 'm-1', due_date: '2026-09-01', status: 'pending' }];
-    state.updatedRows = []; // someone else marked it between read and write
+    // NULL is the function's "nothing was payable" answer: someone else marked
+    // it between the read and the write, so the transaction rolled back.
+    state.rpcResult = { data: null, error: null };
     const { POST } = await getRoute();
     const res = await POST(postRequest(), params);
     const body = await res.json();
@@ -212,40 +183,29 @@ describe('POST — which milestone gets marked, and when it refuses', () => {
  * Cobranza and out of the accountant export, silently.
  */
 describe('POST — a declaration without a receipt does not erase one (#339)', () => {
-  it('omits receipt_url entirely when the body carries no receipt_path', async () => {
+  it('passes a null receipt when the body carries no receipt_path', async () => {
     state.milestones = [{ id: 'm-1', due_date: '2026-09-01', status: 'pending' }];
-    state.updatedRows = [{ id: 'm-1' }];
     const { POST } = await getRoute();
 
     const res = await POST(postRequest(), params);
 
     expect(res.status).toBe(200);
-    // Not "is null" — the key must be absent, so the column keeps its value.
-    expect(state.lastUpdate?.values).not.toHaveProperty('receipt_url');
-    // The rest of the declaration still lands. `transferred_amount` is
-    // deliberately no longer part of this write (#381): the claim comes first
-    // so a refused duplicate leaves no phantom payment, the declared figure
-    // becomes a `milestone_payments` row, and the column is then set from the
-    // ledger total — which is what stops a second declaration erasing the
-    // first.
-    expect(state.lastUpdate?.values).toMatchObject({
-      status: 'marked_paid',
-      tracking_reference: 'SPEI123',
-    });
-    expect(state.lastUpdate?.values).not.toHaveProperty('transferred_amount');
-
-    expect(state.payments).toMatchObject([
-      { milestone_id: 'm-1', amount: 1000, source: 'payer_declaration' },
-    ]);
-    expect(state.lastTotalUpdate).toMatchObject({
-      id: 'm-1',
-      values: { transferred_amount: 1000 },
+    // NULL here means "leave the column alone": the function writes
+    // `receipt_url = COALESCE(p_receipt_url, receipt_url)`, so a receipt-less
+    // declaration cannot erase the comprobante the owner filed. The guarantee
+    // moved from an absent key to a COALESCE, and this is what checks it is
+    // still a guarantee.
+    expect(state.rpcCalls[0].args.p_receipt_url).toBeNull();
+    expect(state.rpcCalls[0].args).toMatchObject({
+      p_milestone_id: 'm-1',
+      p_amount: 1000,
+      p_source: 'payer_declaration',
+      p_tracking_reference: 'SPEI123',
     });
   });
 
-  it('still writes the receipt when the payer did attach one', async () => {
+  it('still passes the receipt when the payer did attach one', async () => {
     state.milestones = [{ id: 'm-1', due_date: '2026-09-01', status: 'pending' }];
-    state.updatedRows = [{ id: 'm-1' }];
     const { POST } = await getRoute();
 
     const res = await POST(
@@ -254,7 +214,6 @@ describe('POST — a declaration without a receipt does not erase one (#339)', (
     );
 
     expect(res.status).toBe(200);
-    expect(state.lastUpdate?.values).toHaveProperty('receipt_url');
-    expect(String(state.lastUpdate?.values?.receipt_url)).toContain('spei_m-1_1234.png');
+    expect(String(state.rpcCalls[0].args.p_receipt_url)).toContain('spei_m-1_1234.png');
   });
 });

@@ -149,19 +149,26 @@ describe('what the payer is shown before paying', () => {
     expect(screen.queryByRole('button', { name: /Copiar CLABE/i })).toBeNull();
   });
 
-  it('says what the business already received, and that the total is not net of it', async () => {
+  it('says what the business already received, and that the figure asked for is the remainder', async () => {
     // #371: a payer who wired part of this cobro used to come back to the same
-    // link and see the full amount with no sign anything had arrived.
+    // link and see the full amount with no sign anything had arrived. The copy
+    // then said the figure was the total and to confirm the balance with the
+    // business — because until #381 the route could not ask for a remainder
+    // without erasing the earlier wire.
+    //
+    // It can now, so the amount **is** net and the copy says why. A payer who
+    // sees a number smaller than their contract has to be told it is not a
+    // discount and not an error.
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { milestone: { ...MILESTONE, already_received: 10000 } })
+      jsonResponse(200, {
+        milestone: { ...MILESTONE, already_received: 10000, settlement_total: 25000 },
+      })
     );
     render(<PublicPayPortalPage />);
 
     await screen.findByText(/ya registró \$10,000\.00 recibidos/i);
-    // The amount shown is still the cobro's total, and the copy says so rather
-    // than leaving the payer to assume the figure is the remainder.
-    expect(screen.getByText(/es el total del cobro/i)).toBeTruthy();
-    expect(screen.getByText(/confirma con el negocio cuánto resta/i)).toBeTruthy();
+    expect(screen.getByText(/es sólo lo que falta/i)).toBeTruthy();
+    expect(screen.getByText(/del total de \$25,000\.00/i)).toBeTruthy();
   });
 
   it('says nothing about partial payment when nothing has arrived', async () => {
