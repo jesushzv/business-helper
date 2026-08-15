@@ -13,6 +13,8 @@
  * the wrong data costs a cancellation.
  */
 
+import { RFC_MORAL_PATTERN, RFC_FISICA_PATTERN } from './rfcValidator';
+
 export interface CFDIItemInput {
   description: string;
   quantity?: number;
@@ -40,7 +42,23 @@ export interface CFDIMetadataInput {
   }>;
 }
 
-export const RFC_PATTERN = /^[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}$/i;
+/**
+ * The stamp-time RFC gate: either shape the entry validator accepts.
+ *
+ * Derived from `lib/rfcValidator.ts` rather than restated (#322 item 1). It
+ * used to be an independent `/^[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}$/i` — the same rule
+ * written a second way, on a different path. Entry validation and stamp gating
+ * disagreeing means a client saved successfully and then refused by the PAC
+ * path, with nothing in either module hinting the other exists.
+ *
+ * Case-insensitive because this side receives whatever was stored, while
+ * `validateRFC` upper-cases before testing. That difference is deliberate and
+ * is what the union below preserves.
+ */
+export const RFC_PATTERN = new RegExp(
+  `(?:${RFC_MORAL_PATTERN.source})|(?:${RFC_FISICA_PATTERN.source})`,
+  'i'
+);
 
 export function validateCFDIMetadata(metadata: CFDIMetadataInput): { isValid: boolean; errors: string[] } {
   const errors: string[] = [];
