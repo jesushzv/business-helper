@@ -15,7 +15,7 @@
  * budget nobody verified.
  */
 
-import { validateAIQuota, AIQuotaResult } from './whatsappAI';
+import { validateAIQuota, AIQuotaResult } from './aiAssistant';
 import { captureException } from './sentry';
 
 /** The ledger's month key, UTC. */

@@ -4,7 +4,7 @@ import {
   buildGroundedAssistantPrompt,
   checkRateLimit,
   sanitizeAIQuery,
-} from '@/lib/whatsappAI';
+} from '@/lib/aiAssistant';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { loadAIOrgContext } from '@/lib/aiOrgContext';
 import { isGeminiConfigured, generateGeminiText } from '@/lib/geminiClient';

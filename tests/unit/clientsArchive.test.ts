@@ -323,7 +323,7 @@ describe('what archiving must not break (#337)', () => {
   });
 
   it('keeps an archived client out of the assistant’s follow-up roster, but not out of its ledger', async () => {
-    const { buildGroundedAssistantPrompt } = await import('@/lib/whatsappAI');
+    const { buildGroundedAssistantPrompt } = await import('@/lib/aiAssistant');
 
     const prompt = buildGroundedAssistantPrompt(
       '¿A quién le tengo que cobrar?',
