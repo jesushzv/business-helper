@@ -20,6 +20,12 @@ export default function ForgotPasswordPage() {
     try {
       const supabase = createClient();
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        // Third site building a Supabase auth redirect from the browser's own
+        // origin, and deliberate for the same reason as the two OAuth ones
+        // (#131, which enumerated only those two). The PKCE verifier for a
+        // recovery lives in *this* browser on *this* host, so a fixed origin
+        // from `getAppBaseUrl()` would send the user somewhere their verifier
+        // is not — and password recovery would fail on every preview.
         redirectTo: `${window.location.origin}/reset-password`,
       });
 

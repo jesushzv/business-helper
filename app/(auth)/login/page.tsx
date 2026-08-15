@@ -132,6 +132,13 @@ export default function LoginPage() {
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          // `window.location.origin` is deliberate, not an oversight (#131).
+          // The user must come back to the host they left, so a preview
+          // deployment returns to *itself*. Building this from
+          // `getAppBaseUrl()` — as a tidy-up would — pins one fixed origin for
+          // every deployment and breaks Google sign-in on every preview at
+          // once, since each preview host has to be allow-listed in Supabase
+          // Auth → URL Configuration and only production is.
           redirectTo: `${window.location.origin}/auth/callback${
             next ? `?next=${encodeURIComponent(next)}` : ''
           }`,
