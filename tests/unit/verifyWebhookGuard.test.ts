@@ -102,6 +102,14 @@ describe('verify:webhook target guard (#43)', () => {
 
 type StubMode = 'honest' | 'always400' | 'always503' | 'noDedupe';
 
+/**
+ * Which Supabase project the stub deployment claims to be configured against
+ * (#121). `null` models a deployment that predates the field, or one with no
+ * database — both are "the question is unanswered", and both must stop the
+ * write checks rather than let them proceed on an assumption.
+ */
+const STUB_REF = 'stub-staging-project';
+
 const HANDLED = new Set([
   'checkout.session.completed',
   'customer.subscription.created',
@@ -117,7 +125,10 @@ const HANDLED = new Set([
  * failure output, so a stub still answering bare strings would hide the
  * `[object Object]` regression the conversion could have caused.
  */
-function startStub(mode: StubMode): Promise<{ url: string; server: Server }> {
+function startStub(
+  mode: StubMode,
+  healthRef: string | null = STUB_REF
+): Promise<{ url: string; server: Server }> {
   const ledger = new Set<string>();
 
   const server = createServer((req, res) => {
@@ -128,6 +139,16 @@ function startStub(mode: StubMode): Promise<{ url: string; server: Server }> {
         res.writeHead(status, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(body));
       };
+
+      // The deployment identifying its own database (#121). The script asks
+      // before it writes, so the stub has to answer like the real route.
+      if (req.url?.startsWith('/api/health')) {
+        return send(200, {
+          status: 'healthy',
+          services: { database: 'connected', auth: 'active' },
+          supabase_ref: healthRef,
+        });
+      }
 
       if (mode === 'always400') return send(400, { error: { code: 'INVALID_SIGNATURE', message: 'Firma de webhook inválida' } });
       if (mode === 'always503') return send(503, {
@@ -190,10 +211,20 @@ afterEach(() => {
   running = null;
 });
 
-async function runAgainstStub(mode: StubMode, extraEnv: Record<string, string> = {}) {
-  const { url, server } = await startStub(mode);
+async function runAgainstStub(
+  mode: StubMode,
+  extraEnv: Record<string, string> = {},
+  healthRef: string | null = STUB_REF
+) {
+  const { url, server } = await startStub(mode, healthRef);
   running = server;
-  return runScript({ WEBHOOK_URL: url, STRIPE_WEBHOOK_SECRET: SECRET, ...extraEnv });
+  // Any run carrying ORG_ID must also name the database it expects (#121);
+  // the cases that test that requirement override this explicitly.
+  const env: Record<string, string> = { WEBHOOK_URL: url, STRIPE_WEBHOOK_SECRET: SECRET, ...extraEnv };
+  if (env.ORG_ID && env.EXPECTED_SUPABASE_REF === undefined) {
+    env.EXPECTED_SUPABASE_REF = STUB_REF;
+  }
+  return runScript(env);
 }
 
 describe('verify:webhook cannot report a pass it did not earn (#63)', () => {
@@ -270,5 +301,100 @@ describe('verify:webhook cannot report a pass it did not earn (#63)', () => {
     ]) {
       expect(stdout).toContain(`✓ ${criterion}`);
     }
+  });
+});
+
+/* ── #121: the guard must establish the database, not infer it ─────────────── */
+
+/**
+ * The allowlist guards the *URL*. A Vercel preview is a preview of the code:
+ * its environment variables come from the same project, and Vercel applies a
+ * variable to Preview as well as Production unless it was explicitly scoped
+ * otherwise. So an allowlisted `*.vercel.app` host can be holding the
+ * production `SUPABASE_SERVICE_ROLE_KEY`, and the two ORG_ID checks would write
+ * `subscription_tier` and `subscription_status` to a real tenant's row —
+ * silently, because the row is overwritten rather than appended to.
+ *
+ * PR #120 documented that gap. Documentation is not a guard, which is why #121
+ * stayed open. These cases pin the guard: the run now asks the target which
+ * Supabase project it is configured against and refuses to write unless it
+ * matches the ref the operator named.
+ *
+ * The six signature checks write nothing and must stay unaffected — a guard
+ * that also blocked them would push the founder toward a staging deployment
+ * that does not exist yet, which is how #63 got parked in the first place.
+ */
+describe('verify:webhook confirms which database it is about to write to (#121)', () => {
+  it('refuses to run write checks without EXPECTED_SUPABASE_REF', async () => {
+    const { code, stderr } = await runAgainstStub('honest', {
+      ORG_ID: ORG,
+      EXPECTED_SUPABASE_REF: '',
+    });
+
+    expect(code).not.toBe(0);
+    expect(stderr).toContain('EXPECTED_SUPABASE_REF');
+    // It must say what the risk is, not just name a missing variable.
+    expect(stderr).toContain('PRODUCTION database');
+  });
+
+  it('fails fast, before sending any event, when the ref is missing', async () => {
+    const { stdout } = await runAgainstStub('honest', {
+      ORG_ID: ORG,
+      EXPECTED_SUPABASE_REF: '',
+    });
+
+    // Nothing was sent: a configuration error has nothing to learn from a run.
+    expect(stdout).not.toContain('correctly signed event is accepted');
+  });
+
+  it('refuses to write when the target reports a different database', async () => {
+    const { code, stdout, stderr } = await runAgainstStub(
+      'honest',
+      { ORG_ID: ORG, EXPECTED_SUPABASE_REF: 'the-staging-project-i-meant' },
+      'a-completely-different-project'
+    );
+
+    expect(code).not.toBe(0);
+    expect(stderr).toContain('Target database mismatch');
+    expect(stderr).toContain('the-staging-project-i-meant');
+    expect(stderr).toContain('a-completely-different-project');
+    // Named as skipped, never silently absent — the #63 contract.
+    expect(stderr).toContain('INCOMPLETE');
+    expect(stderr).toContain('accepted and applied');
+    expect(stdout).not.toMatch(/All \d+ checks passed/);
+  });
+
+  it('refuses to write when the target cannot answer at all', async () => {
+    // A deployment predating the field, or one with no database configured.
+    // "Unanswered" must behave like "mismatch", not like "fine".
+    const { code, stderr } = await runAgainstStub(
+      'honest',
+      { ORG_ID: ORG, EXPECTED_SUPABASE_REF: STUB_REF },
+      null
+    );
+
+    expect(code).not.toBe(0);
+    expect(stderr).toContain('did not report a supabase_ref');
+    expect(stderr).toContain('INCOMPLETE');
+  });
+
+  it('leaves the read-only signature checks alone', async () => {
+    // No ORG_ID: nothing is written, so no ref is required. The run still ends
+    // INCOMPLETE for the #63 reason, but never for a #121 one.
+    const { stderr, stdout } = await runAgainstStub('honest');
+
+    expect(stderr).not.toContain('EXPECTED_SUPABASE_REF');
+    expect(stderr).not.toContain('Target database mismatch');
+    expect(stdout).toContain('✓ unsigned request is rejected');
+  });
+
+  it('records the confirmed database in the run record', async () => {
+    const { code, stdout } = await runAgainstStub('honest', { ORG_ID: ORG });
+
+    expect(code).toBe(0);
+    expect(stdout).toContain('target database confirmed');
+    // The record is worth little without it: the same URL means different
+    // things depending on how Vercel scoped the Supabase variables.
+    expect(stdout).toContain(`database: ${STUB_REF}`);
   });
 });
