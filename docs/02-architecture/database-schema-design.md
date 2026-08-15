@@ -97,6 +97,23 @@
 - `created_at`: timestamptz (not null, default: `now()`)
 - *Constraint*: UQ `(organization_id, user_id)`
 
+#### `organization_invitations`
+*Added by `20260806160000_team_invitations`. A pending invitation to join an organization; accepting one is what creates the `organization_members` row above.*
+- `id`: uuid (PK, default: `gen_random_uuid()`)
+- `organization_id`: uuid (FK -> `organizations.id` `ON DELETE CASCADE`, not null)
+- `email`: text (not null) -- the address invited; uniqueness is on `lower(email)`, not on this
+- `role`: text (not null, default: `'member'`)
+- `token_hash`: text (not null, UQ) -- **only the SHA-256 digest of the invitation token is stored**, for the same reason OTP codes are hashed: a leaked backup or a SELECT on this table must not hand out working invitation links. The token itself exists only in the emailed URL
+- `status`: text (not null, default: `'pending'`)
+- `invited_by`: uuid (FK -> `auth.users.id` `ON DELETE SET NULL`, nullable)
+- `expires_at`: timestamptz (not null)
+- `accepted_at`: timestamptz (nullable)
+- `accepted_by`: uuid (FK -> `auth.users.id` `ON DELETE SET NULL`, nullable)
+- `created_at`: timestamptz (not null, default: `now()`)
+- *Constraint*: `chk_invitation_role` -- `role IN ('manager', 'member', 'accountant')`. **`'owner'` is deliberately absent**: transferring ownership is not an invitation
+- *Constraint*: `chk_invitation_status` -- `status IN ('pending', 'accepted', 'revoked')`
+- *Index*: UQ partial `uq_org_invitation_pending_email` on `(organization_id, lower(email)) WHERE status = 'pending'` -- one live invitation per address per organization, so re-inviting replaces the pending row instead of accumulating redeemable links
+
 ---
 
 ### CRM & Product Entities
@@ -495,9 +512,44 @@ default privileges grant to them as named roles, so `FROM PUBLIC` alone strips n
 service client reads or writes these tables, and the caller carries the burden of scoping every
 query by `organization_id`.
 
-`ai_usage_monthly` (`organization_id`, `month 'YYYY-MM'`, `used`, PK on the pair) counts one row
-per organization per month of model-written assistant answers; `increment_ai_usage(uuid, text)` —
-plain SQL, *not* `SECURITY DEFINER`, executable by `service_role` only — is its atomic writer.
+These four are documented below rather than in §02, because what matters about them is the access
+posture, not their place in the entity map. **`tests/unit/schemaDocTableCoverage.test.ts` fails the
+build when a migration creates a table this document does not describe** (#156).
+
+#### `otp_send_log`
+*Added by `20260807000000_otp_send_rate_limit` (#17/#20); recipient semantics widened by `20260811120000_otp_email_recipient` (#155). One row per issued OTP — the shared state the per-recipient rate limit is counted from, because Vercel functions share no memory and an in-process counter would not survive an invocation.*
+- `id`: uuid (PK, default: `gen_random_uuid()`)
+- `phone_e164`: text (not null) -- ⚠️ **The name lies, deliberately.** This is the *normalized recipient* and the rate-limit key: a **lowercased email** on the `email` launch channel, E.164 only on the deprecated `sms`/`whatsapp` channels. The historical name is kept because Vercel auto-deploys `main` while migrations are applied by hand (hard rule #6) — renaming it would turn every OTP issue in that window into a 500 in front of a signer. **Do not write a phone-shaped filter or CHECK against this column.** The live `COMMENT ON COLUMN` says the same thing
+- `quote_id`: uuid (FK -> `quotes.id` `ON DELETE SET NULL`, nullable, IDX) -- `SET NULL` rather than `CASCADE` on purpose: deleting a quote must not erase the evidence that its codes went to a recipient, or deleting one would hand back that recipient's hourly budget
+- `channel`: text (nullable)
+- `created_at`: timestamptz (not null, default: `now()`)
+- *Constraint*: `chk_otp_send_log_recipient` -- E.164 (`^\+[0-9]{10,15}$`) **or** a lowercased email in the same forgiving shape the app validates with. The lowercasing is enforced here, not just in the app, so two casings of one inbox cannot become two budgets by bypassing it. It replaced `chk_otp_send_log_phone_e164`, which was E.164-only
+- *Index*: `idx_otp_send_log_phone_created` on `(phone_e164, created_at)` -- the hourly window query
+- *Retention*: rows older than the widest limit window are ballast, but the per-quote lifetime cap reads history for quotes that are still signable, so prune conservatively: `DELETE FROM public.otp_send_log WHERE created_at < now() - interval '30 days';`
+
+#### `stripe_webhook_events`
+*Added by `20260806120000_security_hardening`. The idempotency ledger: Stripe retries deliveries, and without it a replayed subscription event re-applies a tier change.*
+- `id`: text (PK) -- the Stripe event id; the PK is what makes reprocessing a no-op
+- `event_type`: text (not null)
+- `organization_id`: uuid (FK -> `organizations.id` `ON DELETE SET NULL`, nullable, IDX)
+- `payload`: jsonb (nullable)
+- `processed_at`: timestamptz (not null, default: `now()`)
+- *Grants*: the by-name REVOKE arrived late, in `20260815000000_stripe_webhook_events_grants` (#242) — this table predates the pattern. RLS does not govern TRUNCATE, so RLS-with-no-policies left `anon` able to erase the ledger
+
+#### `cfdi_stamp_claims`
+*Added by `20260813000000_cfdi_stamp_claims` (#213), grants in `20260813010000`. Inserted **before** every PAC call so a second claimant collides instead of stamping a second CFDI — Facturapi's `external_id` deduplicates nothing (verified live, #26), and a CFDI cannot be un-issued, only cancelled on record with the SAT.*
+- `milestone_id`: uuid (PK, FK -> `milestones.id`) -- PK on the milestone is the whole mechanism: the second concurrent claimant gets `23505`. `ON DELETE RESTRICT` since `20260814210000` (#336), so a held claim blocks the milestone's deletion rather than cascading away mid-stamp
+- `organization_id`: uuid (FK -> `organizations.id` `ON DELETE CASCADE`, not null, IDX)
+- `claimed_by`: uuid (nullable)
+- `claimed_at`: timestamptz (not null, default: `now()`)
+- *Lifecycle*: deleted on definitive PAC failure so a genuine retry proceeds; **kept on timeout** — the document may exist — and released only after the PAC's invoice list confirms no document carries the `external_id`
+
+#### `ai_usage_monthly`
+*Added by `20260812210000_ai_usage_ledger` (#228). One row per organization per month of model-written assistant answers.*
+- `organization_id` + `month` (`'YYYY-MM'`): PK on the pair
+- `used`: the counter
+- *Writer*: `increment_ai_usage(uuid, text)` — plain SQL, ***not*** `SECURITY DEFINER`, executable by `service_role` only — is its atomic writer
+- *Why server-only*: a member who could UPDATE their own usage row could zero their own model-call counter
 
 ### `SECURITY DEFINER` Functions — Grants Must Name the Roles
 
