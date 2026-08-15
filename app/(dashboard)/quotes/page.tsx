@@ -26,6 +26,7 @@ export default function QuotesPage() {
     searchQuery,
     setSearchQuery,
     createQuote,
+    updateQuote,
     convertToContract,
     deleteQuote,
     promoteQuoteToSent,
@@ -64,6 +65,16 @@ export default function QuotesPage() {
   // facts, and only the second one warrants a create CTA (#104).
   const isFiltering = searchQuery.trim() !== '' || statusFilter !== 'all';
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
+  /**
+   * The quote the wizard is editing, or `null` to create (#340).
+   *
+   * Held as an id rather than the row, so the form always opens on the current
+   * server state — the list is refreshed by `updateQuote` and by every other
+   * mutation, and a captured object would reopen on figures that had since
+   * changed underneath it.
+   */
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+  const editingQuote = editingQuoteId ? quotes.find((q) => q.id === editingQuoteId) ?? null : null;
 
   // `/quotes?nueva=1` opens the wizard directly, so the dashboard CTA costs
   // one tap instead of two — the list screen in between was pure navigation
@@ -271,6 +282,10 @@ export default function QuotesPage() {
                 // message has gone either way, and the badge staying on
                 // Borrador is the under-claim.
                 onShare={(id) => promoteQuoteToSent(id).catch(() => {})}
+                onEdit={(id) => {
+                  setEditingQuoteId(id);
+                  setIsWizardOpen(true);
+                }}
                 onDelete={
                   canDelete
                     ? (id) => {
@@ -345,14 +360,38 @@ export default function QuotesPage() {
       {/* Wizard Modal */}
       <QuoteWizardModal
         isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
+        onClose={() => {
+          setIsWizardOpen(false);
+          setEditingQuoteId(null);
+        }}
         clients={selectableClients}
+        quote={editingQuote}
         onSubmit={async (data) => {
+          // Editing takes the other path entirely (#340). It shares nothing:
+          // the quote's link is what the client already has, and a `sent`
+          // quote comes back as `draft` precisely so the owner re-sends it
+          // deliberately rather than the product doing it for them.
+          if (editingQuote) {
+            const saved = await updateQuote(editingQuote.id, data);
+            setIsWizardOpen(false);
+            setEditingQuoteId(null);
+
+            result.succeed({
+              title: 'Cotización actualizada',
+              message:
+                saved.status === 'draft' && editingQuote.status === 'sent'
+                  ? `«${saved.title}» volvió a Borrador. El enlace anterior ya no abre — vuelve a enviarla para que tu cliente vea los montos nuevos.`
+                  : `«${saved.title}» quedó actualizada.`,
+            });
+            return;
+          }
+
           // `saved` is the row the server returned — the folio-bearing quote
           // that actually exists, not the wizard's draft. Announcing the draft
           // would claim a success the database has not confirmed (hard rule 1).
           const saved = await createQuote(data);
           setIsWizardOpen(false);
+          setEditingQuoteId(null);
 
           // The button says "Generar y Compartir", so it shares. Built from
           // the *saved* row's token — never the draft, and never a literal

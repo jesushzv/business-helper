@@ -46,6 +46,14 @@ function bankAccountsTable() {
 
 function quotesTable() {
   return {
+    // `PUT` reads the quote's own status before a content edit (#340): the
+    // document is editable in `draft` and `sent` and nowhere else. A draft
+    // keeps these assertions about the bank account.
+    select: () => ({
+      eq: () => ({
+        eq: () => ({ maybeSingle: async () => ({ data: { status: 'draft' }, error: null }) }),
+      }),
+    }),
     insert: (values: Record<string, unknown>) => {
       insertCalls.push(values);
       return {
