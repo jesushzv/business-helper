@@ -22,8 +22,17 @@
  * unless it was explicitly scoped otherwise. So a `*.vercel.app` target can be
  * holding the production SUPABASE_SERVICE_ROLE_KEY, and the two ORG_ID checks
  * would write subscription_tier and subscription_status to a real tenant's row.
- * Confirm which project the target's Supabase variables point at before setting
- * ORG_ID. The signature checks write nothing and are safe either way.
+ *
+ * That used to be a warning in this comment, which is not a guard (#121). It is
+ * now checked: with ORG_ID set, the run requires EXPECTED_SUPABASE_REF and asks
+ * the target's /api/health which Supabase project it is configured against,
+ * refusing to write unless the two agree. The six signature checks write
+ * nothing and are unaffected.
+ *
+ *   export EXPECTED_SUPABASE_REF="<your-staging-project-ref>"
+ *
+ * The ref is the subdomain of NEXT_PUBLIC_SUPABASE_URL — already public in the
+ * client bundle, and never a key.
  *
  * ── Why a rejection-only run is not a sign-off ────────────────────────────────
  *
@@ -74,6 +83,27 @@ const isSafeTarget =
   /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(url) ||
   /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.vercel\.app\//.test(url) ||
   /^https:\/\/staging\./.test(url);
+
+// The allowlist guards the hostname; ORG_ID makes this run *write*, and which
+// database it writes to is not something a hostname establishes (#121). Asked
+// here, before a single event is sent, because it is a configuration error
+// rather than a finding — there is nothing to learn from a run that cannot
+// finish. The ref itself is confirmed against the target further down, once we
+// know the endpoint is reachable and its secret matches.
+const expectedRef = process.env.EXPECTED_SUPABASE_REF;
+if (orgId && !expectedRef) {
+  fail(
+    'ORG_ID is set but EXPECTED_SUPABASE_REF is not.\n\n' +
+      '  export EXPECTED_SUPABASE_REF="<your-staging-project-ref>"\n\n' +
+      '  With ORG_ID set this run WRITES subscription_tier and subscription_status\n' +
+      "  to that organization. The target allowlist only checks the hostname, and a\n" +
+      '  *.vercel.app preview can be configured with the PRODUCTION database — the\n' +
+      "  same Vercel project's variables apply to Preview unless scoped otherwise.\n\n" +
+      '  Name the project ref you expect; the run confirms it against the target\n' +
+      '  before writing anything. It is the subdomain of NEXT_PUBLIC_SUPABASE_URL,\n' +
+      '  never a key.'
+  );
+}
 
 if (!isSafeTarget) {
   fail(
@@ -241,6 +271,79 @@ console.log(`\nVerifying ${url}\n`);
   record('timestamp beyond tolerance in the future is rejected', response.status === 400, describe(response));
 }
 
+/**
+ * Which database is behind this target? (#121)
+ *
+ * The allowlist above guards the *URL*. A Vercel preview is a preview of the
+ * code: its environment variables come from the same project, and Vercel
+ * applies a variable to Preview as well as Production unless it was explicitly
+ * scoped otherwise. So an allowlisted `*.vercel.app` host can be holding the
+ * production `SUPABASE_SERVICE_ROLE_KEY`, and the two checks below would write
+ * `subscription_tier` and `subscription_status` to a real tenant's row —
+ * silently, since the row is overwritten rather than appended to.
+ *
+ * The six signature checks above write nothing and are safe on any allowlisted
+ * host. These two write, so they require the target to *say* which Supabase
+ * project it is configured against, and that answer to match a ref the operator
+ * named up front. That turns "I think this preview is staging" into a checked
+ * fact and costs one request.
+ *
+ * Failing to establish it is an incomplete run, not a pass: it exits non-zero
+ * naming what it skipped, the same contract #63 earned.
+ */
+let targetRef = null;
+let refError = null;
+
+if (orgId) {
+  {
+    const healthUrl = new URL('/api/health', url).toString();
+    try {
+      const response = await fetch(healthUrl, { signal: AbortSignal.timeout(10_000) });
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        refError = `GET ${healthUrl} answered HTTP ${response.status}; cannot establish which database this target writes to.`;
+      } else if (typeof body?.supabase_ref !== 'string' || !body.supabase_ref) {
+        // An older deployment predating this field, or one with no database.
+        // Either way the question is unanswered, so the writes do not run.
+        refError =
+          `${healthUrl} did not report a supabase_ref.\n\n` +
+          '  The target may predate #121, or have no Supabase URL configured.\n' +
+          '  Deploy this branch to the target, or confirm its database by hand\n' +
+          '  before running the write checks.';
+      } else {
+        targetRef = body.supabase_ref;
+        if (targetRef !== expectedRef) {
+          refError =
+            `Target database mismatch — refusing to write.\n\n` +
+            `  EXPECTED_SUPABASE_REF: ${expectedRef}\n` +
+            `  target reports:        ${targetRef}\n\n` +
+            '  This is exactly the case the hostname allowlist cannot catch (#121):\n' +
+            '  an allowlisted preview pointed at a database you did not intend.\n' +
+            '  If the target really is production, do not run these checks at all.';
+        }
+      }
+    } catch (err) {
+      refError = `Could not reach ${healthUrl} to establish the target database (${err?.message || 'network error'}).`;
+    }
+  }
+
+  if (refError) {
+    console.error('');
+    console.error(`INCOMPLETE — ${results.length} checks passed, but this is not a #63 sign-off.`);
+    console.error('');
+    console.error('  Not run, because the target database could not be confirmed:');
+    console.error('    – a correctly signed subscription event is accepted and applied');
+    console.error('    – a redelivery of that event is deduplicated');
+    console.error('');
+    console.error(`  ${refError.split('\n').join('\n  ')}`);
+    console.error('');
+    process.exit(1);
+  }
+
+  console.log(`  ✓ target database confirmed: ${targetRef}`);
+}
+
 // 6 and 7. A real subscription event is applied, and redelivering it is a no-op.
 // These are the two criteria that protect money, and the two the old script
 // skipped by default.
@@ -307,6 +410,11 @@ console.log('Record of this run — paste into docs/STATUS.md:\n');
 console.log(`  Stripe webhook verification (#63): ${results.length}/${results.length} checks passed`);
 console.log(`  target:   ${new URL(url).origin}`);
 console.log(`  org:      ${orgId}`);
+// Which database was actually written to, confirmed by the target rather than
+// inferred from its hostname (#121). The record is worth little without it: the
+// same target URL means different things depending on how Vercel scoped the
+// Supabase variables.
+console.log(`  database: ${targetRef}`);
 console.log(`  revision: ${revision}`);
 console.log(`  run at:   ${new Date().toISOString()}`);
 console.log('');
