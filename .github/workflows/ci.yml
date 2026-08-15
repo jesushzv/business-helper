@@ -51,8 +51,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Unit tests
-        run: npx vitest run
+      # `--coverage` on purpose (#51). The thresholds in vitest.config.ts were
+      # declared for months and executed by nothing, so they were free to be
+      # wrong — and eight documents cited them as evidence the code was
+      # covered. Running them here is what makes the number mean something; a
+      # drop below the floor now fails the pull request instead of being
+      # discovered by whoever next runs the script by hand.
+      - name: Unit tests and coverage gate
+        run: npx vitest run --coverage
 
       - name: Build
         run: npm run build

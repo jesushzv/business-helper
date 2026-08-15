@@ -127,7 +127,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
    - React 19 Client components and UI touch target constraints
    - API route input/output contracts
 2. **Verify Red State**: Run `npm run test` and confirm new tests fail as expected.
-3. **Coverage Target**: Tests must collectively maintain `>= 85%` line/statement coverage via Vitest V8 reporter.
+3. **Coverage Target**: Tests must collectively hold coverage at or above the thresholds in `vitest.config.ts`, which CI enforces on every pull request.
 
 ### Phase 3: Implementation & Security Review
 
@@ -161,7 +161,7 @@ Please execute task [TASK_ID] from @[docs/04-execution-testing/ux_ui_audit_synth
    ```bash
    npm run test:coverage
    ```
-   Must achieve `>= 85%` statement/line coverage and 100% test pass rate.
+   Must clear the thresholds in `vitest.config.ts` and pass every test.
 
 3. **E2E Verification** (when applicable):
    ```bash
@@ -277,7 +277,7 @@ Every feature, sprint, and workstream task MUST pass ALL gates:
 - [ ] **Brand**: UI follows dark slate theme (#090D16 base, emerald accents) per `brand_guidelines_spec.md`
 - [ ] **TypeCheck**: `npm run typecheck` passes with 0 errors, 0 warnings
 - [ ] **Lint**: `npm run lint` passes (`next lint --max-warnings=0` — the script fails on any warning since #46)
-- [ ] **Coverage**: `npm run test:coverage` achieves `>= 85%` coverage, 100% pass rate
+- [ ] **Coverage**: `npm run test:coverage` clears the `vitest.config.ts` thresholds, 100% pass rate
 - [ ] **E2E**: Playwright happy-path flows pass (when applicable)
 - [ ] **Docs**: Roadmap or workback schedule updated with completion status
 - [ ] **Git**: Committed with conventional commit message (`feat(...)`, `fix(...)`)
