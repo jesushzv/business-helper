@@ -53,6 +53,33 @@ import { normalizeNumericInput, parseNumericInput } from './numericInput';
 
 export { normalizeNumericInput, parseNumericInput };
 
+/**
+ * `LineItem[]` → drafts, for editing a quote that already exists (#340).
+ *
+ * The inverse of {@link toLineItems}, and it has to be: a quote round-tripped
+ * through the editor without a change must come back byte-identical, or an
+ * owner who opened the form to fix a typo silently rewrites the figures their
+ * client was shown.
+ *
+ * Numbers become their own text — `String(5)` is `'5'`, not `'5.00'` — because
+ * the drafts hold what the owner typed, and re-inserting trailing zeros is the
+ * defect `normalizeNumericInput` exists to prevent. An empty list yields one
+ * blank draft rather than none, so the form always has a row to type into.
+ */
+export function toLineItemDrafts(items: LineItem[] | null | undefined): LineItemDraft[] {
+  if (!Array.isArray(items) || items.length === 0) {
+    return [createLineItemDraft(DEFAULT_SAT_CODE)];
+  }
+
+  return items.map((item, index) => ({
+    description: String(item?.description ?? ''),
+    quantity: Number.isFinite(Number(item?.quantity)) ? String(Number(item.quantity)) : '',
+    unit_price: Number.isFinite(Number(item?.unit_price)) ? String(Number(item.unit_price)) : '',
+    sat_code: String(item?.sat_code || (index === 0 ? DEFAULT_SAT_CODE : ADDED_ITEM_SAT_CODE)),
+    unit: String(item?.unit || 'E48'),
+  }));
+}
+
 /** Drafts → the `LineItem[]` the calculator and the API expect. */
 export function toLineItems(drafts: LineItemDraft[]): LineItem[] {
   return drafts.map((draft) => ({

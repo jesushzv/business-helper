@@ -267,6 +267,104 @@ export function useQuotes() {
     return saved;
   };
 
+  /**
+   * Edits an existing quote's content (#340).
+   *
+   * Same payload shape as `createQuote` — the totals are recomputed from the
+   * line items here rather than trusted from the form, for the same reason
+   * they are on create: the figure the client is shown and the figure stored
+   * must come from one calculation.
+   *
+   * `status` is deliberately **not** sent. Whether an edit retires a live `/q/`
+   * link is the server's decision (`lib/quoteEditability.ts`), and a client
+   * that could name its own status could keep the link alive over changed
+   * figures. The server row that comes back is what the list then shows — the
+   * #33/#50 rule: never an optimistic local object.
+   */
+  const updateQuote = async (
+    id: string,
+    data: {
+      client_id: string;
+      title: string;
+      line_items: LineItem[];
+      currency?: string;
+      valid_until?: string;
+      notes?: string;
+      bank_account_id?: string | null;
+      taxOptions?: { applyIva?: boolean; applyRetencionIsr?: boolean; applyRetencionIva?: boolean };
+    }
+  ): Promise<Quote> => {
+    const totals = calculateQuoteTotals(data.line_items, data.taxOptions);
+
+    const payload = {
+      client_id: data.client_id,
+      title: data.title,
+      line_items: data.line_items,
+      subtotal_amount: totals.subtotal,
+      iva_amount: totals.ivaAmount,
+      retencion_isr_amount: totals.retencionIsrAmount,
+      retencion_iva_amount: totals.retencionIvaAmount,
+      total_amount: totals.totalAmount,
+      currency: (data.currency as 'MXN' | 'USD') || 'MXN',
+      valid_until:
+        data.valid_until || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      notes: data.notes || '',
+      bank_account_id: data.bank_account_id ?? null,
+    };
+
+    if (isClientDemoMode()) {
+      let edited: Quote | null = null;
+      setQuotes((prev) => {
+        const next = prev.map((q) =>
+          q.id === id
+            ? ((edited = {
+                ...q,
+                ...payload,
+                line_items: data.line_items as unknown as Quote['line_items'],
+                // The sandbox states what the server would have done, rather
+                // than leaving a link live over figures that changed.
+                status: q.status === 'sent' ? 'draft' : q.status,
+                updated_at: new Date().toISOString(),
+              } as Quote),
+              edited)
+            : q
+        );
+        syncLocalStorage(next);
+        return next;
+      });
+      if (!edited) throw new Error('Cotización no encontrada');
+      return edited;
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(`/api/quotes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      throw new Error('No se pudo conectar con el servidor. La cotización no fue modificada.');
+    }
+
+    const saved = await res.json().catch(() => null);
+
+    if (!res.ok || !saved?.id) {
+      // The server's refusals here are written for the owner and name what to
+      // do next — a signed quote is immutable, an expired one needs a new
+      // quote (lib/quoteEditability.ts). Rendering them verbatim beats a
+      // generic sentence that hides which of those happened.
+      throw new Error(
+        (typeof saved?.error === 'string' && saved.error) ||
+          saved?.error?.message ||
+          'No se pudo modificar la cotización. Intenta de nuevo.'
+      );
+    }
+
+    setQuotes((prev) => prev.map((q) => (q.id === id ? saved : q)));
+    return saved;
+  };
+
   /** Applies a status locally. Only legitimate once the server has confirmed it
    *  (or in demo mode, where local state is the only state). `extra` carries
    *  sibling fields the same confirmation established (converted_contract_id). */
@@ -467,6 +565,7 @@ export function useQuotes() {
     setSearchQuery,
     fetchQuotes,
     createQuote,
+    updateQuote,
     updateQuoteStatus,
     promoteQuoteToSent,
     convertToContract,

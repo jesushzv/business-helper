@@ -45,8 +45,22 @@ function clientsTable() {
   return builder;
 }
 
+/**
+ * The status the quote under edit currently carries. `PUT` reads it before a
+ * content edit (#340) — a draft is editable with nothing else happening, which
+ * is what keeps these credit-gate assertions about the credit gate.
+ */
+let currentQuoteStatus = 'draft';
+
 function quotesTable() {
   return {
+    select: () => ({
+      eq: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: { status: currentQuoteStatus }, error: null }),
+        }),
+      }),
+    }),
     insert: (values: Record<string, unknown>) => {
       insertCalls.push(values);
       return {
@@ -115,6 +129,7 @@ beforeEach(() => {
   insertCalls.length = 0;
   updateCalls.length = 0;
   clientsReadFails = false;
+  currentQuoteStatus = 'draft';
 });
 
 describe('POST /api/quotes credit gate (#203)', () => {

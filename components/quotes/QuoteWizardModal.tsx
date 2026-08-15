@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Client, LineItem } from '@/types';
+import { Client, LineItem, Quote } from '@/types';
 import {
   LineItemDraft,
   DEFAULT_SAT_CODE,
@@ -8,6 +8,7 @@ import {
   toLineItems,
   validateLineItemDrafts,
 } from '@/lib/lineItemDraft';
+import { toLineItemDrafts } from '@/lib/lineItemDraft';
 import { calculateQuoteTotals } from '@/lib/quoteCalculator';
 import { calculateClientCreditSummary, validateQuoteCreditLimit } from '@/lib/clientCredit';
 import { useReceivables } from '@/lib/hooks/useReceivables';
@@ -23,6 +24,19 @@ interface QuoteWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
   clients: Client[];
+  /**
+   * The quote being edited, or absent/null to create a new one (#340).
+   *
+   * The same three steps serve both: an editor that re-implemented conceptos,
+   * taxes and the account picker would be a second place for the arithmetic
+   * the client is shown to diverge from the arithmetic that is stored.
+   *
+   * Only `draft` and `sent` quotes ever reach here — `QuoteCard` offers the
+   * action for those alone, and `PUT /api/quotes/[id]` refuses the rest at the
+   * server (`lib/quoteEditability.ts`). Editing a `sent` one sends it back to
+   * Borrador, which the review step says out loud before the tap.
+   */
+  quote?: Quote | null;
   onSubmit: (data: {
     client_id: string;
     title: string;
@@ -45,7 +59,9 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   onClose,
   clients,
   onSubmit,
+  quote = null,
 }) => {
+  const isEditing = Boolean(quote);
   const confirmAction = useConfirm();
   const [step, setStep] = useState<number>(1);
   const [clientId, setClientId] = useState<string>(clients[0]?.id || '');
@@ -89,6 +105,11 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   const defaultAccount = bankAccounts ? findDefaultAccount(bankAccounts) : null;
 
   React.useEffect(() => {
+    // Never while editing: an edited quote names its own client, and a client
+    // this organization has since archived would otherwise be silently swapped
+    // for whoever is first in the directory — re-pointing the quote at someone
+    // the owner never chose.
+    if (quote) return;
     if (isOpen && clients && clients.length > 0 && (!clientId || !clients.some(c => c.id === clientId))) {
       const selected = clients[0];
       setClientId(selected.id);
@@ -96,7 +117,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
         setValidUntil(new Date(Date.now() + selected.credit_days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
       }
     }
-  }, [isOpen, clients, clientId]);
+  }, [isOpen, clients, clientId, quote]);
 
   const handleClientChange = (newId: string) => {
     setClientId(newId);
@@ -130,22 +151,44 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   React.useEffect(() => {
     if (!isOpen) return;
     setStep(1);
+    setItemsError(null);
+    setSubmitError(null);
+
+    // Editing loads the quote as it stands (#340). Round-tripping it without
+    // a change must produce the same figures the client was already shown —
+    // which is why the tax switches are inferred from the stored amounts
+    // rather than reset to the create-time defaults: a quote written without
+    // IVA would otherwise gain 16% the moment its title was corrected.
+    if (quote) {
+      setClientId(quote.client_id || clients[0]?.id || '');
+      setTitle(quote.title || '');
+      setCurrency(quote.currency || 'MXN');
+      setValidUntil(
+        (quote.valid_until || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()).slice(0, 10)
+      );
+      setNotes(quote.notes || '');
+      setDrafts(toLineItemDrafts(quote.line_items as unknown as LineItem[]));
+      setApplyIva(Number(quote.iva_amount) > 0);
+      setApplyRetencionIsr(Number(quote.retencion_isr_amount) > 0);
+      setApplyRetencionIva(Number(quote.retencion_iva_amount) > 0);
+      setBankAccountId(quote.bank_account_id ?? null);
+      return;
+    }
+
     setClientId(clients[0]?.id || '');
     setTitle('');
     setCurrency('MXN');
     setValidUntil(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     setNotes('');
     setDrafts([createLineItemDraft(DEFAULT_SAT_CODE)]);
-    setItemsError(null);
     setApplyIva(true);
     setApplyRetencionIsr(false);
     setApplyRetencionIva(false);
-    setSubmitError(null);
     setBankAccountId(null);
     // `clients` is deliberately not a dependency: a directory refresh while
     // the wizard is open must not wipe typed work — only opening resets.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, quote]);
 
   if (!isOpen) return null;
 
@@ -271,7 +314,8 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
         {/* Wizard Header */}
         <div className="mb-6 pr-12">
           <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-3 py-1 rounded-full mb-2">
-            <Sparkles className="w-3.5 h-3.5" /> Step {step} de 3 — Generador de Cotización
+            <Sparkles className="w-3.5 h-3.5" /> Step {step} de 3 —{' '}
+            {isEditing ? 'Editor de Cotización' : 'Generador de Cotización'}
           </span>
           <h2 className="text-2xl font-black text-white">
             {step === 1 && '1. Cliente y Detalles de la Propuesta'}
@@ -590,6 +634,28 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
                   </div>
                 )}
 
+                {/* The cost of editing a quote whose link is live, named
+                    before the tap rather than discovered after (#340). Above
+                    the credit alert and the submit button, where a 375px
+                    screen cannot scroll past it (#146). */}
+                {isEditing && quote?.status === 'sent' && (
+                  <div
+                    role="status"
+                    className="rounded-xl bg-slate-900 border border-slate-700 p-3.5 text-xs text-slate-300 font-semibold flex items-start gap-2"
+                  >
+                    <AlertTriangle className="h-5 w-5 shrink-0 text-slate-400 mt-0.5" />
+                    <div>
+                      <span className="font-extrabold text-slate-100">
+                        Esta cotización volverá a Borrador.
+                      </span>
+                      <p className="mt-0.5 text-slate-400">
+                        El enlace que ya compartiste dejará de abrir hasta que la vuelvas a enviar,
+                        para que tu cliente no vea montos distintos a los que le mandaste.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {creditValidation.warningMessage && (
                   <div className="rounded-xl bg-amber-950/80 border border-amber-500/40 p-3.5 text-xs text-amber-300 font-semibold flex items-start gap-2">
                     <AlertTriangle className="h-5 w-5 shrink-0 text-amber-400 mt-0.5" />
@@ -676,14 +742,31 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
               <button
                 key="wizard-submit"
                 type="submit"
-                // A blocked client is refused by the server (#203) — a submit
-                // that will answer 403 is not offered (#64's corollary). The
-                // credit alert above this button says why.
-                disabled={submitting || !creditValidation.isAllowed}
+                // On **create**, a blocked client is refused by the server
+                // (#203), and a submit that will answer 403 is not offered
+                // (#64's corollary).
+                //
+                // On **edit** it is offered, deliberately. #237 decided option
+                // C — warn, don't refuse: blocked stops new pointing, not the
+                // existing pipeline, and `PUT` only runs the credit gate when
+                // the edit names a client. Disabling here would be a
+                // client-side block the server does not back, which #340 names
+                // explicitly as the thing not to build. The credit alert above
+                // is the whole intervention: the owner sees it at the moment
+                // they raise the total, and chooses knowingly.
+                disabled={submitting || (!isEditing && !creditValidation.isAllowed)}
                 className="min-h-[48px] px-8 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg text-sm"
               >
                 <Check className="w-5 h-5" />
-                <span>{submitting ? 'Creando...' : 'Generar y Compartir'}</span>
+                <span>
+                  {submitting
+                    ? isEditing
+                      ? 'Guardando...'
+                      : 'Creando...'
+                    : isEditing
+                      ? 'Guardar Cambios'
+                      : 'Generar y Compartir'}
+                </span>
               </button>
             )}
           </div>

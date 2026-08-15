@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireOrgAccess, pickFields, QUOTE_WRITABLE_FIELDS } from '@/lib/apiAuth';
 import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
 import { checkClientCreditGate } from '@/lib/clientCredit';
+import { touchesQuoteContent, quoteContentEditVerdict } from '@/lib/quoteEditability';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 import { hasCapability } from '@/lib/teamRBAC';
 import { apiError } from '@/lib/apiError';
@@ -78,6 +79,44 @@ export async function PUT(
       return apiError(400, 'NO_WRITABLE_FIELDS', 'No hay campos válidos para actualizar');
     }
 
+    // A quote's *content* — line items, totals, dates, the client it names —
+    // is editable only while nobody outside the organization has acted on it
+    // (#340). Reading the current status first is the cost of that: it is one
+    // read, and only on a content edit, so `updateQuoteStatus` — which sends
+    // `{ status }` alone and drives the whole pipeline — never pays for it.
+    //
+    // A status-only edit is deliberately not gated here. Gating it would break
+    // marking a quote sent, accepted or rejected, which is not what this
+    // feature is about.
+    let resetSentQuoteToDraft = false;
+    if (touchesQuoteContent(updates)) {
+      const { data: current, error: readError } = await supabase
+        .from('quotes')
+        .select('status')
+        .eq('id', id)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (readError) {
+        return dbWriteErrorResponse(readError, 'la cotización', 'PUT /api/quotes/[id]', {
+          verb: 'consultar',
+        });
+      }
+
+      // Scoped by organization, so another tenant's id is indistinguishable
+      // from one that does not exist — the same 404 the write below gives.
+      if (!current) {
+        return apiError(404, 'NOT_FOUND', 'Cotización no encontrada');
+      }
+
+      const verdict = quoteContentEditVerdict(current.status);
+      if (!verdict.ok) {
+        return apiError(verdict.status, verdict.code, verdict.message);
+      }
+
+      resetSentQuoteToDraft = verdict.resetToDraft;
+    }
+
     // Same check as on create: an edit can re-point an existing quote at
     // another tenant's account just as easily (#164).
     if ('bank_account_id' in updates) {
@@ -101,9 +140,25 @@ export async function PUT(
       }
     }
 
+    // Editing a `sent` quote sends it back to `draft`, retiring the `/q/` link
+    // the client is holding (#340). `quoteSignableState` reads a draft as
+    // `not_yet_sent` and the public route already answers *"todavía no está
+    // lista para firma. Pídele al negocio que te la envíe"* — so the link
+    // retires itself, with a message that was already right, and the owner has
+    // to re-send. That re-send is the moment the client learns the figures
+    // moved, which is the whole point: a document must not change under
+    // someone who is reading it.
+    //
+    // Written last so it cannot be overridden by a caller who also passed
+    // `status` — a client that edits content *and* claims 'sent' in the same
+    // request would otherwise keep the stale link alive.
+    const patch = resetSentQuoteToDraft
+      ? { ...updates, status: 'draft', updated_at: new Date().toISOString() }
+      : { ...updates, updated_at: new Date().toISOString() };
+
     const { data: updated, error } = await supabase
       .from('quotes')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(patch)
       .eq('id', id)
       .eq('organization_id', organizationId)
       .select()
