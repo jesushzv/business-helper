@@ -6,6 +6,7 @@ import { convertQuoteToContract } from '@/lib/quoteToContract';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 import { captureException } from '@/lib/sentry';
 import { track } from '@/lib/analytics';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Converts an accepted quote into a contract with its milestones.
@@ -63,16 +64,7 @@ export async function POST(
     // gates.
     const trial = await readOrganizationTrialState(supabase, organizationId);
     if (trial.blocksNewWork) {
-      return NextResponse.json(
-        {
-          error: {
-            code: TRIAL_EXPIRED_CODE,
-            message: TRIAL_EXPIRED_MESSAGE,
-            trial_ended_at: trial.endsAt,
-          },
-        },
-        { status: 402 }
-      );
+      return apiError(402, TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE, { details: { trial_ended_at: trial.endsAt } });
     }
 
 
@@ -87,17 +79,11 @@ export async function POST(
       .maybeSingle();
 
     if (!quote) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cotización no encontrada' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cotización no encontrada');
     }
 
     if (quote.converted_contract_id) {
-      return NextResponse.json(
-        { error: { code: 'ALREADY_CONVERTED', message: 'Esta cotización ya fue convertida' } },
-        { status: 409 }
-      );
+      return apiError(409, 'ALREADY_CONVERTED', 'Esta cotización ya fue convertida');
     }
 
     const conversion = convertQuoteToContract(quote);
@@ -126,10 +112,7 @@ export async function POST(
         tags: { db_error_code: String(resumeLookupError.code || 'unknown'), step: 'resume-lookup' },
         extra: { details: resumeLookupError.details, hint: resumeLookupError.hint },
       });
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo convertir la cotización a contrato' } },
-        { status: 500 }
-      );
+      return apiError(500, 'SERVER_ERROR', 'No se pudo convertir la cotización a contrato');
     }
 
     let resumed = Boolean(existingContract);
@@ -153,10 +136,7 @@ export async function POST(
           },
           extra: { contract_id: contract.id, details: milestoneLookupError.details },
         });
-        return NextResponse.json(
-          { error: { code: 'SERVER_ERROR', message: 'No se pudo convertir la cotización a contrato' } },
-          { status: 500 }
-        );
+        return apiError(500, 'SERVER_ERROR', 'No se pudo convertir la cotización a contrato');
       }
       if (existingMilestones && existingMilestones.length > 0) {
         milestones = existingMilestones;
@@ -174,17 +154,8 @@ export async function POST(
         // The conversion completed against the old quote; only the status flip
         // was missing. Refusing names the real situation instead of flipping
         // an edited quote onto a contract with different numbers.
-        return NextResponse.json(
-          {
-            error: {
-              code: 'CONVERTED_QUOTE_MODIFIED',
-              message:
-                'La cotización fue modificada después de que se creó su contrato. ' +
-                'Revisa el contrato en Cobranza antes de continuar.',
-            },
-          },
-          { status: 409 }
-        );
+        return apiError(409, 'CONVERTED_QUOTE_MODIFIED', 'La cotización fue modificada después de que se creó su contrato. ' +
+                'Revisa el contrato en Cobranza antes de continuar.');
       }
 
       if (stale) {
@@ -206,10 +177,7 @@ export async function POST(
             },
             extra: { contract_id: contract.id, details: staleDeleteError.details },
           });
-          return NextResponse.json(
-            { error: { code: 'SERVER_ERROR', message: 'No se pudo convertir la cotización a contrato' } },
-            { status: 500 }
-          );
+          return apiError(500, 'SERVER_ERROR', 'No se pudo convertir la cotización a contrato');
         }
         contract = null;
         resumed = false;
@@ -346,21 +314,11 @@ export async function POST(
         tags: { db_error_code: String(quoteStatusError.code || 'unknown') },
         extra: { details: quoteStatusError.details, hint: quoteStatusError.hint },
       });
-      return NextResponse.json(
-        {
-          error: {
-            code: 'QUOTE_STATUS_NOT_UPDATED',
-            message: 'Se creó el contrato pero no se pudo actualizar el estado de la cotización',
-          },
-          // The partial success travels with the refusal: the contract and its
+      return apiError(500, 'QUOTE_STATUS_NOT_UPDATED', 'Se creó el contrato pero no se pudo actualizar el estado de la cotización', { extra: { // The partial success travels with the refusal: the contract and its
           // schedule exist, and the client can only say so — instead of
           // "No se pudo convertir" over a live payment schedule — if the
           // response carries them (#283).
-          contract,
-          milestones,
-        },
-        { status: 500 }
-      );
+          contract, milestones } });
     }
 
     track(
@@ -380,9 +338,6 @@ export async function POST(
     // A silent catch here is the thrown-away-diagnosis defect (#146) this
     // route keeps re-learning — the cause goes to the log.
     captureException(err, { route: 'quotes/convert', organization_id: organizationId, level: 'error' });
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo convertir la cotización a contrato' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudo convertir la cotización a contrato');
   }
 }

@@ -9,6 +9,7 @@ import {
 } from '@/lib/accountantExport';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Accountant export package.
@@ -28,10 +29,7 @@ export async function GET(request: Request) {
 
   // The accountant role exists precisely to read this; members do not.
   if (!hasCapability(role, 'view_analytics')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite exportar información fiscal' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite exportar información fiscal');
   }
 
   const { searchParams } = new URL(request.url);
@@ -42,10 +40,7 @@ export async function GET(request: Request) {
   const format = searchParams.get('format') || 'manifest';
 
   if (!isValidExportMonth(month)) {
-    return NextResponse.json(
-      { error: { code: 'INVALID_MONTH', message: 'El mes debe tener el formato AAAA-MM' } },
-      { status: 400 }
-    );
+    return apiError(400, 'INVALID_MONTH', 'El mes debe tener el formato AAAA-MM');
   }
 
   const { start, endExclusive } = monthDateRange(month);
@@ -71,10 +66,7 @@ export async function GET(request: Request) {
   if (error) {
     // An empty package would read as "no business this month", which is a
     // different and more damaging claim than an error.
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo generar el paquete contable' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudo generar el paquete contable');
   }
 
   const milestones = mapMilestoneRows(rows);

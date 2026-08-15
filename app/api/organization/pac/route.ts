@@ -10,6 +10,7 @@ import {
   validatePacApiKey,
 } from '@/lib/pacCredentials';
 import { verifyPacCredentials } from '@/lib/pacClient';
+import { apiError } from '@/lib/apiError';
 
 /**
  * The organization's PAC connection.
@@ -33,10 +34,7 @@ export async function GET() {
   const { organizationId, role } = auth.ctx;
 
   if (!hasCapability(role, REQUIRED_CAPABILITY)) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Solo el dueño de la cuenta puede gestionar el PAC' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Solo el dueño de la cuenta puede gestionar el PAC');
   }
 
   let connection: { provider: string; api_key_hint: string; environment: string; updated_at: string } | null =
@@ -70,31 +68,17 @@ export async function PUT(request: Request) {
   const { organizationId, userId, role } = auth.ctx;
 
   if (!hasCapability(role, REQUIRED_CAPABILITY)) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Solo el dueño de la cuenta puede conectar un PAC' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Solo el dueño de la cuenta puede conectar un PAC');
   }
 
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      { error: { code: 'BACKEND_NOT_CONFIGURED', message: 'Almacenamiento no configurado' } },
-      { status: 503 }
-    );
+    return apiError(503, 'BACKEND_NOT_CONFIGURED', 'Almacenamiento no configurado');
   }
 
   // Storing a credential this deployment cannot seal would mean writing it in
   // plaintext. Refuse instead.
   if (!isPacEncryptionConfigured()) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'ENCRYPTION_NOT_CONFIGURED',
-          message: 'Este entorno no puede resguardar llaves de PAC. Contacta a soporte.',
-        },
-      },
-      { status: 503 }
-    );
+    return apiError(503, 'ENCRYPTION_NOT_CONFIGURED', 'Este entorno no puede resguardar llaves de PAC. Contacta a soporte.');
   }
 
   let body: { apiKey?: string; provider?: string };
@@ -108,10 +92,9 @@ export async function PUT(request: Request) {
   const validation = validatePacApiKey(apiKey);
 
   if (!validation.isValid || !validation.environment) {
-    return NextResponse.json(
-      { error: { code: 'INVALID_API_KEY', message: validation.error } },
-      { status: 400 }
-    );
+    // See the note in organization/members: `error` is optional, and a
+    // message-less envelope is not an error a tenant can act on.
+    return apiError(400, 'INVALID_API_KEY', validation.error || 'La llave del PAC no es válida.');
   }
 
   // A key that does not authenticate is rejected at the form rather than at the
@@ -124,10 +107,7 @@ export async function PUT(request: Request) {
   });
 
   if (!verification.ok) {
-    return NextResponse.json(
-      { error: { code: `PAC_${verification.code}`, message: verification.message } },
-      { status: verification.code === 'UNAUTHORIZED' ? 400 : 502 }
-    );
+    return apiError(verification.code === 'UNAUTHORIZED' ? 400 : 502, `PAC_${verification.code}`, verification.message);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,10 +128,7 @@ export async function PUT(request: Request) {
 
   if (error) {
     console.error('[pac] failed to store connection:', error.message);
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo guardar la conexión con tu PAC' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudo guardar la conexión con tu PAC');
   }
 
   await service.from('audit_logs').insert({
@@ -176,17 +153,11 @@ export async function DELETE() {
   const { organizationId, userId, role } = auth.ctx;
 
   if (!hasCapability(role, REQUIRED_CAPABILITY)) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Solo el dueño de la cuenta puede desconectar el PAC' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Solo el dueño de la cuenta puede desconectar el PAC');
   }
 
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      { error: { code: 'BACKEND_NOT_CONFIGURED', message: 'Almacenamiento no configurado' } },
-      { status: 503 }
-    );
+    return apiError(503, 'BACKEND_NOT_CONFIGURED', 'Almacenamiento no configurado');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

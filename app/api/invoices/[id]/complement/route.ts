@@ -6,6 +6,7 @@ import { hasCapability } from '@/lib/teamRBAC';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { issuePaymentComplement, planPaymentComplement } from '@/lib/complementoPago';
 import { getAppBaseUrl } from '@/lib/url';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Complementos de pago for one milestone's PPD invoice.
@@ -38,10 +39,7 @@ export async function GET(
   // Same reading as the document route: the roles that may issue a CFDI or see
   // the organization's finances.
   if (!hasCapability(role, 'issue_cfdi') && !hasCapability(role, 'view_analytics')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite consultar documentos fiscales' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite consultar documentos fiscales');
   }
 
   const { id } = await params;
@@ -57,10 +55,7 @@ export async function GET(
     .maybeSingle();
 
   if (!milestone) {
-    return NextResponse.json(
-      { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
-      { status: 404 }
-    );
+    return apiError(404, 'NOT_FOUND', 'Cobro no encontrado');
   }
 
   const { data: complements } = await supabase
@@ -134,16 +129,7 @@ export async function POST(
     // gates.
     const trial = await readOrganizationTrialState(supabase, organizationId);
     if (trial.blocksNewWork) {
-      return NextResponse.json(
-        {
-          error: {
-            code: TRIAL_EXPIRED_CODE,
-            message: TRIAL_EXPIRED_MESSAGE,
-            trial_ended_at: trial.endsAt,
-          },
-        },
-        { status: 402 }
-      );
+      return apiError(402, TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE, { details: { trial_ended_at: trial.endsAt } });
     }
 
 
@@ -151,22 +137,11 @@ export async function POST(
   // document, unlike the automatic one that follows a confirmed payment, so it
   // is held to the same capability as stamping an invoice.
   if (!hasCapability(role, 'issue_cfdi')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite emitir complementos de pago' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite emitir complementos de pago');
   }
 
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'BACKEND_NOT_CONFIGURED',
-          message: 'La facturación CFDI no está configurada en este entorno.',
-        },
-      },
-      { status: 503 }
-    );
+    return apiError(503, 'BACKEND_NOT_CONFIGURED', 'La facturación CFDI no está configurada en este entorno.');
   }
 
   const { id } = await params;
@@ -187,10 +162,7 @@ export async function POST(
   if (body?.amount !== undefined && body?.amount !== null) {
     const parsed = Number(body.amount);
     if (!Number.isFinite(parsed) || parsed <= 0) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'El monto del pago no es válido' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_INPUT', 'El monto del pago no es válido');
     }
     amount = parsed;
   }
@@ -210,10 +182,7 @@ export async function POST(
   });
 
   if (!outcome.ok) {
-    return NextResponse.json(
-      { error: { code: outcome.code, message: outcome.message } },
-      { status: outcome.status }
-    );
+    return apiError(outcome.status, outcome.code, outcome.message);
   }
 
   if (!outcome.issued) {

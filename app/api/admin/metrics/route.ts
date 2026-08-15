@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requirePlatformAdmin } from '@/lib/platformAdmin';
 import { collectedAmount, type CollectedBase } from '@/lib/receivablesCalculator';
+import { apiError } from '@/lib/apiError';
 
 /**
  * GET /api/admin/metrics — the founder's cross-tenant snapshot.
@@ -116,14 +117,6 @@ export async function GET() {
     });
   } catch (cause) {
     console.error('[admin/metrics] read failed:', cause);
-    return NextResponse.json(
-      {
-        error: {
-          code: 'ADMIN_METRICS_FAILED',
-          message: 'No se pudieron calcular las métricas de la plataforma.',
-        },
-      },
-      { status: 500 }
-    );
+    return apiError(500, 'ADMIN_METRICS_FAILED', 'No se pudieron calcular las métricas de la plataforma.');
   }
 }

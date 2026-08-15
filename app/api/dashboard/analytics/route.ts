@@ -8,6 +8,7 @@ import {
 } from '@/lib/dashboardAnalytics';
 
 import { MilestoneItem, QuoteItem } from '@/lib/dashboardAnalytics';
+import { apiError } from '@/lib/apiError';
 
 const DEMO_MILESTONES: MilestoneItem[] = [
   {
@@ -144,7 +145,7 @@ export async function GET(request: Request) {
   } catch {
     // An authenticated tenant must not be shown demo figures on failure —
     // they are indistinguishable from real ones in the UI.
-    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudieron calcular las métricas de tu negocio.' } }, { status: 500 });
+    return apiError(500, 'SERVER_ERROR', 'No se pudieron calcular las métricas de tu negocio.');
   }
 }
 

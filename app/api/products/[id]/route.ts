@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 import { hasCapability } from '@/lib/teamRBAC';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Deletes one catalog product. Added for #98 — the catalog UI offered a
@@ -20,10 +21,7 @@ export async function DELETE(
   const { supabase, organizationId, role } = auth.ctx;
 
   if (!hasCapability(role, 'delete_records')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite eliminar conceptos del catálogo' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite eliminar conceptos del catálogo');
   }
 
   try {
@@ -45,17 +43,11 @@ export async function DELETE(
     }
 
     if (!data) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Producto no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Producto no encontrado');
     }
 
     return NextResponse.json({ deleted: true });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error interno al eliminar producto' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error interno al eliminar producto');
   }
 }

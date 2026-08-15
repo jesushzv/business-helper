@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Archives a client, or restores one (#337).
@@ -38,15 +39,7 @@ export async function POST(
   const { supabase, organizationId, role } = auth.ctx;
 
   if (!hasCapability(role, 'delete_records')) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Tu rol no permite archivar clientes',
-        },
-      },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite archivar clientes');
   }
 
   try {
@@ -56,15 +49,7 @@ export async function POST(
     // The verb is explicit. Defaulting an absent/garbled body to "archive"
     // would let a malformed restore hide a client instead.
     if (typeof body?.archived !== 'boolean') {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_INPUT',
-            message: 'Indica si el cliente se archiva o se restaura.',
-          },
-        },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_INPUT', 'Indica si el cliente se archiva o se restaura.');
     }
 
     const { data: updated, error } = await supabase
@@ -85,19 +70,13 @@ export async function POST(
 
     if (!updated) {
       // Zero rows changed looks exactly like success (#128).
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cliente no encontrado');
     }
 
     // The server row, so the caller applies what was stored rather than what
     // it asked for.
     return NextResponse.json({ client: updated });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al archivar el cliente' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al archivar el cliente');
   }
 }

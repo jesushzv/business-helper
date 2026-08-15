@@ -12,6 +12,7 @@ import {
 } from '@/lib/clientValidation';
 import { authorizeCreditWrite } from '@/lib/clientCreditAuthorization';
 import { describeDbWriteError } from '@/lib/dbWriteError';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Client collection.
@@ -84,12 +85,12 @@ export async function GET(request: Request) {
     });
 
     if (error) {
-      return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus clientes.' } }, { status: 500 });
+      return apiError(500, 'SERVER_ERROR', 'No se pudieron cargar tus clientes.');
     }
 
     return NextResponse.json({ clients: clients || [] });
   } catch {
-    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus clientes.' } }, { status: 500 });
+    return apiError(500, 'SERVER_ERROR', 'No se pudieron cargar tus clientes.');
   }
 }
 
@@ -109,10 +110,7 @@ export async function POST(request: Request) {
     // On create there is nothing stored, so any credit value is a change.
     const credit = authorizeCreditWrite(picked, role, null);
     if (!credit.ok) {
-      return NextResponse.json(
-        { error: { code: 'FORBIDDEN', message: credit.message, fields: credit.fields } },
-        { status: 403 }
-      );
+      return apiError(403, 'FORBIDDEN', credit.message, { fields: credit.fields });
     }
     const fields = credit.fields;
 
@@ -124,16 +122,7 @@ export async function POST(request: Request) {
     // sees the whole list once.
     const { fieldErrors, values } = validateClientWrite(fields, { requireName: true });
     if (Object.keys(fieldErrors).length > 0) {
-      return NextResponse.json(
-        {
-          error: {
-            code: fieldErrorCode(fieldErrors),
-            message: summarizeFieldErrors(fieldErrors),
-            fields: fieldErrors,
-          },
-        },
-        { status: 400 }
-      );
+      return apiError(400, fieldErrorCode(fieldErrors), summarizeFieldErrors(fieldErrors), { fields: fieldErrors });
     }
 
     // An explicit null would override the column's 'G03' default; omitting the
@@ -163,23 +152,11 @@ export async function POST(request: Request) {
       // tripped and a permission denial each get their own Spanish answer, and
       // the raw error is logged rather than discarded.
       const failure = describeDbWriteError(error, 'el cliente', 'POST /api/clients');
-      return NextResponse.json(
-        {
-          error: {
-            code: failure.code,
-            message: failure.message,
-            ...(failure.field ? { fields: { [failure.field]: failure.message } } : {}),
-          },
-        },
-        { status: failure.status }
-      );
+      return apiError(failure.status, failure.code, failure.message, { details: { ...(failure.field ? { fields: { [failure.field]: failure.message } } : {}) } });
     }
 
     return NextResponse.json(newClient, { status: 201 });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al procesar cliente' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al procesar cliente');
   }
 }

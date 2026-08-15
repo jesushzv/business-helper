@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from '@/lib/supabase/server';
 import { validateProductCatalogItem } from '@/lib/products';
 import { requireOrgAccess } from '@/lib/apiAuth';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { apiError } from '@/lib/apiError';
 
 export async function GET() {
   if (!isSupabaseConfigured()) {
@@ -22,18 +23,12 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar los productos' } },
-        { status: 500 }
-      );
+      return apiError(500, 'SERVER_ERROR', 'No se pudieron cargar los productos');
     }
 
     return NextResponse.json({ products: products || [] });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar los productos' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudieron cargar los productos');
   }
 }
 
@@ -62,16 +57,7 @@ export async function POST(request: Request) {
     // raw 22P02 misdescribed as "fuera del rango". NaN and ±Infinity fail the
     // same check.
     if (normalizedStock !== null && !Number.isInteger(normalizedStock)) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_PRODUCT',
-            message:
-              'Las existencias deben ser un número entero, o dejarse vacías para un servicio.',
-          },
-        },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_PRODUCT', 'Las existencias deben ser un número entero, o dejarse vacías para un servicio.');
     }
 
     const validation = validateProductCatalogItem({
@@ -84,10 +70,7 @@ export async function POST(request: Request) {
     });
 
     if (!validation.isValid) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_PRODUCT', message: validation.errors.join(', ') } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_PRODUCT', validation.errors.join(', '));
     }
 
     {
@@ -115,9 +98,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ product: newProduct }, { status: 201 });
     }
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error interno al guardar producto' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error interno al guardar producto');
   }
 }

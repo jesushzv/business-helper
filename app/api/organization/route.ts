@@ -13,6 +13,7 @@ import {
   SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_MESSAGE,
 } from '@/lib/bankAccounts';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { apiError } from '@/lib/apiError';
 
 export async function GET() {
   // No backend means no tenant data; the demo organization is honest here.
@@ -60,10 +61,7 @@ export async function GET() {
       .maybeSingle();
 
     if (error || !organization) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Organización no encontrada' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Organización no encontrada');
     }
 
     // The billing card needs to know *whether* there is a Stripe customer, so
@@ -84,10 +82,7 @@ export async function GET() {
       hasBillingAccount: Boolean(stripeCustomerId),
     });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al obtener la organización' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al obtener la organización');
   }
 }
 
@@ -128,15 +123,7 @@ export async function PATCH(request: Request) {
   // Unaffected by the uniqueness index this PR adds: one organization per owner
   // fixes *which row* the filter finds, not *who* is allowed to ask.
   if (role !== 'owner') {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Solo el dueño de la organización puede cambiar estos datos',
-        },
-      },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Solo el dueño de la organización puede cambiar estos datos');
   }
 
   try {
@@ -202,57 +189,26 @@ export async function PATCH(request: Request) {
           // guessing "one" and being wrong destroys accounts that cannot be
           // un-archived from any screen. The message says what we don't know
           // rather than asserting a count we never read (hard rule #1).
-          return NextResponse.json(
-            {
-              error: {
-                code: SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_CODE,
-                message: SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_MESSAGE,
-              },
-            },
-            { status: 503 }
-          );
+          return apiError(503, SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_CODE, SETTLEMENT_ACCOUNT_CLEAR_UNVERIFIED_MESSAGE);
         }
 
         if (live.count > 1) {
-          return NextResponse.json(
-            {
-              error: {
-                code: SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS_CODE,
-                message: SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS_MESSAGE,
-              },
-            },
-            { status: 409 }
-          );
+          return apiError(409, SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS_CODE, SETTLEMENT_ACCOUNT_CLEAR_AMBIGUOUS_MESSAGE);
         }
 
         update.bank_clabe = null;
         update.bank_name = null;
         update.bank_account_holder = null;
       } else if (!isValidClabeLength(clabe)) {
-        return NextResponse.json(
-          { error: { code: 'INVALID_CLABE', message: 'La CLABE debe tener exactamente 18 dígitos' } },
-          { status: 400 }
-        );
+        return apiError(400, 'INVALID_CLABE', 'La CLABE debe tener exactamente 18 dígitos');
       } else if (!hasValidClabeCheckDigit(clabe)) {
         // Enforced server-side since #66 (decided 2026-08-08): this is the
         // account a tenant's clients wire real money to, and the checksum
         // catches the transposition and single-digit typos a length check
         // cannot. Rejecting here beats a misdirected SPEI transfer later.
-        return NextResponse.json(
-          {
-            error: {
-              code: 'INVALID_CLABE',
-              message:
-                'La CLABE no parece válida. Revísala dígito por dígito tal como aparece en tu banco.',
-            },
-          },
-          { status: 400 }
-        );
+        return apiError(400, 'INVALID_CLABE', 'La CLABE no parece válida. Revísala dígito por dígito tal como aparece en tu banco.');
       } else if (!bankName || typeof bankName !== 'string' || !bankName.trim()) {
-        return NextResponse.json(
-          { error: { code: 'INVALID_INPUT', message: 'El nombre del banco es obligatorio' } },
-          { status: 400 }
-        );
+        return apiError(400, 'INVALID_INPUT', 'El nombre del banco es obligatorio');
       } else {
         update.bank_name = bankName.trim();
         update.bank_clabe = clabe;
@@ -265,10 +221,7 @@ export async function PATCH(request: Request) {
 
     if (body.name !== undefined) {
       if (typeof body.name !== 'string' || !body.name.trim()) {
-        return NextResponse.json(
-          { error: { code: 'INVALID_INPUT', message: 'El nombre del negocio es obligatorio' } },
-          { status: 400 }
-        );
+        return apiError(400, 'INVALID_INPUT', 'El nombre del negocio es obligatorio');
       }
       update.name = body.name.trim();
     }
@@ -278,10 +231,7 @@ export async function PATCH(request: Request) {
       if (rfc) {
         const check = validateRFC(rfc);
         if (!check.isValid) {
-          return NextResponse.json(
-            { error: { code: 'INVALID_RFC', message: check.error || 'El RFC no es válido' } },
-            { status: 400 }
-          );
+          return apiError(400, 'INVALID_RFC', check.error || 'El RFC no es válido');
         }
         update.rfc = rfc;
       } else {
@@ -298,10 +248,7 @@ export async function PATCH(request: Request) {
       // boundary-less match would silently truncate '6012' to a different code.
       const code = /^(\d{3})(?:\s*[—–-]|$)/.exec(raw);
       if (raw && !code) {
-        return NextResponse.json(
-          { error: { code: 'INVALID_INPUT', message: 'El régimen fiscal no es válido' } },
-          { status: 400 }
-        );
+        return apiError(400, 'INVALID_INPUT', 'El régimen fiscal no es válido');
       }
       update.regimen_fiscal = code ? code[1] : null;
     }
@@ -309,10 +256,7 @@ export async function PATCH(request: Request) {
     if (body.codigoPostal !== undefined) {
       const cp = typeof body.codigoPostal === 'string' ? body.codigoPostal.trim() : '';
       if (cp && !/^\d{5}$/.test(cp)) {
-        return NextResponse.json(
-          { error: { code: 'INVALID_INPUT', message: 'El código postal debe tener 5 dígitos' } },
-          { status: 400 }
-        );
+        return apiError(400, 'INVALID_INPUT', 'El código postal debe tener 5 dígitos');
       }
       update.codigo_postal = cp || null;
     }
@@ -322,16 +266,7 @@ export async function PATCH(request: Request) {
       if (raw) {
         const normalized = normalizeClientPhone(raw);
         if (normalized.error || !normalized.value) {
-          return NextResponse.json(
-            {
-              error: {
-                code: 'INVALID_PHONE',
-                message:
-                  'El teléfono de contacto debe ser un número mexicano de 10 dígitos, por ejemplo 8112345678.',
-              },
-            },
-            { status: 400 }
-          );
+          return apiError(400, 'INVALID_PHONE', 'El teléfono de contacto debe ser un número mexicano de 10 dígitos, por ejemplo 8112345678.');
         }
         update.phone = normalized.value;
       } else {
@@ -344,19 +279,13 @@ export async function PATCH(request: Request) {
       // https only: the logo renders on client-facing pages, so an arbitrary
       // scheme (javascript:) or plain-http origin is not acceptable there.
       if (logo && !/^https:\/\//i.test(logo)) {
-        return NextResponse.json(
-          { error: { code: 'INVALID_INPUT', message: 'La URL del logotipo debe comenzar con https://' } },
-          { status: 400 }
-        );
+        return apiError(400, 'INVALID_INPUT', 'La URL del logotipo debe comenzar con https://');
       }
       update.logo_url = logo || null;
     }
 
     if (Object.keys(update).length === 0) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'No hay datos que guardar' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_INPUT', 'No hay datos que guardar');
     }
 
     update.updated_at = new Date().toISOString();
@@ -379,10 +308,7 @@ export async function PATCH(request: Request) {
     }
 
     if (!data) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'No se encontró una organización propia' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'No se encontró una organización propia');
     }
 
     // Changing where every future SPEI lands is at least as consequential as
@@ -447,10 +373,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ organization: data });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error interno' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error interno');
   }
 }
 
@@ -470,7 +393,7 @@ export async function POST(request: Request) {
     const { name, rfc, regimenFiscal, codigoPostal, industry } = body;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
-      return NextResponse.json({ error: { code: 'INVALID_INPUT', message: 'El nombre del negocio es obligatorio' } }, { status: 400 });
+      return apiError(400, 'INVALID_INPUT', 'El nombre del negocio es obligatorio');
     }
 
     // The WhatsApp number registration required and then discarded (#142).
@@ -521,9 +444,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ organization: data });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error interno' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error interno');
   }
 }

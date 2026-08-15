@@ -8,9 +8,10 @@ import {
 import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
 import { checkClientCreditGate } from '@/lib/clientCredit';
 import { readOrganizationTrialState } from '@/lib/organizationTrialGate';
-import { checkQuoteQuotaGate } from '@/lib/quoteQuota';
+import { checkQuoteQuotaGate, QUOTE_QUOTA_CODE, QUOTE_QUOTA_MESSAGE } from '@/lib/quoteQuota';
 import { TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE } from '@/lib/subscriptionTrial';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Quote collection.
@@ -39,18 +40,12 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus cotizaciones' } },
-        { status: 500 }
-      );
+      return apiError(500, 'SERVER_ERROR', 'No se pudieron cargar tus cotizaciones');
     }
 
     return NextResponse.json({ quotes: quotes || [] });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus cotizaciones' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudieron cargar tus cotizaciones');
   }
 }
 
@@ -64,10 +59,7 @@ export async function POST(request: Request) {
     const fields = pickFields(body, QUOTE_WRITABLE_FIELDS);
 
     if (!fields.title) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'El título es obligatorio' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_INPUT', 'El título es obligatorio');
     }
 
     // The trial gate (#128). Starting *new* work
@@ -88,16 +80,7 @@ export async function POST(request: Request) {
     // ended should read that rather than a complaint about a field.
     const trial = await readOrganizationTrialState(supabase, organizationId);
     if (trial.blocksNewWork) {
-      return NextResponse.json(
-        {
-          error: {
-            code: TRIAL_EXPIRED_CODE,
-            message: TRIAL_EXPIRED_MESSAGE,
-            trial_ended_at: trial.endsAt,
-          },
-        },
-        { status: 402 }
-      );
+      return apiError(402, TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE, { details: { trial_ended_at: trial.endsAt } });
     }
 
     // Plan Inicial's 50/mes quota (#271) — enforced at the same door as the
@@ -106,17 +89,12 @@ export async function POST(request: Request) {
     // remedy is the same screen: a plan change in Ajustes.
     const quota = await checkQuoteQuotaGate(supabase, organizationId);
     if (!quota.ok) {
-      return NextResponse.json(
-        {
-          error: {
-            code: quota.code,
-            message: quota.message,
-            used: quota.used,
-            limit: quota.limit,
-          },
-        },
-        { status: quota.status || 402 }
-      );
+      // `code`/`message` are optional on the gate's result type, so they get
+      // the module's own constants as a fallback rather than an envelope with
+      // an undefined message — which the typed helper refuses to build.
+      return apiError(quota.status || 402, quota.code || QUOTE_QUOTA_CODE, quota.message || QUOTE_QUOTA_MESSAGE, {
+        details: { used: quota.used, limit: quota.limit },
+      });
     }
 
     // The account this quote's client will be told to pay must belong to this
@@ -129,10 +107,7 @@ export async function POST(request: Request) {
       fields.bank_account_id
     );
     if (!accountCheck.ok) {
-      return NextResponse.json(
-        { error: { code: accountCheck.code, message: accountCheck.message } },
-        { status: accountCheck.status }
-      );
+      return apiError(accountCheck.status, accountCheck.code, accountCheck.message);
     }
 
     // A client the owner marked `blocked` means "solo contado" — the one
@@ -142,10 +117,7 @@ export async function POST(request: Request) {
     // same posture as the trial gate above.
     const creditGate = await checkClientCreditGate(supabase, organizationId, fields.client_id);
     if (!creditGate.ok) {
-      return NextResponse.json(
-        { error: { code: creditGate.code, message: creditGate.message } },
-        { status: creditGate.status }
-      );
+      return apiError(creditGate.status, creditGate.code, creditGate.message);
     }
 
     // organization_id and created_by come from the session, never the body, so
@@ -168,9 +140,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newQuote, { status: 201 });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo crear la cotización' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudo crear la cotización');
   }
 }

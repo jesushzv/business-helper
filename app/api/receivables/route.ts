@@ -6,6 +6,7 @@ import {
   MILESTONE_WRITABLE_FIELDS,
 } from '@/lib/apiAuth';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Milestone (receivables) collection.
@@ -59,18 +60,12 @@ export async function GET() {
     if (error) {
       // Envelope + Spanish (#275): the dashboard rendered "Failed to fetch
       // receivables" verbatim to the tenant.
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus cobros.' } },
-        { status: 500 }
-      );
+      return apiError(500, 'SERVER_ERROR', 'No se pudieron cargar tus cobros.');
     }
 
     return NextResponse.json({ receivables: receivables || [] });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudieron cargar tus cobros.' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudieron cargar tus cobros.');
   }
 }
 
@@ -88,10 +83,7 @@ export async function POST(request: Request) {
     const contractId = typeof body?.contract_id === 'string' ? body.contract_id : null;
 
     if (!contractId) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'contract_id es obligatorio' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_INPUT', 'contract_id es obligatorio');
     }
 
     const { data: contract } = await supabase
@@ -102,10 +94,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (!contract) {
-      return NextResponse.json(
-        { error: { code: 'CONTRACT_NOT_FOUND', message: 'Contrato no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'CONTRACT_NOT_FOUND', 'Contrato no encontrado');
     }
 
     const { data: newMilestone, error } = await supabase
@@ -125,9 +114,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newMilestone, { status: 201 });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo crear el cobro.' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudo crear el cobro.');
   }
 }
