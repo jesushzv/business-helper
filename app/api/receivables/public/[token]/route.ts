@@ -9,12 +9,33 @@ import {
   type BankAccount,
 } from '@/lib/bankAccounts';
 import { publicDbWriteErrorResponse } from '@/lib/dbWriteError';
-import { expectedSettlementAmount } from '@/lib/receivablesCalculator';
+import {
+  expectedSettlementAmount,
+  recordedTransferAmount,
+} from '@/lib/receivablesCalculator';
 import {
   pickPayableMilestone,
   isValidReceiptPath,
   SPEI_VOUCHERS_BUCKET,
+  type PublicMilestone,
 } from '@/lib/publicReceivable';
+
+/**
+ * The milestone shape *this* route's select reads — stated next to the select
+ * so the two cannot drift apart silently (#371).
+ *
+ * `transferred_amount` is required and nullable, matching `CollectedBase`: the
+ * money helpers below distinguish "the column is NULL" from "the caller never
+ * selected it", and reading those alike is what booked a partial wire as paid
+ * in full (#351). Declaring it here makes tsc refuse a select that drops it,
+ * which `PublicMilestone` — all-optional by design for its three callers —
+ * cannot do (the #78 shape).
+ */
+interface PayableMilestone extends PublicMilestone {
+  transferred_amount: number | string | null;
+  cfdi_total?: number | string | null;
+  cfdi_status?: string | null;
+}
 
 /**
  * Public SPEI payment surface, reached over a shared link with no session.
@@ -45,6 +66,9 @@ const DEMO_MILESTONE = {
   bank_name: 'Banco Demo (datos de ejemplo)',
   clabe: null,
   beneficiary: 'Business Helper Demo',
+  // Nothing has arrived on the fixture, and the key is present rather than
+  // omitted so the sandbox exercises the same branch a real tenant does (#371).
+  already_received: 0,
   is_demo: true,
 };
 
@@ -105,7 +129,7 @@ export async function GET(
       return publicApiError(404, 'PAYMENT_NOT_FOUND', 'Cobro no encontrado');
     }
 
-    const milestone = pickPayableMilestone(quote.contracts.milestones);
+    const milestone = pickPayableMilestone<PayableMilestone>(quote.contracts.milestones);
     if (!milestone) {
       // Everything on this contract is already declared or confirmed. Rendering
       // payment instructions here invites a duplicate transfer.
@@ -116,6 +140,26 @@ export async function GET(
       );
     }
     const org = quote.organizations;
+
+    // What the owner has already recorded against this still-open cobro (#371).
+    // A `pending`/`requested` milestone carrying a `transferred_amount` is the
+    // tenant having logged a partial wire and left the cobro open for the rest.
+    const alreadyReceived = recordedTransferAmount(milestone);
+    const settlementTotal = expectedSettlementAmount(milestone);
+
+    // Fully covered and still open: the tenant has recorded everything this
+    // cobro is owed but has not moved its status. Rendering payment
+    // instructions here asks a payer to wire a sum that has already arrived —
+    // the same harm as the duplicate-transfer case above, so it gets the same
+    // refusal rather than a $0 payment request.
+    if (settlementTotal > 0 && alreadyReceived >= settlementTotal) {
+      return publicApiError(
+        409,
+        'PAYMENT_ALREADY_SETTLED',
+        'Este cobro ya está cubierto según el registro del negocio. No transfieras de nuevo; ' +
+          'si tienes dudas, contacta directamente al negocio.'
+      );
+    }
 
     // Which account this payer is sent to (#164). The quote's own account wins
     // over the organization's current default: the tenant chose where this
@@ -160,7 +204,15 @@ export async function GET(
         // `planPaymentComplement` measures it against `cfdi_total`. Asking for
         // the milestone amount here is what left the owner being told to refund
         // $0.01 to a client who had paid in full.
-        amount: expectedSettlementAmount(milestone),
+        amount: settlementTotal,
+        // Disclosed, deliberately *not* subtracted from `amount` above (#371).
+        // The declaration this page files overwrites `transferred_amount`
+        // rather than adding to it, so asking for the remainder would erase the
+        // record of the wire already made. Until that is cumulative, the honest
+        // move is to show the payer both figures and say to confirm the balance
+        // with the business — not to quietly ask for the whole sum again, and
+        // not to ask for a remainder the system would then lose.
+        already_received: alreadyReceived,
         due_date: milestone.due_date,
         status: milestone.status,
         contract_title: quote.contracts.title || quote.title,

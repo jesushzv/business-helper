@@ -255,27 +255,42 @@ If this deployment includes the security hardening migration (`20260806120000_se
 WEBHOOK_URL=https://staging.example.com/api/stripe/webhook \
 STRIPE_WEBHOOK_SECRET=whsec_… \
 ORG_ID=<a real organization uuid in that deployment's database> \
+EXPECTED_SUPABASE_REF=<the Supabase project ref that deployment must be using> \
 npm run verify:webhook
 ```
 
-All three variables are required for a complete run. `ORG_ID` is not optional
+All four variables are required for a complete run. `ORG_ID` is not optional
 convenience: the two checks that need it — a signed subscription event is
 applied, and its redelivery is not applied twice — are the two that protect
 money, and they write to that organization, so use a staging target you are
 willing to change. Without it the script runs the signature checks, prints
 `INCOMPLETE`, and **exits non-zero**; there is no flag to turn that into a pass.
 
-> [!WARNING]
-> **The target allowlist guards the URL, not the database behind it.** The
-> script refuses any host that is not localhost, a `*.vercel.app` preview, or
-> `staging.*`. A Vercel preview is a preview of the *code*: its environment
-> variables come from the same project, and Vercel applies a variable to Preview
-> as well as Production unless it was scoped otherwise. A preview of this repo
-> can therefore hold the production `SUPABASE_SERVICE_ROLE_KEY`, and the two
-> `ORG_ID` checks would write `subscription_tier` and `subscription_status` to a
-> real tenant. Check which Supabase project the target's variables point at
-> before setting `ORG_ID`. The six signature checks write nothing and are safe
-> against any allowlisted target.
+> [!IMPORTANT]
+> **The target allowlist guards the URL; `EXPECTED_SUPABASE_REF` guards the
+> database behind it (#121).** The allowlist refuses any host that is not
+> localhost, a `*.vercel.app` preview, or `staging.*` — but a Vercel preview is
+> a preview of the *code*: its environment variables come from the same project,
+> and Vercel applies a variable to Preview as well as Production unless it was
+> scoped otherwise. A preview of this repo can therefore hold the production
+> `SUPABASE_SERVICE_ROLE_KEY`, and the two `ORG_ID` checks would write
+> `subscription_tier` and `subscription_status` to a real tenant, silently.
+>
+> This used to be a warning here telling you to check by hand. It is now
+> checked: with `ORG_ID` set, the run reads `supabase_ref` from the target's
+> `/api/health` and refuses to write unless it matches `EXPECTED_SUPABASE_REF`.
+> A mismatch, an unanswerable target, or a missing variable all end the run
+> non-zero as `INCOMPLETE`, naming the two checks that did not happen.
+>
+> The ref is the subdomain of `NEXT_PUBLIC_SUPABASE_URL` (`https://<ref>.supabase.co`)
+> — already public in the client bundle, and never a key. Find it in the
+> Supabase dashboard or in the deployment's own `/api/health`. The six signature
+> checks write nothing and are unaffected: they still run against any
+> allowlisted target with no ref required.
+>
+> **The deeper fix is still worth taking separately:** scope the Supabase
+> variables in Vercel to Production only, and give Preview its own project.
+> That also stops a preview from serving live tenant data to anyone with the URL.
 
 What a green run proves, and what it does not:
 
@@ -292,8 +307,8 @@ answers `503` rather than `400` when it has no secret to check against, so
 "unconfigured" and "rejected your forgery" are distinguishable — in this script
 and in Stripe's own delivery log.
 
-The script prints a record block on a successful run (target, org, revision,
-timestamp). Paste it into [`STATUS.md`](STATUS.md), which is where a claim about
+The script prints a record block on a successful run (target, org, **the database
+ref it confirmed**, revision, timestamp). Paste it into [`STATUS.md`](STATUS.md), which is where a claim about
 what has been verified belongs.
 
 **Remaining checks by hand:**

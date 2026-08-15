@@ -52,7 +52,7 @@ project; agents author most PRs and the issue tracker doubles as the engineering
 | `npm run lint` | `next lint --max-warnings=0` — any warning fails CI (`<img>`, unused vars) |
 | `npx vitest run` | Unit + component tests only |
 | `npm test` | ⚠️ `lint && typecheck && vitest run` — a "test" failure may be a lint failure |
-| `npm run test:coverage` | Gate: 85% lines/statements, 80% functions/branches |
+| `npm run test:coverage` | The coverage gate; thresholds live in `vitest.config.ts` (#51) |
 | `npm run test:e2e` | Playwright (not in CI — treat e2e claims as unverified) |
 | `npm run db:migrate` / `:dry` | Apply `supabase/migrations/` — **manual, never automatic** |
 | `npm run verify:otp` / `:stripe` / `:webhook` | Preflights calling the **real** provider — what satisfies hard rule #2. `:stripe` is read-only, safe against live; **`:webhook` sends real events — never at production.** Run the one matching your diff, say so |
@@ -60,11 +60,11 @@ project; agents author most PRs and the issue tracker doubles as the engineering
 - **Node 22 required** for the tests (Node 20 reports "no tests", not a failure).
 - **A fresh clone has no `node_modules` — run `npm ci` first.** Without it `npm run typecheck` emits
   ~200 `TS2307: Cannot find module 'vitest'` errors that read like your change broke the build.
-- **`npm run test:coverage` currently fails on `main`** — the 85/85/80/80 thresholds are
-  aspirational and CI does not run them (#51); `docs/STATUS.md` carries the live figures. Judge your
-  change on the **delta** — but `git stash -u` covers only *uncommitted* work; once committed it
-  measures the branch against itself. Baseline with `git worktree add /tmp/base origin/main` plus a
-  `node_modules` symlink, and say which way it moved. Don't "fix" a red run you didn't cause.
+- **CI runs the coverage gate** (`vitest run --coverage`) against `vitest.config.ts`'s thresholds —
+  a ratchet, never lowered to pass a red run (#51). Judge your change on the **delta** — but
+  `git stash -u` covers only *uncommitted* work; once committed it measures the branch against
+  itself. Baseline with `git worktree add /tmp/base origin/main` plus a `node_modules` symlink, and
+  say which way it moved. Don't "fix" a red run you didn't cause.
 - Quality gate before any commit: `npm run typecheck && npm run lint && npx vitest run` (plus
   `npm run build` for structural changes — Vitest strips TS annotations, so only `tsc`/`build`
   catch interface mismatches).
@@ -117,7 +117,7 @@ project; agents author most PRs and the issue tracker doubles as the engineering
    deploy can outrun the schema. A PR carrying one must have it applied **before or with** the merge
    (`npm run db:migrate:dry` first). CI's reminder is a requirement, not a note.
 7. **Tests import the `.ts` sources** — never hand-maintained `.js` mirrors (retired in PR #21).
-   Every code change ships with corresponding Vitest coverage; keep the 85% gate.
+   Every code change ships with corresponding Vitest coverage; keep the gate green.
    **Before fixing a bug, grep the suite for the defect's shape — the test that should have caught
    it may be pinning it.** Three have: #72/#74 (a `/pay/` link built from a *milestone id*; a guard
    through a parameter the route could never set) and #95 (`toBe('inicial')`, pinning the fallback

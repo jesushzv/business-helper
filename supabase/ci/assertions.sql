@@ -436,4 +436,84 @@ BEGIN
 END
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 10. Server-only tables revoke the named roles, not just RLS (#242, #76).
+--
+--     RLS-with-no-policies blocks row access and says nothing about
+--     privileges: Supabase's default privileges GRANT on new public tables to
+--     `anon` and `authenticated` as named roles, and **TRUNCATE is not
+--     governed by RLS**. `stripe_webhook_events` shipped that way — an anon
+--     TRUNCATE of the Stripe idempotency ledger succeeded, after which a
+--     replayed delivery re-applies a tier change.
+--
+--     The set is derived from the catalog (RLS on, zero policies = server
+--     only) rather than listed here, so the next such table is covered the day
+--     it is created instead of the day somebody remembers this file. Each
+--     refusal is paired with a positive control: service_role must still be
+--     able to truncate, or an over-broad REVOKE would pass this as "secure".
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  t record;
+  checked int := 0;
+  truncated boolean;
+BEGIN
+  FOR t IN
+    SELECT c.relname
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relkind = 'r'
+       AND c.relrowsecurity
+       AND NOT EXISTS (
+         SELECT 1 FROM pg_policies p
+          WHERE p.schemaname = 'public' AND p.tablename = c.relname
+       )
+     ORDER BY c.relname
+  LOOP
+    checked := checked + 1;
+
+    -- Negative: the grant must be gone by name for both roles.
+    IF has_table_privilege('anon', format('public.%I', t.relname), 'TRUNCATE') THEN
+      RAISE EXCEPTION
+        'anon holds TRUNCATE on public.% — RLS does not govern TRUNCATE; add a by-name REVOKE (#242)',
+        t.relname;
+    END IF;
+    IF has_table_privilege('authenticated', format('public.%I', t.relname), 'TRUNCATE') THEN
+      RAISE EXCEPTION
+        'authenticated holds TRUNCATE on public.% — add a by-name REVOKE (#242)', t.relname;
+    END IF;
+
+    -- …proven by making it reject, not by reading the ACL alone.
+    BEGIN
+      EXECUTE 'SET LOCAL ROLE anon';
+      EXECUTE format('TRUNCATE public.%I', t.relname);
+      truncated := true;
+    EXCEPTION WHEN insufficient_privilege THEN
+      truncated := false;
+    END;
+    EXECUTE 'RESET ROLE';
+    IF truncated THEN
+      RAISE EXCEPTION 'anon TRUNCATEd public.% — the ledger is erasable by an unauthenticated role (#242)',
+        t.relname;
+    END IF;
+
+    -- Positive control: an over-broad REVOKE breaks the webhook writer, and
+    -- would otherwise sail through every assertion above.
+    IF NOT has_table_privilege('service_role', format('public.%I', t.relname), 'TRUNCATE') THEN
+      RAISE EXCEPTION
+        'service_role lost TRUNCATE on public.% — the REVOKE is too broad and the writer is down',
+        t.relname;
+    END IF;
+  END LOOP;
+
+  -- A loop that matched nothing is indistinguishable from a loop that passed.
+  -- otp_send_log, stripe_webhook_events, ai_usage_monthly, cfdi_stamp_claims.
+  IF checked < 4 THEN
+    RAISE EXCEPTION 'expected at least 4 server-only tables, found % — the query stopped matching (#242)',
+      checked;
+  END IF;
+END
+$$;
+
 ROLLBACK;

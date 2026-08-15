@@ -43,9 +43,14 @@ describe('/api/health serves measured facts only (#317)', () => {
       'environment',
       'services',
       'status',
+      'supabase_ref',
       'timestamp',
       'version',
     ]);
+    // The project ref, so `verify:webhook` can establish which database a
+    // target writes to instead of inferring it from the hostname (#121). Public
+    // already — it is the subdomain of NEXT_PUBLIC_SUPABASE_URL — and never a key.
+    expect(body.supabase_ref).toBe('real-project');
     expect(body.services).toEqual({ database: 'connected', auth: 'active' });
     expect(body.status).toBe('healthy');
   });
@@ -59,6 +64,9 @@ describe('/api/health serves measured facts only (#317)', () => {
 
     expect(body.status).toBe('degraded');
     expect(body.services).toEqual({ database: 'disconnected', auth: 'inactive' });
+    // No URL configured is a real answer, and `null` is how it is said —
+    // never a guess a caller could match against (#121).
+    expect(body.supabase_ref).toBeNull();
     expect(body).not.toHaveProperty('releaseGates');
   });
 

@@ -401,9 +401,8 @@ app/
 
 ```mermaid
 graph LR
-    Push[Git Push / PR] --> Husky[Husky Pre-commit: Lint & Typecheck]
-    Husky --> GitHubActions[GitHub Actions CI]
-    GitHubActions --> TestSuite[Node.js Test Runner: Coverage >= 85%]
+    Push[Git Push / PR] --> GitHubActions[GitHub Actions CI: Lint, Typecheck, Coverage]
+    GitHubActions --> TestSuite[Vitest --coverage against the vitest.config.ts floor]
     GitHubActions --> E2E[Playwright E2E Test Suite]
     E2E --> VercelBuild[Vercel Preview Deployment]
     VercelBuild -->|Merge to main| ProdDeploy[Production Deployment]
@@ -425,4 +424,4 @@ graph LR
 
 ---
 
-> **Implementation Note for AI Assistants & Engineers**: When implementing new features, always adhere to the RLS multi-tenant organization scoping (`organization_id`), write unit tests to maintain the 85% coverage threshold, and enforce Tailwind CSS v4 design tokens.
+> **Implementation Note for AI Assistants & Engineers**: When implementing new features, always adhere to the RLS multi-tenant organization scoping (`organization_id`), write unit tests to hold coverage at or above the threshold in `vitest.config.ts`, and enforce Tailwind CSS v4 design tokens.
