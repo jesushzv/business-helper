@@ -20,6 +20,7 @@ import {
 import { storeCFDIDocuments } from '@/lib/cfdiStorage';
 import { getAppBaseUrl } from '@/lib/url';
 import { track } from '@/lib/analytics';
+import { apiError } from '@/lib/apiError';
 
 /**
  * CFDI 4.0 issuance.
@@ -73,58 +74,32 @@ export async function POST(request: Request) {
     // gates.
     const trial = await readOrganizationTrialState(supabase, organizationId);
     if (trial.blocksNewWork) {
-      return NextResponse.json(
-        {
-          error: {
-            code: TRIAL_EXPIRED_CODE,
-            message: TRIAL_EXPIRED_MESSAGE,
-            trial_ended_at: trial.endsAt,
-          },
-        },
-        { status: 402 }
-      );
+      return apiError(402, TRIAL_EXPIRED_CODE, TRIAL_EXPIRED_MESSAGE, { details: { trial_ended_at: trial.endsAt } });
     }
 
 
   // Stamping commits the organization's RFC to a document it cannot withdraw
   // without filing a cancellation. It is not a `member` action.
   if (!hasCapability(role, 'issue_cfdi')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite emitir facturas CFDI' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite emitir facturas CFDI');
   }
 
   // The PAC key is sealed in a table only the owner can read, reached with the
   // service client after the checks above.
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'BACKEND_NOT_CONFIGURED',
-          message: 'La facturación CFDI no está configurada en este entorno.',
-        },
-      },
-      { status: 503 }
-    );
+    return apiError(503, 'BACKEND_NOT_CONFIGURED', 'La facturación CFDI no está configurada en este entorno.');
   }
 
   let body: { milestoneId?: string; paymentMethod?: string; paymentForm?: string };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: { code: 'INVALID_INPUT', message: 'Solicitud inválida' } },
-      { status: 400 }
-    );
+    return apiError(400, 'INVALID_INPUT', 'Solicitud inválida');
   }
 
   const milestoneId = typeof body?.milestoneId === 'string' ? body.milestoneId : '';
   if (!milestoneId) {
-    return NextResponse.json(
-      { error: { code: 'MISSING_MILESTONE', message: 'ID de hito/receivable es requerido' } },
-      { status: 400 }
-    );
+    return apiError(400, 'MISSING_MILESTONE', 'ID de hito/receivable es requerido');
   }
 
   const paymentMethod = body?.paymentMethod === 'PPD' ? 'PPD' : 'PUE';
@@ -143,10 +118,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (milestoneError || !milestone) {
-    return NextResponse.json(
-      { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
-      { status: 404 }
-    );
+    return apiError(404, 'NOT_FOUND', 'Cobro no encontrado');
   }
 
   if (milestone.cfdi_status === 'issued' && milestone.cfdi_uuid) {
@@ -154,21 +126,11 @@ export async function POST(request: Request) {
     // the client reports the existing document, and a sandbox one must keep
     // its "sin validez fiscal" caveat in that report (#264 review). "Cancel it
     // at the SAT" is only real advice for a live document.
-    return NextResponse.json(
-      {
-        error: {
-          code: 'ALREADY_ISSUED',
-          message: `Este cobro ya tiene una factura timbrada (${milestone.cfdi_uuid}). ${
+    return apiError(409, 'ALREADY_ISSUED', `Este cobro ya tiene una factura timbrada (${milestone.cfdi_uuid}). ${
             milestone.cfdi_environment === 'sandbox'
               ? 'Es un documento de prueba sin validez fiscal.'
               : 'Cancélala ante el SAT antes de emitir otra.'
-          }`,
-        },
-        uuid: milestone.cfdi_uuid,
-        environment: milestone.cfdi_environment ?? null,
-      },
-      { status: 409 }
-    );
+          }`, { extra: { uuid: milestone.cfdi_uuid, environment: milestone.cfdi_environment ?? null } });
   }
 
   // The generated database types omit the `Relationships` key supabase-js
@@ -203,18 +165,12 @@ export async function POST(request: Request) {
   );
 
   if (!parties.isValid) {
-    return NextResponse.json(
-      { error: { code: 'INVALID_SAT_METADATA', message: parties.errors.join(' ') } },
-      { status: 400 }
-    );
+    return apiError(400, 'INVALID_SAT_METADATA', parties.errors.join(' '));
   }
 
   const pac = await resolvePacCredentials(service, organizationId);
   if (!pac.ok) {
-    return NextResponse.json(
-      { error: { code: pac.code, message: pac.message } },
-      { status: 503 }
-    );
+    return apiError(503, pac.code, pac.message);
   }
 
   const credentials = pac.credentials;
@@ -222,16 +178,7 @@ export async function POST(request: Request) {
   // A sandbox key returns a complete-looking document with no fiscal validity.
   // In production that is the original bug wearing a PAC's response.
   if (process.env.NODE_ENV === 'production' && credentials.environment === 'sandbox') {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'PAC_SANDBOX_KEY',
-          message:
-            'La llave de PAC conectada es de pruebas y no emite facturas válidas ante el SAT. Conecta tu llave de producción (sk_live_) en Ajustes.',
-        },
-      },
-      { status: 400 }
-    );
+    return apiError(400, 'PAC_SANDBOX_KEY', 'La llave de PAC conectada es de pruebas y no emite facturas válidas ante el SAT. Conecta tu llave de producción (sk_live_) en Ajustes.');
   }
 
   /** Records a failed attempt on the milestone so the UI can show what went wrong. */
@@ -261,16 +208,7 @@ export async function POST(request: Request) {
     const search = await findInvoiceByExternalId(credentials, externalId);
 
     if (!search.ok) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'STAMP_RECONCILIATION_FAILED',
-            message:
-              'Un intento anterior de timbrado no terminó y no se pudo verificar con tu PAC si la factura ya existe. Intenta de nuevo en unos minutos.',
-          },
-        },
-        { status: 502 }
-      );
+      return apiError(502, 'STAMP_RECONCILIATION_FAILED', 'Un intento anterior de timbrado no terminó y no se pudo verificar con tu PAC si la factura ya existe. Intenta de nuevo en unos minutos.');
     }
 
     if (search.data.document) {
@@ -316,31 +254,12 @@ export async function POST(request: Request) {
           '[cfdi] found orphaned stamp but failed to record it:',
           adoptError?.message ?? 'update matched no milestone row'
         );
-        return NextResponse.json(
-          {
-            error: {
-              code: 'STAMP_NOT_RECORDED',
-              message: `Un intento anterior timbró la factura con folio fiscal ${found.uuid}, pero no se pudo guardar en el cobro. Anota el folio y vuelve a intentarlo.`,
-            },
-            uuid: found.uuid,
-          },
-          { status: 500 }
-        );
+        return apiError(500, 'STAMP_NOT_RECORDED', `Un intento anterior timbró la factura con folio fiscal ${found.uuid}, pero no se pudo guardar en el cobro. Anota el folio y vuelve a intentarlo.`, { extra: { uuid: found.uuid } });
       }
 
       await releaseStampClaim(service, organizationId, milestoneId);
 
-      return NextResponse.json(
-        {
-          error: {
-            code: 'ALREADY_ISSUED',
-            message: `Un intento anterior sí timbró la factura (folio fiscal ${found.uuid}). Ya quedó registrada en este cobro; no se emitió una nueva.`,
-          },
-          uuid: found.uuid,
-          environment: credentials.environment,
-        },
-        { status: 409 }
-      );
+      return apiError(409, 'ALREADY_ISSUED', `Un intento anterior sí timbró la factura (folio fiscal ${found.uuid}). Ya quedó registrada en este cobro; no se emitió una nueva.`, { extra: { uuid: found.uuid, environment: credentials.environment } });
     }
 
     claim = await takeOverStaleClaim(service, organizationId, milestoneId, userId);
@@ -350,27 +269,10 @@ export async function POST(request: Request) {
     if (claim.reason === 'error') {
       // Fail closed: without the claim, a concurrent request could stamp a
       // second document the SAT has on record.
-      return NextResponse.json(
-        {
-          error: {
-            code: 'STAMP_CLAIM_FAILED',
-            message: 'No se pudo iniciar el timbrado de forma segura. Intenta de nuevo.',
-          },
-        },
-        { status: 502 }
-      );
+      return apiError(502, 'STAMP_CLAIM_FAILED', 'No se pudo iniciar el timbrado de forma segura. Intenta de nuevo.');
     }
 
-    return NextResponse.json(
-      {
-        error: {
-          code: 'STAMP_IN_PROGRESS',
-          message:
-            'Ya hay un timbrado en curso para este cobro. Espera unos segundos y actualiza para ver el resultado, o vuelve a intentarlo en unos minutos.',
-        },
-      },
-      { status: 409 }
-    );
+    return apiError(409, 'STAMP_IN_PROGRESS', 'Ya hay un timbrado en curso para este cobro. Espera unos segundos y actualiza para ver el resultado, o vuelve a intentarlo en unos minutos.');
   }
 
   // The ALREADY_ISSUED pre-check above ran before this request held the
@@ -385,21 +287,11 @@ export async function POST(request: Request) {
 
   if (recheck?.cfdi_status === 'issued' && recheck?.cfdi_uuid) {
     await releaseStampClaim(service, organizationId, milestoneId);
-    return NextResponse.json(
-      {
-        error: {
-          code: 'ALREADY_ISSUED',
-          message: `Este cobro ya tiene una factura timbrada (${recheck.cfdi_uuid}). ${
+    return apiError(409, 'ALREADY_ISSUED', `Este cobro ya tiene una factura timbrada (${recheck.cfdi_uuid}). ${
             recheck.cfdi_environment === 'sandbox'
               ? 'Es un documento de prueba sin validez fiscal.'
               : 'Cancélala ante el SAT antes de emitir otra.'
-          }`,
-        },
-        uuid: recheck.cfdi_uuid,
-        environment: recheck.cfdi_environment ?? null,
-      },
-      { status: 409 }
-    );
+          }`, { extra: { uuid: recheck.cfdi_uuid, environment: recheck.cfdi_environment ?? null } });
   }
 
   // 'pending' before the call, not after: if the PAC times out, the milestone
@@ -473,10 +365,7 @@ export async function POST(request: Request) {
 
     await recordFailure(stamp.message);
 
-    return NextResponse.json(
-      { error: { code: `PAC_${stamp.code}`, message: stamp.message } },
-      { status: stamp.code === 'REJECTED' ? 400 : 502 }
-    );
+    return apiError(stamp.code === 'REJECTED' ? 400 : 502, `PAC_${stamp.code}`, stamp.message);
   }
 
   const document = stamp.data;
@@ -559,16 +448,7 @@ export async function POST(request: Request) {
       '[cfdi] stamped but failed to record milestone:',
       updateError?.message ?? 'update matched no milestone row'
     );
-    return NextResponse.json(
-      {
-        error: {
-          code: 'STAMP_NOT_RECORDED',
-          message: `La factura se timbró con folio fiscal ${document.uuid}, pero no se pudo guardar en el cobro. Anota el folio y contacta a soporte.`,
-        },
-        uuid: document.uuid,
-      },
-      { status: 500 }
-    );
+    return apiError(500, 'STAMP_NOT_RECORDED', `La factura se timbró con folio fiscal ${document.uuid}, pero no se pudo guardar en el cobro. Anota el folio y contacta a soporte.`, { extra: { uuid: document.uuid } });
   }
 
   // Recorded on the milestone — the ALREADY_ISSUED read-guard takes over from

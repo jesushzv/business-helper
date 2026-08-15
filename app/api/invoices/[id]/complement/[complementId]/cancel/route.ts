@@ -4,6 +4,7 @@ import { hasCapability } from '@/lib/teamRBAC';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { resolvePacCredentials } from '@/lib/pacConnection';
 import { CFDI_CANCELLATION_MOTIVES, cancelInvoice } from '@/lib/pacClient';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Cancels one complemento de pago at the SAT (#30).
@@ -48,22 +49,11 @@ export async function POST(
   const { supabase, organizationId, userId, role } = auth.ctx;
 
   if (!hasCapability(role, 'issue_cfdi')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite cancelar documentos fiscales' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite cancelar documentos fiscales');
   }
 
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'BACKEND_NOT_CONFIGURED',
-          message: 'La facturación CFDI no está configurada en este entorno.',
-        },
-      },
-      { status: 503 }
-    );
+    return apiError(503, 'BACKEND_NOT_CONFIGURED', 'La facturación CFDI no está configurada en este entorno.');
   }
 
   const { id, complementId } = await params;
@@ -77,16 +67,7 @@ export async function POST(
 
   const motive = typeof body?.motive === 'string' ? body.motive : '';
   if (!CFDI_CANCELLATION_MOTIVES[motive]) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INVALID_MOTIVE',
-          message: 'Indica un motivo de cancelación del SAT: 01, 02, 03 o 04.',
-        },
-        motives: CFDI_CANCELLATION_MOTIVES,
-      },
-      { status: 400 }
-    );
+    return apiError(400, 'INVALID_MOTIVE', 'Indica un motivo de cancelación del SAT: 01, 02, 03 o 04.', { extra: { motives: CFDI_CANCELLATION_MOTIVES } });
   }
 
   // Scoped by its own id *and* the milestone it belongs to *and* the caller's
@@ -101,25 +82,13 @@ export async function POST(
     .maybeSingle();
 
   if (!complement) {
-    return NextResponse.json(
-      { error: { code: 'NOT_FOUND', message: 'Complemento de pago no encontrado' } },
-      { status: 404 }
-    );
+    return apiError(404, 'NOT_FOUND', 'Complemento de pago no encontrado');
   }
 
   if (complement.status !== 'issued' || !complement.cfdi_id) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'NOT_ISSUED',
-          message:
-            complement.status === 'cancelled'
+    return apiError(409, 'NOT_ISSUED', complement.status === 'cancelled'
               ? 'Este complemento de pago ya está cancelado.'
-              : 'Este complemento de pago no está timbrado, así que no hay nada que cancelar ante el SAT.',
-        },
-      },
-      { status: 409 }
-    );
+              : 'Este complemento de pago no está timbrado, así que no hay nada que cancelar ante el SAT.');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,10 +96,7 @@ export async function POST(
   const pac = await resolvePacCredentials(service, organizationId);
 
   if (!pac.ok) {
-    return NextResponse.json(
-      { error: { code: pac.code, message: pac.message } },
-      { status: 503 }
-    );
+    return apiError(503, pac.code, pac.message);
   }
 
   const result = await cancelInvoice(
@@ -141,10 +107,7 @@ export async function POST(
   );
 
   if (!result.ok) {
-    return NextResponse.json(
-      { error: { code: `PAC_${result.code}`, message: result.message } },
-      { status: result.code === 'REJECTED' ? 400 : 502 }
-    );
+    return apiError(result.code === 'REJECTED' ? 400 : 502, `PAC_${result.code}`, result.message);
   }
 
   const { data: updated, error: updateError } = await supabase
@@ -172,18 +135,8 @@ export async function POST(
       '[cfdi] complement cancelled but failed to record it:',
       updateError?.message ?? 'update matched no complement row'
     );
-    return NextResponse.json(
-      {
-        error: {
-          code: 'CANCEL_NOT_RECORDED',
-          message:
-            `La cancelación del complemento con folio ${complement.cfdi_uuid} se envió al SAT, ` +
-            'pero no se pudo actualizar el cobro. Anota el folio y contacta a soporte.',
-        },
-        uuid: complement.cfdi_uuid,
-      },
-      { status: 500 }
-    );
+    return apiError(500, 'CANCEL_NOT_RECORDED', `La cancelación del complemento con folio ${complement.cfdi_uuid} se envió al SAT, ` +
+            'pero no se pudo actualizar el cobro. Anota el folio y contacta a soporte.', { extra: { uuid: complement.cfdi_uuid } });
   }
 
   await service.from('audit_logs').insert({

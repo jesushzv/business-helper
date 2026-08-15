@@ -7,6 +7,7 @@ import {
   hashInvitationToken,
   INVITATION_REJECTION_MESSAGES,
 } from '@/lib/teamInvitations';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Redeems a team invitation.
@@ -24,15 +25,7 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
 
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'BACKEND_NOT_CONFIGURED',
-          message: 'Las invitaciones no están disponibles en esta instalación',
-        },
-      },
-      { status: 503 }
-    );
+    return apiError(503, 'BACKEND_NOT_CONFIGURED', 'Las invitaciones no están disponibles en esta instalación');
   }
 
   try {
@@ -40,10 +33,7 @@ export async function POST(request: Request) {
     const token = typeof body?.token === 'string' ? body.token.trim() : '';
 
     if (!token) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'Enlace de invitación incompleto' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_INPUT', 'Enlace de invitación incompleto');
     }
 
     const { data: { user } } = await auth.supabase.auth.getUser();
@@ -65,15 +55,7 @@ export async function POST(request: Request) {
 
     if (!evaluation.ok) {
       const status = evaluation.reason === 'NOT_FOUND' ? 404 : 409;
-      return NextResponse.json(
-        {
-          error: {
-            code: evaluation.reason,
-            message: INVITATION_REJECTION_MESSAGES[evaluation.reason],
-          },
-        },
-        { status }
-      );
+      return apiError(status, evaluation.reason, INVITATION_REJECTION_MESSAGES[evaluation.reason]);
     }
 
     // Narrowed by evaluateInvitation, which rejects a null invitation.
@@ -88,10 +70,7 @@ export async function POST(request: Request) {
     // 23505 = the caller is already in this organization; the invitation is
     // still consumed below so the link stops working either way.
     if (memberError && memberError.code !== '23505') {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'No se pudo unir a la organización' } },
-        { status: 500 }
-      );
+      return apiError(500, 'SERVER_ERROR', 'No se pudo unir a la organización');
     }
 
     const { error: consumeError } = await service
@@ -163,9 +142,6 @@ export async function POST(request: Request) {
       activeOrganizationId: showsOtherOrganization ? active?.organizationId ?? null : null,
     });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al aceptar la invitación' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al aceptar la invitación');
   }
 }

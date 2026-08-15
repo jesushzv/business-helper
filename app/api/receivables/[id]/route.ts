@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireOrgAccess, pickFields, MILESTONE_WRITABLE_FIELDS } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Single-milestone operations.
@@ -40,12 +41,12 @@ export async function GET(
       .maybeSingle();
 
     if (error || !milestone) {
-      return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } }, { status: 404 });
+      return apiError(404, 'NOT_FOUND', 'Cobro no encontrado');
     }
 
     return NextResponse.json(milestone);
   } catch {
-    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudo cargar el cobro.' } }, { status: 500 });
+    return apiError(500, 'SERVER_ERROR', 'No se pudo cargar el cobro.');
   }
 }
 
@@ -63,20 +64,14 @@ export async function PUT(
     const updates = pickFields(body, MILESTONE_WRITABLE_FIELDS);
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { error: { code: 'NO_WRITABLE_FIELDS', message: 'No hay campos válidos para actualizar' } },
-        { status: 400 }
-      );
+      return apiError(400, 'NO_WRITABLE_FIELDS', 'No hay campos válidos para actualizar');
     }
 
     // `status` is a writable field, so without this check a role denied at
     // /confirm could mark the milestone collected here instead — same financial
     // outcome, minus the audit log and the complemento the confirm route files.
     if (updates.status === 'confirmed' && !hasCapability(role, 'confirm_payment')) {
-      return NextResponse.json(
-        { error: { code: 'FORBIDDEN', message: 'Tu rol no permite confirmar pagos' } },
-        { status: 403 }
-      );
+      return apiError(403, 'FORBIDDEN', 'Tu rol no permite confirmar pagos');
     }
 
     // An `amount` edit on a stamped cobro used to be accepted and then change
@@ -100,20 +95,10 @@ export async function PUT(
         .maybeSingle();
 
       if (stamped?.cfdi_status === 'issued') {
-        return NextResponse.json(
-          {
-            error: {
-              code: 'AMOUNT_LOCKED_BY_CFDI',
-              message:
-                'Este cobro ya tiene una factura timbrada' +
+        return apiError(409, 'AMOUNT_LOCKED_BY_CFDI', 'Este cobro ya tiene una factura timbrada' +
                 (stamped.cfdi_uuid ? ` (folio fiscal ${stamped.cfdi_uuid})` : '') +
                 ', así que el monto quedó en firme. Para cobrar otra cantidad, ' +
-                'cancela la factura y emite una nueva.',
-              fields: { amount: 'El monto no se puede cambiar con una factura timbrada.' },
-            },
-          },
-          { status: 409 }
-        );
+                'cancela la factura y emite una nueva.', { fields: { amount: 'El monto no se puede cambiar con una factura timbrada.' } });
       }
     }
 
@@ -132,12 +117,12 @@ export async function PUT(
     }
 
     if (!updated) {
-      return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } }, { status: 404 });
+      return apiError(404, 'NOT_FOUND', 'Cobro no encontrado');
     }
 
     return NextResponse.json(updated);
   } catch {
-    return NextResponse.json({ error: { code: 'SERVER_ERROR', message: 'No se pudieron guardar los cambios del cobro.' } }, { status: 500 });
+    return apiError(500, 'SERVER_ERROR', 'No se pudieron guardar los cambios del cobro.');
   }
 }
 
@@ -150,10 +135,7 @@ export async function DELETE(
   const { supabase, organizationId, role } = auth.ctx;
 
   if (!hasCapability(role, 'delete_records')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite eliminar cobros' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite eliminar cobros');
   }
 
   try {
@@ -183,10 +165,7 @@ export async function DELETE(
       .maybeSingle();
 
     if (!parent) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cobro no encontrado');
     }
 
     // `contract_id` is NOT NULL, so an unresolvable contract is a broken row,
@@ -197,18 +176,9 @@ export async function DELETE(
     const contractStatus = (contract as { status?: string } | null)?.status;
 
     if (!contractStatus || !DELETABLE_CONTRACT_STATUSES.has(contractStatus)) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'CONTRACT_SIGNED',
-            message:
-              'Tu cliente ya firmó el contrato de este cobro, así que el plan de pagos ' +
+      return apiError(409, 'CONTRACT_SIGNED', 'Tu cliente ya firmó el contrato de este cobro, así que el plan de pagos ' +
               'quedó en firme y no se puede eliminar. Si el plan cambió, haz una ' +
-              'cotización nueva.',
-          },
-        },
-        { status: 409 }
-      );
+              'cotización nueva.');
     }
 
     // A stamp claim means an invoice run is (or was) in flight for this
@@ -225,17 +195,8 @@ export async function DELETE(
       .maybeSingle();
 
     if (stampClaim) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'MILESTONE_PROTECTED',
-            message:
-              'Este cobro tiene una factura en proceso de timbrado, ' +
-              'así que no se puede eliminar.',
-          },
-        },
-        { status: 409 }
-      );
+      return apiError(409, 'MILESTONE_PROTECTED', 'Este cobro tiene una factura en proceso de timbrado, ' +
+              'así que no se puede eliminar.');
     }
 
     // A declared payment is the record that money moved, and
@@ -301,30 +262,15 @@ export async function DELETE(
         .maybeSingle();
 
       if (existing) {
-        return NextResponse.json(
-          {
-            error: {
-              code: 'MILESTONE_PROTECTED',
-              message:
-                'Este cobro ya tiene movimientos de pago o factura registrados, ' +
-                'así que forma parte de tu historial y no se puede eliminar.',
-            },
-          },
-          { status: 409 }
-        );
+        return apiError(409, 'MILESTONE_PROTECTED', 'Este cobro ya tiene movimientos de pago o factura registrados, ' +
+                'así que forma parte de tu historial y no se puede eliminar.');
       }
 
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cobro no encontrado');
     }
 
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo eliminar el cobro' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudo eliminar el cobro');
   }
 }

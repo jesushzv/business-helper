@@ -4,6 +4,7 @@ import { hasCapability } from '@/lib/teamRBAC';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { resolvePacCredentials } from '@/lib/pacConnection';
 import { CFDI_CANCELLATION_MOTIVES, cancelInvoice } from '@/lib/pacClient';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Cancels a stamped CFDI at the SAT.
@@ -48,22 +49,11 @@ export async function POST(
   const { supabase, organizationId, userId, role } = auth.ctx;
 
   if (!hasCapability(role, 'issue_cfdi')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite cancelar facturas CFDI' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite cancelar facturas CFDI');
   }
 
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'BACKEND_NOT_CONFIGURED',
-          message: 'La facturación CFDI no está configurada en este entorno.',
-        },
-      },
-      { status: 503 }
-    );
+    return apiError(503, 'BACKEND_NOT_CONFIGURED', 'La facturación CFDI no está configurada en este entorno.');
   }
 
   const { id } = await params;
@@ -77,16 +67,7 @@ export async function POST(
 
   const motive = typeof body?.motive === 'string' ? body.motive : '';
   if (!CFDI_CANCELLATION_MOTIVES[motive]) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INVALID_MOTIVE',
-          message: 'Indica un motivo de cancelación del SAT: 01, 02, 03 o 04.',
-        },
-        motives: CFDI_CANCELLATION_MOTIVES,
-      },
-      { status: 400 }
-    );
+    return apiError(400, 'INVALID_MOTIVE', 'Indica un motivo de cancelación del SAT: 01, 02, 03 o 04.', { extra: { motives: CFDI_CANCELLATION_MOTIVES } });
   }
 
   const { data: milestone } = await supabase
@@ -97,22 +78,11 @@ export async function POST(
     .maybeSingle();
 
   if (!milestone) {
-    return NextResponse.json(
-      { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
-      { status: 404 }
-    );
+    return apiError(404, 'NOT_FOUND', 'Cobro no encontrado');
   }
 
   if (milestone.cfdi_status !== 'issued' || !milestone.cfdi_id) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'NOT_ISSUED',
-          message: 'Este cobro no tiene una factura timbrada que cancelar.',
-        },
-      },
-      { status: 409 }
-    );
+    return apiError(409, 'NOT_ISSUED', 'Este cobro no tiene una factura timbrada que cancelar.');
   }
 
   // The SAT will not accept the cancellation of a PPD invoice while a
@@ -130,20 +100,10 @@ export async function POST(
 
   if (liveComplements && liveComplements.length > 0) {
     const numbers = liveComplements.map((c: { installment: number }) => c.installment).join(', ');
-    return NextResponse.json(
-      {
-        error: {
-          code: 'HAS_LIVE_COMPLEMENTS',
-          message:
-            `Esta factura tiene ${liveComplements.length} complemento(s) de pago vigente(s) ` +
+    return apiError(409, 'HAS_LIVE_COMPLEMENTS', `Esta factura tiene ${liveComplements.length} complemento(s) de pago vigente(s) ` +
             `(parcialidad ${numbers}). Cancélalos primero: el SAT no acepta cancelar una ` +
-            'factura mientras un complemento que la referencia siga vigente.',
-        },
-        // Which ones, so the caller can act without a second round-trip.
-        complements: liveComplements,
-      },
-      { status: 409 }
-    );
+            'factura mientras un complemento que la referencia siga vigente.', { extra: { // Which ones, so the caller can act without a second round-trip.
+        complements: liveComplements } });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,10 +111,7 @@ export async function POST(
   const pac = await resolvePacCredentials(service, organizationId);
 
   if (!pac.ok) {
-    return NextResponse.json(
-      { error: { code: pac.code, message: pac.message } },
-      { status: 503 }
-    );
+    return apiError(503, pac.code, pac.message);
   }
 
   const result = await cancelInvoice(
@@ -165,10 +122,7 @@ export async function POST(
   );
 
   if (!result.ok) {
-    return NextResponse.json(
-      { error: { code: `PAC_${result.code}`, message: result.message } },
-      { status: result.code === 'REJECTED' ? 400 : 502 }
-    );
+    return apiError(result.code === 'REJECTED' ? 400 : 502, `PAC_${result.code}`, result.message);
   }
 
   const { error: updateError } = await supabase
@@ -188,15 +142,7 @@ export async function POST(
 
   if (updateError) {
     console.error('[cfdi] cancelled but failed to record milestone:', updateError.message);
-    return NextResponse.json(
-      {
-        error: {
-          code: 'CANCEL_NOT_RECORDED',
-          message: `La cancelación se envió al SAT para el folio ${milestone.cfdi_uuid}, pero no se pudo actualizar el cobro.`,
-        },
-      },
-      { status: 500 }
-    );
+    return apiError(500, 'CANCEL_NOT_RECORDED', `La cancelación se envió al SAT para el folio ${milestone.cfdi_uuid}, pero no se pudo actualizar el cobro.`);
   }
 
   await service.from('audit_logs').insert({

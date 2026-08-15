@@ -5,7 +5,13 @@ name: CI
 # error display regressed: the build stayed green while a failing test and an
 # ESLint warning both went unread.
 on:
+  # `types` stated explicitly rather than left to the default (#132). The
+  # default is opened + synchronize + reopened, which does **not** include
+  # `ready_for_review` — so a draft PR converted to ready fires no new run. If
+  # its last run was cancelled or predates a base change, the PR then sits with
+  # no current check and nothing says so, which is this issue's symptom exactly.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
   # Manual escape hatch for #132: the pull_request event has now been observed
@@ -15,6 +21,12 @@ on:
   workflow_dispatch:
 
 # A newer push to the same branch makes the in-flight run redundant.
+#
+# Note for anyone diagnosing #132: this is a *second* way a run goes missing
+# that is not a delivery failure. A superseded run is `cancelled`, and a
+# cancelled run reads as "no green check" in the PR UI — indistinguishable at a
+# glance from never having run. Check the conclusion, not just the presence of
+# a tick. Keyed on `github.ref`, so it never cancels across branches.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

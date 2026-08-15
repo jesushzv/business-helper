@@ -4,6 +4,7 @@ import { checkQuoteAccountOwnership } from '@/lib/bankAccounts';
 import { checkClientCreditGate } from '@/lib/clientCredit';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
 import { hasCapability } from '@/lib/teamRBAC';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Statuses a quote may be deleted in. `accepted` and `converted` are excluded:
@@ -48,18 +49,12 @@ export async function GET(
       .maybeSingle();
 
     if (error || !quote) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cotización no encontrada' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cotización no encontrada');
     }
 
     return NextResponse.json(quote);
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo cargar la cotización' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudo cargar la cotización');
   }
 }
 
@@ -80,10 +75,7 @@ export async function PUT(
     const updates = pickFields(body, QUOTE_WRITABLE_FIELDS);
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { error: { code: 'NO_WRITABLE_FIELDS', message: 'No hay campos válidos para actualizar' } },
-        { status: 400 }
-      );
+      return apiError(400, 'NO_WRITABLE_FIELDS', 'No hay campos válidos para actualizar');
     }
 
     // Same check as on create: an edit can re-point an existing quote at
@@ -95,10 +87,7 @@ export async function PUT(
         updates.bank_account_id
       );
       if (!accountCheck.ok) {
-        return NextResponse.json(
-          { error: { code: accountCheck.code, message: accountCheck.message } },
-          { status: accountCheck.status }
-        );
+        return apiError(accountCheck.status, accountCheck.code, accountCheck.message);
       }
     }
 
@@ -108,10 +97,7 @@ export async function PUT(
     if ('client_id' in updates) {
       const creditGate = await checkClientCreditGate(supabase, organizationId, updates.client_id);
       if (!creditGate.ok) {
-        return NextResponse.json(
-          { error: { code: creditGate.code, message: creditGate.message } },
-          { status: creditGate.status }
-        );
+        return apiError(creditGate.status, creditGate.code, creditGate.message);
       }
     }
 
@@ -132,18 +118,12 @@ export async function PUT(
     }
 
     if (!updated) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cotización no encontrada' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cotización no encontrada');
     }
 
     return NextResponse.json(updated);
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo actualizar la cotización' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudo actualizar la cotización');
   }
 }
 
@@ -156,10 +136,7 @@ export async function DELETE(
   const { supabase, organizationId, role } = auth.ctx;
 
   if (!hasCapability(role, 'delete_records')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite eliminar cotizaciones' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite eliminar cotizaciones');
   }
 
   try {
@@ -183,17 +160,8 @@ export async function DELETE(
       .maybeSingle();
 
     if (attachedContract) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'QUOTE_PROTECTED',
-            message:
-              'Esta cotización ya generó un contrato con cobros programados, ' +
-              'así que forma parte de tu historial y no se puede eliminar.',
-          },
-        },
-        { status: 409 }
-      );
+      return apiError(409, 'QUOTE_PROTECTED', 'Esta cotización ya generó un contrato con cobros programados, ' +
+              'así que forma parte de tu historial y no se puede eliminar.');
     }
 
     // The status precondition rides inside the DELETE itself (the #286
@@ -235,32 +203,17 @@ export async function DELETE(
         .maybeSingle();
 
       if (existing) {
-        return NextResponse.json(
-          {
-            error: {
-              code: 'QUOTE_PROTECTED',
-              message:
-                'Esta cotización ya fue firmada o convertida en contrato, así que forma parte ' +
-                'de tu historial legal y no se puede eliminar.',
-            },
-          },
-          { status: 409 }
-        );
+        return apiError(409, 'QUOTE_PROTECTED', 'Esta cotización ya fue firmada o convertida en contrato, así que forma parte ' +
+                'de tu historial legal y no se puede eliminar.');
       }
 
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cotización no encontrada' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cotización no encontrada');
     }
 
     return NextResponse.json({ success: true });
   } catch {
     // Previously returned {success: true, demo: true} on any failure, so a
     // caller could not tell a deletion from an error.
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo eliminar la cotización' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'No se pudo eliminar la cotización');
   }
 }

@@ -1008,3 +1008,25 @@ the rolling `gemini-flash-latest` alias (`GEMINI_MODEL` pins), with a per-genera
 into Vercel logs beside the Sentry capture. The model allowance became server-derived on 2026-08-12
 (#228): migration `20260812210000` applied to production and read back — RLS deny-all held against
 `anon`/`authenticated` probes, and the atomic increment returned 1 then 2 live.
+
+
+## Deletion semantics — the app-layer guards (#327), August 2026
+
+Moved from `docs/STATUS.md` when its 32 KB budget filled; the still-true fact stays there.
+
+`delete_records` (owner + manager) fronts the clientes/cotizaciones/productos/cobros DELETE
+routes, which previously had **no role check at all**. The guards, as shipped:
+
+- a signed (`accepted`) or `converted` quote is not deletable — 409, because its token anchors the
+  live `/q/`–`/pay/` link a client may already hold;
+- a milestone is deletable only while `pending` with no CFDI, since its complementos would
+  `CASCADE` away with it;
+- a client with quotes or contracts is refused by the database's `ON DELETE RESTRICT` and now told
+  so in those words, replacing the old wrong-direction "ya no existe, recarga";
+- the confirm dialog no longer promises that deletion succeeds.
+
+Cotizaciones gained their first UI delete (draft/sent/rejected/expired, confirm-guarded).
+
+Verified at the time with the Vitest suite only — route handlers against Supabase doubles, hooks
+against a mocked `fetch` — with no live-database pass, because RLS itself was not yet changed.
+#336 later moved the invariants into the schema and proved them against production by rejection.

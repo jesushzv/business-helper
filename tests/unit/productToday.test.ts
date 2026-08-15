@@ -6,7 +6,7 @@ import {
   productTodayStr,
 } from '@/lib/dates';
 import { isQuoteExpired, quoteSignableState } from '@/lib/quoteSignability';
-import { parseNaturalLanguageQuery } from '@/lib/whatsappAI';
+import { parseNaturalLanguageQuery } from '@/lib/aiAssistant';
 import { readFileSync } from 'node:fs';
 
 /**
@@ -154,7 +154,7 @@ describe("the assistant's due-today and collected-this-month use the product day
  * `new Date()` form.
  */
 describe('no server module derives "today" from UTC (#334)', () => {
-  const SERVER_DAY_SITES = ['lib/quoteSignability.ts', 'lib/whatsappAI.ts', 'lib/quoteQuota.ts'];
+  const SERVER_DAY_SITES = ['lib/quoteSignability.ts', 'lib/aiAssistant.ts', 'lib/quoteQuota.ts'];
 
   it('has no bare new Date().toISOString() day left at the three sites', () => {
     for (const file of SERVER_DAY_SITES) {

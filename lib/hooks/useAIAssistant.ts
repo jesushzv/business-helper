@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { parseNaturalLanguageQuery } from '@/lib/whatsappAI';
+import { parseNaturalLanguageQuery } from '@/lib/aiAssistant';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
 
 /**

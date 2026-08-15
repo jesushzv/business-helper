@@ -67,7 +67,7 @@ completion claim needs checking against source. The full findings are in
 | Coverage gate | **Enforced in CI since #51** — `npx vitest run --coverage` on every pull request, against the thresholds in `vitest.config.ts` (the only statement of them). Measured on the branch that wired it up: statements 82.73%, branches 75.73%, functions 78.93%, lines 84.67%. The thresholds sit just under each, so the gate is a ratchet — raise it as coverage rises, never lower it to make a red run pass. The gap to the old aspirational 85/85/80/80 is concentrated in untested `app/` route handlers and `lib/hooks/` |
 | Error monitoring | **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling (why it replaced the hand-rolled transport: archive). PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | **Rewritten and executed 2026-08-13** ([#69](https://github.com/jesushzv/business-helper/issues/69)/[#91](https://github.com/jesushzv/business-helper/issues/91)): **18 passed, 0 skipped, 0 failed** — 9 scenarios × desktop + mobile chromium, production build, demo posture. Scenarios pinning remediated defects (P0-4 CLABE, pre-#57 OTP) now assert the opposite; suite joined CI. It caught a live wizard defect (`docs/LESSONS.md` #91). Scenario 10 (deployed health) left for the row below — it had never run |
-| Deployed smoke test | **Built 2026-08-13** ([#70](https://github.com/jesushzv/business-helper/issues/70)): `.github/workflows/deployed-smoke.yml`, 6-hour cron, outside the PR gate; 4 checks in `docs/deployment.md` §05.1. `/api/health` **confirmed healthy against production 2026-08-13** via the Vercel connector — **not by the suite**, which this container's egress blocked; the first scheduled run is the evidence for the other 3. **The manual loop (§05.2) is unwalked**; record its date and URL here |
+| Deployed smoke test | **Running against production on its 6-hour cron** ([#70](https://github.com/jesushzv/business-helper/issues/70)): `.github/workflows/deployed-smoke.yml`, outside the PR gate; 4 checks in `docs/deployment.md` §05.1. **8 runs, all green** — 7 scheduled since the day after it was built, plus one dispatched — each asserting all four checks on desktop *and* mobile. So checks 02–04 are executed evidence, not unproven code: the qualifier this row carried was written before the cron had fired and outlived its own truth. Check 04 is the load-bearing one — a 200 on an unknown quote token would mean the deployment had lost its service-role key and was serving the built-in demo quote to real visitors. **The manual loop (§05.2) is unwalked**; record its date and URL here |
 
 > [!IMPORTANT]
 > **The Sentry finding matters disproportionately for a solo founder**: error monitoring is the only
@@ -100,16 +100,12 @@ migration, verified against `pg_indexes`; the full account is in the archive.
 
 ### Deletion semantics
 
-**Record deletion is capability-gated and guarded** (2026-08-14): `delete_records`
-(owner + manager) fronts the clientes/cotizaciones/productos/cobros DELETE routes, which
-previously had no role check at all. Guards: a signed (`accepted`) or `converted` quote is not
-deletable (409 — its token anchors the live `/q/`–`/pay/` link); a milestone is deletable only
-while `pending` with no CFDI (its complementos would CASCADE away); a client with quotes or
-contracts is refused by the DB's `ON DELETE RESTRICT` and now told so in those words instead of
-the old wrong-direction "ya no existe, recarga" — and the confirm dialog no longer promises that
-deletion succeeds. Cotizaciones gained their first UI delete (draft/sent/rejected/expired,
-confirm-guarded). Verified with the Vitest suite (route handlers against Supabase doubles,
-hooks against a mocked `fetch`); no live-database pass — RLS itself was not changed.
+**Record deletion is capability-gated, and the invariants are in the database** (#327/#336).
+`delete_records` (owner + manager) fronts the DELETE routes; a signed or `converted` quote and a
+stamped or claimed milestone are refused. Both FK RESTRICTs and both restrictive `FOR DELETE`
+policies are **applied to production and proven by rejection** — each refusal paired with a
+permitted case, so nothing passes against a rule that refuses everything. How the guards behave
+and why: the archive.
 
 ### Founder admin surface
 
@@ -199,6 +195,20 @@ primary key was proven by making it *reject* a second claim (`23505`) inside a r
 > unverifiable for a day and #95 for three weeks for want of this distinction, and when #96's
 > "needs a deployment" check was finally taken it **failed**, surfacing two live defects nobody had
 > seen. Don't park a reachable check on the founder. Evidence in the archive.
+>
+> **Test the connector; never inherit a previous session's failure.** Two sessions recorded
+> Supabase and Stripe as `MCP error -32003` and parked work accordingly; both answered normally when
+> retried, and one re-test then applied #242's REVOKE, proved #336 by rejection, and ran #70's
+> read-only checks against the deployment.
+>
+> | Reachable | Needs a human |
+> |:---|:---|
+> | Catalog, grants, RLS, migrations (Supabase) | A live Facturapi key + CSDs (#26/#34/#347/#62) |
+> | The deployed app — container egress is blocked, the **Vercel connector fetches it** | An inbox, for a recovery or OTP link (#245) |
+> | Stripe *reads* | Stripe dashboard *writes* — no portal-config POST (#346) |
+> | Issues, PRs, Actions conclusions | Repo settings — no branch-protection op (#38) |
+>
+> When a check is refused, name the call and its error, so the next session re-tests.
 
 ### P1 — Makes launch week survivable
 
@@ -286,7 +296,10 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 ### Operational floor
 - [x] Production Supabase migrations applied — all three from #20, #23 and #29, plus `20260808030000_folio_rpc_grants.sql`; confirmed by inspecting the live schema, not by an exit code. One live request per affected route still owed ([#62](https://github.com/jesushzv/business-helper/issues/62))
 - [x] `supabase/migrations/` and the live catalog agree ([#204](https://github.com/jesushzv/business-helper/issues/204)) — `20260812060000` applied 2026-08-12 and `pg_indexes` read back: every index on `organizations` matches a migration
-- [ ] **Migrations in the repo but not yet applied to production.** Vercel auto-deploys `main` and migrations are manual, so this list is the gap between the two (hard rule #6). `20260814210000` + `20260814210100` (deletion invariants, [#336](https://github.com/jesushzv/business-helper/issues/336)) and `20260815000000` (the `stripe_webhook_events` by-name REVOKE, [#242](https://github.com/jesushzv/business-helper/issues/242)) are each verified against a throwaway Postgres 16 and **unapplied live**. None changes what the shipped code reads, so a deploy ahead of them degrades rather than breaks — but the security posture they carry is not in force until they run, and `20260813010000`'s REVOKE may still be outstanding too. Read each back; an exit code is not evidence
+- [x] **No migration in the repo is unapplied in production.** Vercel auto-deploys `main` and migrations are manual, so this row is the gap between the two (hard rule #6). Read it back from the live catalog, never from the ledger — the ledger does not list hand-applied work, which is why an earlier revision of this row was wrong in both directions:
+  - `20260815000000` (`stripe_webhook_events` by-name REVOKE, [#242](https://github.com/jesushzv/business-helper/issues/242)) — **applied.** `aclexplode` returns only `postgres` and `service_role`; the `anon`/`authenticated` grants, TRUNCATE included, are gone from that table.
+  - `20260814210000` + `20260814210100` (deletion invariants, #336) — **applied.** `contracts_quote_id_fkey` and `cfdi_stamp_claims_milestone_id_fkey` both read back `confdeltype = 'r'` (RESTRICT), and both restrictive `FOR DELETE` policies exist with their intended predicates (`quotes`: draft/sent/rejected/expired; `milestones`: `pending` + `cfdi_status = 'none'`).
+  - `20260813010000` (`cfdi_stamp_claims` grants) — **applied.** No `anon`/`authenticated` grant remains on that table, nor on `otp_send_log` or `ai_usage_monthly`.
 - [ ] Error monitoring transmits and alerts reach the founder within minutes ([#52](https://github.com/jesushzv/business-helper/issues/52), closed 2026-08-12) — on `@sentry/nextjs` and the DSN is configured on Vercel. Unticked deliberately: no session has seen an alert arrive, so the transmit half is founder-confirmed setup rather than observed behaviour
 - [x] The funnel is instrumented, so a weak result can be diagnosed (#37, PR #56) — wired, not yet read against real traffic
 - [x] Lint, typecheck and the vitest suite pass (figures in §02); CI runs on PRs, but not reliably — see [#38](https://github.com/jesushzv/business-helper/issues/38) and [#132](https://github.com/jesushzv/business-helper/issues/132)

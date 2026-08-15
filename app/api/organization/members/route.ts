@@ -10,6 +10,7 @@ import {
   normalizeInviteEmail,
 } from '@/lib/teamInvitations';
 import { dbWriteErrorResponse } from '@/lib/dbWriteError';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Team members and invitations.
@@ -91,10 +92,7 @@ export async function GET() {
       ]);
 
     if (error) {
-      return NextResponse.json(
-        { error: { code: 'SERVER_ERROR', message: 'Error al cargar el equipo' } },
-        { status: 500 }
-      );
+      return apiError(500, 'SERVER_ERROR', 'Error al cargar el equipo');
     }
 
     const rows = memberRows || [];
@@ -150,10 +148,7 @@ export async function GET() {
 
     return NextResponse.json({ members, invitations });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al cargar el equipo' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al cargar el equipo');
   }
 }
 
@@ -163,10 +158,7 @@ export async function POST(request: Request) {
   const { supabase, organizationId, userId, role: callerRole } = auth.ctx;
 
   if (!hasCapability(callerRole, 'invite_members')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite invitar colaboradores' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite invitar colaboradores');
   }
 
   try {
@@ -175,23 +167,15 @@ export async function POST(request: Request) {
 
     const validation = validateInviteInput(email, role);
     if (!validation.isValid) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: validation.error } },
-        { status: 400 }
-      );
+      // Fallback because `error` is optional on the validator's result: an
+      // invalid-with-no-reason would otherwise serve an envelope with no
+      // message at all, which the typed helper now refuses to build.
+      return apiError(400, 'INVALID_INPUT', validation.error || 'Los datos de la invitación no son válidos.');
     }
 
     // validateInviteInput accepts 'owner'; an invitation cannot grant it.
     if (!isInvitableRole(role)) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_ROLE',
-            message: 'El rol debe ser gerente, miembro o contador',
-          },
-        },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_ROLE', 'El rol debe ser gerente, miembro o contador');
     }
 
     const normalizedEmail = normalizeInviteEmail(email);
@@ -263,10 +247,7 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al invitar miembro' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al invitar miembro');
   }
 }
 
@@ -277,10 +258,7 @@ export async function PATCH(request: Request) {
   const { supabase, organizationId, role: callerRole } = auth.ctx;
 
   if (!hasCapability(callerRole, 'invite_members')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite cambiar permisos' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite cambiar permisos');
   }
 
   try {
@@ -289,10 +267,7 @@ export async function PATCH(request: Request) {
     const nextRole = typeof body?.role === 'string' ? body.role.toLowerCase() : null;
 
     if (!memberId || !nextRole || !isInvitableRole(nextRole)) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'Miembro o rol no válido' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_INPUT', 'Miembro o rol no válido');
     }
 
     const { data: organization } = await supabase
@@ -309,19 +284,13 @@ export async function PATCH(request: Request) {
       .maybeSingle();
 
     if (!member) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Miembro no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Miembro no encontrado');
     }
 
     // Demoting the owner would leave the organization with no billing or
     // invite authority, and the owner is not a role an invite can restore.
     if (organization?.owner_id && member.user_id === organization.owner_id) {
-      return NextResponse.json(
-        { error: { code: 'FORBIDDEN', message: 'No se puede cambiar el rol del dueño' } },
-        { status: 403 }
-      );
+      return apiError(403, 'FORBIDDEN', 'No se puede cambiar el rol del dueño');
     }
 
     const { error } = await supabase
@@ -338,9 +307,6 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, memberId, role: nextRole });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al actualizar el rol' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al actualizar el rol');
   }
 }

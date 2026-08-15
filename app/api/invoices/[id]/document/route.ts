@@ -3,6 +3,7 @@ import { requireOrgAccess } from '@/lib/apiAuth';
 import { hasCapability } from '@/lib/teamRBAC';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { signCFDIDocumentUrl } from '@/lib/cfdiStorage';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Downloads the XML or PDF of a stamped CFDI.
@@ -29,17 +30,11 @@ export async function GET(
   // The same roles that may issue a CFDI or read the organization's finances.
   // A `member` files quotes; it has no reason to pull tax documents.
   if (!hasCapability(role, 'issue_cfdi') && !hasCapability(role, 'view_analytics')) {
-    return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'Tu rol no permite descargar documentos fiscales' } },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite descargar documentos fiscales');
   }
 
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      { error: { code: 'BACKEND_NOT_CONFIGURED', message: 'Almacenamiento no configurado' } },
-      { status: 503 }
-    );
+    return apiError(503, 'BACKEND_NOT_CONFIGURED', 'Almacenamiento no configurado');
   }
 
   const { id } = await params;
@@ -66,40 +61,21 @@ export async function GET(
         .maybeSingle();
 
   if (!document) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'NOT_FOUND',
-          message: complementId ? 'Complemento de pago no encontrado' : 'Cobro no encontrado',
-        },
-      },
-      { status: 404 }
-    );
+    return apiError(404, 'NOT_FOUND', complementId ? 'Complemento de pago no encontrado' : 'Cobro no encontrado');
   }
 
   const path = type === 'pdf' ? document.cfdi_pdf_path : document.cfdi_xml_path;
 
   if (!path) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'DOCUMENT_NOT_STORED',
-          message: complementId
+    return apiError(404, 'DOCUMENT_NOT_STORED', complementId
             ? 'Este complemento de pago no tiene un documento guardado.'
-            : 'Este cobro no tiene un documento CFDI guardado.',
-        },
-      },
-      { status: 404 }
-    );
+            : 'Este cobro no tiene un documento CFDI guardado.');
   }
 
   const signed = await signCFDIDocumentUrl(createServiceClient(), path);
 
   if (!signed.ok) {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'No se pudo generar el enlace de descarga' } },
-      { status: 502 }
-    );
+    return apiError(502, 'SERVER_ERROR', 'No se pudo generar el enlace de descarga');
   }
 
   // A redirect rather than a proxy: the bytes go straight from storage to the

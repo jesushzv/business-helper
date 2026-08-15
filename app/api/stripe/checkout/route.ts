@@ -7,6 +7,7 @@ import {
   isStripeConfigured,
 } from '@/lib/stripeClient';
 import { hasCapability } from '@/lib/teamRBAC';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Creates a Stripe Checkout session for a subscription tier.
@@ -33,15 +34,7 @@ export async function POST(request: Request) {
   const { supabase, organizationId, role } = auth.ctx;
 
   if (!hasCapability(role, 'billing_management')) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Solo el dueño de la cuenta puede gestionar la suscripción',
-        },
-      },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Solo el dueño de la cuenta puede gestionar la suscripción');
   }
 
   try {
@@ -52,10 +45,7 @@ export async function POST(request: Request) {
     const normalizedTier = normalizeTierKey(requestedTier);
 
     if (!normalizedTier) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_TIER', message: 'Plan de suscripción no válido' } },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_TIER', 'Plan de suscripción no válido');
     }
 
     // Only accept a same-origin return URL; an arbitrary one turns this into
@@ -73,15 +63,7 @@ export async function POST(request: Request) {
     }
 
     if (!isStripeConfigured()) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'STRIPE_NOT_CONFIGURED',
-            message: 'El proceso de pago aún no está disponible.',
-          },
-        },
-        { status: 503 }
-      );
+      return apiError(503, 'STRIPE_NOT_CONFIGURED', 'El proceso de pago aún no está disponible.');
     }
 
     const built = createCheckoutPayload(normalizedTier, organizationId, safeReturnUrl);
@@ -100,15 +82,7 @@ export async function POST(request: Request) {
             'Checkout bills a Price, not a Product: open the product in the Stripe ' +
             'dashboard and copy the id under Pricing, which begins with price_.'
         );
-        return NextResponse.json(
-          {
-            error: {
-              code: 'STRIPE_PRICE_MISCONFIGURED',
-              message: 'Este plan todavía no está disponible para contratación en línea.',
-            },
-          },
-          { status: 503 }
-        );
+        return apiError(503, 'STRIPE_PRICE_MISCONFIGURED', 'Este plan todavía no está disponible para contratación en línea.');
       }
 
       console.error(
@@ -116,15 +90,7 @@ export async function POST(request: Request) {
           built.code === 'PRICE_NOT_CONFIGURED' ? built.envVar : 'STRIPE_PRICE_*'
         }`
       );
-      return NextResponse.json(
-        {
-          error: {
-            code: 'STRIPE_PRICE_NOT_CONFIGURED',
-            message: 'Este plan todavía no está disponible para contratación en línea.',
-          },
-        },
-        { status: 503 }
-      );
+      return apiError(503, 'STRIPE_PRICE_NOT_CONFIGURED', 'Este plan todavía no está disponible para contratación en línea.');
     }
 
     const payload: Record<string, unknown> = built.payload;
@@ -156,10 +122,7 @@ export async function POST(request: Request) {
     );
 
     if (!result.ok) {
-      return NextResponse.json(
-        { error: { code: result.code, message: result.message } },
-        { status: result.code === 'NOT_CONFIGURED' ? 503 : 502 }
-      );
+      return apiError(result.code === 'NOT_CONFIGURED' ? 503 : 502, result.code, result.message);
     }
 
     return NextResponse.json({
@@ -167,9 +130,6 @@ export async function POST(request: Request) {
       sessionId: result.session.id,
     });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'SERVER_ERROR', message: 'Error al generar la sesión de pago de Stripe' } },
-      { status: 500 }
-    );
+    return apiError(500, 'SERVER_ERROR', 'Error al generar la sesión de pago de Stripe');
   }
 }

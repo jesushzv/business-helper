@@ -10,7 +10,7 @@ import {
   parseNaturalLanguageQuery,
   TIER_AI_QUOTAS,
   type AIOrgData,
-} from '@/lib/whatsappAI';
+} from '@/lib/aiAssistant';
 import { productTodayStr } from '@/lib/dates';
 
 describe('AI monthly tier quotas', () => {

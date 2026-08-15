@@ -5,6 +5,7 @@ import { describeDbWriteError } from '@/lib/dbWriteError';
 import { createServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { validateReceiptFile, sniffReceiptContent, RECEIPT_CONTENT_TYPES } from '@/lib/speiValidator';
 import { SPEI_VOUCHERS_BUCKET } from '@/lib/publicReceivable';
+import { apiError } from '@/lib/apiError';
 
 /**
  * Uploads a SPEI receipt against a milestone.
@@ -43,29 +44,13 @@ export async function POST(
   // `status === 'confirmed'` — so a `member`, who holds no `confirm_payment`,
   // could still attach the comprobante the confirmation rests on.
   if (!hasCapability(role, 'confirm_payment')) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Tu rol no permite registrar comprobantes de pago',
-        },
-      },
-      { status: 403 }
-    );
+    return apiError(403, 'FORBIDDEN', 'Tu rol no permite registrar comprobantes de pago');
   }
 
   // Fails closed rather than reporting a storage failure the tenant cannot
   // act on: with no service role there is nowhere to put the file (rule #3).
   if (!isServiceRoleConfigured()) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'BACKEND_NOT_CONFIGURED',
-          message: 'La subida de comprobantes no está disponible en este momento.',
-        },
-      },
-      { status: 503 }
-    );
+    return apiError(503, 'BACKEND_NOT_CONFIGURED', 'La subida de comprobantes no está disponible en este momento.');
   }
 
   try {
@@ -81,10 +66,7 @@ export async function POST(
       .maybeSingle();
 
     if (!milestone) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Cobro no encontrado' } },
-        { status: 404 }
-      );
+      return apiError(404, 'NOT_FOUND', 'Cobro no encontrado');
     }
 
     // Swapping the evidence under a filed fiscal document is a decision, not a
@@ -95,28 +77,16 @@ export async function POST(
     // void and settles nothing, so it does not lock anything.
     const documentIsLive = milestone.cfdi_status === 'issued';
     if (milestone.status === 'confirmed' && documentIsLive && milestone.receipt_url) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'RECEIPT_LOCKED',
-            message:
-              'Este cobro ya está confirmado y su factura está timbrada, así que el ' +
+      return apiError(409, 'RECEIPT_LOCKED', 'Este cobro ya está confirmado y su factura está timbrada, así que el ' +
               'comprobante que la respalda no se puede reemplazar. Si el comprobante ' +
-              'es incorrecto, cancela la factura primero.',
-          },
-        },
-        { status: 409 }
-      );
+              'es incorrecto, cancela la factura primero.');
     }
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
 
     if (!file) {
-      return NextResponse.json(
-        { error: { code: 'MISSING_FILE', message: 'El archivo de comprobante es requerido' } },
-        { status: 400 }
-      );
+      return apiError(400, 'MISSING_FILE', 'El archivo de comprobante es requerido');
     }
 
     const fileValidation = validateReceiptFile({
@@ -126,10 +96,9 @@ export async function POST(
     });
 
     if (!fileValidation.isValid) {
-      return NextResponse.json(
-        { error: { code: 'INVALID_FILE', message: fileValidation.error } },
-        { status: 400 }
-      );
+      // `error` is optional on the validator result; without a fallback an
+      // invalid file could be refused with no reason shown to the payer.
+      return apiError(400, 'INVALID_FILE', fileValidation.error || 'El archivo no es válido.');
     }
 
     const bytes = await file.arrayBuffer();
@@ -140,15 +109,7 @@ export async function POST(
     // not enforcement (#85 gave the public upload route the same posture).
     const content = sniffReceiptContent(new Uint8Array(bytes));
     if (!content) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_FILE',
-            message: 'El archivo no es una imagen PNG, JPG ni un documento PDF válido.',
-          },
-        },
-        { status: 400 }
-      );
+      return apiError(400, 'INVALID_FILE', 'El archivo no es una imagen PNG, JPG ni un documento PDF válido.');
     }
 
     // `owner_` rather than the payer path's `spei_` prefix. The public upload
@@ -168,10 +129,7 @@ export async function POST(
       });
 
     if (error || !data) {
-      return NextResponse.json(
-        { error: { code: 'UPLOAD_FAILED', message: 'Error al subir el comprobante SPEI' } },
-        { status: 502 }
-      );
+      return apiError(502, 'UPLOAD_FAILED', 'Error al subir el comprobante SPEI');
     }
 
     const { data: publicUrlData } = storage.storage
@@ -213,17 +171,8 @@ export async function POST(
         'POST /api/receivables/[id]/upload',
         { verb: 'guardar' }
       );
-      return NextResponse.json(
-        {
-          error: {
-            code: 'RECEIPT_SAVE_FAILED',
-            message:
-              'El comprobante se subió pero no se pudo guardar en el cobro. ' +
-              `${failure.message} Intenta de nuevo.`,
-          },
-        },
-        { status: failure.status === 500 ? 500 : failure.status }
-      );
+      return apiError(failure.status, 'RECEIPT_SAVE_FAILED', 'El comprobante se subió pero no se pudo guardar en el cobro. ' +
+              `${failure.message} Intenta de nuevo.`);
     }
 
     return NextResponse.json({
@@ -232,9 +181,6 @@ export async function POST(
       filePath,
     });
   } catch {
-    return NextResponse.json(
-      { error: { code: 'UPLOAD_FAILED', message: 'Error al subir el comprobante SPEI' } },
-      { status: 500 }
-    );
+    return apiError(500, 'UPLOAD_FAILED', 'Error al subir el comprobante SPEI');
   }
 }

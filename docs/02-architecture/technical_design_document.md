@@ -65,7 +65,7 @@ export function calculateContractHash(contractPayload: {
 [Next.js Client Component / Server Action]
        │
        ▼
-[Input Sanitizer & Zod Validation Schema]
+[Input Sanitizer & hand-written validators]
        │
        ▼
 [Supabase Client (@supabase/ssr)]
@@ -94,7 +94,7 @@ export function calculateContractHash(contractPayload: {
 ## 05 Deployment Plan & CI/CD
 
 ### Environment Pipeline
-1. **Development**: Local environment with Dockerized Supabase Postgres instance (`npx supabase start`).
+1. **Development**: against the hosted Supabase project. There is no local Docker stack and no `supabase` CLI dependency — `npx supabase start` and `supabase/config.toml` do not exist here (#319).
 2. **Staging**: Vercel Preview Deployments connected to Supabase Staging Database project.
 3. **Production**: Vercel Edge Production (`businesshelper.app`) connected to Supabase Production AWS cluster.
 
@@ -107,7 +107,8 @@ npm run typecheck && npm run lint
 npm run test
 
 # 3. Apply Supabase database migrations to production
-npx supabase db push --linked
+npm run db:migrate:dry   # list what would be applied
+npm run db:migrate       # apply — manual, never automatic (hard rule #6)
 
 # 4. Trigger production deploy on Vercel
 git push origin main
@@ -119,7 +120,7 @@ git push origin main
 
 ### Security Standards
 * **Authentication**: Supabase Auth with HTTP-only cookies (`sb-access-token`).
-* **Multi-Tenant Isolation**: PostgreSQL Row-Level Security (RLS) policies mandatory on all 9 tables.
+* **Multi-Tenant Isolation**: PostgreSQL Row-Level Security (RLS) policies mandatory on every tenant table. The count is derived from `supabase/migrations/`, not restated here — it was "9" while the schema held 16 (#319).
 * **Input Sanitization**: Strip HTML tags and dangerous characters before database insertion.
 * **Upload Security**: SPEI receipt attachments restricted to `< 5MB` with magic byte validation (`FF D8 FF` for JPG, `89 50 4E 47` for PNG, `%PDF-` for PDF).
 

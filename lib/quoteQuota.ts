@@ -22,7 +22,7 @@ import { productDayStartInstant, productMonthStr } from './dates';
 export const INICIAL_MONTHLY_QUOTE_LIMIT = 50;
 
 export const QUOTE_QUOTA_CODE = 'QUOTE_QUOTA_EXCEEDED';
-const QUOTE_QUOTA_MESSAGE =
+export const QUOTE_QUOTA_MESSAGE =
   `Alcanzaste las ${INICIAL_MONTHLY_QUOTE_LIMIT} cotizaciones de este mes incluidas en tu Plan Inicial. ` +
   'Cambia al Plan Negocio en Ajustes para cotizar sin límite; el mes que entra tu contador vuelve a cero.';
 

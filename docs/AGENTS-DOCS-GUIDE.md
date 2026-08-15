@@ -53,12 +53,14 @@ business-helper/docs/
 ├── 04-execution-testing/                # Launch & Quality Assurance
 │   ├── ecc-execution-playbook.md        # ECC Agent 4-phase sprint execution playbook
 │   ├── product_launch_checklist.md      # Go-live runbook (steps to perform, not a status record)
+│   ├── live-verification-recipes.md     # How to check schema, grants, RLS and the deployed app from a session
 │   ├── ux_ui_audit_synthesis_aug2026.md # Dual UX/UI audit synthesis (WS-* workstreams)
 │   └── usability_test_plan.md           # Task testing with Don Roberto & Mariana
 │
 ├── 99-archive/                          # Superseded. Read-only history — never update these.
 │   ├── product_readiness_snapshot.md    # Competing status dashboard; claimed 100% while simulated
 │   ├── product_readiness_workback.md    # Gate scores predating the simulation findings
+│   ├── status-log-2026-08.md            # Narrative moved out of STATUS.md as its budget filled
 │   └── product_expert_review_aug2026.md # Point-in-time external review
 │
 ├── 05-templates/                        # Working Engineering Templates
@@ -114,10 +116,10 @@ These were deleted as redundant or spent; git history retains them.
 | **Refactoring existing code** | [`refactoring_plan.md`](../docs/05-templates/refactoring_plan.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
 | **Building marketing landing pages or ads** | [`landing-page-brief.md`](../docs/03-product-specs/landing-page-brief.md) | [`go-to-market-plan.md`](../docs/01-strategy/go-to-market-plan.md) |
 | **Preparing for Beta launch or deployment** | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) | [`docs/STATUS.md`](../docs/STATUS.md) |
-| **Finding what a module does or where its code lives** | [`product_readiness_snapshot.md`](99-archive/product_readiness_snapshot.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
+| **Finding what a module does or where its code lives** | [`app-architecture-plan.md`](02-architecture/app-architecture-plan.md) | `CLAUDE.md`'s architecture map; the archived snapshot is history only |
 | **Working on CFDI / invoicing / PAC integration** | [`cfdi_integration_architecture.md`](../docs/02-architecture/cfdi_integration_architecture.md) | [`PRD-business-helper.md`](../docs/01-strategy/PRD-business-helper.md) (Module 5) |
-| **Responding to product expert reviews** | [`product_expert_review_aug2026.md`](99-archive/product_expert_review_aug2026.md) | [`product_readiness_workback.md`](99-archive/product_readiness_workback.md) |
-| **Tracking workback progress or gate status** | [`product_readiness_workback.md`](99-archive/product_readiness_workback.md) | [`product_launch_checklist.md`](../docs/04-execution-testing/product_launch_checklist.md) |
+| **Responding to product expert reviews** | [`docs/STATUS.md`](STATUS.md) — the live priority stack | The archived review and workback are readable as history, never as the current plan |
+| **Tracking progress or gate status** | [`docs/STATUS.md`](STATUS.md) — the only status authority | [`product_launch_checklist.md`](04-execution-testing/product_launch_checklist.md) as a go-live runbook |
 
 ---
 

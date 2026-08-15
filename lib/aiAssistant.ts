@@ -1,11 +1,20 @@
 /**
- * WhatsApp AI Operations Assistant & Automated Support Router Engine — Business Helper
- * 
- * Natural language query parser for business owners (Don Roberto / Lic. Mariana)
- * answering queries on WhatsApp or mobile web about overdue debt, payments, client totals,
- * and product support FAQs (Quotes, SPEI, SAT CFDI 4.0, Branding, RBAC).
- * Includes cost safeguards, tier quotas, input sanitization, sliding-window rate limiting,
- * and automated Meta/Twilio WhatsApp webhook challenge verification.
+ * In-app AI assistant — the rules engine behind `/api/ai/assistant` and
+ * `/api/ai/support`.
+ *
+ * Renamed from `whatsappAI.ts` (#322 item 5). The old name described a
+ * WhatsApp integration this module does not have: nothing here sends or
+ * receives a WhatsApp message. Its only WhatsApp-shaped part is the support
+ * handoff link, and that lives in `lib/whatsappLink.ts`.
+ *
+ * What it actually does: parses a business owner's natural-language question
+ * and **computes every figure from the tenant's own rows** — overdue debt,
+ * payments, client totals — plus the support FAQ router. Gemini writes the
+ * prose around those figures and never the numbers themselves, which is why
+ * every answer labels its `engine` (`'gemini' | 'rules'`).
+ *
+ * Also holds the cost safeguards: tier quotas, input sanitization and
+ * sliding-window rate limiting.
  */
 
 import { productMonthStr, productTodayStr } from './dates';
