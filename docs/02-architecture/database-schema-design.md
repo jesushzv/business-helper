@@ -551,6 +551,17 @@ build when a migration creates a table this document does not describe** (#156).
 - *Writer*: `increment_ai_usage(uuid, text)` — plain SQL, ***not*** `SECURITY DEFINER`, executable by `service_role` only — is its atomic writer
 - *Why server-only*: a member who could UPDATE their own usage row could zero their own model-call counter
 
+#### `milestone_payments`
+*Added by `20260815120000_milestone_payments` (#381). One row per declared payment against a cobro — the decision that payments become rows rather than a running total in `milestones.transferred_amount`.*
+- `milestone_id` → `milestones(id)` **`ON DELETE RESTRICT`**: a cobro with payments declared against it is not something a cascade may quietly take with it (same posture as #336's invariants)
+- `organization_id` → `organizations(id)`: denormalised so a tenant scope is a filter rather than a join
+- `amount` `numeric(12,2)`, `chk_milestone_payments_amount_positive` — zero is not a payment and a negative one is a refund this table does not model
+- `source`: `payer_declaration` | `owner_record` | `backfill`, enforced by `chk_milestone_payments_source`. The vocabulary is stated once in code as `PAYMENT_SOURCES` (`lib/milestonePayments.ts`), with `normalizePaymentSource` answering `null` for anything else (#116)
+- `tracking_reference`, `receipt_url`: the clave de rastreo and the server-issued storage URL this declaration carried. The milestone columns of the same name hold only the latest; these are what make an earlier wire traceable
+- *Writer*: `POST /api/receivables/public/[token]`, through the service-role client
+- *Why server-only*: RLS is on with **zero policies** and the named roles are revoked, like `cfdi_stamp_claims` and `stripe_webhook_events`. Nothing in the browser reads the ledger yet; tenant read policies arrive with the UI that needs them
+- *Relationship to `milestones.transferred_amount`*: the column is **still the authoritative figure for every money calculation** and is set to the ledger total after each declaration. The ledger is not yet complete — the two owner-side writers set an absolute total, which cannot be appended to an append-only ledger without inventing money — so read the column for totals and this table for what payers declared
+
 ### `SECURITY DEFINER` Functions — Grants Must Name the Roles
 
 A `SECURITY DEFINER` function in `public` runs with its owner's privileges, outside RLS, and

@@ -25,7 +25,11 @@ const state: {
   milestones: MockMilestone[];
   updatedRows: Array<{ id: string }>;
   lastUpdate: { values?: Record<string, unknown>; id?: string; statuses?: string[] } | null;
-} = { milestones: [], updatedRows: [], lastUpdate: null };
+  /** The #381 ledger: what the declaration wrote as a row. */
+  payments: Array<Record<string, unknown>>;
+  /** The follow-up write that syncs `transferred_amount` to the ledger total. */
+  lastTotalUpdate: { values?: Record<string, unknown>; id?: string } | null;
+} = { milestones: [], updatedRows: [], lastUpdate: null, payments: [], lastTotalUpdate: null };
 
 vi.mock('@/lib/supabase/service', () => ({
   isServiceRoleConfigured: () => true,
@@ -54,7 +58,30 @@ vi.mock('@/lib/supabase/service', () => ({
           }),
         };
       }
+      // The payment ledger (#381): the declaration is a row, and the milestone
+      // column is set from the ledger total afterwards.
+      if (table === 'milestone_payments') {
+        return {
+          insert: async (row: Record<string, unknown>) => {
+            state.payments.push(row);
+            return { error: null };
+          },
+          select: () => {
+            const builder = {
+              eq: () => builder,
+              then: (resolve: (v: { data: unknown; error: unknown }) => void) =>
+                resolve({
+                  data: state.payments.map((p) => ({ amount: p.amount })),
+                  error: null,
+                }),
+            };
+            return builder;
+          },
+        };
+      }
+
       // milestones update chain: .update(v).eq('id', x).in('status', [...]).select('id')
+      // and the bare .update(v).eq('id', x) the ledger-total write uses.
       return {
         update: (values: Record<string, unknown>) => ({
           eq: (_col: string, id: string) => ({
@@ -64,6 +91,10 @@ vi.mock('@/lib/supabase/service', () => ({
                 return { data: state.updatedRows, error: null };
               },
             }),
+            then: (resolve: (v: { error: null }) => void) => {
+              state.lastTotalUpdate = { values, id };
+              resolve({ error: null });
+            },
           }),
         }),
       };
@@ -101,6 +132,8 @@ beforeEach(() => {
   state.milestones = [];
   state.updatedRows = [];
   state.lastUpdate = null;
+  state.payments = [];
+  state.lastTotalUpdate = null;
 });
 
 describe('GET — which milestone the payer sees', () => {
@@ -189,11 +222,24 @@ describe('POST — a declaration without a receipt does not erase one (#339)', (
     expect(res.status).toBe(200);
     // Not "is null" — the key must be absent, so the column keeps its value.
     expect(state.lastUpdate?.values).not.toHaveProperty('receipt_url');
-    // The rest of the declaration still lands.
+    // The rest of the declaration still lands. `transferred_amount` is
+    // deliberately no longer part of this write (#381): the claim comes first
+    // so a refused duplicate leaves no phantom payment, the declared figure
+    // becomes a `milestone_payments` row, and the column is then set from the
+    // ledger total — which is what stops a second declaration erasing the
+    // first.
     expect(state.lastUpdate?.values).toMatchObject({
       status: 'marked_paid',
       tracking_reference: 'SPEI123',
-      transferred_amount: 1000,
+    });
+    expect(state.lastUpdate?.values).not.toHaveProperty('transferred_amount');
+
+    expect(state.payments).toMatchObject([
+      { milestone_id: 'm-1', amount: 1000, source: 'payer_declaration' },
+    ]);
+    expect(state.lastTotalUpdate).toMatchObject({
+      id: 'm-1',
+      values: { transferred_amount: 1000 },
     });
   });
 

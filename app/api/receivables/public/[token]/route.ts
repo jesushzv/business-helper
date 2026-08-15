@@ -19,6 +19,7 @@ import {
   SPEI_VOUCHERS_BUCKET,
   type PublicMilestone,
 } from '@/lib/publicReceivable';
+import { recordMilestonePayment } from '@/lib/milestonePayments';
 
 /**
  * The milestone shape *this* route's select reads — stated next to the select
@@ -345,10 +346,17 @@ export async function POST(
     // moment the owner could: the comprobante they filed from Cobranza on the
     // client's behalf would be erased by that client submitting a receipt-less
     // declaration afterwards, silently, on a milestone still `pending`.
+    //
+    // `transferred_amount` is deliberately **not** in this write any more
+    // (#381). It used to be set to the declared figure, replacing whatever was
+    // there: a payer declaring a remainder erased the record of the earlier
+    // wire, and the cobro read as short by exactly that amount with nothing
+    // erroring. The declaration now becomes a row in `milestone_payments` and
+    // the column is set from the ledger total below. This claim comes first so
+    // a refused duplicate never leaves a phantom payment in the ledger.
     const milestoneUpdate: Record<string, unknown> = {
       status: 'marked_paid',
       tracking_reference: trackingReference,
-      transferred_amount: transferredAmount,
     };
     if (receiptUrl !== null) {
       milestoneUpdate.receipt_url = receiptUrl;
@@ -378,6 +386,57 @@ export async function POST(
         409,
         'PAYMENT_ALREADY_RECORDED',
         'Este cobro ya fue registrado. Si tienes dudas, contacta directamente al negocio.'
+      );
+    }
+
+    // The declaration itself, as a row. The claim above is what this payer is
+    // told about; if the ledger write fails, nothing recorded what they
+    // declared, and saying "Comprobante enviado correctamente" would be the
+    // #58/#86 fabricated confirmation — the exact defect this page has already
+    // shipped once.
+    const ledger = await recordMilestonePayment({
+      supabase,
+      milestoneId: target.id,
+      organizationId: quote.organization_id,
+      amount: transferredAmount,
+      source: 'payer_declaration',
+      trackingReference,
+      receiptUrl,
+    });
+
+    if (!ledger.ok) {
+      return publicApiError(
+        500,
+        'RECEIPT_WRITE_FAILED',
+        'No se pudo registrar el comprobante. Vuelve a intentarlo; si el problema sigue, ' +
+          'contacta directamente al negocio.'
+      );
+    }
+
+    // Keep the column every existing reader still measures money against in
+    // step with the ledger. It is set to the **read-back total**, not to this
+    // declaration, which is the whole point of #381: two declarations now sum
+    // instead of the second replacing the first.
+    //
+    // A failure here leaves the ledger ahead of the column — the cobro shows
+    // less received than was declared. That is a stale mirror, not a fabricated
+    // success: the payment is on record and the payer's declaration is real, so
+    // telling them to declare again would invite a duplicate wire. Logged for
+    // the tenant chasing the difference.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: totalError } = await (supabase as any)
+      .from('milestones')
+      .update({ transferred_amount: ledger.total })
+      .eq('id', target.id);
+
+    if (totalError) {
+      // The cause is read, not swallowed (#146/#148). The tenant chasing a
+      // cobro whose figure is behind its ledger needs to know why the mirror
+      // write failed, and "something went wrong" is a diagnosis thrown away.
+      console.error(
+        '[receivables] payment recorded but transferred_amount not updated. ' +
+          `milestone=${target.id} ledger_total=${ledger.total} ` +
+          `code=${totalError.code} cause=${totalError.message}`
       );
     }
 

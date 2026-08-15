@@ -27,6 +27,8 @@ const state: {
   lastUpdate: { values?: Record<string, unknown> } | null;
   /** Object names present in the bucket under org-1/ — feeds storage.list. */
   storedObjects: string[];
+  /** The #381 payment ledger: what the declaration wrote as a row. */
+  payments: Array<Record<string, unknown>>;
 } = {
   configured: true,
   milestones: [],
@@ -35,6 +37,7 @@ const state: {
   updatedRows: [{ id: 'm-1' }],
   lastUpdate: null,
   storedObjects: [],
+  payments: [],
 };
 
 vi.mock('@/lib/supabase/service', () => ({
@@ -57,6 +60,28 @@ vi.mock('@/lib/supabase/service', () => ({
           }),
         };
       }
+      // The declaration is a `milestone_payments` row now (#381); the milestone
+      // column is set from the ledger total after it lands.
+      if (table === 'milestone_payments') {
+        return {
+          insert: async (row: Record<string, unknown>) => {
+            state.payments.push(row);
+            return { error: null };
+          },
+          select: () => {
+            const builder = {
+              eq: () => builder,
+              then: (resolve: (v: { data: unknown; error: unknown }) => void) =>
+                resolve({
+                  data: state.payments.map((p) => ({ amount: p.amount })),
+                  error: null,
+                }),
+            };
+            return builder;
+          },
+        };
+      }
+
       return {
         update: (values: Record<string, unknown>) => ({
           eq: () => ({
@@ -66,6 +91,7 @@ vi.mock('@/lib/supabase/service', () => ({
                 return { data: state.updatedRows, error: null };
               },
             }),
+            then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
           }),
         }),
       };
@@ -133,6 +159,7 @@ beforeEach(() => {
   state.updatedRows = [{ id: 'm-1' }];
   state.lastUpdate = null;
   state.storedObjects = [];
+  state.payments = [];
 });
 
 describe('POST /api/receivables/public/[token]/upload', () => {
