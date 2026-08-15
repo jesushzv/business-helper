@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Sparkles, ArrowRight, CheckCircle2, ShieldCheck, Zap } from 'lucide-react';
 import { BrowserFrameMockup } from '@/components/landing/BrowserFrameMockup';
 import { Footer } from '@/components/layout/Footer';
@@ -69,11 +70,12 @@ export default function DemoPage() {
         {/* Browser Mockup Showcase */}
         <div className="max-w-5xl mx-auto">
           <BrowserFrameMockup url="app.businesshelper.app/dashboard?demo=true">
-            {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
-            <img
+            <Image
               src={getAssetUrl('/assets/demo/cuj_02_dashboard_kpis.png')}
               alt="Business Helper — Demostración interactiva del control de cotizaciones"
-              className="w-full h-full object-cover object-top rounded-b-xl"
+              className="object-cover object-top rounded-b-xl"
+              fill
+              sizes="(max-width: 1024px) 100vw, 1024px"
             />
           </BrowserFrameMockup>
         </div>

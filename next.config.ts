@@ -1,8 +1,20 @@
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
+import { buildImageRemotePatterns } from './lib/imageRemotePatterns';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  images: {
+    /**
+     * Empty unless a CDN origin is configured — see `lib/imageRemotePatterns.ts`.
+     * Without this the marketing screenshots could not move to `next/image` at
+     * all: on any deployment setting `NEXT_PUBLIC_CDN_URL`, the optimizer
+     * refuses a hostname this list does not name (400, `"url" parameter is not
+     * allowed`) and the landing page renders 200 with every screenshot
+     * broken (#82).
+     */
+    remotePatterns: buildImageRemotePatterns(),
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '5mb',

@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   MessageSquare,
   TrendingUp,
@@ -182,12 +183,13 @@ export default function LandingPage() {
             {/* Hero Right Visual Mockup (ONLY BrowserFrameMockup) */}
             <div className="lg:col-span-6 flex justify-center w-full">
               <BrowserFrameMockup url="app.businesshelper.app/dashboard">
-                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
-                <img
+                <Image
                   src={getAssetUrl('/assets/demo/cuj_02_dashboard_kpis.png')}
                   alt="Dashboard Business Helper — Control de Cotizaciones y Cobranza"
-                  className="w-full h-full object-cover object-top bg-slate-950 rounded-b-xl"
-                  loading="eager"
+                  className="object-cover object-top bg-slate-950 rounded-b-xl"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  priority
                 />
               </BrowserFrameMockup>
             </div>
@@ -291,12 +293,12 @@ export default function LandingPage() {
             </div>
             <div className="lg:col-span-6">
               <BrowserFrameMockup url="app.businesshelper.app/quotes/new">
-                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
-                <img
+                <Image
                   src={getAssetUrl('/assets/demo/cuj_04_quote_wizard_step2.png')}
                   alt="Generador de Cotizaciones Business Helper — Cálculo de Impuestos SAT"
-                  className="w-full h-full object-cover object-top rounded-b-xl"
-                  loading="lazy"
+                  className="object-cover object-top rounded-b-xl"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </BrowserFrameMockup>
             </div>
@@ -328,12 +330,12 @@ export default function LandingPage() {
             </div>
             <div className="lg:col-span-6 lg:order-1">
               <BrowserFrameMockup url="app.businesshelper.app/q/cotizacion-demo">
-                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
-                <img
+                <Image
                   src={getAssetUrl('/assets/demo/cuj_05_signing_otp_modal.png')}
                   alt="Aprobación de Cotización vía OTP y Portal SPEI"
-                  className="w-full h-full object-cover object-top rounded-b-xl"
-                  loading="lazy"
+                  className="object-cover object-top rounded-b-xl"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </BrowserFrameMockup>
             </div>
@@ -365,12 +367,12 @@ export default function LandingPage() {
             </div>
             <div className="lg:col-span-6">
               <BrowserFrameMockup url="app.businesshelper.app/spei/portal">
-                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
-                <img
+                <Image
                   src={getAssetUrl('/assets/demo/cuj_07_spei_portal.png')}
                   alt="Portal de Validación SPEI Banxico — Business Helper"
-                  className="w-full h-full object-cover object-top rounded-b-xl"
-                  loading="lazy"
+                  className="object-cover object-top rounded-b-xl"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </BrowserFrameMockup>
             </div>
@@ -402,12 +404,12 @@ export default function LandingPage() {
             </div>
             <div className="lg:col-span-6 lg:order-1">
               <BrowserFrameMockup url="app.businesshelper.app/receivables">
-                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
-                <img
+                <Image
                   src={getAssetUrl('/assets/demo/cuj_06_accounts_receivable.png')}
                   alt="Panel de Cobranza Quién Me Debe — Business Helper"
-                  className="w-full h-full object-cover object-top rounded-b-xl"
-                  loading="lazy"
+                  className="object-cover object-top rounded-b-xl"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </BrowserFrameMockup>
             </div>
@@ -439,12 +441,12 @@ export default function LandingPage() {
             </div>
             <div className="lg:col-span-6">
               <BrowserFrameMockup url="app.businesshelper.app/invoices">
-                {/* eslint-disable-next-line @next/next/no-img-element -- getAssetUrl() may resolve to the env-configured CDN origin, which next/image has no remotePatterns for; migration tracked in #82 */}
-                <img
+                <Image
                   src={getAssetUrl('/assets/demo/cuj_10_invoices_sat.png')}
                   alt="Timbrado Fiscal CFDI 4.0 SAT — Business Helper"
-                  className="w-full h-full object-cover object-top rounded-b-xl"
-                  loading="lazy"
+                  className="object-cover object-top rounded-b-xl"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </BrowserFrameMockup>
             </div>
