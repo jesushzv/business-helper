@@ -11,7 +11,7 @@
  * `engine: 'rules' | 'gemini'` for whichever actually wrote the text.
  */
 
-import type { AIOrgData } from './whatsappAI';
+import type { AIOrgData } from './aiAssistant';
 import { collectedAmount, expectedSettlementAmount } from './receivablesCalculator';
 
 /** Milestone states that still represent money owed to the organization. */
@@ -69,7 +69,7 @@ export async function loadAIOrgContext(
     // por-cobrar total — the semantic opposite of what was asked.
     supabase
       .from('milestones')
-      // What arrived, not what was billed (#351). `whatsappAI` sums this for
+      // What arrived, not what was billed (#351). `aiAssistant` sums this for
       // "¿Cuánto hemos cobrado este mes?" and labels the answer `engine:
       // 'rules'` — a computed fact. Summing `amount` made that fact an
       // overstatement for every partially-paid cobro.

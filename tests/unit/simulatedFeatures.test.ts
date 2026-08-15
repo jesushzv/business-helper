@@ -21,7 +21,7 @@ import {
   mapMilestoneRows,
   monthDateRange,
 } from '@/lib/accountantExport';
-import { parseNaturalLanguageQuery } from '@/lib/whatsappAI';
+import { parseNaturalLanguageQuery } from '@/lib/aiAssistant';
 
 /**
  * Regression suite for issue #4: endpoints that returned fabricated success for

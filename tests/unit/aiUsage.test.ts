@@ -6,7 +6,7 @@ vi.mock('@/lib/sentry', () => ({
 
 import { currentAIMonth, resolveAIModelBudget, recordModelAnswer } from '@/lib/aiUsage';
 import { captureException } from '@/lib/sentry';
-import { TIER_AI_QUOTAS } from '@/lib/whatsappAI';
+import { TIER_AI_QUOTAS } from '@/lib/aiAssistant';
 
 beforeEach(() => {
   vi.mocked(captureException).mockClear();
