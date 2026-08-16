@@ -4,13 +4,11 @@
 
 > **The single source of truth for what is and is not done.**
 >
-> *Last verified: 2026-08-14 06:30Z for the `bug` set below (re-derived from
-> `is:issue is:open label:bug`, with the `cfdi_stamp_claims` table, its grants and
-> `uq_organizations_owner_id` read back from the production catalog); 2026-08-11 23:59Z for
-> everything else. Suite re-run for this pass; the P0 table re-derived from
-> `is:issue is:open label:P0` rather than trusted — which is what caught the #64 row outliving its
-> issue; the launch-gate settlement query, the organization census and the `decision` label run
-> against the production catalog and the tracker. Method in §06.*
+> *Last verified: 2026-08-16 15:10Z. Suite re-run (figures below); the P0 and `bug` sets
+> re-derived from the tracker rather than trusted; the migration ledger, function grants,
+> organization census and the launch-gate settlement query read back from the production catalog.
+> That pass caught `record_owner_payment` deployed but unapplied — a live money-path outage, now
+> applied and proven by rejection (§04). Method in §06.*
 
 ## The doc contract
 
@@ -63,7 +61,7 @@ completion claim needs checking against source. The full findings are in
 
 | Metric | State |
 |:---|:---|
-| Test suite | **2033 tests / 190 files**, `npx vitest run` on the deletion-semantics branch cut from `main` (2026-08-14) |
+| Test suite | **2518 tests / 237 files**, `npx vitest run` on `main` (2026-08-16); typecheck and lint clean in the same pass |
 | Coverage gate | **Enforced in CI since #51** — `npx vitest run --coverage` on every pull request, against the thresholds in `vitest.config.ts` (the only statement of them). Measured on the branch that wired it up: statements 82.73%, branches 75.73%, functions 78.93%, lines 84.67%. The thresholds sit just under each, so the gate is a ratchet — raise it as coverage rises, never lower it to make a red run pass. The gap to the old aspirational 85/85/80/80 is concentrated in untested `app/` route handlers and `lib/hooks/` |
 | Error monitoring | **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling (why it replaced the hand-rolled transport: archive). PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | **Rewritten and executed 2026-08-13** ([#69](https://github.com/jesushzv/business-helper/issues/69)/[#91](https://github.com/jesushzv/business-helper/issues/91)): **18 passed, 0 skipped, 0 failed** — 9 scenarios × desktop + mobile chromium, production build, demo posture. Scenarios pinning remediated defects now assert the opposite; suite joined CI, and it caught a live wizard defect (`docs/LESSONS.md` #91). Scenario 10 moved to the row below |
@@ -264,7 +262,7 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 - [ ] A CFDI issued in the app corresponds to a real SAT UUID ([#26](https://github.com/jesushzv/business-helper/issues/26)) — CFDI ships at launch, so this is required
 - [x] Stripe checkout charges a real card in live mode ([#68](https://github.com/jesushzv/business-helper/issues/68), closed 2026-08-11 — Plan Inicial at $299.00 MXN, read back from Stripe's charge history) with a verified webhook ([#63](https://github.com/jesushzv/business-helper/issues/63) — four rejection checks against a real runtime; accept-and-apply and redelivery idempotency in production). `npm run verify:stripe` stays the read-only pre-check
 - [ ] Each tier's live Price ID bills the amount the pricing page advertises — a mismatched map charges the wrong amount and reports success everywhere. Only Inicial has been exercised live; #68 closed with this box unticked, so **no open issue tracks the other tiers**. `npm run verify:stripe` is the check
-- [ ] Every pilot organization has a real CLABE, and payment confirmation reflects a real transfer — an operational check on live rows, which closing #64 (the code gate) does not satisfy. Since #164 the accounts live in `bank_accounts`, so the query is `select o.id, o.name from organizations o where not exists (select 1 from bank_accounts b where b.organization_id = o.id and b.archived_at is null);` — the older `organizations.bank_clabe is null` form reads a legacy mirror column, not the source. It must return no row belonging to a pilot tenant who intends to be paid; since #163 a tenant may also have removed their account deliberately, so a row is a question to ask, not automatically a defect. Run 2026-08-11 it returned one, `QA #128 trial default — BORRAR`, a test row to delete rather than fill in. **Only two organizations exist in production at all** — the founder's and that QA row — so there is no pilot cohort behind this gate yet
+- [ ] Every pilot organization has a real CLABE, and payment confirmation reflects a real transfer — an operational check on live rows, which closing #64 (the code gate) does not satisfy. Since #164 the accounts live in `bank_accounts`, so the query is `select o.id, o.name from organizations o where not exists (select 1 from bank_accounts b where b.organization_id = o.id and b.archived_at is null);` — the older `organizations.bank_clabe is null` form reads a legacy mirror column, not the source. It must return no row belonging to a pilot tenant who intends to be paid; since #163 a tenant may also have removed their account deliberately, so a row is a question to ask, not automatically a defect. Re-run 2026-08-16 it returns **no row**: the `QA #128 trial default — BORRAR` row is gone and the one remaining organization has a live account. **Only one organization exists in production at all**, so there is no pilot cohort behind this gate yet
 - [x] A failed confirmation write is reported as failed, not as `confirmed` (#33, PR #55)
 - [ ] A failed quote→contract conversion is reported as failed, not announced as a payment schedule ([#59](https://github.com/jesushzv/business-helper/issues/59) — fixed in code, unexercised against a deployment)
 
@@ -279,6 +277,8 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 - [x] Production Supabase migrations applied — all three from #20, #23 and #29, plus `20260808030000_folio_rpc_grants.sql`; confirmed by inspecting the live schema, not by an exit code. One live request per affected route still owed ([#62](https://github.com/jesushzv/business-helper/issues/62))
 - [x] `supabase/migrations/` and the live catalog agree ([#204](https://github.com/jesushzv/business-helper/issues/204)) — `20260812060000` applied 2026-08-12 and `pg_indexes` read back: every index on `organizations` matches a migration
 - [x] **No migration in the repo is unapplied in production.** Vercel auto-deploys `main` and migrations are manual, so this row is the gap between the two (hard rule #6). Read it back from the live catalog, never from the ledger — the ledger does not list hand-applied work, which is why an earlier revision of this row was wrong in both directions. All four applied and read back:
+  - `20260815200000` (`record_owner_payment`, [#394](https://github.com/jesushzv/business-helper/issues/394)) — **this row was wrong for a day**: `main` deployed the calling code to production while the function did not exist, so every owner confirmation and every "Registrar pago" failed `42P01`. It failed *honestly* (a Spanish error, no fabricated `confirmed`), which is hard rule #1 doing its job, but the confirm step of the cash-flow loop was down. Applied 2026-08-16 and read back: `prosecdef = false`, EXECUTE only `postgres`/`service_role`, both guards proven by rejection (zero amount → `22023`, unknown milestone → NULL, ledger row count unchanged).
+  - `20260814080000` (`clients.archived_at`, [#337](https://github.com/jesushzv/business-helper/issues/337)) — column and `idx_clients_org_active` both read back present. The migration's own header still says "NOT yet applied to production"; that comment is stale, not the schema.
   - `20260815120000` (`milestone_payments` + `record_milestone_payment`, [#381](https://github.com/jesushzv/business-helper/issues/381)) — table and function carry `postgres`/`service_role` only, `prosecdef = false`, backfill 0 rows against 0 eligible milestones, and every CHECK proven by making it reject.
   - `20260815000000` (`stripe_webhook_events` by-name REVOKE, [#242](https://github.com/jesushzv/business-helper/issues/242)) — `aclexplode` returns only `postgres` and `service_role`; the `anon`/`authenticated` grants, TRUNCATE included, are gone.
   - `20260814210000` + `20260814210100` (deletion invariants, #336) — both FKs read back `confdeltype = 'r'`, and both restrictive `FOR DELETE` policies exist with their intended predicates.
