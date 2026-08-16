@@ -63,15 +63,38 @@ export async function PUT(
     const body = await request.json();
     const updates = pickFields(body, MILESTONE_WRITABLE_FIELDS);
 
-    if (Object.keys(updates).length === 0) {
-      return apiError(400, 'NO_WRITABLE_FIELDS', 'No hay campos válidos para actualizar');
-    }
-
     // `status` is a writable field, so without this check a role denied at
     // /confirm could mark the milestone collected here instead — same financial
     // outcome, minus the audit log and the complemento the confirm route files.
+    //
+    // **First**, ahead of the field-shape checks below: a caller who may not do
+    // this at all is refused for that reason, not handed a 400 about the shape
+    // of a request they were never allowed to make. Putting the #394 check
+    // above this reordered exactly that, and `receivablesRBAC.test.ts` caught
+    // it — a `member` sending both fields got "regístralo como un pago"
+    // instead of "tu rol no permite confirmar pagos".
     if (updates.status === 'confirmed' && !hasCapability(role, 'confirm_payment')) {
       return apiError(403, 'FORBIDDEN', 'Tu rol no permite confirmar pagos');
+    }
+
+    // `transferred_amount` left MILESTONE_WRITABLE_FIELDS in #394, so it would
+    // otherwise be dropped here in silence — the caller gets a 200 for a money
+    // write that never happened, which is the shape #95 shipped. Checked
+    // against the raw body (`pickFields` has already discarded it) and before
+    // the empty-body check, so a request carrying only this field says why
+    // rather than "no hay campos válidos".
+    if (body?.transferred_amount !== undefined) {
+      return apiError(
+        400,
+        'AMOUNT_NOT_WRITABLE_HERE',
+        'El monto recibido ya no se edita directamente: regístralo como un pago para que quede ' +
+          'el detalle de cuándo y cómo llegó. Usa "Registrar pago" en el cobro.',
+        { fields: { transferred_amount: 'Regístralo como un pago, no como un total.' } }
+      );
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return apiError(400, 'NO_WRITABLE_FIELDS', 'No hay campos válidos para actualizar');
     }
 
     // An `amount` edit on a stamped cobro used to be accepted and then change
