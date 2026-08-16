@@ -3,14 +3,22 @@
 import React from 'react';
 import { MilestoneWithClient } from '@/lib/hooks/useReceivables';
 import { generatePaymentReminderLink } from '@/lib/whatsappReminder';
-import { MessageSquare, CheckCircle, ExternalLink, FileCheck, Clock, AlertCircle } from 'lucide-react';
+import { MessageSquare, CheckCircle, ExternalLink, FileCheck, Clock, AlertCircle, Landmark } from 'lucide-react';
 import { formatDateOnlyEs, localTodayStr } from '@/lib/dates';
-import { expectedSettlementAmount } from '@/lib/receivablesCalculator';
+import { expectedSettlementAmount, outstandingAmount } from '@/lib/receivablesCalculator';
 
 interface ReceivableCardProps {
   milestone: MilestoneWithClient;
   todayStr?: string;
   onOpenConfirmModal?: (milestone: MilestoneWithClient) => void;
+  /**
+   * Opens "Registrar pago" (#394). Offered whenever the cobro still owes
+   * something — **including when it is already `confirmed`**, which is the one
+   * state the confirm button hides on: a cobro confirmed short still has a
+   * balance, and until #382 the product tracked that remainder accurately and
+   * offered no way to record it arriving.
+   */
+  onOpenRecordPayment?: (milestone: MilestoneWithClient) => void;
   /**
    * False when the organization has no CLABE (#64). Both actions here hand a
    * `/pay/` link to a client, and that page answers 409 without a settlement
@@ -27,6 +35,7 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
   // Local today, never UTC's (#263) — see lib/dates.ts.
   todayStr = localTodayStr(),
   onOpenConfirmModal,
+  onOpenRecordPayment,
   canShare = true,
 }) => {
   // What this cobro has to be paid to be settled — the stamped total wherever
@@ -226,6 +235,16 @@ export const ReceivableCard: React.FC<ReceivableCardProps> = ({
             </button>
           )}
         </div>
+
+        {onOpenRecordPayment && outstandingAmount(milestone) > 0 && (
+          <button
+            onClick={() => onOpenRecordPayment(milestone)}
+            className="w-full min-h-[48px] px-4 py-2.5 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs sm:text-sm whitespace-nowrap"
+          >
+            <Landmark className="w-4 h-4 shrink-0" />
+            <span>Registrar pago</span>
+          </button>
+        )}
 
         {!isConfirmed && (
           <button
