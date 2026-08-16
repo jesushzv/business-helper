@@ -1030,3 +1030,42 @@ Cotizaciones gained their first UI delete (draft/sent/rejected/expired, confirm-
 Verified at the time with the Vitest suite only — route handlers against Supabase doubles, hooks
 against a mocked `fetch` — with no live-database pass, because RLS itself was not yet changed.
 #336 later moved the invariants into the schema and proved them against production by rejection.
+
+
+## The `bug`-tagged sweep — nine issues to zero, 2026-08-14
+
+Moved from `docs/STATUS.md` when its 32 KB budget filled; the still-true fact (the label is empty,
+plus the two filed leftovers) stays there.
+
+Nine issues carried the `bug` label. Three were already fixed in code and had simply never been
+closed; five were fixed in a stack; one closed once its leftover was split out.
+
+| # | What was wrong | Landed as |
+|:--|:---|:---|
+| #334 | Server "today" ran on UTC — a quote "válida hasta hoy" refused all evening, `due_today` listed tomorrow, the Inicial quota month rolled over six hours early | `d5e9547` (#342) |
+| #151 | `type="number"` bound to numeric models — a caret left of a prefilled amount multiplied it by ten, and the field blanked itself mid-decimal | `aa91140` (#343) |
+| #281 | `useCurrentOrg`'s cache was write-once, so a rename in Ajustes never reached the header, sidebar or the WhatsApp greetings clients receive | `aa91140` (#344) |
+| #269 | Accepting a second invitation succeeded and showed the other company's data, with no signal but a `console.error` | `aa91140` (#344) |
+| #116 | An absent subscription status defaulted to `'active'` in three places — "Activo" for a subscription nothing had established | `aa91140` (#345) |
+| #115 | Stripe customer/subscription ids were never stored | already fixed; closed on evidence |
+| #117 | The plan chosen on `/pricing` was dropped at `/register` | already fixed; closed on evidence |
+| #133 | `requireOrgAccess` picked an arbitrary organization | already fixed; closed on evidence |
+| #213 | A retried stamp could issue a second CFDI — `external_id` deduplicates nothing | claim table, applied live |
+
+**What was verified live, and what was not.** The five that landed had tests, lint and build only —
+no live Stripe event, no live PAC stamp. The database claims were read back from the production
+catalog rather than assumed: both `organizations.stripe_*_id` columns confirmed UNIQUE (so a
+cross-tenant collision surfaces as a 500 rather than being swallowed), `uq_organizations_owner_id`
+present, and `cfdi_stamp_claims` applied with `anon`/`authenticated` holding no privileges at all.
+The claim table's primary key was proven by making it **reject** a second claim (`23505`) inside a
+deliberately-aborted probe, with the table read back at 0 rows afterwards.
+
+**Two lessons the sweep produced, both about tests.** Three tests were pinning the very defects
+they sat next to: `quoteQuota` asserted the UTC month start, `SpeiConfirmModal` selected its input
+*by* `input[type="number"]` — the attribute the fix removes — and `aiAssistant` built its due-today
+fixture with `toISOString()`, which made the suite go red every evening and green every morning.
+The last one failed during the session that fixed it, at 23:5x Mexico City time.
+
+And two issue enumerations were stale in both directions: #151 named four input sites (there were
+five — the client credit limit was missing) and one that no longer existed, while `STATUS.md`
+itself claimed three open `bug` issues when the tracker held nine.
