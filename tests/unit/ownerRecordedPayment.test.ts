@@ -294,3 +294,95 @@ describe('transferred_amount is no longer an absolute-total input (#394)', () =>
     expect(source.indexOf("'FORBIDDEN'")).toBeLessThan(source.indexOf('AMOUNT_NOT_WRITABLE_HERE'));
   });
 });
+
+
+/**
+ * The hook half (#394): `recordPayment` applies the **server's** total.
+ *
+ * `transferred_amount` reads as "the full amount arrived" when it is NULL on a
+ * confirmed row (lib/receivablesCalculator.ts), so a locally-guessed total here
+ * has a direction: it overstates. The mutation therefore takes the number the
+ * database computed, or reports a failure — it never adds up its own.
+ */
+const LIST_ROW = {
+  id: 'm-1',
+  label: 'Anticipo 50%',
+  amount: 48720,
+  transferred_amount: 20000,
+  due_date: '2026-09-15',
+  status: 'confirmed',
+};
+
+describe('useReceivables.recordPayment applies the server row (#394)', () => {
+  it('sends this payment and takes back the total the database computed', async () => {
+    const { renderHook, act, waitFor } = await import('@testing-library/react');
+    const { useReceivables } = await import('@/lib/hooks/useReceivables');
+
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes('/payments')) {
+        return new Response(JSON.stringify({ success: true, transferred_amount: 48720 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ receivables: [LIST_ROW] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useReceivables());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let outcome: { success: boolean; error?: string } | undefined;
+    await act(async () => {
+      outcome = await result.current.recordPayment('m-1', { amount: 28720 });
+    });
+
+    const call = fetchMock.mock.calls.find((c) => String(c[0]).includes('/payments'));
+    expect(call).toBeTruthy();
+    const sent = JSON.parse(String((call?.[1] as RequestInit).body));
+    // This wire, not the new total — the addition belongs to the database.
+    expect(sent.amount).toBe(28720);
+    expect(outcome?.success).toBe(true);
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('reports a failure rather than guessing when the response carries no total', async () => {
+    const { renderHook, act, waitFor } = await import('@testing-library/react');
+    const { useReceivables } = await import('@/lib/hooks/useReceivables');
+
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL | Request) =>
+        String(url).includes('/payments')
+          ? new Response(JSON.stringify({ success: true }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            })
+          : new Response(JSON.stringify({ receivables: [LIST_ROW] }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            })
+      )
+    );
+
+    const { result } = renderHook(() => useReceivables());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let outcome: { success: boolean } | undefined;
+    await act(async () => {
+      outcome = await result.current.recordPayment('m-1', { amount: 100 });
+    });
+
+    expect(outcome?.success).toBe(false);
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+});

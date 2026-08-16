@@ -453,6 +453,69 @@ export function useReceivables() {
     return { success: true, milestone: updated };
   };
 
+  /**
+   * Records money the owner saw arrive, as a **payment** (#394, option A).
+   *
+   * Not a total. `transferred_amount` used to be written from here as an
+   * absolute figure — through `PUT` and through the confirm modal — which is
+   * why `milestone_payments` was a partial ledger: a total cannot be appended
+   * to an append-only record, so the owner-side routes recorded no row and only
+   * payers' declarations ever became one.
+   *
+   * The amount sent is what arrived in *this* wire. The database does the
+   * addition and hands back the new total, and that is what local state takes —
+   * never a sum computed here and hoped to match (#128).
+   */
+  const recordPayment = async (
+    id: string,
+    payment: { amount: number; trackingReference?: string | null; declaredAt?: string | null }
+  ): Promise<ReceivableMutationOutcome> => {
+    // Short-circuited before the fetch, and refusing rather than simulating:
+    // the sandbox has no ledger to append to, and a locally invented total is
+    // the fabricated-success defect this repo keeps shipping (#58/#86).
+    if (isClientDemoMode()) {
+      return {
+        success: false,
+        error: 'En la demostración no se registran pagos. Crea tu cuenta para llevar tu cobranza.',
+      };
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(`/api/receivables/${id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: payment.amount,
+          trackingReference: payment.trackingReference ?? null,
+          declaredAt: payment.declaredAt ?? null,
+        }),
+      });
+    } catch {
+      // No answer means the payment was NOT recorded. Local state stays put.
+      return { success: false, error: 'Sin conexión. El pago no se registró.' };
+    }
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      return { success: false, error: errorMessage(data, 'No se pudo registrar el pago') };
+    }
+
+    // The server's total is the fact. A response that carries no readable one
+    // is a write we cannot mirror, so it is reported as a failure rather than
+    // guessed at — the column reads as "the full amount arrived" when it is
+    // NULL on a confirmed row, so guessing here has a direction.
+    const total = Number(data?.transferred_amount);
+    if (!Number.isFinite(total)) {
+      return { success: false, error: 'No se pudo confirmar el monto registrado. Recarga la página.' };
+    }
+
+    const updated = applyRowUpdate(id, { transferred_amount: total });
+    if (!updated) return { success: false, error: 'Cobro no encontrado' };
+    return { success: true, milestone: updated };
+  };
+
   // Local today, never UTC's (#263): from 18:00 in Mexico the UTC date is
   // tomorrow, so every cobro due today filtered as Atrasado all evening.
   const todayStr = useMemo(() => localTodayStr(), []);
@@ -511,6 +574,7 @@ export function useReceivables() {
     setSearchQuery,
     fetchReceivables,
     confirmPayment,
+    recordPayment,
     uploadReceipt,
     resetDemoReceivables,
   };

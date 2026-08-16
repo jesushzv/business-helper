@@ -7,6 +7,7 @@ import { useReceivables, MilestoneWithClient } from '@/lib/hooks/useReceivables'
 import { ReceivablesSummaryCards } from '@/components/receivables/ReceivablesSummaryCards';
 import { ReceivableCard } from '@/components/receivables/ReceivableCard';
 import { SpeiConfirmModal } from '@/components/receivables/SpeiConfirmModal';
+import { RecordPaymentModal } from '@/components/receivables/RecordPaymentModal';
 import { ActionResultDialog, useActionResult } from '@/components/shared/ActionResultDialog';
 import { useSettlementAccount } from '@/lib/hooks/useSettlementAccount';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
@@ -24,6 +25,7 @@ export default function ReceivablesPage() {
     searchQuery,
     setSearchQuery,
     confirmPayment,
+    recordPayment,
     uploadReceipt,
   } = useReceivables();
 
@@ -54,10 +56,16 @@ export default function ReceivablesPage() {
 
   const [selectedMilestone, setSelectedMilestone] = useState<MilestoneWithClient | null>(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
 
   const handleOpenConfirmModal = (milestone: MilestoneWithClient) => {
     setSelectedMilestone(milestone);
     setIsConfirmModalOpen(true);
+  };
+
+  const handleOpenRecordPayment = (milestone: MilestoneWithClient) => {
+    setSelectedMilestone(milestone);
+    setIsRecordModalOpen(true);
   };
 
   return (
@@ -174,10 +182,25 @@ export default function ReceivablesPage() {
               // `null` (loading or a failed read) leaves the actions alone and
               // lets the server gate refuse (#64).
               canShare={settlementReady !== false}
+              // Withheld in the sandbox: the demo has no ledger to append to,
+              // so the control could only ever be refused (the same reasoning
+              // as the receipt upload above).
+              onOpenRecordPayment={isClientDemoMode() ? undefined : handleOpenRecordPayment}
             />
           ))}
         </div>
       )}
+
+      {/* Registrar pago — money the owner saw arrive, as a payment (#394) */}
+      <RecordPaymentModal
+        isOpen={isRecordModalOpen}
+        milestone={selectedMilestone}
+        onClose={() => {
+          setIsRecordModalOpen(false);
+          setSelectedMilestone(null);
+        }}
+        onRecord={recordPayment}
+      />
 
       {/* Payment Confirmation Modal */}
       <SpeiConfirmModal
