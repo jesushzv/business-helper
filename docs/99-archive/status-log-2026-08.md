@@ -1069,3 +1069,25 @@ The last one failed during the session that fixed it, at 23:5x Mexico City time.
 And two issue enumerations were stale in both directions: #151 named four input sites (there were
 five — the client credit limit was missing) and one that no longer existed, while `STATUS.md`
 itself claimed three open `bug` issues when the tracker held nine.
+
+## Production migration ledger, reconciled 2026-08-15/16
+
+Every migration in the repo was confirmed applied by reading the live catalog rather than the
+ledger — the ledger does not list hand-applied work, which is why an earlier revision of the
+`STATUS.md` row was wrong in both directions.
+
+| Migration | What was read back |
+|:---|:---|
+| `20260815200000` `record_owner_payment` (#394) | Shipped to the deployment a day ahead of the database: `main` carried the calling code while the function did not exist, so every owner confirmation and every "Registrar pago" failed `42P01`. It failed *honestly* — a Spanish error, no fabricated `confirmed` — which is hard rule #1 doing its job, but the confirm step of the cash-flow loop was down for a day. Applied 2026-08-16: `prosecdef = false`, EXECUTE only `postgres`/`service_role`, and both guards proven by rejection (zero amount → `22023`, unknown milestone → NULL, ledger row count unchanged by either). The connector stamped its own ledger version, restamped to the file's `20260815200000` so `supabase db push` skips it |
+| `20260814080000` `clients.archived_at` (#337) | Column and `idx_clients_org_active` both present. The migration's own header still says "NOT yet applied to production" — the comment is stale, not the schema |
+| `20260815120000` `milestone_payments` + `record_milestone_payment` (#381) | Table and function carry `postgres`/`service_role` only, `prosecdef = false`, backfill 0 rows against 0 eligible milestones, every CHECK proven by making it reject |
+| `20260815000000` `stripe_webhook_events` by-name REVOKE (#242) | `aclexplode` returns only `postgres` and `service_role`; the `anon`/`authenticated` grants, TRUNCATE included, are gone |
+| `20260814210000` + `20260814210100` deletion invariants (#336) | Both FKs read back `confdeltype = 'r'`, both restrictive `FOR DELETE` policies exist with their intended predicates |
+| `20260813010000` `cfdi_stamp_claims` grants | No `anon`/`authenticated` grant remains there, nor on `otp_send_log` or `ai_usage_monthly` |
+
+**The conversion invariants behind #59** were proven the same way, in a transaction aborted by a
+final `RAISE` with the row counts read back afterwards to confirm the rollback: a second contract
+for the same quote is refused `23505` (`contracts_quote_id_key`), and a repeated
+`conversion_position` is refused `23505`
+(`uq_milestones_contract_conversion_position`) — each paired with a permitted insert, so neither
+passed against a rule that refuses everything.
