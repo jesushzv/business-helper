@@ -215,3 +215,96 @@ export async function recordMilestonePayment(
 
   return { ok: true, total: round(total) };
 }
+
+export interface RecordOwnerPaymentInput {
+  /** Service-role client: `milestone_payments` is RLS deny-all, so an invoker-rights call cannot insert. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any;
+  milestoneId: string;
+  organizationId: string;
+  amount: number;
+  trackingReference?: string | null;
+  /** Server-issued storage URL only, never a caller-supplied one (#355/#85). */
+  receiptUrl?: string | null;
+  /** When the money actually arrived, if the owner said. Defaults to now in the function. */
+  declaredAt?: string | null;
+}
+
+/**
+ * Records a payment the **owner** entered from their own bank (#394, option A).
+ *
+ * The sibling above records what a *payer* declared over a public link; this
+ * records what the tenant saw arrive. They are not equally strong evidence and
+ * the ledger keeps them apart (`source`), which is the whole reason the column
+ * exists — anything reconciling the ledger has to be able to tell a claim from
+ * a bank statement.
+ *
+ * Two differences from a declaration, both in `record_owner_payment`:
+ * **no status change** (an owner is not waiting to confirm their own figure)
+ * and **no status filter** (a payment may be recorded against a cobro in any
+ * state, including `confirmed` and short — which is how the remainder of a
+ * partially-paid cobro reaches the ledger at all, #382).
+ *
+ * `not_payable` therefore means something narrower here than it does above: not
+ * "someone got there first", but "no such milestone in this organization".
+ */
+export async function recordOwnerPayment(
+  input: RecordOwnerPaymentInput
+): Promise<RecordMilestonePaymentResult> {
+  const { supabase, milestoneId, organizationId, amount } = input;
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return {
+      ok: false,
+      reason: 'failed',
+      code: 'INVALID_PAYMENT_AMOUNT',
+      message: 'El monto del pago debe ser mayor a cero.',
+    };
+  }
+
+  const { data, error } = await supabase.rpc('record_owner_payment', {
+    p_milestone_id: milestoneId,
+    p_organization_id: organizationId,
+    p_amount: amount,
+    p_tracking_reference: input.trackingReference ?? null,
+    p_receipt_url: input.receiptUrl ?? null,
+    p_declared_at: input.declaredAt ?? null,
+  });
+
+  if (error) {
+    // Read, never swallowed (#146/#148). `42P01` means this deployment is
+    // running `main` with the migration not yet applied by hand (hard rule #6),
+    // which an operator must be able to tell from a constraint violation.
+    console.error(
+      '[receivables] record_owner_payment failed. ' +
+        `milestone=${milestoneId} amount=${amount} ` +
+        `code=${error.code} cause=${error.message}`
+    );
+    return {
+      ok: false,
+      reason: 'failed',
+      code: 'PAYMENT_LEDGER_WRITE_FAILED',
+      message: 'No se pudo registrar el pago.',
+      dbError: error,
+    };
+  }
+
+  if (data === null || data === undefined) {
+    return { ok: false, reason: 'not_payable' };
+  }
+
+  const total = typeof data === 'string' ? Number(data) : (data as number);
+  if (!Number.isFinite(total)) {
+    console.error(
+      `[receivables] record_owner_payment returned an unreadable total: ${String(data)}`
+    );
+    return {
+      ok: false,
+      reason: 'failed',
+      code: 'PAYMENT_LEDGER_WRITE_FAILED',
+      message: 'No se pudo registrar el pago.',
+    };
+  }
+
+  return { ok: true, total: round(total) };
+}

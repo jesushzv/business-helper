@@ -298,7 +298,21 @@ export const MILESTONE_WRITABLE_FIELDS = [
   'due_date',
   'status',
   'tracking_reference',
-  'transferred_amount',
+  // `transferred_amount` is deliberately absent (#394, option A).
+  //
+  // It was writable here as an **absolute total**, which is what made
+  // `milestone_payments` a partial ledger: a total cannot be appended to an
+  // append-only record (an owner correcting 20,000 → 25,000 would leave the
+  // ledger reading 45,000), so this route recorded no row and only payers'
+  // declarations ever became one. A partial ledger is worse than none — the
+  // first consumer to sum it and call it "recibido" reintroduces the defect
+  // #381 closed.
+  //
+  // Money that arrived is now recorded as a *payment*, through
+  // `POST /api/receivables/[id]/payments`, and this column is the sum the
+  // database keeps. The PUT handler answers a caller that still sends it with
+  // a message naming the new route rather than dropping the field silently —
+  // a swallowed money write is #95's defect class.
 ] as const;
 
 /**
