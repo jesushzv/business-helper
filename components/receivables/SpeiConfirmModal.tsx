@@ -5,7 +5,7 @@ import { MilestoneWithClient, ReceivableMutationOutcome } from '@/lib/hooks/useR
 import { CheckCircle, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 import { normalizeNumericInput, numericInputValue, parseNumericInput } from '@/lib/numericInput';
-import { expectedSettlementAmount } from '@/lib/receivablesCalculator';
+import { expectedSettlementAmount, recordedTransferAmount } from '@/lib/receivablesCalculator';
 
 /** Mirrors the bucket's own 5 MB limit and `lib/speiValidator.ts`. */
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
@@ -22,6 +22,17 @@ interface SpeiConfirmModalProps {
    * one that cannot work.
    */
   onUploadReceipt?: (milestoneId: string, file: File) => Promise<ReceivableMutationOutcome>;
+}
+
+/**
+ * What this cobro still needs recorded against it: the settlement figure less
+ * everything already logged, payer declaration or owner record alike. `null`
+ * without a milestone, so the field renders empty rather than `0`.
+ */
+function remainingToRecord(milestone: MilestoneWithClient | null): number | null {
+  if (!milestone) return null;
+  const remaining = expectedSettlementAmount(milestone) - recordedTransferAmount(milestone);
+  return Math.max(Math.round(remaining * 100) / 100, 0);
 }
 
 export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
@@ -67,18 +78,24 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   // proposed tripped the #81 overpayment notice, and the product told Don
   // Roberto to refund $0.01.
   //
-  // `transferred_amount` still wins when it is set: `/pay/[token]` records the
-  // payer's own declaration there before the owner ever opens this modal, and
-  // a figure someone stated about money that moved outranks any expectation.
+  // What is left to cover, not the whole cobro (#394). The figure typed here is
+  // now recorded as **a payment** — `useReceivables.confirmPayment` appends it
+  // to the ledger before confirming — so proposing the full settlement total on
+  // a cobro that already carries $4,000 would record that $4,000 a second time.
+  //
+  // The base is what has been **recorded**, not `outstandingAmount`: that one
+  // subtracts `collectedAmount`, which is 0 on anything not yet `confirmed` —
+  // and every cobro this modal opens is by definition not yet confirmed. Using
+  // it would have proposed the full total on a cobro the payer had already
+  // declared against, which is the doubling this whole change exists to stop.
+  // (Caught by the #341 case that pins the payer's declared figure.)
   const [transferredAmount, setTransferredAmount] = useState<string>(
-    numericInputValue(milestone?.transferred_amount ?? expectedSettlementAmount(milestone))
+    numericInputValue(remainingToRecord(milestone))
   );
 
   React.useEffect(() => {
     if (milestone) {
-      setTransferredAmount(
-        numericInputValue(milestone.transferred_amount ?? expectedSettlementAmount(milestone))
-      );
+      setTransferredAmount(numericInputValue(remainingToRecord(milestone)));
       setErrorMessage(null);
       setComplementWarning(null);
       setUploadError(null);
@@ -304,7 +321,7 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
 
           <div>
             <label htmlFor="speiconfirmmodal-monto-transferido-confirmado-mxn" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
-              Monto Transferido Confirmado (MXN)
+              Monto de este pago (MXN)
             </label>
             <input
               id="speiconfirmmodal-monto-transferido-confirmado-mxn"

@@ -120,7 +120,7 @@ describe('POST /api/receivables/[id]/confirm is not repeatable', () => {
     };
 
     const { POST } = await import('@/app/api/receivables/[id]/confirm/route');
-    const res = await POST(confirmRequest({ transferredAmount: 20000 }), { params });
+    const res = await POST(confirmRequest({}), { params });
 
     expect(res.status).toBe(200);
     expect(trackMock).toHaveBeenCalledTimes(1);
@@ -136,7 +136,7 @@ describe('POST /api/receivables/[id]/confirm is not repeatable', () => {
     state.existingRow = { id: 'm-1', status: 'confirmed', confirmed_at: '2026-08-13T10:00:00.000Z' };
 
     const { POST } = await import('@/app/api/receivables/[id]/confirm/route');
-    const res = await POST(confirmRequest({ transferredAmount: 20000 }), { params });
+    const res = await POST(confirmRequest({}), { params });
     const body = await res.json();
 
     expect(res.status).toBe(409);
@@ -163,13 +163,28 @@ describe('POST /api/receivables/[id]/confirm is not repeatable', () => {
     expect(trackMock).not.toHaveBeenCalled();
   });
 
-  it('refuses a non-positive declared amount before touching the row', async () => {
+  /**
+   * This case used to assert that a `transferredAmount` of 0 was refused as
+   * INVALID_INPUT. The route does not take an amount at all since #394: money
+   * that arrived is recorded as a payment against the ledger, and confirming
+   * confirms what the ledger holds. A caller still sending one is refused **by
+   * name** rather than having it dropped, because a silent drop is a 200 for a
+   * money write that never happened (#95).
+   */
+  it('refuses an amount by name instead of writing it as a total', async () => {
     const { POST } = await import('@/app/api/receivables/[id]/confirm/route');
-    const res = await POST(confirmRequest({ transferredAmount: 0 }), { params });
-    const body = await res.json();
 
-    expect(res.status).toBe(400);
-    expect(body.error.code).toBe('INVALID_INPUT');
+    for (const transferredAmount of [20000, 0]) {
+      const res = await POST(confirmRequest({ transferredAmount }), { params });
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error.code).toBe('AMOUNT_NOT_WRITABLE_HERE');
+      expect(body.error.message).toMatch(/regístralo como un pago/i);
+      expect(body.error.fields?.transferredAmount).toBeTruthy();
+    }
+
+    // Refused before the row is touched, so a rejected body cannot confirm.
     expect(writeCalls).toHaveLength(0);
   });
 });

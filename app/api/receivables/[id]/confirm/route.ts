@@ -48,13 +48,28 @@ export async function POST(
       confirmed_at: confirmedAt,
     };
 
-    // Only set the amount when one was actually supplied and is sane.
+    // This route no longer sets an amount (#394, option A).
+    //
+    // It used to write `body.transferredAmount` onto `transferred_amount` as an
+    // **absolute total**, which is the second reason `milestone_payments` was a
+    // partial ledger: a total cannot be appended to an append-only record, so
+    // confirming recorded no row. Money that arrived is recorded as a payment,
+    // through `POST /api/receivables/[id]/payments`, and this route confirms
+    // what the ledger already holds.
+    //
+    // Refused by name rather than ignored: a caller still sending an amount
+    // believes it is being written, and a silent drop is a 200 for a money
+    // write that never happened (#95). `useReceivables.confirmPayment` records
+    // the payment first and then calls this with an empty body, so the owner
+    // still confirms in one step.
     if (body?.transferredAmount !== undefined) {
-      const amount = Number(body.transferredAmount);
-      if (!Number.isFinite(amount) || amount <= 0) {
-        return apiError(400, 'INVALID_INPUT', 'El monto transferido no es válido');
-      }
-      updates.transferred_amount = amount;
+      return apiError(
+        400,
+        'AMOUNT_NOT_WRITABLE_HERE',
+        'El monto recibido ya no se registra al confirmar: regístralo como un pago para que quede ' +
+          'el detalle de cuándo y cómo llegó.',
+        { fields: { transferredAmount: 'Regístralo como un pago, no como un total.' } }
+      );
     }
 
     // The precondition rides *inside* the write, the way the public sibling
