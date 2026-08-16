@@ -27,6 +27,21 @@ import {
 
 const NOW = new Date('2026-08-11T12:00:00.000Z');
 const inDays = (n: number) => new Date(NOW.getTime() + n * 86_400_000).toISOString();
+
+/**
+ * The same offset, but from the **real** clock.
+ *
+ * `inDays` is anchored to the frozen `NOW` above, which is right for
+ * `resolveTrialState` — those cases pass `now: NOW` in, so both sides of the
+ * comparison are pinned. It is wrong for the route-level cases below: they call
+ * `POST /api/quotes` for real, and the route reads `new Date()`. A fixture
+ * saying "the trial ends 5 days after 2026-08-11" therefore stopped meaning
+ * "the trial is live" at 12:00 UTC on 2026-08-16, and this file went red then
+ * and would have stayed red — the same time-bomb shape as the due-today fixture
+ * in `aiAssistant.test.ts` (#334), which was green every morning and red every
+ * evening.
+ */
+const fromRealNow = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
 const paying = { checkoutAvailable: true, now: NOW };
 
 describe('resolveTrialState', () => {
@@ -192,14 +207,14 @@ describe('the migration', () => {
 });
 
 describe('POST /api/quotes', () => {
-  const authState = { status: 'trialing' as string, trialEnd: inDays(-1) as string | null };
+  const authState = { status: 'trialing' as string, trialEnd: fromRealNow(-1) as string | null };
   const insertCalls: Array<Record<string, unknown>> = [];
 
   beforeEach(() => {
     vi.resetModules();
     insertCalls.length = 0;
     authState.status = 'trialing';
-    authState.trialEnd = inDays(-1);
+    authState.trialEnd = fromRealNow(-1);
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_live_abcdef0123456789');
   });
 
@@ -269,7 +284,7 @@ describe('POST /api/quotes', () => {
   });
 
   it('lets a quote through while the trial is live', async () => {
-    authState.trialEnd = inDays(5);
+    authState.trialEnd = fromRealNow(5);
     const res = await postQuote();
     expect(res.status).toBe(201);
     expect(insertCalls).toHaveLength(1);
