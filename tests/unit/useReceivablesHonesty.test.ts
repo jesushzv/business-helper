@@ -105,6 +105,12 @@ describe('confirmPayment honesty', () => {
 
   it('confirms from the server row and surfaces the complement on success', async () => {
     const { result } = await mountHook();
+    // Two requests since #394: the amount is recorded as a **payment** first,
+    // then the cobro is confirmed with an empty body. Queued in that order —
+    // one response would leave the confirmation reading the payment's.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { success: true, transferred_amount: 1000 })
+    );
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
         ...SERVER_ROW,

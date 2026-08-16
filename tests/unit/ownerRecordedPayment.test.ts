@@ -386,3 +386,93 @@ describe('useReceivables.recordPayment applies the server row (#394)', () => {
     vi.unstubAllEnvs();
   });
 });
+
+/**
+ * Confirming records a payment first (#394, option A).
+ *
+ * The confirm route was the second absolute-total writer: it wrote
+ * `body.transferredAmount` onto the column and appended nothing, so confirming
+ * a cobro left the ledger behind. The amount an owner states while confirming
+ * is now a payment like any other — composed in the hook so the owner still
+ * confirms in one step rather than recording and then confirming.
+ */
+describe('confirmPayment composes a payment with the confirmation (#394)', () => {
+  async function mountHook(payments: (url: string, init?: RequestInit) => Response) {
+    const { renderHook, waitFor } = await import('@testing-library/react');
+    const { useReceivables } = await import('@/lib/hooks/useReceivables');
+
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://real-project.supabase.co');
+    const calls: Array<{ url: string; body: unknown }> = [];
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      calls.push({ url: href, body: init?.body ? JSON.parse(String(init.body)) : null });
+      if (href.includes('/payments') || href.includes('/confirm')) return payments(href, init);
+      return new Response(JSON.stringify({ receivables: [LIST_ROW] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useReceivables());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    return { result, calls };
+  }
+
+  const okJson = (body: unknown) =>
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  it('records the amount, then confirms with no amount in the body', async () => {
+    const { act } = await import('@testing-library/react');
+    const { result, calls } = await mountHook((href) =>
+      href.includes('/payments')
+        ? okJson({ success: true, transferred_amount: 48720 })
+        : okJson({ success: true, status: 'confirmed' })
+    );
+
+    await act(async () => {
+      await result.current.confirmPayment('m-1', 28720);
+    });
+
+    const payment = calls.find((c) => c.url.includes('/payments'));
+    const confirm = calls.find((c) => c.url.includes('/confirm'));
+
+    expect((payment?.body as { amount: number }).amount).toBe(28720);
+    // The confirm route refuses an amount by name now; sending one would 400.
+    expect(confirm?.body).toEqual({});
+    // Order matters: a confirmation ahead of the ledger write could confirm a
+    // cobro whose payment never landed.
+    expect(calls.indexOf(payment!)).toBeLessThan(calls.indexOf(confirm!));
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('does not confirm when the payment could not be recorded', async () => {
+    const { act } = await import('@testing-library/react');
+    const { result, calls } = await mountHook((href) =>
+      href.includes('/payments')
+        ? new Response(
+            JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Tu rol no permite registrar pagos' } }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }
+          )
+        : okJson({ success: true })
+    );
+
+    let outcome: { success: boolean; error?: string } | undefined;
+    await act(async () => {
+      outcome = await result.current.confirmPayment('m-1', 28720);
+    });
+
+    expect(outcome?.success).toBe(false);
+    expect(outcome?.error).toMatch(/no permite registrar pagos/i);
+    // Nothing confirmed off a payment the ledger refused.
+    expect(calls.some((c) => c.url.includes('/confirm'))).toBe(false);
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+});

@@ -49,7 +49,7 @@ function renderModal(
 // pinning the very attribute #151 removes, so the fix would have read as a
 // broken test.
 const amountInput = () =>
-  screen.getByLabelText(/Monto Transferido Confirmado/i) as HTMLInputElement;
+  screen.getByLabelText(/Monto de este pago/i) as HTMLInputElement;
 const confirmButton = () => screen.getByRole('button', { name: /Confirmar Pago/i });
 
 beforeEach(() => {
@@ -355,13 +355,24 @@ describe('the proposed amount follows the stamped invoice (#341)', () => {
     expect(amountInput().value).toBe('10000');
   });
 
-  it('keeps a declared transfer ahead of any expectation', () => {
+  it('proposes the remainder, not the figure already declared (#394)', () => {
     // `/pay/[token]` writes `transferred_amount` from the payer's own
-    // declaration before the owner opens this modal. A figure someone stated
-    // about money that moved outranks what the invoice expected.
+    // declaration before the owner opens this modal. This assertion used to
+    // read `toBe('4000')` — the declared figure — which was right while the
+    // field meant "the total received" and became a doubling the moment it
+    // started meaning "this payment": confirming would have recorded the
+    // payer's $4,000 a second time, for $8,000 against a $9,999.99 cobro.
     renderFor(withCfdi({ cfdi_total: 9999.99, cfdi_status: 'issued', transferred_amount: 4000 }));
 
-    expect(amountInput().value).toBe('4000');
+    expect(amountInput().value).toBe('5999.99');
+  });
+
+  it('proposes nothing more once the cobro is fully covered', () => {
+    renderFor(withCfdi({ cfdi_total: 9999.99, cfdi_status: 'issued', transferred_amount: 9999.99 }));
+
+    // Zero, not a negative and not the total: there is nothing left to record,
+    // and the confirm gate below refuses a zero rather than inventing one.
+    expect(amountInput().value).toBe('0');
   });
 
   it('ignores a cancelled CFDI', () => {

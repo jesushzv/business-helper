@@ -340,12 +340,35 @@ export function useReceivables() {
     id: string,
     transferredAmount?: number
   ): Promise<ReceivableMutationOutcome> => {
+    // The amount the owner states while confirming is **a payment**, not a new
+    // total (#394, option A). It used to be written straight onto
+    // `milestones.transferred_amount` as an absolute figure, which is why the
+    // ledger was a partial record — the confirm route recorded no row.
+    //
+    // Composed here rather than folded into the confirm route so the owner
+    // keeps the one-step flow: the alternative was making them record a
+    // payment and *then* confirm, two dialogs for the ordinary case where the
+    // whole cobro just landed (Don Roberto, ≤3 taps).
+    //
+    // Order matters, and so does the failure direction. The payment is
+    // recorded first: if that write fails nothing is confirmed, and the caller
+    // sees why. If the confirmation fails afterwards, the payment stays
+    // recorded — which is correct, because the money did arrive; the cobro is
+    // simply not confirmed yet. The reverse order could confirm a cobro whose
+    // payment never landed in the ledger.
+    if (typeof transferredAmount === 'number' && transferredAmount > 0 && !isClientDemoMode()) {
+      const recorded = await recordPayment(id, { amount: transferredAmount });
+      if (!recorded.success) return recorded;
+    }
+
     let res: Response;
     try {
       res = await fetch(`/api/receivables/${id}/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transferredAmount }),
+        // Deliberately empty: the confirm route no longer accepts an amount,
+        // and sending one would be refused by name (#394).
+        body: JSON.stringify({}),
       });
     } catch {
       // No answer from the server means the payment was NOT confirmed. Local
