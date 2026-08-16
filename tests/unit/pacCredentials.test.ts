@@ -7,6 +7,7 @@ import {
   pacApiKeyHint,
   sealPacApiKey,
   validatePacApiKey,
+  refusesSandboxStamp,
 } from '@/lib/pacCredentials';
 
 const KEY = crypto.randomBytes(32).toString('base64');
@@ -96,5 +97,38 @@ describe('PAC API key inspection', () => {
     const valid = validatePacApiKey(API_KEY);
     expect(valid.isValid).toBe(true);
     expect(valid.environment).toBe('live');
+  });
+});
+
+/**
+ * The production sandbox-key refusal, as behaviour rather than as a grep.
+ *
+ * `tests/unit/cfdiIssuance.test.ts` asserts `issueRoute` contains the string
+ * `PAC_SANDBOX_KEY`. That passes if the condition is inverted, if the branch is
+ * unreachable, or if the constant is only mentioned in a comment — it pins the
+ * text, not the decision. A sandbox key returns a complete-looking document
+ * with no fiscal validity, so getting this backwards is hard rule #1 wearing a
+ * PAC's response, and it deserves a real test.
+ *
+ * `env` is a parameter rather than a read of `process.env` inside the body, so
+ * the production case is reachable from a test at all (LESSONS: read it in a
+ * function taking `env = process.env` last, and pass a literal object).
+ */
+describe('A sandbox PAC key is refused in production (#26/#347)', () => {
+  it('refuses a sandbox key when NODE_ENV is production', () => {
+    expect(refusesSandboxStamp('sandbox', { NODE_ENV: 'production' })).toBe(true);
+  });
+
+  it('permits a live key in production — the case that must still work', () => {
+    expect(refusesSandboxStamp('live', { NODE_ENV: 'production' })).toBe(false);
+  });
+
+  it('permits a sandbox key outside production, which is what sandbox is for', () => {
+    expect(refusesSandboxStamp('sandbox', { NODE_ENV: 'development' })).toBe(false);
+    expect(refusesSandboxStamp('sandbox', { NODE_ENV: 'test' })).toBe(false);
+  });
+
+  it('treats an unset NODE_ENV as not production rather than guessing', () => {
+    expect(refusesSandboxStamp('sandbox', {})).toBe(false);
   });
 });

@@ -165,3 +165,32 @@ export function validatePacApiKey(apiKey: string): PacApiKeyValidation {
 
   return { isValid: true, environment };
 }
+
+/** Only the variables this module reads; tests pass a literal object. */
+type PacEnvRecord = { NODE_ENV?: string };
+
+/**
+ * Whether a stamp must be refused because a *sandbox* key is connected on a
+ * *production* deployment.
+ *
+ * A sandbox key returns a complete-looking document — id, UUID-shaped folio,
+ * XML and PDF — with no fiscal validity whatsoever. Letting one through in
+ * production writes exactly the success state hard rule #1 exists to prevent,
+ * except the fabrication arrives wearing a real PAC's response, which is harder
+ * to spot than an invented id.
+ *
+ * `env` is a parameter, not a read of `process.env` in the body: the production
+ * branch is otherwise unreachable from a test, and this decision is too
+ * consequential to be pinned only by a grep for the error code (which is what
+ * `tests/unit/cfdiIssuance.test.ts` could do on its own).
+ *
+ * Unset `NODE_ENV` reads as *not* production — permissive, and correct: the
+ * deployed app always sets it, so the unset case is local tooling, and a
+ * refusal there would block sandbox work for no safety gain.
+ */
+export function refusesSandboxStamp(
+  environment: PacEnvironment,
+  env: PacEnvRecord = process.env
+): boolean {
+  return env.NODE_ENV === 'production' && environment === 'sandbox';
+}

@@ -11,6 +11,7 @@ import {
   validateInvoiceParties,
 } from '@/lib/facturapi';
 import { resolvePacCredentials } from '@/lib/pacConnection';
+import { refusesSandboxStamp } from '@/lib/pacCredentials';
 import { downloadCFDIDocuments, findInvoiceByExternalId, stampInvoice } from '@/lib/pacClient';
 import {
   acquireStampClaim,
@@ -176,8 +177,10 @@ export async function POST(request: Request) {
   const credentials = pac.credentials;
 
   // A sandbox key returns a complete-looking document with no fiscal validity.
-  // In production that is the original bug wearing a PAC's response.
-  if (process.env.NODE_ENV === 'production' && credentials.environment === 'sandbox') {
+  // In production that is the original bug wearing a PAC's response. The
+  // decision lives in `refusesSandboxStamp` so it is tested as behaviour rather
+  // than as a grep for the code below (tests/unit/pacCredentials.test.ts).
+  if (refusesSandboxStamp(credentials.environment)) {
     return apiError(400, 'PAC_SANDBOX_KEY', 'La llave de PAC conectada es de pruebas y no emite facturas válidas ante el SAT. Conecta tu llave de producción (sk_live_) en Ajustes.');
   }
 

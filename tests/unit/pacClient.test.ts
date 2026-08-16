@@ -6,6 +6,9 @@ import {
   stampInvoice,
   type PacCredentials,
 } from '@/lib/pacClient';
+import { captureException } from '@/lib/sentry';
+
+vi.mock('@/lib/sentry', () => ({ captureException: vi.fn() }));
 
 const credentials: PacCredentials = {
   provider: 'facturapi',
@@ -118,6 +121,90 @@ describe('PAC stamping', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.code).toBe('NOT_CONFIGURED');
+  });
+});
+
+/**
+ * #347 part 2. `total` and `verification_url` fall back to `null`, so if v2
+ * renames or moves either field the milestone shows no total and no SAT
+ * verification link, with nothing anywhere pointing at why.
+ *
+ * The stamp itself must still succeed: the document is real and the SAT has the
+ * UUID. Refusing here would strand a stamped CFDI the app never recorded, which
+ * is the fabricated-success defect running in reverse. So the drift is
+ * *reported*, not swallowed and not fatal — the same posture `lib/bankAccounts.ts`
+ * takes for a divergence it cannot treat as failure.
+ */
+describe('A stamp response that drifts is reported, not swallowed (#347)', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(captureException).mockClear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('still records the stamp when total and verification_url are absent', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          id: 'fac_123',
+          uuid: 'A1B2C3D4-0000-1111-2222-333344445555',
+          date: '2026-08-07T10:00:00.000Z',
+        })
+      )
+    );
+
+    const result = await stampInvoice(credentials, { currency: 'MXN' }, 'milestone:m-1');
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.uuid).toBe('A1B2C3D4-0000-1111-2222-333344445555');
+    expect(result.data.total).toBeNull();
+    expect(result.data.verificationUrl).toBeNull();
+  });
+
+  it('reports the missing fields by name instead of degrading silently', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          id: 'fac_123',
+          uuid: 'A1B2C3D4-0000-1111-2222-333344445555',
+          date: '2026-08-07T10:00:00.000Z',
+        })
+      )
+    );
+
+    await stampInvoice(credentials, { currency: 'MXN' }, 'milestone:m-1');
+
+    expect(captureException).toHaveBeenCalledTimes(1);
+    const [error] = vi.mocked(captureException).mock.calls[0];
+    expect(String((error as Error).message)).toContain('total');
+    expect(String((error as Error).message)).toContain('verification_url');
+  });
+
+  it('says nothing when the response carries every field', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          id: 'fac_123',
+          uuid: 'A1B2C3D4-0000-1111-2222-333344445555',
+          verification_url: 'https://verificacfdi.facturaelectronica.sat.gob.mx/?id=A1B2',
+          total: 5800,
+          date: '2026-08-07T10:00:00.000Z',
+        })
+      )
+    );
+
+    await stampInvoice(credentials, { currency: 'MXN' }, 'milestone:m-1');
+
+    // The positive control: without this, a reporter that never fires would
+    // pass the assertion above for the wrong reason.
+    expect(captureException).not.toHaveBeenCalled();
   });
 });
 

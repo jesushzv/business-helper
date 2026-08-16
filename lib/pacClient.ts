@@ -16,6 +16,7 @@
  */
 
 import type { PacEnvironment } from './pacCredentials';
+import { captureException } from './sentry';
 
 const FACTURAPI_BASE = 'https://www.facturapi.io/v2';
 
@@ -78,6 +79,45 @@ function authHeaders(credentials: PacCredentials): Record<string, string> {
     Authorization: `Bearer ${credentials.apiKey}`,
     'Content-Type': 'application/json',
   };
+}
+
+/**
+ * Report a stamp response that came back missing fields we map (#347).
+ *
+ * `id` and `uuid` are refused at the call site — without them there is no
+ * document, and no stamp is recorded. The two fields here are different:
+ * `total` and `verification_url` are mapped to `null` when absent, and that
+ * null is written to the milestone. If v2 renames or moves
+ * either field, every stamp from that moment on shows no total and no SAT
+ * verification link, and nothing anywhere says why. The nulls look exactly like
+ * a PAC that chose not to send them.
+ *
+ * Deliberately **not** fatal. The CFDI is stamped, the SAT has the UUID, and
+ * refusing here would strand a real fiscal document the app never recorded —
+ * the fabricated-success rule (hard rule #1) running in reverse, and worse than
+ * the missing total. So the stamp stands and the drift goes to Sentry, the same
+ * posture `lib/bankAccounts.ts` takes for a divergence it must not treat as a
+ * failure.
+ *
+ * The UUID rides along because that is what makes the report actionable: it
+ * identifies the document whose row is now incomplete.
+ */
+function reportStampResponseDrift(data: Record<string, unknown>, uuid: string): void {
+  const missing: string[] = [];
+
+  if (typeof data.total !== 'number') missing.push('total');
+  if (typeof data.verification_url !== 'string') missing.push('verification_url');
+
+  if (missing.length === 0) return;
+
+  const detail = missing.join(', ');
+  console.error(`[pac] stamp response missing mapped field(s): ${detail} (uuid ${uuid})`);
+  captureException(
+    new Error(`respuesta de timbrado sin ${detail} — el CFDI se timbró pero la fila queda incompleta`),
+    // `warning`, not `error`: the document exists and is valid. What is wrong is
+    // our mapping of the response, which is a defect to fix, not an incident.
+    { level: 'warning', extra: { uuid, missing: detail } }
+  );
 }
 
 /**
@@ -201,6 +241,8 @@ export async function stampInvoice(
           message: 'El PAC respondió sin folio fiscal. La factura no se registró como timbrada.',
         };
       }
+
+      reportStampResponseDrift(data, String(data.uuid));
 
       return {
         ok: true as const,
