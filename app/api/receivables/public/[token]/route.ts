@@ -441,6 +441,21 @@ export async function POST(
       );
     }
 
+    // The same clave de rastreo, on the same cobro, twice: one SPEI transfer
+    // declared twice, not two payments. A double-submit reaches this now that
+    // a declared cobro stays payable (#382) — before, the status filter refused
+    // the second attempt first. The transaction rolled back, so the total is
+    // untouched and the payment stands recorded exactly once; saying "no se
+    // pudo registrar" here is what sends a payer back to their bank.
+    if (!ledger.ok && ledger.reason === 'duplicate_declaration') {
+      return publicApiError(
+        409,
+        'PAYMENT_ALREADY_RECORDED',
+        'Ya habíamos registrado un pago con esa clave de rastreo. No se registró dos veces. ' +
+          'Si enviaste otra transferencia, captura la clave de esa transferencia.'
+      );
+    }
+
     // Named `…Error` and branched on deliberately, not for style:
     // `tests/unit/writeErrorLegibility.test.ts` finds write branches by that
     // shape, and a route whose write moved behind a helper drops out of its

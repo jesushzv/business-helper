@@ -9,17 +9,17 @@ Where this file and the code disagree, the code wins: fix this file in the same 
 headroom here.
 
 **How to add one.** New lessons go here, not `CLAUDE.md`; append to the section that fits rather
-than re-flowing its neighbours, so conflicts stay append-vs-append. A lesson backed by a
-**scanning gate** (a test that fails on the next occurrence anywhere in the tree) states the rule
-and names the test, nothing more — the test does the convincing. A lesson with only a regression
-test, or none, keeps its full narrative, because there the prose is the only thing standing between
-an agent and the defect. Cite the issue number: it is the lesson's identity.
+than re-flowing its neighbours, so conflicts stay append-vs-append. A lesson backed by a **scanning
+gate** (a test that fails on the next occurrence anywhere in the tree) states the rule and names the
+test, nothing more. One with only a regression test, or none, keeps its narrative — there the prose
+is all that stands between an agent and the defect. Cite the issue number: it is the lesson's
+identity.
 
 **How it is protected.** `tests/unit/lessonsCatalogue.test.ts` inventories every issue number cited
 below and fails the build when one disappears, turning a lossy merge resolution into a red build.
-Retiring one is deliberate: delete it, remove its numbers from `LESSON_REFS`, record why in
-`RETIRED`. `tests/unit/docsStatusAuthority.test.ts` holds the size budget; when it trips, retire
-lessons a scanning gate covers or move settled history to `docs/99-archive/`.
+Retiring one is deliberate: delete it, drop its numbers from `LESSON_REFS`, record why in `RETIRED`.
+`tests/unit/docsStatusAuthority.test.ts` holds the size budget; when it trips, retire lessons a
+scanning gate covers or move settled history to `docs/99-archive/`.
 
 ## Fabricated success — hard rule #1's recurring disguises
 
@@ -40,19 +40,19 @@ not earned.
   scans demo/phone-shaped fallbacks and any `||`/`??` default on a CFDI-identity field (#179).
 - **A verification script's exit code is a claim.** `verify:webhook` printed "All 4 checks passed"
   for a run that skipped the two protecting money — and those four passed against an endpoint with
-  *no* secret, which rejects everything (#63; #118 is `verify:otp`'s). An incomplete run exits
-  non-zero naming what it skipped, no opt-out; negative checks carry a positive control.
+  *no* secret, which rejects everything (#63, #118). An incomplete run exits non-zero naming what it
+  skipped, no opt-out; negative checks carry a positive control.
 - **An all-optional interface cannot tell a mapping is missing** (#78). `MilestoneWithClient`
   declared every field optional, so assigning raw API rows into it was no type error, only the demo
   fixtures populated them, and real tenants got `undefined` throughout. Two habits close it: a
   flattening is a **named exported function with its own test**, and where fixtures and server rows
   share a type, assert against a **server-shaped** row.
 
-- **A mocked transport pins yesterday's API** (#26): the PAC client targeted `/v1` — 410 for every
-  call since 2023, a test asserting the dead URL — and v2 refused the payload on four fields;
-  `external_id` deduplicates nothing; `tax_included` defaults *true*, reading a pre-tax base as
-  the final total. All green under mocked `fetch`, all found in one live pass. Exercise each
-  provider assumption live once; mocks then pin the *observed* shapes.
+- **A mocked transport pins yesterday's API** (#26): the PAC client called a `/v1` that had been 410
+  since 2023, with a test asserting the dead URL, and v2 then refused the payload on four fields —
+  `tax_included` defaults *true*, reading a pre-tax base as the final total. All green under mocked
+  `fetch`, all found in one live pass. Exercise each provider assumption live once; mocks then pin
+  the *observed* shapes.
 
 - **A provider-issued id must never have a literal default** (#68): resolve from the environment,
   return `null`, name the variable. `tests/unit/stripePriceMap.test.ts` scans for `price_*` literals.
@@ -138,20 +138,22 @@ not earned.
   comes from `useCurrentOrg()`; outbound greetings from `buildClientGreeting()` in
   `lib/whatsappLink.ts`. `tests/unit/demoIdentityLeak.test.ts` fails the build on a leak.
 - **A form the user cannot get past is usually validation that returns at the first failure and
-  names no field** (#146). Both clients routes checked name → RFC → crédito → teléfono in sequence
-  and 400'd at the first, so each submit revealed one more problem; the envelope carried prose with
-  no field attached; and the form put it in one banner a 375px viewport had scrolled past, so
-  tapping *Guardar* looked like nothing happened. Validate everything, key each
-  message by **column** in `error.fields`, and pin it under its own input with focus moved there — a
-  message the tenant must scroll to find is not a message. Corollary: **a validation gate belongs
-  where the value is load-bearing.** The RFC gate cost the whole client record for a field only CFDI
-  stamping needs, which `lib/facturapi.ts` already refuses loudly on its own.
+  names no field** (#146). Sequential checks 400'd at the first, so each submit revealed one more
+  problem, and the message landed in one banner a 375px viewport had scrolled past. Validate
+  everything, key each message by **column** in `error.fields`, and pin it under its own input with
+  focus moved there — a message the tenant must scroll to find is not a message. Corollary: **a
+  validation gate belongs where the value is load-bearing.** The RFC gate cost the whole client
+  record for a field only CFDI stamping needs, which `lib/facturapi.ts` already refuses on its own.
 - **A layer-by-layer suite cannot see a defect between the layers** (#146). Ask the tenant's
   question, not the function's — *can I complete this?* A form component gets a test that fills the
   minimum and submits; `tests/unit/formComponentsAreTested.test.ts` fails the build on a new one.
 - **One `catch`-all 500 on a write is a diagnosis you threw away** (#146). Map the code to a
   Spanish cause naming the column and `captureException` the original: `lib/dbWriteError.ts` is the
   reference, `tests/unit/writeErrorLegibility.test.ts` the gate.
+- **"What is left to pay" is `remainingToRecord`, never `outstandingAmount`** (#382, #371): the
+  latter subtracts `collectedAmount`, 0 on anything unconfirmed, so it returns the *full* figure for
+  the row that has been half paid — it misled a confirm prefill and the `/pay/` predicate in
+  consecutive releases.
 - **A conditional button morphs under the click that switches it** (#91). React reconciles
   `cond ? <button type="button"> : <button type="submit">` as one DOM node, so the click's default
   action ran against the morphed submit — quote created from step 2, review step never shown.
@@ -165,8 +167,8 @@ not earned.
   on any network error, so one dropped request filled Cobranza with ~$145,000 owed by companies that
   do not exist, `error` left null (#96). Copy `useClients` — `if (!isClientDemoMode()) { …fetch, set
   error, return }` before any localStorage path — and audit all four surfaces: read, write mirror,
-  `resetDemo*`, mutations. Writes too: a local "confirmed" keyed off `BACKEND_NOT_CONFIGURED` had a
-  misconfigured production reporting payments nobody received.
+  `resetDemo*`, mutations. Writes too: a local "confirmed" keyed off `BACKEND_NOT_CONFIGURED` had
+  production reporting payments nobody received.
 
 ## Tooling and process traps
 

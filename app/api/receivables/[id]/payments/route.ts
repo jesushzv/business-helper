@@ -111,6 +111,22 @@ export async function POST(
         return apiError(404, 'NOT_FOUND', 'No encontramos este cobro.');
       }
 
+      if (result.reason === 'duplicate_declaration') {
+        // Shared result type with the payer's declaration path, where a
+        // repeated clave de rastreo is a replay (#382). It cannot arise here —
+        // `uq_milestone_payments_declaration_reference` is partial over
+        // `source = 'payer_declaration'`, and an owner may legitimately record
+        // two wires that carry the same reference or none at all. Handled
+        // rather than cast away: if the index is ever widened, this answers
+        // honestly instead of falling through to a 400 built from fields the
+        // branch does not carry.
+        return apiError(
+          409,
+          'PAYMENT_ALREADY_RECORDED',
+          'Ya hay un pago registrado con esa clave de rastreo en este cobro.'
+        );
+      }
+
       if (result.dbError) {
         return dbWriteErrorResponse(
           result.dbError,

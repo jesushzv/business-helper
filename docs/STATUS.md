@@ -63,7 +63,7 @@ completion claim needs checking against source. The full findings are in
 
 | Metric | State |
 |:---|:---|
-| Test suite | **2033 tests / 190 files**, `npx vitest run` on the deletion-semantics branch cut from `main` (2026-08-14) |
+| Test suite | **2533 tests / 238 files**, `npx vitest run` on the partial-payment branch cut from `main` (2026-08-16) |
 | Coverage gate | **Enforced in CI since #51** — `npx vitest run --coverage` on every pull request, against the thresholds in `vitest.config.ts` (the only statement of them). Measured on the branch that wired it up: statements 82.73%, branches 75.73%, functions 78.93%, lines 84.67%. The thresholds sit just under each, so the gate is a ratchet — raise it as coverage rises, never lower it to make a red run pass. The gap to the old aspirational 85/85/80/80 is concentrated in untested `app/` route handlers and `lib/hooks/` |
 | Error monitoring | **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling (why it replaced the hand-rolled transport: archive). PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | **Rewritten and executed 2026-08-13** ([#69](https://github.com/jesushzv/business-helper/issues/69)/[#91](https://github.com/jesushzv/business-helper/issues/91)): **18 passed, 0 skipped, 0 failed** — 9 scenarios × desktop + mobile chromium, production build, demo posture. Scenarios pinning remediated defects now assert the opposite; suite joined CI, and it caught a live wizard defect (`docs/LESSONS.md` #91). Scenario 10 moved to the row below |
@@ -76,11 +76,12 @@ completion claim needs checking against source. The full findings are in
 
 ### Open and blocking
 
-*One row left. Everything cleared — OTP provider config (#2), Stripe live mode (#68), the production
-migrations — is in the archive with its reasoning.*
+*Two rows. Everything cleared — OTP provider config (#2), Stripe live mode (#68), the earlier
+production migrations — is in the archive with its reasoning.*
 
 | Item | State | Blocks launch? |
 |:---|:---|:---|
+| **Three payment-ledger migrations, applied state unknown** | `20260815120000_milestone_payments` (the ledger table + `record_milestone_payment`), `20260815200000_record_owner_payment` and `20260816150000_record_milestone_payment_partial` are all merged to `main`, so Vercel has deployed code that calls them (hard rule #6 — the deploy outran the schema). **No session has confirmed any of the three against the live catalog**: the Supabase connector answered `MCP error -32003: MCP tool call requires approval` to `list_projects` on two attempts in this session, so re-test it rather than inheriting the failure. Until then, a payer's SPEI declaration and the owner's *Registrar pago* both fail closed — `42P01` → 503 "vuelve a intentar en unos minutos", never a fabricated success — but no payment can be recorded. `npm run db:migrate:dry`, apply, then read back: `record_milestone_payment`'s filter must include `marked_paid`, and `anon`/`authenticated` must hold no EXECUTE on either function. | **Yes** — nothing in the pay step works without them |
 | **Live PAC stamp** | The direct sandbox half is done: the integration was exercised live, found entirely broken (`/v1` = 410 since 2023, four payload defects — mocked-`fetch` coverage had kept it all green), fixed, and re-verified end to end against the live sandbox — real SAT UUIDs, documents, cancellation (02/03), correct totals with and without retenciones. Forensics in the archive. **Re-scoped by the BYOK decision (§05): the platform does not stamp on behalf of tenants**, so the remaining criterion is a **tenant-connected live PAC**: an `sk_live_` key with CSDs connected in Ajustes, one stamp through `POST /api/invoices/issue`, the UUID verifying at the SAT portal. A sandbox key cannot meet it — sandbox documents have no fiscal validity, and the route refuses them in production by design (`PAC_SANDBOX_KEY`). The `cfdi_stamp_claims` guard (#213, PR #241) is **applied to production and refused a duplicate claim `23505` live**; the guard's own live exercise (a deliberate double-submit) rides with this row's stamp, as do #347's two payload probes (exempt-quote `taxes: []`, non-null `cfdi_total`). | **Yes** — CFDI ships at launch |
 
 **Verification done before the live-provider passes began was against mocked providers.** The items

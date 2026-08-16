@@ -32,9 +32,14 @@ interface MockMilestone {
 }
 
 const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
-const state: { milestones: MockMilestone[]; rpcResult: unknown } = {
+const state: {
+  milestones: MockMilestone[];
+  rpcResult: unknown;
+  rpcError: { code: string; message: string; details?: string } | null;
+} = {
   milestones: [],
   rpcResult: 48720,
+  rpcError: null,
 };
 
 vi.mock('@/lib/supabase/service', () => ({
@@ -74,6 +79,7 @@ vi.mock('@/lib/supabase/service', () => ({
     }),
     rpc: async (name: string, args: Record<string, unknown>) => {
       rpcCalls.push({ name, args });
+      if (state.rpcError) return { data: null, error: state.rpcError };
       return { data: state.rpcResult, error: null };
     },
   }),
@@ -123,6 +129,7 @@ beforeEach(() => {
   vi.resetModules();
   state.milestones = [];
   state.rpcResult = 48720;
+  state.rpcError = null;
   rpcCalls.length = 0;
 });
 
@@ -161,6 +168,50 @@ describe('the client who pays in two goes', () => {
     expect(rpcCalls[0].name).toBe('record_milestone_payment');
     expect(rpcCalls[0].args.p_amount).toBe(28720);
     expect(rpcCalls[0].args.p_source).toBe('payer_declaration');
+  });
+
+  it('tells a double-submit the payment is recorded, not that it failed', async () => {
+    // A clave de rastreo identifies one SPEI transfer, so the same one twice is
+    // a replay — `uq_milestone_payments_declaration_reference` makes it 23505
+    // and the transaction rolls back. This case became reachable by an ordinary
+    // double-tap only once a declared cobro stayed payable: before, the status
+    // filter refused the second attempt before it reached the INSERT.
+    state.rpcError = {
+      code: '23505',
+      message:
+        'duplicate key value violates unique constraint ' +
+        '"uq_milestone_payments_declaration_reference"',
+    };
+
+    const { status, body } = await declare([HALF_DECLARED], {
+      tracking_reference: 'SPEI20260901222222',
+      transferred_amount: 28720,
+    });
+
+    expect(status).toBe(409);
+    expect(body.error.code).toBe('PAYMENT_ALREADY_RECORDED');
+    // The words matter more than the code here. "No se pudo registrar el pago"
+    // is what a payer who has already paid transfers *again* after reading.
+    expect(body.error.message).toMatch(/no se registró dos veces/i);
+    expect(body.error.message).not.toMatch(/no se pudo/i);
+  });
+
+  it('still reports a genuine ledger failure as a failure', async () => {
+    // The neighbouring case's positive control: 23505 on some other constraint
+    // is not a replay, and must not borrow the reassuring message. Hard rule #1
+    // — never report a success the database refused.
+    state.rpcError = {
+      code: '23505',
+      message: 'duplicate key value violates unique constraint "some_other_index"',
+    };
+
+    const { status, body } = await declare([HALF_DECLARED], {
+      tracking_reference: 'SPEI20260901444444',
+      transferred_amount: 28720,
+    });
+
+    expect(status).not.toBe(200);
+    expect(body.error.message).not.toMatch(/no se registró dos veces/i);
   });
 
   it('may attach a receipt to the second wire too', async () => {
