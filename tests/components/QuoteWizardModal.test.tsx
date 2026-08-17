@@ -346,3 +346,64 @@ describe('editing an existing quote (#340)', () => {
     expect(screen.queryByRole('button', { name: /Guardar Cambios/i })).toBeNull();
   });
 });
+
+
+/**
+ * #407 — the tenant states the SAT category instead of the payload guessing it.
+ *
+ * A single IVA checkbox produced two states; CFDI 4.0 has three. `iva_amount = 0`
+ * could not tell a zero-rated sale from an exempt one, so every IVA-free quote
+ * stamped as zero-rate. This is the surface that asks.
+ */
+describe('Quote tax treatment choice (#407)', () => {
+  const treatment = (name: RegExp) => screen.getByRole('radio', { name });
+
+  it('offers the three SAT categories, with IVA 16% preselected', () => {
+    renderWizard();
+    goToLineItems();
+
+    expect(treatment(/IVA 16%/i)).toBeChecked();
+    expect(treatment(/Tasa 0%/i)).not.toBeChecked();
+    expect(treatment(/Exento/i)).not.toBeChecked();
+  });
+
+  it('sends the chosen treatment, and an applyIva that agrees with it', async () => {
+    const { onSubmit } = renderWizard();
+    goToLineItems();
+    fillFirstItem('10000', '1');
+
+    fireEvent.click(treatment(/Exento/i));
+    fireEvent.click(next());
+    fireEvent.click(screen.getByRole('button', { name: /Generar y Compartir/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const submitted = onSubmit.mock.calls[0][0];
+    expect(submitted.taxOptions.taxTreatment).toBe('exento');
+    // Kept in step, so nothing downstream reads a stale checkbox (#95's
+    // useState(prop) that never re-synced).
+    expect(submitted.taxOptions.applyIva).toBe(false);
+  });
+
+  it('still sends iva_16 when the tenant leaves the default alone', async () => {
+    const { onSubmit } = renderWizard();
+    goToLineItems();
+    fillFirstItem('10000', '1');
+
+    fireEvent.click(next());
+    fireEvent.click(screen.getByRole('button', { name: /Generar y Compartir/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0].taxOptions.taxTreatment).toBe('iva_16');
+    expect(onSubmit.mock.calls[0][0].taxOptions.applyIva).toBe(true);
+  });
+
+  it('names what each category is for, in the tenant\'s words', () => {
+    renderWizard();
+    goToLineItems();
+
+    // Don Roberto does not know "TipoFactor"; he knows what he sells. The copy
+    // has to carry the distinction without the fiscal vocabulary (hard rule #8).
+    expect(screen.getByText(/exportación|alimentos|medicinas/i)).toBeInTheDocument();
+    expect(screen.getByText(/médic|educa/i)).toBeInTheDocument();
+  });
+});

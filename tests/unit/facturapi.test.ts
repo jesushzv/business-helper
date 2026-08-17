@@ -387,3 +387,89 @@ describe('The PAC payload never leaves a tax treatment implicit', () => {
     expect(item.product.product_key).toBe('84111506');
   });
 });
+
+/**
+ * #407 — the payload says which SAT category applies, instead of inferring one.
+ *
+ * Since #347 an IVA-free quote sent an explicit `rate: 0` rather than an empty
+ * array, which closed the 16%-overcharge risk but classified every such quote
+ * as **zero-rate**. That was a documented guess: `iva_amount = 0` cannot tell
+ * `Tasa 0.000000` from `Exento`, and the two are different things on the
+ * document.
+ *
+ * `quotes.tax_treatment` now carries the answer. NULL means the quote predates
+ * the question, and the old inference stands — so nothing already stamped
+ * changes meaning.
+ *
+ * **The exento encoding is `factor: 'Exento'` with `rate: 0`.** `TipoFactor`
+ * with values Tasa | Cuota | Exento is SAT Anexo 20, not a Facturapi invention,
+ * and Facturapi's `factor` maps to it — but that this is the field's name and
+ * literal was NOT confirmed against a primary source: `docs.facturapi.io` is
+ * unreachable from CI and both official client-library READMEs omit tax
+ * examples. One sandbox stamp of an exempt quote, with the document's tax lines
+ * read back, is what settles it (see the first-live-stamp preflight). These
+ * assertions pin what we *send*, not what v2 was observed to accept.
+ */
+describe('An exempt quote is stamped as exento, not as zero-rate (#407)', () => {
+  const base = { subtotal_amount: 10000, iva_amount: 0, total_amount: 10000 };
+
+  it('sends factor Exento for a quote the tenant marked exempt', () => {
+    const treatment = deriveCFDITaxTreatment({ ...base, tax_treatment: 'exento' });
+    const item = buildMilestoneLineItem('Consulta médica', 10000, treatment);
+
+    expect(item.product.taxes).toEqual([{ type: 'IVA', rate: 0, factor: 'Exento' }]);
+  });
+
+  it('sends a plain zero rate for a quote the tenant marked zero-rated', () => {
+    const treatment = deriveCFDITaxTreatment({ ...base, tax_treatment: 'tasa_0' });
+    const item = buildMilestoneLineItem('Exportación', 10000, treatment);
+
+    // No `factor`: Tasa is v2's default, and stating it adds a field we have
+    // not confirmed is accepted on the ordinary path.
+    expect(item.product.taxes).toEqual([{ type: 'IVA', rate: 0 }]);
+  });
+
+  it('charges 16% when the tenant marked it ordinary', () => {
+    const treatment = deriveCFDITaxTreatment({
+      subtotal_amount: 10000,
+      iva_amount: 1600,
+      total_amount: 11600,
+      tax_treatment: 'iva_16',
+    });
+
+    expect(treatment.taxes).toEqual([{ type: 'IVA', rate: 0.16 }]);
+  });
+
+  it('falls back to the old inference when the quote predates the column', () => {
+    // NULL treatment, no IVA: exactly what a pre-#407 quote looks like. It must
+    // keep stamping as zero-rate, because that is what it stamped as yesterday.
+    const treatment = deriveCFDITaxTreatment({ ...base, tax_treatment: null });
+    const item = buildMilestoneLineItem('Servicio', 10000, treatment);
+
+    expect(item.product.taxes).toEqual([{ type: 'IVA', rate: 0 }]);
+  });
+
+  it('ignores a treatment the CHECK constraint would not allow', () => {
+    // A value that reached the row some other way must not become a tax line.
+    const treatment = deriveCFDITaxTreatment({
+      ...base,
+      tax_treatment: 'exempt' as unknown as string,
+    });
+    const item = buildMilestoneLineItem('Servicio', 10000, treatment);
+
+    expect(item.product.taxes).toEqual([{ type: 'IVA', rate: 0 }]);
+  });
+
+  it('never lets exento reach a quote that actually charged IVA', () => {
+    // Contradictory row: marked exento but carrying IVA. The money wins — the
+    // client was charged 16% and the document must say so.
+    const treatment = deriveCFDITaxTreatment({
+      subtotal_amount: 10000,
+      iva_amount: 1600,
+      total_amount: 11600,
+      tax_treatment: 'exento',
+    });
+
+    expect(treatment.taxes).toEqual([{ type: 'IVA', rate: 0.16 }]);
+  });
+});

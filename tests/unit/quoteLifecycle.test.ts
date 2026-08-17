@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { calculateQuoteTotals } from '@/lib/quoteCalculator';
+import {
+  calculateQuoteTotals,
+  normalizeQuoteTaxTreatment,
+  QUOTE_TAX_TREATMENTS,
+} from '@/lib/quoteCalculator';
 import { generatePublicToken } from '@/lib/quoteToken';
 import { convertQuoteToContract } from '@/lib/quoteToContract';
 
@@ -159,5 +163,76 @@ describe('Quote-to-Contract Conversion', () => {
 
     const summed = milestones.reduce((acc, m) => acc + m.amount, 0);
     expect(Math.abs(summed - 2905.8)).toBeLessThan(0.001);
+  });
+});
+
+/**
+ * #407 — the tenant states the tax category rather than the payload guessing it.
+ *
+ * The wizard's single IVA checkbox produced two states; CFDI 4.0 has three
+ * (SAT Anexo 20 `TipoFactor`: Tasa 16%, Tasa 0%, Exento). `iva_amount = 0`
+ * covered the last two indistinguishably, so `deriveCFDITaxTreatment` had to
+ * guess — and guessed zero-rate.
+ *
+ * `applyIva` is kept working for callers that predate the choice, because the
+ * quotes already in the database were created that way.
+ */
+describe('Quote tax treatment (#407)', () => {
+  const items = [{ description: 'Servicio', quantity: 1, unit_price: 10000 }];
+
+  it('charges 16% for the ordinary case', () => {
+    const totals = calculateQuoteTotals(items, { taxTreatment: 'iva_16' });
+    expect(totals.ivaAmount).toBe(1600);
+    expect(totals.totalAmount).toBe(11600);
+  });
+
+  it('charges nothing for a zero-rated quote', () => {
+    const totals = calculateQuoteTotals(items, { taxTreatment: 'tasa_0' });
+    expect(totals.ivaAmount).toBe(0);
+    expect(totals.totalAmount).toBe(10000);
+  });
+
+  it('charges nothing for an exempt quote either — the money is identical', () => {
+    const totals = calculateQuoteTotals(items, { taxTreatment: 'exento' });
+    expect(totals.ivaAmount).toBe(0);
+    expect(totals.totalAmount).toBe(10000);
+  });
+
+  it('still honours applyIva when no treatment is stated', () => {
+    expect(calculateQuoteTotals(items, { applyIva: false }).ivaAmount).toBe(0);
+    expect(calculateQuoteTotals(items, { applyIva: true }).ivaAmount).toBe(1600);
+  });
+
+  it('lets the treatment win over a contradicting applyIva', () => {
+    // The wizard sends the treatment; a stale applyIva must not override it.
+    const totals = calculateQuoteTotals(items, { taxTreatment: 'exento', applyIva: true });
+    expect(totals.ivaAmount).toBe(0);
+  });
+});
+
+/**
+ * The vocabulary the database enforces exists once in code, and anything
+ * unrecognised becomes null rather than the nearest listed value (#95/#116 —
+ * mapping `'free'` to the nearest tier is how unpaid tenants saw a $299 plan).
+ */
+describe('normalizeQuoteTaxTreatment (#407)', () => {
+  it('accepts exactly the three values the CHECK constraint allows', () => {
+    expect(normalizeQuoteTaxTreatment('iva_16')).toBe('iva_16');
+    expect(normalizeQuoteTaxTreatment('tasa_0')).toBe('tasa_0');
+    expect(normalizeQuoteTaxTreatment('exento')).toBe('exento');
+  });
+
+  it('returns null for anything else, including near misses', () => {
+    expect(normalizeQuoteTaxTreatment('iva16')).toBeNull();
+    expect(normalizeQuoteTaxTreatment('IVA_16')).toBe('iva_16'); // case is forgiven
+    expect(normalizeQuoteTaxTreatment('exempt')).toBeNull();
+    expect(normalizeQuoteTaxTreatment('tasa0')).toBeNull();
+    expect(normalizeQuoteTaxTreatment('')).toBeNull();
+    expect(normalizeQuoteTaxTreatment(null)).toBeNull();
+    expect(normalizeQuoteTaxTreatment(undefined)).toBeNull();
+  });
+
+  it('exports the vocabulary the migration CHECK pins', () => {
+    expect([...QUOTE_TAX_TREATMENTS].sort()).toEqual(['exento', 'iva_16', 'tasa_0']);
   });
 });

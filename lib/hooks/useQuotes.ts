@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Quote } from '@/types';
 import { generatePublicToken } from '../quoteToken';
-import { calculateQuoteTotals, LineItem } from '../quoteCalculator';
+import { calculateQuoteTotals, LineItem, type QuoteTaxTreatment } from '../quoteCalculator';
 import { convertQuoteToContract, ContractResult } from '../quoteToContract';
 import { track } from '@/lib/analytics';
 import { isClientDemoMode } from '@/lib/clientDemoMode';
@@ -22,6 +22,7 @@ const INITIAL_DEMO_QUOTES: Quote[] = [
       { description: 'Tonelada Varilla 3/8"', quantity: 3, unit_price: 22000, sat_code: '30101800', unit: 'TON' },
     ],
     subtotal_amount: 84000,
+    tax_treatment: 'iva_16',
     iva_amount: 13440,
     retencion_isr_amount: 0,
     retencion_iva_amount: 0,
@@ -47,6 +48,7 @@ const INITIAL_DEMO_QUOTES: Quote[] = [
       { description: 'Levantamiento Topográfico', quantity: 1, unit_price: 12000, sat_code: '81101500', unit: 'E48' },
     ],
     subtotal_amount: 37000,
+    tax_treatment: 'iva_16',
     iva_amount: 5920,
     retencion_isr_amount: 3700,
     retencion_iva_amount: 3946.68,
@@ -171,7 +173,12 @@ export function useQuotes() {
     notes?: string;
     /** The account this quote's client pays into; `null` = the org default (#164). */
     bank_account_id?: string | null;
-    taxOptions?: { applyIva?: boolean; applyRetencionIsr?: boolean; applyRetencionIva?: boolean };
+    taxOptions?: {
+      taxTreatment?: QuoteTaxTreatment;
+      applyIva?: boolean;
+      applyRetencionIsr?: boolean;
+      applyRetencionIva?: boolean;
+    };
   }): Promise<Quote> => {
     const totals = calculateQuoteTotals(data.line_items, data.taxOptions);
 
@@ -180,6 +187,11 @@ export function useQuotes() {
       title: data.title,
       line_items: data.line_items,
       subtotal_amount: totals.subtotal,
+      // What the tenant stated, not what the amounts imply (#407): `iva_amount`
+      // of 0 cannot tell a zero-rated sale from an exempt one, and the stamped
+      // CFDI has to say which. NULL only for a quote created before the choice
+      // existed — never written as a guess here.
+      tax_treatment: data.taxOptions?.taxTreatment ?? null,
       iva_amount: totals.ivaAmount,
       retencion_isr_amount: totals.retencionIsrAmount,
       retencion_iva_amount: totals.retencionIvaAmount,
@@ -291,7 +303,12 @@ export function useQuotes() {
       valid_until?: string;
       notes?: string;
       bank_account_id?: string | null;
-      taxOptions?: { applyIva?: boolean; applyRetencionIsr?: boolean; applyRetencionIva?: boolean };
+      taxOptions?: {
+      taxTreatment?: QuoteTaxTreatment;
+      applyIva?: boolean;
+      applyRetencionIsr?: boolean;
+      applyRetencionIva?: boolean;
+    };
     }
   ): Promise<Quote> => {
     const totals = calculateQuoteTotals(data.line_items, data.taxOptions);
@@ -301,6 +318,11 @@ export function useQuotes() {
       title: data.title,
       line_items: data.line_items,
       subtotal_amount: totals.subtotal,
+      // What the tenant stated, not what the amounts imply (#407): `iva_amount`
+      // of 0 cannot tell a zero-rated sale from an exempt one, and the stamped
+      // CFDI has to say which. NULL only for a quote created before the choice
+      // existed — never written as a guess here.
+      tax_treatment: data.taxOptions?.taxTreatment ?? null,
       iva_amount: totals.ivaAmount,
       retencion_isr_amount: totals.retencionIsrAmount,
       retencion_iva_amount: totals.retencionIvaAmount,

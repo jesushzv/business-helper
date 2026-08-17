@@ -9,7 +9,7 @@ import {
   validateLineItemDrafts,
 } from '@/lib/lineItemDraft';
 import { toLineItemDrafts } from '@/lib/lineItemDraft';
-import { calculateQuoteTotals } from '@/lib/quoteCalculator';
+import { calculateQuoteTotals, normalizeQuoteTaxTreatment, type QuoteTaxTreatment } from '@/lib/quoteCalculator';
 import { calculateClientCreditSummary, validateQuoteCreditLimit } from '@/lib/clientCredit';
 import { useReceivables } from '@/lib/hooks/useReceivables';
 import { useBankAccounts } from '@/lib/hooks/useBankAccounts';
@@ -50,9 +50,32 @@ interface QuoteWizardModalProps {
      * every quote written before the picker existed means.
      */
     bank_account_id: string | null;
-    taxOptions: { applyIva: boolean; applyRetencionIsr: boolean; applyRetencionIva: boolean };
+    taxOptions: {
+      taxTreatment: QuoteTaxTreatment;
+      applyIva: boolean;
+      applyRetencionIsr: boolean;
+      applyRetencionIva: boolean;
+    };
   }) => Promise<void>;
 }
+
+/**
+ * The three SAT categories, in the tenant's words (#407).
+ *
+ * Order is deliberate: the ordinary case first, so the common path is one tap
+ * and the default. The hints name the goods and services each category covers,
+ * because that is what an owner can answer — the fiscal vocabulary is what
+ * they came here to avoid.
+ */
+const TAX_TREATMENT_CHOICES: ReadonlyArray<{
+  value: QuoteTaxTreatment;
+  label: string;
+  hint: string;
+}> = [
+  { value: 'iva_16', label: 'IVA 16%', hint: 'Lo normal para servicios y productos.' },
+  { value: 'tasa_0', label: 'Tasa 0%', hint: 'Exportación, alimentos básicos, medicinas.' },
+  { value: 'exento', label: 'Exento', hint: 'Servicios médicos, educación, algunos arrendamientos.' },
+];
 
 export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   isOpen,
@@ -82,7 +105,16 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   const [drafts, setDrafts] = useState<LineItemDraft[]>([createLineItemDraft(DEFAULT_SAT_CODE)]);
   const [itemsError, setItemsError] = useState<string | null>(null);
 
-  const [applyIva, setApplyIva] = useState<boolean>(true);
+  /**
+   * What the tenant says this sale is, for the SAT (#407).
+   *
+   * Replaces the old single IVA checkbox. `applyIva` is derived from it rather
+   * than stored alongside, so the two cannot drift — a stale boolean beside an
+   * explicit choice is how a normalized server value got overwritten by typed
+   * text in #95.
+   */
+  const [taxTreatment, setTaxTreatment] = useState<QuoteTaxTreatment>('iva_16');
+  const applyIva = taxTreatment === 'iva_16';
   const [applyRetencionIsr, setApplyRetencionIsr] = useState<boolean>(false);
   const [applyRetencionIva, setApplyRetencionIva] = useState<boolean>(false);
 
@@ -168,7 +200,12 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
       );
       setNotes(quote.notes || '');
       setDrafts(toLineItemDrafts(quote.line_items as unknown as LineItem[]));
-      setApplyIva(Number(quote.iva_amount) > 0);
+      // The stored choice wins; a quote written before the column existed has
+      // none, so it keeps being inferred from the amounts exactly as before.
+      setTaxTreatment(
+        normalizeQuoteTaxTreatment((quote as { tax_treatment?: string | null }).tax_treatment) ??
+          (Number(quote.iva_amount) > 0 ? 'iva_16' : 'tasa_0')
+      );
       setApplyRetencionIsr(Number(quote.retencion_isr_amount) > 0);
       setApplyRetencionIva(Number(quote.retencion_iva_amount) > 0);
       setBankAccountId(quote.bank_account_id ?? null);
@@ -181,7 +218,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
     setValidUntil(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     setNotes('');
     setDrafts([createLineItemDraft(DEFAULT_SAT_CODE)]);
-    setApplyIva(true);
+    setTaxTreatment('iva_16');
     setApplyRetencionIsr(false);
     setApplyRetencionIva(false);
     setBankAccountId(null);
@@ -195,6 +232,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   const lineItems: LineItem[] = toLineItems(drafts);
 
   const totals = calculateQuoteTotals(lineItems, {
+    taxTreatment,
     applyIva,
     applyRetencionIsr,
     applyRetencionIva,
@@ -264,7 +302,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
         line_items: lineItems,
         notes: notes.trim(),
         bank_account_id: bankAccountId,
-        taxOptions: { applyIva, applyRetencionIsr, applyRetencionIva },
+        taxOptions: { taxTreatment, applyIva, applyRetencionIsr, applyRetencionIva },
       });
       onClose();
     } catch (err) {
@@ -513,15 +551,44 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
               {/* SAT Tax Toggles */}
               <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-4 space-y-3">
                 <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Impuestos y Retenciones SAT</p>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={applyIva}
-                    onChange={(e) => setApplyIva(e.target.checked)}
-                    className="w-5 h-5 accent-emerald-500 rounded"
-                  />
-                  <span className="text-sm font-semibold text-slate-200">Agregar IVA 16%</span>
-                </label>
+                {/*
+                  Three choices, not a checkbox (#407). The SAT distinguishes a
+                  zero-rated sale from an exempt one and the stamped CFDI has to
+                  say which; `iva_amount = 0` cannot. The copy names what the
+                  tenant sells rather than the fiscal term for it — an owner
+                  knows they do medical consultations, not that those are
+                  "TipoFactor Exento" (hard rule #8).
+                */}
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-semibold text-slate-200 mb-2">
+                    ¿Qué impuesto lleva esta venta?
+                  </legend>
+                  {TAX_TREATMENT_CHOICES.map((choice) => (
+                    <label
+                      key={choice.value}
+                      className={`flex items-start gap-3 min-h-[48px] p-3 rounded-xl border cursor-pointer transition-colors ${
+                        taxTreatment === choice.value
+                          ? 'border-emerald-500 bg-emerald-500/10'
+                          : 'border-slate-700 hover:border-slate-500'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="tax-treatment"
+                        value={choice.value}
+                        checked={taxTreatment === choice.value}
+                        onChange={() => setTaxTreatment(choice.value)}
+                        className="w-5 h-5 mt-0.5 accent-emerald-500 shrink-0"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-slate-200">
+                          {choice.label}
+                        </span>
+                        <span className="block text-xs text-slate-400">{choice.hint}</span>
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
