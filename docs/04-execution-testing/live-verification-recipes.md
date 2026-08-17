@@ -122,3 +122,27 @@ GET /auth/v1/authorize?provider=<name>   -- the error the user would actually se
 
 And `auth.identities` records who has *ever* signed in by a given provider — the difference
 between "configured" and "has worked for a real person".
+
+## Which pilot organizations still have no settlement account
+
+The launch gate asks whether every pilot organization can actually be paid. Since #164 the accounts
+live in `bank_accounts`, so the query is:
+
+```sql
+select o.id, o.name
+  from organizations o
+ where not exists (
+   select 1 from bank_accounts b
+    where b.organization_id = o.id
+      and b.archived_at is null
+ );
+```
+
+**Not** `organizations.bank_clabe is null` — that reads a legacy mirror column rather than the
+source, and will answer for rows the app no longer writes.
+
+A returned row is **a question to ask, not automatically a defect**: since #163 a tenant may have
+removed their account on purpose. What the gate needs is that no row belongs to a pilot who intends
+to be paid.
+
+Whether it currently returns anything is status, and lives in [`docs/STATUS.md`](../STATUS.md) §04.
