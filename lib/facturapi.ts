@@ -13,6 +13,7 @@
  * the wrong data costs a cancellation.
  */
 
+import { normalizeQuoteTaxTreatment, type QuoteTaxTreatment } from './quoteCalculator';
 import { RFC_MORAL_PATTERN, RFC_FISICA_PATTERN } from './rfcValidator';
 
 export interface CFDIItemInput {
@@ -232,16 +233,33 @@ export interface CFDITax {
   type: 'IVA' | 'ISR';
   rate: number;
   withholding?: boolean;
+  /**
+   * SAT Anexo 20 `TipoFactor`. Only ever `'Exento'`, and only on a line that
+   * carries no tax: `Tasa` is v2's default and stating it would add a field we
+   * have not confirmed is accepted on the ordinary path (#407).
+   */
+  factor?: 'Exento';
 }
 
 export interface CFDITaxTreatment {
   /** Share of the amount charged that is the pre-tax base. */
   baseRatio: number;
   taxes: CFDITax[];
+  /**
+   * What the tenant stated on the quote (#407), or `null` when the quote
+   * predates the question or carries a value the CHECK would not allow.
+   *
+   * Kept beside `taxes` rather than folded into it because it only changes how
+   * an *absence* of tax is expressed, and `taxes` stays empty in that case so
+   * the complemento path is unaffected (its `ImpuestosDR` question is #408).
+   */
+  satTreatment: QuoteTaxTreatment | null;
 }
 
 /** Tax totals as stored on a quote; every column arrives as a string from PostgREST. */
 export interface QuoteTaxProfile {
+  /** `quotes.tax_treatment` (#407). NULL on any quote written before it existed. */
+  tax_treatment?: string | null;
   subtotal_amount?: number | string | null;
   iva_amount?: number | string | null;
   retencion_isr_amount?: number | string | null;
@@ -278,8 +296,10 @@ export function deriveCFDITaxTreatment(profile?: QuoteTaxProfile | null): CFDITa
   const subtotal = toNumber(profile?.subtotal_amount);
   const total = toNumber(profile?.total_amount);
 
+  const satTreatment = normalizeQuoteTaxTreatment(profile?.tax_treatment);
+
   if (subtotal <= 0 || total <= 0) {
-    return { baseRatio: 1 / 1.16, taxes: [{ type: 'IVA', rate: 0.16 }] };
+    return { baseRatio: 1 / 1.16, taxes: [{ type: 'IVA', rate: 0.16 }], satTreatment };
   }
 
   const taxes: CFDITax[] = [];
@@ -297,7 +317,7 @@ export function deriveCFDITaxTreatment(profile?: QuoteTaxProfile | null): CFDITa
     taxes.push({ type: 'IVA', rate: toRate(retencionIva, subtotal), withholding: true });
   }
 
-  return { baseRatio: subtotal / total, taxes };
+  return { baseRatio: subtotal / total, taxes, satTreatment };
 }
 
 /**
@@ -326,7 +346,7 @@ export function buildMilestoneLineItem(
       // for), and v2's tax_included defaults to true — which would read the
       // base as the final total and stamp the milestone short by the IVA.
       tax_included: false,
-      taxes: toExplicitTaxLines(treatment.taxes),
+      taxes: toExplicitTaxLines(treatment.taxes, treatment.satTreatment),
     },
   };
 }
@@ -357,8 +377,22 @@ export function buildMilestoneLineItem(
  * Representing exento properly needs a tax-regime field on the quote and a
  * tenant-facing question; that is filed, not decided here.
  */
-function toExplicitTaxLines(taxes: CFDITax[]): CFDITax[] {
+function toExplicitTaxLines(
+  taxes: CFDITax[],
+  satTreatment: QuoteTaxTreatment | null
+): CFDITax[] {
+  // A quote that charged tax says so on its own; the treatment only decides how
+  // an *absence* of tax is described. This is also why a row marked `exento`
+  // while carrying IVA stamps at 16%: the client was charged, and the document
+  // must say what happened rather than what the row claims.
   if (taxes.length > 0) return taxes;
+
+  // `Exento` is the only case where the category is not inferable from the
+  // numbers, which is the whole reason #407 added the column.
+  if (satTreatment === 'exento') return [{ type: 'IVA', rate: 0, factor: 'Exento' }];
+
+  // `tasa_0`, and every quote that predates the column: an explicit zero rate,
+  // which is what #347 established and what these quotes already stamp as.
   return [{ type: 'IVA', rate: 0 }];
 }
 

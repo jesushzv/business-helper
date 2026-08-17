@@ -299,6 +299,7 @@ export interface Database {
           title: string;
           line_items: Json;
           subtotal_amount: number;
+          tax_treatment: string | null;
           iva_amount: number;
           retencion_isr_amount: number;
           retencion_iva_amount: number;
@@ -331,6 +332,7 @@ export interface Database {
           title: string;
           line_items?: Json;
           subtotal_amount: number;
+          tax_treatment?: string | null;
           iva_amount?: number;
           retencion_isr_amount?: number;
           retencion_iva_amount?: number;
@@ -362,6 +364,7 @@ export interface Database {
           title?: string;
           line_items?: Json;
           subtotal_amount?: number;
+          tax_treatment?: string | null;
           iva_amount?: number;
           retencion_isr_amount?: number;
           retencion_iva_amount?: number;
