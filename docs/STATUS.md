@@ -4,11 +4,11 @@
 
 > **The single source of truth for what is and is not done.**
 >
-> *Last verified: 2026-08-16 15:10Z. Suite re-run (figures below); the P0 and `bug` sets
-> re-derived from the tracker rather than trusted; the migration ledger, function grants,
-> organization census and the launch-gate settlement query read back from the production catalog.
-> That pass caught `record_owner_payment` deployed but unapplied — a live money-path outage, since
-> applied and proven (§04; account in the archive). Method in §06.*
+> *Last verified: 2026-08-17. Suite re-run (figures below); P0 and `bug` sets re-derived from the
+> tracker rather than trusted; migration ledger, grants, organization census, the settlement query
+> and the deployed `/api/health` all read back live. Two migrations were caught deployed ahead of
+> their schema on consecutive days; both are applied and proven (§04, accounts in the archive).
+> Method in §06.*
 
 ## The doc contract
 
@@ -63,14 +63,14 @@ completion claim needs checking against source. The full findings are in
 |:---|:---|
 | Test suite | **2551 tests / 239 files**, `npx vitest run` (2026-08-17) on this branch merged with `main`; typecheck, lint and `npm run build` clean in the same pass |
 | Coverage gate | **Enforced in CI since #51** — `npx vitest run --coverage` on every pull request, against the thresholds in `vitest.config.ts` (the only statement of them). Measured on the branch that wired it up: statements 82.73%, branches 75.73%, functions 78.93%, lines 84.67%. The thresholds sit just under each, so the gate is a ratchet — raise it as coverage rises, never lower it to make a red run pass. The gap to the old aspirational 85/85/80/80 is concentrated in untested `app/` route handlers and `lib/hooks/` |
-| Error monitoring | **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling (why it replaced the hand-rolled transport: archive). PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel 2026-08-12** and #52 closed on that basis; no session has observed an alert arriving, so the delivery half is founder-confirmed setup rather than evidence ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
+| Error monitoring | **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling (why it replaced the hand-rolled transport: archive). PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel** and events confirmed arriving; delivery status is stated once, in §04's gate row ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
 | E2E | **Rewritten and executed 2026-08-13** ([#69](https://github.com/jesushzv/business-helper/issues/69)/[#91](https://github.com/jesushzv/business-helper/issues/91)): **18 passed, 0 skipped, 0 failed** — 9 scenarios × desktop + mobile chromium, production build, demo posture. Scenarios pinning remediated defects now assert the opposite, and the suite caught a live wizard defect (`docs/LESSONS.md` #91). Scenario 10 moved to the row below |
 | Deployed smoke test | **Running against production on its 6-hour cron** ([#70](https://github.com/jesushzv/business-helper/issues/70)): `.github/workflows/deployed-smoke.yml`, outside the PR gate; 4 checks in `docs/deployment.md` §05.1. **8 runs, all green**, each asserting all four on desktop *and* mobile, so checks 02–04 are executed evidence. Check 04 is the load-bearing one: a 200 on an unknown quote token would mean the deployment had lost its service-role key and was serving the demo quote to real visitors. **The manual loop (§05.2) is unwalked**; record its date and URL here |
 
 > [!IMPORTANT]
-> **The Sentry finding matters disproportionately for a solo founder**: error monitoring is the only
-> thing that reports a production 500 when nobody is watching. The code half landed 2026-08-11; what
-> is left is a DSN on Vercel and one thrown error proving an alert arrives. P1 in §03.
+> **Error monitoring matters disproportionately for a solo founder** — it is the only thing that
+> reports a production 500 when nobody is watching. Code, DSN and ingestion are all confirmed; what
+> remains is whether a *notification* fires. §04.
 
 ### Open and blocking
 
@@ -200,10 +200,13 @@ onto an exempt quote; does `cfdi_total` land non-null). Both need a credential, 
   in this repo is against a mocked transport. Worth one glance at any event in the Sentry
   dashboard; reopen #52 if it disagrees. `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` remain
   optional, for readable stack traces.
-- **Point the domain at Vercel.** `businesshelper.app` is the domain; `.mx` was never registered. Docs and
-  `.env.example` are corrected; the source instance was #36, **now closed** (PR #47) — the remaining work
-  here is DNS, not code. Confirm the apex resolves with SSL, then sync the Supabase Auth Site/Redirect
-  URLs and the Stripe webhook endpoint to it. No issue tracks the DNS step; it is a founder action.
+- ~~**Point the domain at Vercel.**~~ **Done** — the domain was bought through Vercel, so this never
+  needed a DNS step. Verified rather than assumed: `https://businesshelper.app/api/health` answers
+  **200** with `server: Vercel`, HSTS set, `environment: production`, `database: connected`,
+  `auth: active` and the right `supabase_ref`. `.mx` was never registered (#36, PR #47). **What is
+  still unconfirmed is the sync**, not the DNS: whether the Supabase Auth Site/Redirect URLs and the
+  Stripe webhook endpoint point at this origin. Those are two settings screens, and a wrong one
+  breaks recovery links and webhook delivery without breaking the site.
 - **Password recovery and the signup/login seams**
   ([#245](https://github.com/jesushzv/business-helper/issues/245)–#249). Recovery emails linked
   to `/reset-password`, which did not exist (a lockout). The page now exists; register keys
@@ -217,7 +220,7 @@ onto an exempt quote; does `cfdi_total` land non-null). Both need a credential, 
   register → quote → WhatsApp send → OTP sign → SPEI upload → confirm. Two legs are now covered
   independently — a client registered through the UI (#146, with a US phone number, so #94's
   international path ran live) and a real inbox signing a real quote (#2) — but the loop has never
-  been walked end to end on the deployment, and `/api/health` has never been called against it.
+  been walked end to end on the deployment. `/api/health` **has** now been called against production — 200, database connected, auth active (see the domain item above).
 - ~~**CFDI folio billing** (#24, #27).~~ **Superseded by the BYOK decision (§05, 2026-08-12)** —
   no billable event, both closed as not planned. The copy sweep (#221), the folio-machinery
   removal, the production `cfdi_folio_ledger` drop (#224, applied and read back live) and #226 all
@@ -277,7 +280,7 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 - [x] Production Supabase migrations applied — all three from #20, #23 and #29, plus `20260808030000_folio_rpc_grants.sql`; confirmed by inspecting the live schema, not by an exit code. One live request per affected route still owed ([#62](https://github.com/jesushzv/business-helper/issues/62))
 - [x] `supabase/migrations/` and the live catalog agree ([#204](https://github.com/jesushzv/business-helper/issues/204)) — `20260812060000` applied 2026-08-12 and `pg_indexes` read back: every index on `organizations` matches a migration
 - [x] **No migration in the repo is unapplied in production.** Vercel auto-deploys `main` and migrations are manual, so this row is the gap between the two (hard rule #6). Read it back from the live catalog, never from the ledger — the ledger does not list hand-applied work, which is why an earlier revision of this row was wrong in both directions. `20260816150000` (`record_milestone_payment`'s widened filter) was **merged and deployed unapplied and has since been applied and proven**: the filter reads back `status IN ('pending', 'requested', 'marked_paid')`, and a second declaration against a `marked_paid` cobro is now accepted ($20,000 then $28,720 → $48,720) while a `confirmed` one is still refused, leaving no ledger row — so the widening did not cost the backwards-move guard. Beware the cheap check: `pg_get_functiondef(...) LIKE '%marked_paid%'` passes either way, because the original hardcodes that value in its UPDATE. Earlier migrations and this one's evidence are in the archive. **This row is only ever as current as its last reconciliation — re-derive it, do not trust the tick.**
-- [ ] Error monitoring transmits and alerts reach the founder within minutes ([#52](https://github.com/jesushzv/business-helper/issues/52)) — on `@sentry/nextjs`, DSN configured on Vercel. Unticked deliberately: no session has seen an alert arrive, so the transmit half is founder-confirmed setup, not observed behaviour
+- [x] Error monitoring transmits ([#52](https://github.com/jesushzv/business-helper/issues/52)) — on `@sentry/nextjs`, DSN configured on Vercel, and **the founder confirms events are arriving in the Sentry dashboard** (2026-08-17). That closes the half that mattered: monitoring is not silently dead. Two things this does *not* establish, kept here rather than waved through — that a **notification** reaches the founder within minutes (an alert-rule question, separate from ingestion), and that a real event's payload carries `organization_id` and route with no personal data in it. Every scrub result in this repo is against a mocked transport
 - [x] The funnel is instrumented, so a weak result can be diagnosed (#37, PR #56) — wired, not yet read against real traffic
 - [x] Lint, typecheck and the vitest suite pass (figures in §02); CI runs on PRs, but not reliably — see [#38](https://github.com/jesushzv/business-helper/issues/38) and [#132](https://github.com/jesushzv/business-helper/issues/132)
 
