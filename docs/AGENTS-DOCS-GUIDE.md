@@ -54,6 +54,7 @@ business-helper/docs/
 │   ├── ecc-execution-playbook.md        # ECC Agent 4-phase sprint execution playbook
 │   ├── product_launch_checklist.md      # Go-live runbook (steps to perform, not a status record)
 │   ├── live-verification-recipes.md     # How to check schema, grants, RLS and the deployed app from a session
+│   ├── first-live-stamp-preflight.md    # Order of operations for the first real CFDI stamp, and what to read back
 │   ├── ux_ui_audit_synthesis_aug2026.md # Dual UX/UI audit synthesis (WS-* workstreams)
 │   └── usability_test_plan.md           # Task testing with Don Roberto & Mariana
 │
@@ -109,6 +110,7 @@ These were deleted as redundant or spent; git history retains them.
 | **★ Writing any code — what has already gone wrong here** | [`docs/LESSONS.md`](../docs/LESSONS.md) | [`CLAUDE.md`](../CLAUDE.md) |
 | **Executing a sprint task or building a feature with ECC** | [`ecc-execution-playbook.md`](../docs/04-execution-testing/ecc-execution-playbook.md) | [`feature_implementation_spec.md`](../docs/03-product-specs/feature_implementation_spec.md) |
 | **Verifying a claim against the live system ("needs a deployment")** | [`live-verification-recipes.md`](../docs/04-execution-testing/live-verification-recipes.md) | [`docs/LESSONS.md`](../docs/LESSONS.md) |
+| **Issuing the first real CFDI against a tenant's own live PAC** | [`first-live-stamp-preflight.md`](../docs/04-execution-testing/first-live-stamp-preflight.md) | [`cfdi_integration_architecture.md`](../docs/02-architecture/cfdi_integration_architecture.md) |
 | **Architecting a new feature or database table** | [`database-schema-design.md`](../docs/02-architecture/database-schema-design.md) | [`app-architecture-plan.md`](../docs/02-architecture/app-architecture-plan.md) |
 | **Implementing a single feature or UI component** | [`feature_implementation_spec.md`](../docs/03-product-specs/feature_implementation_spec.md) | [`user-personas.md`](../docs/01-strategy/user-personas.md) |
 | **Checking sprint schedule or launch gates** | [`product-roadmap.md`](../docs/03-product-specs/product-roadmap.md) | [`docs/STATUS.md`](../docs/STATUS.md) |

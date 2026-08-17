@@ -1070,6 +1070,27 @@ And two issue enumerations were stale in both directions: #151 named four input 
 five — the client credit limit was missing) and one that no longer existed, while `STATUS.md`
 itself claimed three open `bug` issues when the tracker held nine.
 
+## Production migration ledger, reconciled 2026-08-15/16
+
+Every migration in the repo was confirmed applied by reading the live catalog rather than the
+ledger — the ledger does not list hand-applied work, which is why an earlier revision of the
+`STATUS.md` row was wrong in both directions.
+
+| Migration | What was read back |
+|:---|:---|
+| `20260815200000` `record_owner_payment` (#394) | Shipped to the deployment a day ahead of the database: `main` carried the calling code while the function did not exist, so every owner confirmation and every "Registrar pago" failed `42P01`. It failed *honestly* — a Spanish error, no fabricated `confirmed` — which is hard rule #1 doing its job, but the confirm step of the cash-flow loop was down for a day. Applied 2026-08-16: `prosecdef = false`, EXECUTE only `postgres`/`service_role`, and both guards proven by rejection (zero amount → `22023`, unknown milestone → NULL, ledger row count unchanged by either). The connector stamped its own ledger version, restamped to the file's `20260815200000` so `supabase db push` skips it |
+| `20260814080000` `clients.archived_at` (#337) | Column and `idx_clients_org_active` both present. The migration's own header still says "NOT yet applied to production" — the comment is stale, not the schema |
+| `20260815120000` `milestone_payments` + `record_milestone_payment` (#381) | Table and function carry `postgres`/`service_role` only, `prosecdef = false`, backfill 0 rows against 0 eligible milestones, every CHECK proven by making it reject |
+| `20260815000000` `stripe_webhook_events` by-name REVOKE (#242) | `aclexplode` returns only `postgres` and `service_role`; the `anon`/`authenticated` grants, TRUNCATE included, are gone |
+| `20260814210000` + `20260814210100` deletion invariants (#336) | Both FKs read back `confdeltype = 'r'`, both restrictive `FOR DELETE` policies exist with their intended predicates |
+| `20260813010000` `cfdi_stamp_claims` grants | No `anon`/`authenticated` grant remains there, nor on `otp_send_log` or `ai_usage_monthly` |
+
+**The conversion invariants behind #59** were proven the same way, in a transaction aborted by a
+final `RAISE` with the row counts read back afterwards to confirm the rollback: a second contract
+for the same quote is refused `23505` (`contracts_quote_id_key`), and a repeated
+`conversion_position` is refused `23505`
+(`uq_milestones_contract_conversion_position`) — each paired with a permitted insert, so neither
+passed against a rule that refuses everything.
 ## `record_owner_payment` deployed unapplied — the confirm step down for a day, 2026-08-16
 
 <!-- STATUS-AUTHORITY: docs/STATUS.md -->
@@ -1099,3 +1120,39 @@ What caught it was a routine live-catalog pass (#405), not an alert. The lesson 
 already carries: a session with the Supabase connector can check this itself, and "needs a
 deployment" is not a reason to park it on the founder. The specific habit that would have caught it
 sooner is reading the migration ledger against the live catalog *at merge*, not at the next audit.
+
+## `20260816150000` merged and deployed unapplied — the second in two days, 2026-08-17
+
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+PR #406 merged `record_milestone_payment`'s widened status filter (#382/#371) and Vercel deployed
+the code; the migration was not applied. The same gap as `record_owner_payment` the day before, and
+milder only by luck of direction: the widening *admits* rows the old filter refused, so a client
+returning to pay a remainder got a 409 rather than anything false being written.
+
+**A cheap check would have said it was applied.** `pg_get_functiondef(...) LIKE '%marked_paid%'`
+returns true whether or not the widening landed, because the original function hardcodes
+`status = 'marked_paid'` in its UPDATE. Only matching the filter itself separates them:
+
+```sql
+substring(pg_get_functiondef(p.oid) from 'AND status IN[^)]*\)')
+```
+
+which read back `AND status IN ('pending', 'requested')` — the old filter.
+
+Applied 2026-08-17 and proven by exercising it, in a transaction aborted by a final `RAISE` with the
+row counts read back afterwards (2 quotes / 1 contract / 2 milestones, 0 ledger rows, no probe rows
+left):
+
+| Step | Result |
+|:---|:---|
+| First declaration against a `pending` cobro | total 20,000.00, status `marked_paid` |
+| **The widening** — second declaration against the `marked_paid` cobro | accepted, total 48,720.00 (the $20,000 + $28,720 case the migration's own comment describes) |
+| **Negative control** — declaration against a `confirmed` cobro | refused (NULL), so the backwards-move guard the original filter existed for survived the widening |
+| Ledger rows after the refusal | 2, not 3 — the refused call left nothing behind |
+
+Filter, `prosecdef = false` and EXECUTE limited to `postgres`/`service_role` all read back.
+
+**The habit this keeps asking for**, now twice in two days: reconcile the migration ledger against
+the live catalog *at merge*, not at the next audit. Both incidents were found by an audit that
+happened to run, not by anything that watches.

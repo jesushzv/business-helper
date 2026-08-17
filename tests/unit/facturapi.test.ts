@@ -297,6 +297,78 @@ describe('Tax treatment behind a milestone amount', () => {
     expect(treatment.baseRatio).toBeCloseTo(10000 / 11600, 6);
   });
 
+  /**
+   * The quote wizard has an IVA checkbox (`applyIva`, QuoteWizardModal), so a
+   * quote whose `iva_amount` is 0 is a state a tenant reaches on purpose — not a
+   * malformed row. The treatment describes the *quote*, so an empty tax list is
+   * the honest answer here; what must never happen is that empty list reaching
+   * the PAC as an omitted field. That is asserted at the payload boundary below.
+   */
+  it('reports no tax lines for a quote created with IVA switched off', () => {
+    const treatment = deriveCFDITaxTreatment({
+      subtotal_amount: 10000,
+      iva_amount: 0,
+      total_amount: 10000,
+    });
+
+    expect(treatment.taxes).toEqual([]);
+    expect(treatment.baseRatio).toBe(1);
+  });
+});
+
+/**
+ * #347, and the same defect class as #26's four payload findings: a mocked
+ * transport pins what we *believe* v2 does with a payload we have never sent.
+ *
+ * Facturapi v2 applies a default 16% IVA to a product whose taxes are absent.
+ * An exempt quote produced `taxes: []`, and whether v2 reads that as "no taxes"
+ * or as "absent" decides whether a client is billed 16% they never agreed to —
+ * on a document that cannot be un-issued, only cancelled with a motive.
+ *
+ * Rather than probe which reading v2 takes (that needs a credential this repo
+ * does not have), the ambiguity is removed: an explicit zero-rate entry is
+ * unambiguous under *both* readings.
+ */
+describe('The PAC payload never leaves a tax treatment implicit', () => {
+  const exempt = deriveCFDITaxTreatment({
+    subtotal_amount: 10000,
+    iva_amount: 0,
+    total_amount: 10000,
+  });
+
+  it('sends an explicit zero-rate IVA line instead of an empty taxes array', () => {
+    const item = buildMilestoneLineItem('Servicio exento', 10000, exempt);
+
+    expect(item.product.taxes).toEqual([{ type: 'IVA', rate: 0 }]);
+  });
+
+  it('never emits an empty taxes array, which v2 may read as absent', () => {
+    const item = buildMilestoneLineItem('Servicio exento', 10000, exempt);
+
+    expect(item.product.taxes.length).toBeGreaterThan(0);
+  });
+
+  it('carries the full amount as the base when no tax was applied', () => {
+    const item = buildMilestoneLineItem('Servicio exento', 10000, exempt);
+
+    // baseRatio is 1, so the client pays exactly the base — a 16% default
+    // applied by the PAC would stamp 11600 against an agreed 10000.
+    expect(item.product.price).toBe(10000);
+    expect(item.product.tax_included).toBe(false);
+  });
+
+  it('leaves a taxed quote exactly as it was', () => {
+    const taxed = deriveCFDITaxTreatment({
+      subtotal_amount: 10000,
+      iva_amount: 1600,
+      total_amount: 11600,
+    });
+    const item = buildMilestoneLineItem('Servicio gravado', 11600, taxed);
+
+    expect(item.product.taxes).toEqual([{ type: 'IVA', rate: 0.16 }]);
+    expect(item.product.price).toBe(10000);
+  });
+
   it('bills the milestone amount, not the amount plus another 16%', () => {
     const treatment = deriveCFDITaxTreatment({
       subtotal_amount: 10000,

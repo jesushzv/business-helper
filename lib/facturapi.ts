@@ -326,9 +326,40 @@ export function buildMilestoneLineItem(
       // for), and v2's tax_included defaults to true — which would read the
       // base as the final total and stamp the milestone short by the IVA.
       tax_included: false,
-      taxes: treatment.taxes,
+      taxes: toExplicitTaxLines(treatment.taxes),
     },
   };
+}
+
+/**
+ * Never hand the PAC an empty tax list (#347).
+ *
+ * The quote wizard lets a tenant switch IVA off (`applyIva`), so
+ * `deriveCFDITaxTreatment` legitimately returns no tax lines — and v2 applies a
+ * **default 16% IVA to a product whose taxes are absent**. Whether it reads
+ * `taxes: []` as "no taxes" or as "absent" is the open question in #347, and it
+ * decides whether an exempt quote stamps 16% the client never agreed to, on a
+ * document that cannot be un-issued — only cancelled with a motive, on record
+ * with the SAT.
+ *
+ * That question is not worth answering. An explicit zero-rate entry is
+ * unambiguous under *both* readings, so the ambiguity is removed rather than
+ * measured — which also means this does not wait on a live credential.
+ *
+ * **Zero-rate, not exento.** These are different things in CFDI 4.0: `Tasa` at
+ * 0.000000 (the item is subject to IVA, at zero — exports, basic foodstuffs)
+ * versus `Exento` (outside IVA entirely). They stamp differently and affect the
+ * receiver's acreditamiento differently. `QuoteTaxProfile` carries only
+ * `iva_amount`, so the schema *cannot currently tell them apart* — choosing
+ * either here is a guess about the tenant's business, and the guess that is
+ * wrong in the cheaper direction is zero-rate: both charge the client the same,
+ * and neither risks the 16% overcharge this function exists to prevent.
+ * Representing exento properly needs a tax-regime field on the quote and a
+ * tenant-facing question; that is filed, not decided here.
+ */
+function toExplicitTaxLines(taxes: CFDITax[]): CFDITax[] {
+  if (taxes.length > 0) return taxes;
+  return [{ type: 'IVA', rate: 0 }];
 }
 
 /** Money as the SAT reads it: two decimals, no floating-point tail. */
