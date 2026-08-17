@@ -8,6 +8,8 @@
  * a third copy.
  */
 
+import { recordedTransferAmount, remainingToRecord } from './receivablesCalculator';
+
 export interface PublicMilestone {
   id: string;
   label?: string;
@@ -17,32 +19,116 @@ export interface PublicMilestone {
 }
 
 /**
- * Deliberately generic in the row type (#371).
+ * What {@link pickPayableMilestone} needs every caller to have selected.
  *
- * Each of the three callers selects a different set of columns, and the GET
- * route additionally needs the money columns — `transferred_amount` above all,
- * which `recordedTransferAmount` requires its caller to have selected (#351).
- * A signature returning the base `PublicMilestone` would erase whatever the
- * caller actually read, forcing a cast at exactly the seam where dropping a
- * money column is the defect. Preserving `T` keeps the obligation visible
- * where the select is written.
+ * `transferred_amount` is required and nullable, matching `CollectedBase`: the
+ * predicate now asks whether a balance remains, and a row whose query never
+ * took the column would answer "nothing remains" for a cobro nobody has paid.
+ * Declaring it here makes tsc refuse the select that drops it, which the
+ * all-optional `PublicMilestone` cannot do — the #78 shape, on the query that
+ * decides whether a payer can pay at all.
  */
+export interface PayableCandidate extends PublicMilestone {
+  amount?: number;
+  transferred_amount: number | string | null;
+  cfdi_total?: number | string | null;
+  cfdi_status?: string | null;
+}
 
 /**
- * The payer-facing target: the earliest milestone still awaiting payment.
+ * Statuses a payer may still transfer against.
  *
- * GET and POST must agree on this predicate. Both used to take `[0]` of an
- * unordered embed, so on a two-milestone contract the row shown and the row
- * marked could differ — and a re-POST could rewrite a `confirmed` milestone
- * back to `marked_paid`, overwriting the confirmed record's evidence. The
- * defect was unreachable while #79 404'd every request; fixing #79 made it
- * live, so both are fixed together.
+ * `confirmed` is **not** here, and its absence is the one part of #382 this
+ * change does not fix. A confirmed cobro that came up short still owes money,
+ * but crediting a new declaration against it would either book the payer's
+ * unconfirmed claim as revenue (`collectedAmount` reads the milestone status)
+ * or, by moving the status back, erase the confirmed part from every KPI. The
+ * third option — confirmation attached to a ledger row rather than to the
+ * milestone — is a change to the function every aging bucket depends on and is
+ * tracked separately. The owner is not stuck meanwhile: **Registrar pago**
+ * (#394) records the remainder from Cobranza.
  */
-export function pickPayableMilestone<T extends PublicMilestone>(milestones: T[]): T | null {
-  const payable = milestones
-    .filter((m) => m.status === 'pending' || m.status === 'requested')
+const PAYABLE_STATUSES = new Set(['pending', 'requested', 'marked_paid']);
+
+/**
+ * Why there is nothing for this payer to do.
+ *
+ * `settled` — the business has recorded everything this cobro is owed. Do not
+ * transfer again.
+ * `recorded` — nothing is open: every milestone is confirmed, or declared and
+ * beyond what this link may credit.
+ */
+export type NoPayableReason = 'settled' | 'recorded';
+
+export interface PayableSelection<T> {
+  milestone: T | null;
+  /** Populated only when `milestone` is null, so the caller's 409 says which. */
+  reason: NoPayableReason | null;
+}
+
+/**
+ * The payer-facing target: the earliest milestone that still owes money.
+ *
+ * Deliberately generic in the row type (#371): each of the three callers
+ * selects a different set of columns beyond the ones required here, and a
+ * signature returning the base `PayableCandidate` would erase whatever the
+ * caller actually read, forcing a cast at exactly the seam where dropping a
+ * money column is the defect.
+ *
+ * GET, POST and the receipt upload must agree on this predicate. All three used
+ * to take `[0]` of an unordered embed, so on a two-milestone contract the row
+ * shown and the row marked could differ — and a re-POST could rewrite a
+ * `confirmed` milestone back to `marked_paid`, overwriting the confirmed
+ * record's evidence. The defect was unreachable while #79 404'd every request;
+ * fixing #79 made it live, so both were fixed together.
+ *
+ * **The question is the balance, not the status alone** (#382). Filtering to
+ * `pending`/`requested` meant a client who wired $20,000 of a $48,720 cobro and
+ * declared it lost the link forever: the row went `marked_paid`, the product
+ * went on showing $28,720 owed in Cobranza, and the only route to paying it was
+ * off-app. Paying in two goes is not an edge case for an anticipo of that size.
+ *
+ * `marked_paid` therefore stays payable while a balance remains, and the
+ * declaration appends a second ledger row rather than replacing the first
+ * (#381). Nothing can be un-confirmed by this: `confirmed` is excluded here and
+ * in `record_milestone_payment`'s own filter, which repeats the predicate
+ * inside the write so a replay cannot move a row backwards.
+ *
+ * The `reason` distinguishes the two ways of returning nothing, because they
+ * are different things to tell a payer: "ya está cubierto — no transfieras de
+ * nuevo" is not "ya fue registrado".
+ */
+export function pickPayableMilestone<T extends PayableCandidate>(
+  milestones: T[]
+): PayableSelection<T> {
+  const open = (milestones ?? [])
+    .filter((m) => PAYABLE_STATUSES.has(String(m?.status ?? '')))
     .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')));
-  return payable[0] ?? null;
+
+  const payable = open.find((m) => !isCovered(m));
+  if (payable) return { milestone: payable, reason: null };
+
+  // Something is open, and everything recorded against it covers what it owes.
+  // Rendering payment instructions here asks for a sum that has already
+  // arrived — the duplicate-transfer harm, so it gets its own refusal rather
+  // than a $0 payment request.
+  if (open.length > 0) return { milestone: null, reason: 'settled' };
+
+  return { milestone: null, reason: 'recorded' };
+}
+
+/**
+ * Everything this cobro is owed has been recorded as received.
+ *
+ * The `recordedTransferAmount(m) > 0` half is not redundant with the balance.
+ * A milestone whose settlement figure is **zero** — no amount, no stamped
+ * total — has a zero balance without a peso ever having arrived, and answering
+ * "ya está cubierto, no transfieras de nuevo" there is a claim about payments
+ * that never happened. Nothing arrived, so nothing is covered: it stays
+ * payable and the page shows what the row actually says.
+ */
+function isCovered(milestone: PayableCandidate): boolean {
+  return recordedTransferAmount(milestone) > 0 && remainingToRecord(milestone) <= 0;
 }
 
 /** The bucket every SPEI receipt lands in, public read (the vendor's Cobranza links point straight at it). */

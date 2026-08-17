@@ -5,7 +5,7 @@ import { MilestoneWithClient, ReceivableMutationOutcome } from '@/lib/hooks/useR
 import { CheckCircle, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 import { normalizeNumericInput, numericInputValue, parseNumericInput } from '@/lib/numericInput';
-import { expectedSettlementAmount, recordedTransferAmount } from '@/lib/receivablesCalculator';
+import { expectedSettlementAmount, remainingToRecord } from '@/lib/receivablesCalculator';
 
 /** Mirrors the bucket's own 5 MB limit and `lib/speiValidator.ts`. */
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
@@ -25,14 +25,14 @@ interface SpeiConfirmModalProps {
 }
 
 /**
- * What this cobro still needs recorded against it: the settlement figure less
- * everything already logged, payer declaration or owner record alike. `null`
- * without a milestone, so the field renders empty rather than `0`.
+ * `null` without a milestone, so the field renders empty rather than `0`.
+ *
+ * The subtraction itself moved to `lib/receivablesCalculator.ts` when
+ * `pickPayableMilestone` came to need the same answer (#382): two copies of an
+ * arithmetic over money is how one of them ends up reading the wrong base.
  */
-function remainingToRecord(milestone: MilestoneWithClient | null): number | null {
-  if (!milestone) return null;
-  const remaining = expectedSettlementAmount(milestone) - recordedTransferAmount(milestone);
-  return Math.max(Math.round(remaining * 100) / 100, 0);
+function prefillAmount(milestone: MilestoneWithClient | null): number | null {
+  return milestone ? remainingToRecord(milestone) : null;
 }
 
 export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
@@ -90,12 +90,12 @@ export const SpeiConfirmModal: React.FC<SpeiConfirmModalProps> = ({
   // declared against, which is the doubling this whole change exists to stop.
   // (Caught by the #341 case that pins the payer's declared figure.)
   const [transferredAmount, setTransferredAmount] = useState<string>(
-    numericInputValue(remainingToRecord(milestone))
+    numericInputValue(prefillAmount(milestone))
   );
 
   React.useEffect(() => {
     if (milestone) {
-      setTransferredAmount(numericInputValue(remainingToRecord(milestone)));
+      setTransferredAmount(numericInputValue(prefillAmount(milestone)));
       setErrorMessage(null);
       setComplementWarning(null);
       setUploadError(null);

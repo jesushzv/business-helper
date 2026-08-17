@@ -119,7 +119,7 @@ describe('why #371 needed a new figure rather than outstandingAmount', () => {
       const milestone = { ...OPEN, transferred_amount: 20000, status };
 
       // The row really is one this route would serve…
-      expect(pickPayableMilestone([milestone])).toBeTruthy();
+      expect(pickPayableMilestone([milestone]).milestone).toBeTruthy();
       // …and over it, the swap the issue proposed changes nothing.
       expect(collectedAmount(milestone)).toBe(0);
       expect(outstandingAmount(milestone)).toBe(expectedSettlementAmount(milestone));
@@ -127,13 +127,19 @@ describe('why #371 needed a new figure rather than outstandingAmount', () => {
     }
   });
 
-  it('a partially-confirmed cobro is not payable through the link at all', () => {
-    // The adjacent defect this pinning exposes: once the owner confirms a short
-    // wire, `pickPayableMilestone` refuses the row and the remainder can never
-    // be paid through the product. Filed separately; recorded here so the next
-    // session does not rediscover it from scratch.
+  it('a partially-confirmed cobro is still not payable through the link', () => {
+    // #382's remaining half, and the reason it is still open. Once the owner
+    // confirms a short wire the row leaves the payer's reach: crediting a new
+    // declaration against it would either book the payer's unconfirmed claim as
+    // revenue (`collectedAmount` reads the milestone status) or, by moving the
+    // status back, erase the confirmed $20,000 from every KPI. Neither is a
+    // number this product may show, so the link stays closed until
+    // confirmation attaches to a ledger row rather than to the milestone.
+    //
+    // The owner is not stuck: **Registrar pago** (#394) records the remainder
+    // from Cobranza. It is the payer's own link that cannot serve this row.
     const confirmed = { ...OPEN, transferred_amount: 20000, status: 'confirmed' };
-    expect(pickPayableMilestone([confirmed])).toBeNull();
+    expect(pickPayableMilestone([confirmed]).milestone).toBeNull();
     expect(outstandingAmount(confirmed)).toBe(28720);
   });
 });

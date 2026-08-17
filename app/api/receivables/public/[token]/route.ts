@@ -133,16 +133,27 @@ export async function GET(
       return publicApiError(404, 'PAYMENT_NOT_FOUND', 'Cobro no encontrado');
     }
 
-    const milestone = pickPayableMilestone<PayableMilestone>(quote.contracts.milestones);
-    if (!milestone) {
-      // Everything on this contract is already declared or confirmed. Rendering
-      // payment instructions here invites a duplicate transfer.
-      return publicApiError(
-        409,
-        'PAYMENT_ALREADY_RECORDED',
-        'Este cobro ya fue registrado. Si tienes dudas, contacta directamente al negocio.'
-      );
+    const selection = pickPayableMilestone<PayableMilestone>(quote.contracts.milestones);
+    if (!selection.milestone) {
+      // Two different things to tell a payer, and the predicate now knows which
+      // (#382). "Ya está cubierto" means the business has recorded everything
+      // this cobro is owed — do not transfer again. "Ya fue registrado" means
+      // nothing is open to pay. Rendering payment instructions for either
+      // invites a duplicate transfer.
+      return selection.reason === 'settled'
+        ? publicApiError(
+            409,
+            'PAYMENT_ALREADY_SETTLED',
+            'Este cobro ya está cubierto según el registro del negocio. No transfieras de nuevo; ' +
+              'si tienes dudas, contacta directamente al negocio.'
+          )
+        : publicApiError(
+            409,
+            'PAYMENT_ALREADY_RECORDED',
+            'Este cobro ya fue registrado. Si tienes dudas, contacta directamente al negocio.'
+          );
     }
+    const milestone = selection.milestone;
     const org = quote.organizations;
 
     // What the owner has already recorded against this still-open cobro (#371).
@@ -151,19 +162,11 @@ export async function GET(
     const alreadyReceived = recordedTransferAmount(milestone);
     const settlementTotal = expectedSettlementAmount(milestone);
 
-    // Fully covered and still open: the tenant has recorded everything this
-    // cobro is owed but has not moved its status. Rendering payment
-    // instructions here asks a payer to wire a sum that has already arrived —
-    // the same harm as the duplicate-transfer case above, so it gets the same
-    // refusal rather than a $0 payment request.
-    if (settlementTotal > 0 && alreadyReceived >= settlementTotal) {
-      return publicApiError(
-        409,
-        'PAYMENT_ALREADY_SETTLED',
-        'Este cobro ya está cubierto según el registro del negocio. No transfieras de nuevo; ' +
-          'si tienes dudas, contacta directamente al negocio.'
-      );
-    }
+    // The fully-covered-and-still-open case used to be caught here, with its
+    // own second comparison of the same two figures. It moved into the
+    // predicate, which now has to answer that question anyway to decide
+    // whether a `marked_paid` cobro is still payable (#382) — and two
+    // comparisons of a balance are two chances to read the wrong base (#341).
 
     // Which account this payer is sent to (#164). The quote's own account wins
     // over the organization's current default: the tenant chose where this
@@ -311,7 +314,17 @@ export async function POST(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: quote, error: fetchError } = await (supabase as any)
       .from('quotes')
-      .select('id, organization_id, contracts!quote_id(id, milestones(id, status, due_date))')
+      // The money columns are selected here for the same reason the GET takes
+      // them: the predicate asks whether a balance remains, not what the status
+      // is (#382), and a row whose query dropped `transferred_amount` would
+      // answer "nothing remains" for a cobro nobody has paid. `PayableCandidate`
+      // makes tsc refuse the select that omits it;
+      // `tests/unit/milestoneMoneySelects.test.ts` catches the ones tsc cannot
+      // see through the `any` cast.
+      .select(
+        'id, organization_id, contracts!quote_id(id, milestones(id, status, due_date, ' +
+          'amount, transferred_amount, cfdi_total, cfdi_status))'
+      )
       .eq('public_token', token)
       .maybeSingle();
 
@@ -319,13 +332,23 @@ export async function POST(
       return publicApiError(404, 'PAYMENT_NOT_FOUND', 'Cobro no encontrado');
     }
 
-    const target = pickPayableMilestone(quote.contracts.milestones);
+    const selection = pickPayableMilestone<PayableMilestone>(quote.contracts.milestones);
+    const target = selection.milestone;
     if (!target) {
-      return publicApiError(
-        409,
-        'PAYMENT_ALREADY_RECORDED',
-        'Este cobro ya fue registrado. Si tienes dudas, contacta directamente al negocio.'
-      );
+      // Same two answers as the GET, so the page a payer is looking at and the
+      // submit they just made agree about why (#382).
+      return selection.reason === 'settled'
+        ? publicApiError(
+            409,
+            'PAYMENT_ALREADY_SETTLED',
+            'Este cobro ya está cubierto según el registro del negocio. No transfieras de nuevo; ' +
+              'si tienes dudas, contacta directamente al negocio.'
+          )
+        : publicApiError(
+            409,
+            'PAYMENT_ALREADY_RECORDED',
+            'Este cobro ya fue registrado. Si tienes dudas, contacta directamente al negocio.'
+          );
     }
 
     // The receipt reference, if any, is a storage path the upload route issued
@@ -415,6 +438,21 @@ export async function POST(
         409,
         'PAYMENT_ALREADY_RECORDED',
         'Este cobro ya fue registrado. Si tienes dudas, contacta directamente al negocio.'
+      );
+    }
+
+    // The same clave de rastreo, on the same cobro, twice: one SPEI transfer
+    // declared twice, not two payments. A double-submit reaches this now that
+    // a declared cobro stays payable (#382) — before, the status filter refused
+    // the second attempt first. The transaction rolled back, so the total is
+    // untouched and the payment stands recorded exactly once; saying "no se
+    // pudo registrar" here is what sends a payer back to their bank.
+    if (!ledger.ok && ledger.reason === 'duplicate_declaration') {
+      return publicApiError(
+        409,
+        'PAYMENT_ALREADY_RECORDED',
+        'Ya habíamos registrado un pago con esa clave de rastreo. No se registró dos veces. ' +
+          'Si enviaste otra transferencia, captura la clave de esa transferencia.'
       );
     }
 

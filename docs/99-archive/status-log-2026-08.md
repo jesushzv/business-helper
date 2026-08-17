@@ -1091,3 +1091,32 @@ for the same quote is refused `23505` (`contracts_quote_id_key`), and a repeated
 `conversion_position` is refused `23505`
 (`uq_milestones_contract_conversion_position`) — each paired with a permitted insert, so neither
 passed against a rule that refuses everything.
+## `record_owner_payment` deployed unapplied — the confirm step down for a day, 2026-08-16
+
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+Moved out of `STATUS.md` §04 once the migration was applied and proven. The still-true fact — applied,
+read back, both guards proven by rejection — stays there; this is the account of how it happened.
+
+`20260815200000_record_owner_payment.sql` merged with PR #400 and Vercel deployed `main` before
+anyone applied it. For roughly a day production ran `POST /api/receivables/[id]/payments` and the
+confirm path against a function that did not exist: every owner confirmation and every
+*Registrar pago* failed `42P01`.
+
+Two things are worth separating in that.
+
+**The failure was honest.** `recordOwnerPayment` reads the PostgREST error rather than swallowing it,
+so the tenant saw a Spanish message and nothing wrote a `confirmed` the database had refused — hard
+rule #1 doing exactly its job, and the reason this was an outage rather than a fabricated-success
+incident. The route's `42P01` handling was written for this case specifically, on the reasoning that
+it is *the single most likely failure the day this ships*. It was.
+
+**The outage was real anyway.** The confirm step of the quote → sign → pay → confirm loop was down,
+and no session noticed for a day because the deployed behaviour was never checked — only the merge.
+The migration-ordering reminder in CI is a requirement, not a note (hard rule #6), and three PRs in
+the #394 stack merged past it.
+
+What caught it was a routine live-catalog pass (#405), not an alert. The lesson is the one #129
+already carries: a session with the Supabase connector can check this itself, and "needs a
+deployment" is not a reason to park it on the founder. The specific habit that would have caught it
+sooner is reading the migration ledger against the live catalog *at merge*, not at the next audit.
