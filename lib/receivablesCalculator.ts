@@ -271,6 +271,31 @@ export function recordedTransferAmount(item: CollectedBase): number {
   return round(Math.min(amount, expectedSettlementAmount(item)));
 }
 
+/**
+ * What still needs recording against this cobro: the settlement figure less
+ * everything already logged, payer declaration and owner record alike.
+ *
+ * **Not `outstandingAmount`**, and the difference is money. `outstandingAmount`
+ * subtracts `collectedAmount`, which is 0 on anything not yet `confirmed` — so
+ * on a `marked_paid` cobro carrying a payer's declared $20,000 it returns the
+ * *full* $48,720. Two surfaces need the other question answered:
+ *
+ *   - the confirm modal's prefill, where proposing the full total would record
+ *     the payer's declaration a second time (caught in PR #402 before it
+ *     shipped);
+ *   - `pickPayableMilestone`, which has to tell "this cobro still owes
+ *     something" from "everything recorded covers it" while the status is
+ *     still `marked_paid` (#382).
+ *
+ * Both used to work it out locally. Two copies of a subtraction over money is
+ * how one of them ends up reading the wrong base — exactly #341's shape — so it
+ * is defined once here and both read it.
+ */
+export function remainingToRecord(item: CollectedBase | null | undefined): number {
+  if (!item) return 0;
+  return round(Math.max(expectedSettlementAmount(item) - recordedTransferAmount(item), 0));
+}
+
 /** Statuses that still represent money the organization expects to receive. */
 const COLLECTABLE_STATUSES = new Set(['pending', 'requested', 'marked_paid', 'confirmed']);
 

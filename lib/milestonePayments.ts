@@ -85,6 +85,22 @@ export function sumDeclaredPayments(rows: MilestonePaymentRow[] | null | undefin
   return round(total);
 }
 
+/**
+ * The unique index that makes one clave de rastreo, on one cobro, one payment.
+ *
+ * Matched by name rather than by `23505` alone: the ledger insert can collide
+ * on nothing else today, but a future constraint on the table would otherwise
+ * be reported to a payer as "your payment is already recorded" — a fabricated
+ * success in the shape of a refusal.
+ */
+const DECLARATION_REPLAY_CONSTRAINT = 'uq_milestone_payments_declaration_reference';
+
+function isDuplicateDeclaration(error: { code?: string; message?: string; details?: string }): boolean {
+  if (String(error?.code || '') !== '23505') return false;
+  const haystack = `${error?.message || ''} ${error?.details || ''}`;
+  return haystack.includes(DECLARATION_REPLAY_CONSTRAINT);
+}
+
 export interface RecordMilestonePaymentInput {
   /** Any Supabase client whose role may write the table — service role today. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -107,6 +123,20 @@ export type RecordMilestonePaymentResult =
   | { ok: true; total: number }
   /** Nothing was payable: another request claimed it, or the row is not this tenant's. */
   | { ok: false; reason: 'not_payable' }
+  /**
+   * This exact declaration is already in the ledger — same cobro, same clave de
+   * rastreo (`uq_milestone_payments_declaration_reference`).
+   *
+   * A clave identifies one SPEI transfer, so the same one twice is a replay,
+   * not a second payment. It became reachable by an ordinary double-submit when
+   * the payable predicate widened to `marked_paid` (#382): until then the
+   * status filter refused the second attempt before it reached the INSERT.
+   *
+   * Kept distinct from `failed` because the two say opposite things to a payer.
+   * "No se pudo registrar el pago" is what a payer transfers *again* after
+   * reading — and here the payment is recorded, in full, once.
+   */
+  | { ok: false; reason: 'duplicate_declaration' }
   /**
    * The write failed. `dbError` carries the **original** PostgREST error where
    * there was one, so the caller can hand it to `publicDbWriteErrorResponse`
@@ -184,6 +214,14 @@ export async function recordMilestonePayment(
         `milestone=${milestoneId} amount=${amount} source=${source} ` +
         `code=${error.code} cause=${error.message}`
     );
+
+    // A replay, not an outage — and the transaction rolled back, so the
+    // milestone's total is untouched and the ledger holds exactly one row for
+    // this clave. Reporting it as a failed write would send a payer who has
+    // already paid back to their bank (#382).
+    if (isDuplicateDeclaration(error)) {
+      return { ok: false, reason: 'duplicate_declaration' };
+    }
     return {
       ok: false,
       reason: 'failed',

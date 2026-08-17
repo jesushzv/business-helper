@@ -6,6 +6,7 @@ import {
   pickPayableMilestone,
   buildReceiptPath,
   SPEI_VOUCHERS_BUCKET,
+  type PayableCandidate,
 } from '@/lib/publicReceivable';
 
 /**
@@ -53,7 +54,13 @@ export async function POST(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: quote, error: fetchError } = await (supabase as any)
       .from('quotes')
-      .select('id, organization_id, contracts!quote_id(id, milestones(id, status, due_date))')
+      // Money columns included because the predicate keys on the balance, not
+      // the status (#382) — a select that drops `transferred_amount` reads a
+      // cobro nobody has paid as fully covered.
+      .select(
+        'id, organization_id, contracts!quote_id(id, milestones(id, status, due_date, ' +
+          'amount, transferred_amount, cfdi_total, cfdi_status))'
+      )
       .eq('public_token', token)
       .maybeSingle();
 
@@ -61,13 +68,21 @@ export async function POST(
       return publicApiError(404, 'PAYMENT_NOT_FOUND', 'Cobro no encontrado');
     }
 
-    const target = pickPayableMilestone(quote.contracts.milestones);
+    const selection = pickPayableMilestone<PayableCandidate>(quote.contracts.milestones);
+    const target = selection.milestone;
     if (!target) {
-      return publicApiError(
-        409,
-        'PAYMENT_ALREADY_RECORDED',
-        'Este cobro ya fue registrado. Si tienes dudas, contacta directamente al negocio.'
-      );
+      return selection.reason === 'settled'
+        ? publicApiError(
+            409,
+            'PAYMENT_ALREADY_SETTLED',
+            'Este cobro ya está cubierto según el registro del negocio. No transfieras de nuevo; ' +
+              'si tienes dudas, contacta directamente al negocio.'
+          )
+        : publicApiError(
+            409,
+            'PAYMENT_ALREADY_RECORDED',
+            'Este cobro ya fue registrado. Si tienes dudas, contacta directamente al negocio.'
+          );
     }
 
     let formData: FormData;
