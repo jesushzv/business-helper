@@ -478,7 +478,7 @@ export function buildComplementoPagoPayload(input: ComplementoPagoInput) {
     related.invoice_id = input.invoiceId;
   }
 
-  if (input.treatment && input.treatment.taxes.length > 0) {
+  if (input.treatment) {
     // ImpuestosDR is computed on the pre-tax share of the amount paid, so a
     // partial payment carries a proportional slice of the invoice's IVA and
     // retenciones rather than the whole document's.
@@ -489,7 +489,24 @@ export function buildComplementoPagoPayload(input: ComplementoPagoInput) {
       rate: tax.rate,
       ...(tax.withholding ? { withholding: true } : {}),
     }));
-    related.taxes = taxes;
+
+    // An untaxed invoice used to drop the node entirely. Anexo 20's Pagos 2.0
+    // asks for the opposite on a zero-rated related document: an explicit
+    // `TrasladoDR` at `TipoFactorDR: Tasa`, `TasaOCuotaDR: 0.000000`,
+    // `ImporteDR: 0.00` (#408). Omitting it left the complemento saying nothing
+    // about tax while the invoice it settles says 0% — the two describing the
+    // same sale differently.
+    //
+    // **Exento is left omitted, deliberately.** Expressing it needs a
+    // `TipoFactorDR` on the DR line and `ComplementoPagoTaxLine` has no such
+    // field; inventing one would stack a second unverified assumption on the
+    // invoice-side `factor: 'Exento'`, on a path that has never reached a real
+    // PAC (#34). #408 stays open for that remainder.
+    if (taxes.length === 0 && input.treatment.satTreatment !== 'exento') {
+      taxes.push({ base, type: 'IVA', rate: 0 });
+    }
+
+    if (taxes.length > 0) related.taxes = taxes;
   }
 
   return {

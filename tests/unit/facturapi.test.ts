@@ -473,3 +473,76 @@ describe('An exempt quote is stamped as exento, not as zero-rate (#407)', () => 
     expect(treatment.taxes).toEqual([{ type: 'IVA', rate: 0.16 }]);
   });
 });
+
+/**
+ * #408 — the complemento stops omitting what the invoice now states.
+ *
+ * `buildComplementoPagoPayload` guarded with `taxes.length > 0`, so an untaxed
+ * invoice produced a DoctoRelacionado with no `ImpuestosDR` at all. Anexo 20's
+ * Pagos 2.0 asks for the opposite: a zero-rated related document carries an
+ * explicit `TrasladoDR` — `TipoFactorDR: Tasa`, `TasaOCuotaDR: 0.000000`,
+ * `ImporteDR: 0.00` — rather than the node being dropped.
+ *
+ * **Sourcing, stated plainly**: SAT's own `Pagos20.xsd` and its guía de llenado
+ * are both egress-blocked from this environment, as are the PAC references that
+ * quote them. This rests on two independent secondary sources agreeing, not on
+ * the primary text — and the complemento path has never reached a real PAC
+ * (#34), so neither the old shape nor this one has been observed to stamp.
+ * What changes is which one matches the published spec.
+ *
+ * **Exento is deliberately still omitted.** Expressing it needs a
+ * `TipoFactorDR` on the DR line, and `ComplementoPagoTaxLine` has no such field
+ * — inventing one would be a second unverified assumption stacked on the first,
+ * on a path nothing has exercised. #408 stays open for exactly that remainder.
+ */
+describe('A complemento against an untaxed invoice carries its zero rate (#408)', () => {
+  const receiver = { name: 'Cliente', rfc: 'GORM850101789', regimen_fiscal: '612', codigo_postal: '64000' };
+  const relatedOf = (p: ReturnType<typeof buildComplementoPagoPayload>) =>
+    p.complements[0].data[0].related_documents[0] as Record<string, unknown>;
+
+  function complementFor(profile: Parameters<typeof deriveCFDITaxTreatment>[0]) {
+    return buildComplementoPagoPayload({
+      customer: receiver,
+      uuid: 'a1b2c3d4-0000-4444-8888-abcdefabcdef',
+      amount: 5000,
+      lastBalance: 10000,
+      installment: 1,
+      treatment: deriveCFDITaxTreatment(profile),
+    });
+  }
+
+  it('sends a zero-rate TrasladoDR for a zero-rated invoice', () => {
+    const taxes = relatedOf(
+      complementFor({ subtotal_amount: 10000, iva_amount: 0, total_amount: 10000, tax_treatment: 'tasa_0' })
+    ).taxes as Array<Record<string, unknown>>;
+
+    expect(taxes).toEqual([{ base: 5000, type: 'IVA', rate: 0 }]);
+  });
+
+  it('does the same for a quote that predates the tax_treatment column', () => {
+    const taxes = relatedOf(
+      complementFor({ subtotal_amount: 10000, iva_amount: 0, total_amount: 10000, tax_treatment: null })
+    ).taxes as Array<Record<string, unknown>>;
+
+    expect(taxes).toEqual([{ base: 5000, type: 'IVA', rate: 0 }]);
+  });
+
+  it('still omits the node for an exento invoice, which needs a field we cannot express', () => {
+    const related = relatedOf(
+      complementFor({ subtotal_amount: 10000, iva_amount: 0, total_amount: 10000, tax_treatment: 'exento' })
+    );
+
+    // Not an oversight: omitting is what this path did for every untaxed
+    // invoice until now, so exento is left where it was rather than moved to a
+    // shape nobody has confirmed. #408 tracks it.
+    expect(related.taxes).toBeUndefined();
+  });
+
+  it('leaves a taxed invoice exactly as it was', () => {
+    const taxes = relatedOf(
+      complementFor({ subtotal_amount: 10000, iva_amount: 1600, total_amount: 11600 })
+    ) .taxes as Array<Record<string, unknown>>;
+
+    expect(taxes).toEqual([{ base: 4310.34, type: 'IVA', rate: 0.16 }]);
+  });
+});

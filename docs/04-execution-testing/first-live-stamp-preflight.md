@@ -83,6 +83,22 @@ Do not retry a failure you have not read. A stamp that failed at the PAC left no
 that failed *after* the PAC answered may have left one, and `findInvoiceByExternalId` is how the
 app finds it rather than issuing a second.
 
+## Two payload assumptions the first stamp settles
+
+Neither could be confirmed from a primary source — `docs.facturapi.io`, `sat.gob.mx` and the PAC
+references that quote them are all egress-blocked from CI, and the official client-library READMEs
+omit tax examples. Both rest on SAT Anexo 20 being the underlying standard plus secondary sources
+agreeing, and both are pinned by tests that assert **what we send**, not what was observed to be
+accepted.
+
+| Assumption | Where | How this stamp settles it |
+|:---|:---|:---|
+| Exento is `{ type: 'IVA', rate: 0, factor: 'Exento' }` (#407) | `lib/facturapi.ts` | Stamp a quote marked **Exento** and read the document's tax lines back. A `TipoFactor` of `Exento` with no rate means it was accepted; 16% or a rejection means the field name or literal is wrong |
+| A complemento against a zero-rated invoice carries an explicit `TrasladoDR` at 0.000000 rather than omitting `ImpuestosDR` (#408) | `lib/facturapi.ts` | File a complemento against a **Tasa 0%** PPD invoice and read `ImpuestosDR` back. This path has never reached a real PAC at all (#34), so it is the least-exercised thing here |
+
+Do these **after** an ordinary IVA quote has stamped cleanly. If one fails, the failure is in a
+field we chose, not in the integration — say which, so the fix lands in the right place.
+
 ## What one clean stamp closes, and what it does not
 
 It closes the criterion that no amount of mocked coverage can: the outbound call executed against
