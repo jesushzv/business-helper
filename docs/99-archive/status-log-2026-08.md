@@ -1120,3 +1120,39 @@ What caught it was a routine live-catalog pass (#405), not an alert. The lesson 
 already carries: a session with the Supabase connector can check this itself, and "needs a
 deployment" is not a reason to park it on the founder. The specific habit that would have caught it
 sooner is reading the migration ledger against the live catalog *at merge*, not at the next audit.
+
+## `20260816150000` merged and deployed unapplied — the second in two days, 2026-08-17
+
+<!-- STATUS-AUTHORITY: docs/STATUS.md -->
+
+PR #406 merged `record_milestone_payment`'s widened status filter (#382/#371) and Vercel deployed
+the code; the migration was not applied. The same gap as `record_owner_payment` the day before, and
+milder only by luck of direction: the widening *admits* rows the old filter refused, so a client
+returning to pay a remainder got a 409 rather than anything false being written.
+
+**A cheap check would have said it was applied.** `pg_get_functiondef(...) LIKE '%marked_paid%'`
+returns true whether or not the widening landed, because the original function hardcodes
+`status = 'marked_paid'` in its UPDATE. Only matching the filter itself separates them:
+
+```sql
+substring(pg_get_functiondef(p.oid) from 'AND status IN[^)]*\)')
+```
+
+which read back `AND status IN ('pending', 'requested')` — the old filter.
+
+Applied 2026-08-17 and proven by exercising it, in a transaction aborted by a final `RAISE` with the
+row counts read back afterwards (2 quotes / 1 contract / 2 milestones, 0 ledger rows, no probe rows
+left):
+
+| Step | Result |
+|:---|:---|
+| First declaration against a `pending` cobro | total 20,000.00, status `marked_paid` |
+| **The widening** — second declaration against the `marked_paid` cobro | accepted, total 48,720.00 (the $20,000 + $28,720 case the migration's own comment describes) |
+| **Negative control** — declaration against a `confirmed` cobro | refused (NULL), so the backwards-move guard the original filter existed for survived the widening |
+| Ledger rows after the refusal | 2, not 3 — the refused call left nothing behind |
+
+Filter, `prosecdef = false` and EXECUTE limited to `postgres`/`service_role` all read back.
+
+**The habit this keeps asking for**, now twice in two days: reconcile the migration ledger against
+the live catalog *at merge*, not at the next audit. Both incidents were found by an audit that
+happened to run, not by anything that watches.
