@@ -63,8 +63,8 @@ completion claim needs checking against source. The full findings are in
 |:---|:---|
 | Test suite | **2569 tests / 239 files**, `npx vitest run` (2026-08-17); typecheck, lint and `npm run build` clean in the same pass |
 | Coverage gate | **Enforced in CI since #51** — `npx vitest run --coverage` on every pull request, against the thresholds in `vitest.config.ts` (the only statement of them). Measured on the branch that wired it up: statements 82.73%, branches 75.73%, functions 78.93%, lines 84.67%. The thresholds sit just under each, so the gate is a ratchet — raise it as coverage rises, never lower it to make a red run pass. The gap to the old aspirational 85/85/80/80 is concentrated in untested `app/` route handlers and `lib/hooks/` |
-| Error monitoring | **On `@sentry/nextjs` since 2026-08-12**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling (why it replaced the hand-rolled transport: archive). PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel** and events confirmed arriving; delivery status is stated once, in §04's gate row ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
-| E2E | **Rewritten and executed 2026-08-13** ([#69](https://github.com/jesushzv/business-helper/issues/69)/[#91](https://github.com/jesushzv/business-helper/issues/91)): **18 passed, 0 skipped, 0 failed** — 9 scenarios × desktop + mobile chromium, production build, demo posture. Scenarios pinning remediated defects now assert the opposite, and the suite caught a live wizard defect (`docs/LESSONS.md` #91). Scenario 10 moved to the row below |
+| Error monitoring | **On `@sentry/nextjs`**, across browser, Node and Edge, with tracing, masked session replay, logs and profiling (why it replaced the hand-rolled transport: archive). PII scrubbing is `beforeSend`; `sendDefaultPii` is off. **DSN configured on Vercel** and events confirmed arriving; delivery status is stated once, in §04's gate row ([#52](https://github.com/jesushzv/business-helper/issues/52)) |
+| E2E | **Rewritten and executed** ([#69](https://github.com/jesushzv/business-helper/issues/69)/[#91](https://github.com/jesushzv/business-helper/issues/91)): **18 passed, 0 skipped, 0 failed** — 9 scenarios × desktop + mobile chromium, production build, demo posture. Scenarios pinning remediated defects now assert the opposite, and the suite caught a live wizard defect (`docs/LESSONS.md` #91). Scenario 10 moved to the row below |
 | Deployed smoke test | **Running against production on its 6-hour cron** ([#70](https://github.com/jesushzv/business-helper/issues/70)): `.github/workflows/deployed-smoke.yml`, outside the PR gate; 4 checks in `docs/deployment.md` §05.1. **8 runs, all green**, each asserting all four on desktop *and* mobile, so checks 02–04 are executed evidence. Check 04 is the load-bearing one: a 200 on an unknown quote token would mean the deployment had lost its service-role key and was serving the demo quote to real visitors. **The manual loop (§05.2) is unwalked**; record its date and URL here |
 
 > [!IMPORTANT]
@@ -124,7 +124,7 @@ live pass yet.
 > **One P0, one open issue.** Every row below maps to exactly one open issue and every open P0 issue
 > appears below. **Re-derive from `is:issue is:open label:P0` before trusting this table** — rows
 > drop off as issues close, and the list is ordered by dependency, not severity.
-> **Re-derived 2026-08-11 23:59Z: 2 open P0s against the 2 rows below** — #62, #26. Run the query
+> **Re-derived 2026-08-18: 2 open P0s against the 2 rows below** — #62, #26. Run the query
 > *at the moment you write the number*, and re-run it when you merge: three concurrent sessions
 > once each wrote an already-stale tally into this table within two hours (the incident, and the
 > tally's history, are in the archive).
@@ -133,8 +133,8 @@ live pass yet.
 
 | # | Item | Tracked |
 |:--|:---|:---|
-| 1 | **Schema is applied — one live request per route is what remains.** The production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path. **The OTP route got its real request on 2026-08-11** (the email-channel verification); the invoice and complemento paths remain. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
-| 2 | **Issue one CFDI through the app, end to end.** The *direct* sandbox half was done 2026-08-12 — real SAT UUIDs, XML/PDF, cancellations, totals, evidence in §02 and on the issue — and it found the integration dead (`/v1` = 410) plus three payload defects, all fixed in this PR. What remains, re-scoped by the BYOK decision (§05): **an organization's own `sk_live_` PAC connected in Ajustes and one stamp through `POST /api/invoices/issue`**, the UUID verifying at the SAT portal. Needs a *tenant's* live Facturapi account + CSDs — BYOK removed the platform key — and no organization has one connected, so this lands on launch day rather than before it. Preflight: `04-execution-testing/first-live-stamp-preflight.md`. Closes #62's invoice-path criterion too. | [#26](https://github.com/jesushzv/business-helper/issues/26) |
+| 1 | **Schema is applied — one live request per route is what remains.** The production schema was inspected directly: `20260807000000` and `20260807120000` were already live, `20260807170000` (complementos) was not and has since been applied, along with `20260808030000` (folio RPC grants) and `20260809000000` (organization phone). All confirmed present by inspection, not by an exit code. The root dependency is cleared; #62's last exit criterion is a real request against `POST /api/quotes/public/[token]/otp`, `POST /api/invoices/issue` and the complemento path. **The OTP route has had its real request** (the email-channel verification; dated account in the archive); the invoice and complemento paths remain. | [#62](https://github.com/jesushzv/business-helper/issues/62) |
+| 2 | **Issue one CFDI through the app, end to end.** The *direct* sandbox half is done — real SAT UUIDs, XML/PDF, cancellations, totals, evidence in §02 and on the issue — and it found the integration dead (`/v1` = 410) plus three payload defects, all fixed in this PR. What remains, re-scoped by the BYOK decision (§05): **an organization's own `sk_live_` PAC connected in Ajustes and one stamp through `POST /api/invoices/issue`**, the UUID verifying at the SAT portal. Needs a *tenant's* live Facturapi account + CSDs — BYOK removed the platform key — and no organization has one connected, so this lands on launch day rather than before it. Preflight: `04-execution-testing/first-live-stamp-preflight.md`. Closes #62's invoice-path criterion too. | [#26](https://github.com/jesushzv/business-helper/issues/26) |
 
 **The UX audit is closed** (#87/#88/#89/#90/#93/#95/#96/#99/#100/#101/#103/#104/#114/#124/#127), the
 row-by-row detail in the archive. Three things carry forward:
@@ -152,7 +152,7 @@ caller — it needs a motivo, the `01` replacement UUID, receptor refusal and an
 `tests/unit/cfdiCancelHasNoUiCaller.test.ts` fails the build if a caller appears.
 
 **The `bug`-tagged set is empty** — `is:issue is:open label:bug` returns zero, re-derived rather
-than trusted. The nine that were open all closed in the 2026-08-14 pass; the narrative is in
+than trusted. The nine that were open all closed in a single pass; the narrative is in
 [`99-archive/status-log-2026-08.md`](99-archive/status-log-2026-08.md). Two leftovers were filed
 rather than left to die with their issues: **#346** (Billing Portal — nothing can cancel a plan
 from the app) and **#347** (does PAC v2 read an empty `taxes: []` as *absent* and stamp 16% IVA
@@ -221,10 +221,10 @@ onto an exempt quote; does `cfdi_total` land non-null). Both need a credential, 
   independently — a client registered through the UI (#146, with a US phone number, so #94's
   international path ran live) and a real inbox signing a real quote (#2) — but the loop has never
   been walked end to end on the deployment. `/api/health` **has** now been called against production — 200, database connected, auth active (see the domain item above).
-- ~~**CFDI folio billing** (#24, #27).~~ **Superseded by the BYOK decision (§05, 2026-08-12)** —
+- ~~**CFDI folio billing** (#24, #27).~~ **Superseded by the BYOK decision (§05)** —
   no billable event, both closed as not planned. The copy sweep (#221), the folio-machinery
   removal, the production `cfdi_folio_ledger` drop (#224, applied and read back live) and #226 all
-  landed 2026-08-12; the full account is in the archive.
+  landed; the full account is in the archive.
 
 ### P2 — Can trail launch by weeks
 
@@ -270,15 +270,15 @@ Run top to bottom before announcing. Every P0 item above collapses into one of t
 - [ ] A failed quote→contract conversion is reported as failed, not announced as a payment schedule ([#59](https://github.com/jesushzv/business-helper/issues/59)). **The database half is now proven live**, which is the half that could silently double a receivable: a second contract for the same quote and a repeated `conversion_position` are both **refused `23505` in production**, each paired with a permitted insert (first contract, position 1, then position 2) so nothing passed against a rule that refuses everything. Run inside a transaction aborted by a final `RAISE`; the rollback was confirmed by reading the row counts back, not assumed. The deployed route answers `405` to GET with `x-matched-path: /api/quotes/[id]/convert`, so it is POST-only and real. **Unticked because the UI half is untested**: that a failed conversion renders as a failure rather than "¡Cotización convertida…!" needs a browser session, which no agent session can supply
 
 ### Signature & communications integrity
-- [x] A signer receives a real OTP in a real inbox on the configured channel (#2; verified 2026-08-11 — send accepted 04:57:25Z, the quote was signed and sealed 24 seconds later)
+- [x] A signer receives a real OTP in a real inbox on the configured channel (#2; verified live — the send was accepted and the quote signed and sealed 24 seconds later; dated account in the archive)
 - [x] The quote link a client receives resolves (#36, PR #47)
 - [x] The page behind that link shows the client's real quote, not a fixture (#58, PR #57)
-- [x] OTP issuance is capped per recipient contact (email or phone), not per quote (#20 merged; recipient key widened for email 2026-08-11)
+- [x] OTP issuance is capped per recipient contact (email or phone), not per quote (#20 merged; recipient key widened for email)
 - [x] Outbound WhatsApp reminders actually send (#13)
 
 ### Operational floor
 - [x] Production Supabase migrations applied — all three from #20, #23 and #29, plus `20260808030000_folio_rpc_grants.sql`; confirmed by inspecting the live schema, not by an exit code. One live request per affected route still owed ([#62](https://github.com/jesushzv/business-helper/issues/62))
-- [x] `supabase/migrations/` and the live catalog agree ([#204](https://github.com/jesushzv/business-helper/issues/204)) — `20260812060000` applied 2026-08-12 and `pg_indexes` read back: every index on `organizations` matches a migration
+- [x] `supabase/migrations/` and the live catalog agree ([#204](https://github.com/jesushzv/business-helper/issues/204)) — `20260812060000` applied and `pg_indexes` read back: every index on `organizations` matches a migration
 - [x] **No migration in the repo is unapplied in production.** Vercel auto-deploys `main` and migrations are manual, so this row is the gap between the two (hard rule #6). Read it back from the live catalog, never from the ledger — the ledger does not list hand-applied work, which is why an earlier revision of this row was wrong in both directions. `20260817200000` (`quotes.tax_treatment`, #407) was applied **ahead of its code for once**, which is the ordering this rule asks for: the column reads back nullable with no default, `chk_quotes_tax_treatment` matches the file, and all 3 values plus NULL are accepted while `'exempt'` and `''` are refused `23514` — proven by rejection, rolled back, 2 quotes still 2 NULL as the migration predicted. `20260816150000` and everything before it are applied and read back; the two that reached production behind their code, and the `LIKE '%marked_paid%'` check that would have hidden one of them, are in the archive. **This row is only ever as current as its last reconciliation — re-derive it, do not trust the tick.**
 - [x] Error monitoring transmits ([#52](https://github.com/jesushzv/business-helper/issues/52)) — on `@sentry/nextjs`, DSN configured on Vercel, and **the founder confirms events are arriving in the Sentry dashboard** (2026-08-17). That closes the half that mattered: monitoring is not silently dead. Two things this does *not* establish, kept here rather than waved through — that a **notification** reaches the founder within minutes (an alert-rule question, separate from ingestion), and that a real event's payload carries `organization_id` and route with no personal data in it. Every scrub result in this repo is against a mocked transport
 - [x] The funnel is instrumented, so a weak result can be diagnosed (#37, PR #56) — wired, not yet read against real traffic
@@ -298,7 +298,7 @@ Launch Readiness ≥ 7.0, Mobile ≥ 6.0, Credibility ≥ 7.0.
 
 ## 05 Open Decisions
 
-**Decided 2026-08-12 — tenants bring their own PAC; the platform never stamps on their behalf.**
+**Decided — tenants bring their own PAC; the platform never stamps on their behalf** (dated in the archive).
 The `FACTURAPI_SECRET_KEY` fallback in `lib/pacConnection.ts` is deprecated and the variable comes
 out of Vercel: with it unset, a tenant without a connected PAC gets the designed "conecta tu llave"
 refusal, and Ajustes flips to the BYOK message automatically (`platformFallbackAvailable` is
