@@ -1156,3 +1156,36 @@ Filter, `prosecdef = false` and EXECUTE limited to `postgres`/`service_role` all
 **The habit this keeps asking for**, now twice in two days: reconcile the migration ledger against
 the live catalog *at merge*, not at the next audit. Both incidents were found by an audit that
 happened to run, not by anything that watches.
+
+## Dates archived from STATUS.md under the 7-day TTL — moved 2026-08-18
+
+The rule-5 TTL in `tests/unit/docsStatusAuthority.test.ts` tripped on the four 2026-08-11 dates
+below (the first calendar-only red: PR #413's head passed CI on 2026-08-17 and failed unchanged on
+2026-08-18). The still-true facts stay in STATUS.md date-free; the dated anchors, moved here
+verbatim as they stood, were:
+
+- **2026-08-11** — P0 stack re-derivation stamp: *"Re-derived 2026-08-11 23:59Z: 2 open P0s
+  against the 2 rows below — #62, #26."* Re-run 2026-08-18 with the same result: 2 open P0s,
+  #62 and #26, matching the table's 2 rows.
+- **2026-08-11** — §03 row 1: *"The OTP route got its real request on 2026-08-11 (the
+  email-channel verification); the invoice and complemento paths remain."*
+- **2026-08-11** — launch gate, signature integrity: *"A signer receives a real OTP in a real
+  inbox on the configured channel (#2; verified 2026-08-11 — send accepted 04:57:25Z, the quote
+  was signed and sealed 24 seconds later)."*
+- **2026-08-11** — launch gate, signature integrity: *"OTP issuance is capped per recipient
+  contact (email or phone), not per quote (#20 merged; recipient key widened for email
+  2026-08-11)."*
+
+Five 2026-08-12 anchors and one each from 08-13/08-14 were moved in the same pass rather than
+waiting the one or two days for each to trip the gate on its own:
+
+- **2026-08-12** — error monitoring moved onto `@sentry/nextjs` ("On `@sentry/nextjs` since
+  2026-08-12").
+- **2026-08-12** — the direct-sandbox PAC pass ("The *direct* sandbox half was done 2026-08-12").
+- **2026-08-12** — the BYOK decision ("Decided 2026-08-12 — tenants bring their own PAC; the
+  platform never stamps on their behalf") and the folio-billing supersession riding on it
+  ("§05, 2026-08-12"; #221/#224/#226 "all landed 2026-08-12").
+- **2026-08-12** — #204's reconciliation migration ("`20260812060000` applied 2026-08-12").
+- **2026-08-13** — the E2E rewrite's execution date ("Rewritten and executed 2026-08-13").
+- **2026-08-14** — the bug-set clearing pass ("The nine that were open all closed in the
+  2026-08-14 pass").
