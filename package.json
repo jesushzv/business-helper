@@ -20,7 +20,8 @@
     "verify:stripe": "node scripts/verify-stripe-live.mjs",
     "verify:otp": "node scripts/verify-otp-delivery.mjs",
     "verify:gemini": "node scripts/verify-gemini.mjs",
-    "media:landing": "node scripts/generate-landing-media.mjs"
+    "media:landing": "node scripts/generate-landing-media.mjs",
+    "verify:migrations": "node scripts/verify-migrations-applied.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.70.0",

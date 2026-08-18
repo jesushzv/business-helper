@@ -188,3 +188,46 @@ jobs:
           else
             echo "No migration files touched."
           fi
+
+  migrations-applied:
+    name: Migrations applied to production
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 10
+
+    # The reminder job above says a PR *carries* a migration. It cannot say
+    # whether that migration is *applied*, because that is a fact about the
+    # database rather than the diff — and twice in one week a migration merged,
+    # Vercel deployed the code needing it, and the schema followed later
+    # (#394 took owner confirmation down for a day; #382/#371 sent a client
+    # paying a remainder to a 409). Both were caught by an audit that happened
+    # to run. This job is what watches.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # `secrets` cannot be used in a job-level `if`, so the branch is here.
+      # Absence is reported loudly rather than passing quietly: a gate that
+      # silently does nothing reads exactly like a gate that found nothing,
+      # which is the failure mode this job exists to end.
+      - name: Verify every repo migration has a ledger row in production
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "${SUPABASE_DB_URL}" ]; then
+            echo "::warning title=Migration gate INACTIVE::SUPABASE_DB_URL is not configured, so it was NOT verified that this PR's migrations are applied to production. Add the secret to activate this gate."
+            {
+              echo "### :warning: Migration gate is INACTIVE"
+              echo ""
+              echo "\`SUPABASE_DB_URL\` is not configured as a repository secret, so **nothing was checked**."
+              echo ""
+              echo "This job exists because two migrations reached production behind their code in one week."
+              echo "Until the secret is set, that failure mode is still unguarded — add it to turn this into a real gate."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          npm run verify:migrations
